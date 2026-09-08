@@ -1,0 +1,33 @@
+[build]
+  functions = "netlify/functions"
+
+# Route Vercel-style /api paths to Netlify functions so the same client code
+# works on both hosts without needing to switch endpoints.
+[[redirects]]
+  from = "/api/send-sms"
+  to   = "/.netlify/functions/send-sms"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/admin/user-ops"
+  to   = "/.netlify/functions/admin-user-ops"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/notify-installers"
+  to   = "/.netlify/functions/notify-installers"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/notify-report"
+  to   = "/.netlify/functions/notify-report"
+  status = 200
+  force  = true
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"

@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Book Your Installation · SA'DA H2O</title>
+  <meta name="description" content="Book your RO water purifier installation appointment with SA'DA H2O. Quick, easy scheduling across the Eastern Province.">
+  <meta name="theme-color" content="#0D3B6E">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Book Your Installation · SA'DA H2O">
+  <meta property="og:description" content="Schedule your RO water purifier installation in a few simple steps. SA'DA H2O — The Art of Purity.">
+  <meta property="og:image" content="https://sada-water-booking.vercel.app/assets/og-preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://h2o.sadawater.com/booking">
+  <meta property="og:site_name" content="SA'DA H2O">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Book Your Installation · SA'DA H2O">
+  <meta name="twitter:description" content="Schedule your RO water purifier installation in a few simple steps.">
+  <meta name="twitter:image" content="https://sada-water-booking.vercel.app/assets/og-preview.png">
+
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/apple-touch-icon.png">
+  <link rel="manifest" href="../assets/manifest-customer.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SA'DA H2O">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#CFD8DC;--error:#B71C1C;--success:#15803D;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:linear-gradient(160deg,#0A1628 0%,#0D3B6E 50%,#1565C0 100%);min-height:100dvh;color:var(--text);}
+    body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(30,136,229,0.15) 0%,transparent 60%);pointer-events:none;z-index:0;}
+    .page-wrapper{position:relative;z-index:1;min-height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
+    header{padding:24px 32px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(255,255,255,0.08);}
+    header a{display:flex;align-items:center;}
+    header img{height:100px;}
+    main{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 16px;}
+    .booking-card{background:var(--white);border-radius:24px;width:100%;max-width:600px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,0.45),0 2px 8px rgba(0,0,0,0.2);}
+    .progress-bar{background:var(--foam);padding:20px 32px;border-bottom:1px solid var(--border);}
+    .progress-steps{display:flex;align-items:center;justify-content:center;}
+    .step{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--muted);transition:all 0.3s;}
+    .step.active{color:var(--water);}
+    .step.done{color:#1B5E20;}
+    .step-num{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;background:var(--white);transition:all 0.3s;flex-shrink:0;}
+    .step.active .step-num{border-color:var(--water);background:var(--water);color:white;}
+    .step.done .step-num{border-color:#1B5E20;background:#1B5E20;color:white;}
+    .step-line{height:2px;width:28px;background:var(--border);transition:all 0.3s;}
+    .step-line.done{background:#1B5E20;}
+    .form-section{display:none;padding:40px 40px 32px;animation:fadeIn 0.4s ease;}
+    .form-section.active{display:block;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+    .section-title{font-family:'Playfair Display',serif;font-size:26px;color:var(--deep);margin-bottom:6px;letter-spacing:-0.01em;}
+    .section-subtitle{color:var(--muted);font-size:14px;margin-bottom:28px;}
+    .form-group{margin-bottom:20px;}
+    label{display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;letter-spacing:0.3px;text-transform:uppercase;}
+    input,select{width:100%;padding:14px 16px;border:1.5px solid var(--border);border-radius:12px;font-family:'DM Sans',sans-serif;font-size:15px;color:var(--text);background:var(--white);transition:border-color 0.15s,box-shadow 0.15s;outline:none;}
+    select:disabled{background:var(--foam);color:var(--muted);cursor:not-allowed;}
+    input:focus,select:focus{border-color:var(--water);box-shadow:0 0 0 3px rgba(21,101,192,0.15);}
+    .otp-info{background:var(--foam);border-radius:12px;padding:16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;}
+    .timer-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px;}
+    .timer-text{font-size:13px;color:var(--muted);}
+    .timer-text span{font-weight:600;color:var(--water);}
+    .timer-text.expired span{color:var(--error);}
+    .resend-btn{background:none;border:none;color:var(--water);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;padding:0;text-decoration:underline;}
+    .resend-btn:disabled{color:var(--muted);cursor:not-allowed;text-decoration:none;}
+    .location-btn{width:100%;padding:14px;background:var(--foam);border:2px dashed var(--water);border-radius:12px;color:var(--water);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.15s;margin-top:12px;}
+    .location-btn:hover:not(:disabled){background:#DBEAFE;}
+    .location-btn:disabled{opacity:0.75;cursor:progress;}
+    .location-btn.got-location{background:#ECFDF5;border:2px solid #16A34A;border-style:solid;color:#15803D;}
+    .location-btn.got-location:hover{background:#DCFCE7;}
+    .location-btn.error-location{background:#FEF2F2;border:2px solid #EF4444;border-style:solid;color:#B71C1C;}
+    .location-btn.error-location:hover{background:#FEE2E2;}
+    .location-hint{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;}
+    .location-hint.error{color:var(--error);}
+    #location-map{display:none;margin-top:12px;height:220px;border-radius:12px;overflow:hidden;border:1px solid var(--border);box-shadow:0 2px 8px rgba(15,23,42,0.05);}
+    #location-map.visible{display:block;}
+    .map-caption{font-size:12px;color:var(--muted);margin-top:8px;text-align:center;}
+    .date-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:8px;}
+    .date-box{padding:14px 8px;border:2px solid var(--border);border-radius:14px;cursor:pointer;text-align:center;transition:all 0.15s;background:var(--white);}
+    .date-box:hover:not(.disabled){border-color:var(--water);background:var(--foam);}
+    .date-box.selected{border-color:var(--water);background:var(--water);color:white;box-shadow:0 4px 12px rgba(21,101,192,0.35);}
+    .date-box.disabled{opacity:0.35;cursor:not-allowed;}
+    .date-day{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;opacity:0.7;}
+    .date-num{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;line-height:1.2;}
+    .date-month{font-size:11px;font-weight:500;opacity:0.7;}
+    .time-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px;}
+    .time-slot{padding:14px 10px;border:2px solid var(--border);border-radius:12px;cursor:pointer;text-align:center;font-size:13px;font-weight:600;transition:all 0.15s;background:var(--white);}
+    .time-slot:hover:not(.booked){border-color:var(--water);background:var(--foam);}
+    .time-slot.selected{border-color:var(--water);background:var(--water);color:white;box-shadow:0 4px 12px rgba(21,101,192,0.35);}
+    .time-slot.booked{background:#F3F4F6;color:#9CA3AF;cursor:not-allowed;text-decoration:line-through;}
+    .confirm-block{background:var(--foam);border-radius:16px;padding:24px;margin-bottom:24px;}
+    .confirm-title{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px;}
+    .confirm-row{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;}
+    .confirm-row:last-child{border-bottom:none;}
+    .confirm-label{color:var(--muted);}
+    .confirm-value{font-weight:600;color:var(--text);text-align:right;max-width:60%;}
+    .btn-primary{width:100%;padding:16px;background:linear-gradient(135deg,var(--ocean),var(--water));color:white;border:none;border-radius:14px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.2s;}
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(21,101,192,0.4);}
+    .btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+    .btn-back{background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;padding:12px 0;display:flex;align-items:center;gap:6px;margin-bottom:16px;}
+    #step-success{text-align:center;padding:60px 40px;}
+    .success-icon{width:80px;height:80px;background:linear-gradient(135deg,#16A34A,#22C55E);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:36px;animation:popIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275);}
+    @keyframes popIn{from{transform:scale(0);opacity:0;}to{transform:scale(1);opacity:1;}}
+    .success-title{font-family:'Playfair Display',serif;font-size:28px;color:var(--deep);margin-bottom:12px;}
+    .success-message{color:var(--muted);font-size:15px;line-height:1.6;margin-bottom:16px;}
+    .booking-ref{background:var(--foam);border:2px solid var(--water);border-radius:16px;padding:20px;margin-bottom:24px;}
+    .booking-ref-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
+    .booking-ref-code{font-family:'Playfair Display',serif;font-size:24px;color:var(--water);font-weight:700;}
+    .loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:20px;color:var(--muted);}
+    .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--water);border-radius:50%;animation:spin 0.8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .error-msg{background:#FEF2F2;border:1px solid #FECACA;color:var(--error);padding:12px 16px;border-radius:10px;font-size:13px;margin-top:12px;display:none;}
+    .success-msg{background:#ECFDF5;border:1px solid #BBF7D0;color:#166534;padding:12px 16px;border-radius:10px;font-size:13px;margin-top:12px;display:none;}
+    .empty-msg{text-align:center;padding:32px;color:var(--muted);font-size:14px;}
+    .card-footer{padding:16px 40px;background:var(--foam);border-top:1px solid var(--border);text-align:center;font-size:12px;color:var(--muted);}
+    @media(max-width:480px){header img{height:70px;}.form-section{padding:28px 20px 24px;}.date-grid{gap:6px;}.date-box{padding:10px 4px;}.date-num{font-size:18px;}.time-grid{grid-template-columns:repeat(2,1fr);}.section-title{font-size:22px;}}
+  </style>
+<script defer src="../js/city-normalize.js"></script>
+</head>
+<body>
+<div class="page-wrapper">
+  <header>
+    <a href="https://h2o.sadawater.com" target="_blank"><img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O"></a>
+  </header>
+  <main>
+    <div class="booking-card">
+      <div class="progress-bar" id="progress-bar">
+        <div class="progress-steps">
+          <div class="step active" id="prog-1"><div class="step-num">1</div><span>Verify</span></div>
+          <div class="step-line" id="line-1"></div>
+          <div class="step" id="prog-2"><div class="step-num">2</div><span>Details</span></div>
+          <div class="step-line" id="line-2"></div>
+          <div class="step" id="prog-3"><div class="step-num">3</div><span>Schedule</span></div>
+          <div class="step-line" id="line-3"></div>
+          <div class="step" id="prog-4"><div class="step-num">4</div><span>Confirm</span></div>
+        </div>
+      </div>
+
+      <!-- STEP 1: Phone + OTP -->
+      <div class="form-section active" id="step-1">
+        <h1 class="section-title">Welcome to a new life of No Plastic!</h1>
+        <p class="section-subtitle">Enter your mobile number to get started.</p>
+        <div class="form-group">
+          <label>Mobile Number</label>
+          <input type="tel" id="phone-input" placeholder="05XX XXX XXXX" maxlength="12" inputmode="tel">
+          <div style="font-size:12px;color:var(--muted);margin-top:6px;">Format: 05XXXXXXXX</div>
+        </div>
+        <div class="error-msg" id="step1-error"></div>
+        <button class="btn-primary" onclick="sendOTP()" id="btn-send-otp" style="margin-top:8px;">Send OTP →</button>
+      </div>
+
+      <!-- STEP 1b: OTP Verify -->
+      <div class="form-section" id="step-1b">
+        <h1 class="section-title">Verify Your Number</h1>
+        <p class="section-subtitle">Enter the 6-digit code sent to your mobile.</p>
+        <div class="otp-info">
+          <div style="font-size:24px;">📱</div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.5;">OTP sent to <strong id="otp-phone-display"></strong></div>
+        </div>
+        <div class="form-group">
+          <label>Enter OTP</label>
+          <input type="number" id="otp-input" placeholder="000000" style="letter-spacing:8px;font-size:22px;font-weight:700;text-align:center;" oninput="if(this.value.length>6)this.value=this.value.slice(0,6)">
+          <div class="timer-row">
+            <div class="timer-text" id="timer-text">Expires in <span id="timer-countdown">2:00</span></div>
+            <button class="resend-btn" id="resend-btn" onclick="resendOTP()" disabled>Resend OTP</button>
+          </div>
+        </div>
+        <div class="error-msg" id="step1b-error"></div>
+        <div class="success-msg" id="step1b-success"></div>
+        <button class="btn-primary" onclick="verifyOTP()">Verify →</button>
+        <button class="btn-back" onclick="goToStep(1)" style="justify-content:center;margin-top:8px;">← Change number</button>
+      </div>
+
+      <!-- STEP 2: Details -->
+      <div class="form-section" id="step-2">
+        <h1 class="section-title">Your Details</h1>
+        <p class="section-subtitle">Tell us a bit about yourself so we can serve you better.</p>
+        <div class="form-group"><label>Full Name</label><input type="text" id="customer-name" placeholder="Enter your full name"></div>
+        <div class="form-group">
+          <label>Service Area</label>
+          <select id="customer-region" onchange="onRegionChange()">
+            <option value="">Loading service areas…</option>
+          </select>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px;" id="region-hint">Pick the area you want the installation in.</div>
+        </div>
+        <div class="form-group"><label>City</label>
+          <select id="customer-city" disabled>
+            <option value="">Choose service area first</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Installation Address</label>
+          <input type="text" id="customer-address" placeholder="Enter your address">
+          <button type="button" class="location-btn" id="location-btn" onclick="getLocation()"><span>📍</span> <span id="location-btn-label">Use My Current Location</span></button>
+          <div class="location-hint" id="location-hint">Tap to fill your address from GPS. You can drag the pin on the map to fine-tune.</div>
+          <div id="location-map" aria-label="Draggable map pin"></div>
+          <div class="map-caption" id="map-caption" style="display:none;">Drag the pin to your exact door.</div>
+        </div>
+        <div class="form-group">
+          <label>Where did you hear about us? <span style="color:var(--muted,#94a3b8);font-weight:400;">(optional)</span></label>
+          <select id="customer-source">
+            <option value="">Select…</option>
+            <option value="Instagram">Instagram</option>
+            <option value="Snapchat">Snapchat</option>
+            <option value="TikTok">TikTok</option>
+            <option value="WhatsApp">WhatsApp</option>
+            <option value="Google Search">Google Search</option>
+            <option value="Friend / Family">Friend or family referral</option>
+            <option value="Existing Customer">I'm an existing customer</option>
+            <option value="Dammam Showroom">Dammam Showroom</option>
+            <option value="Khobar Showroom">Khobar Showroom</option>
+            <option value="Exhibition / Event">Exhibition or event</option>
+            <option value="Flyer / Billboard">Flyer or billboard</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="error-msg" id="step2-error"></div>
+        <button class="btn-primary" onclick="goToStep(3)" style="margin-top:8px;">Next — Choose Time Slot →</button>
+      </div>
+
+      <!-- STEP 3: Schedule -->
+      <div class="form-section" id="step-3">
+        <button class="btn-back" onclick="goToStep(2)">← Back</button>
+        <h1 class="section-title">Choose a Time Slot</h1>
+        <p class="section-subtitle">Select an available date and time for your installation.</p>
+        <div class="form-group">
+          <label>Your Products</label>
+          <div id="product-grid" style="display:grid;grid-template-columns:1fr;gap:8px;"></div>
+          <div id="basket-total" style="display:none;margin-top:10px;padding:10px 14px;background:#EFF6FF;border-radius:10px;font-weight:700;text-align:right;color:#1565C0;"></div>
+        </div>
+        <div class="form-group">
+          <label>Available Dates</label>
+          <div id="date-grid" class="date-grid"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+        </div>
+        <div class="form-group" id="time-section" style="display:none;">
+          <label>Available Time Slots</label>
+          <div id="time-grid" class="time-grid"></div>
+        </div>
+        <div class="error-msg" id="step3-error"></div>
+        <button class="btn-primary" onclick="goToStep4()" id="btn-step3" disabled style="margin-top:8px;">Review Booking →</button>
+      </div>
+
+      <!-- STEP 4: Confirm -->
+      <div class="form-section" id="step-4">
+        <button class="btn-back" onclick="goToStep(3)">← Back</button>
+        <h1 class="section-title">Confirm Your Booking</h1>
+        <p class="section-subtitle">Please review your details before confirming.</p>
+        <div class="confirm-block">
+          <div class="confirm-title">Your Details</div>
+          <div class="confirm-row"><span class="confirm-label">Name</span><span class="confirm-value" id="conf-name"></span></div>
+          <div class="confirm-row"><span class="confirm-label">Mobile</span><span class="confirm-value" id="conf-phone"></span></div>
+          <div class="confirm-row"><span class="confirm-label">City</span><span class="confirm-value" id="conf-city"></span></div>
+          <div class="confirm-row"><span class="confirm-label">Address</span><span class="confirm-value" id="conf-address"></span></div>
+        </div>
+        <div class="confirm-block">
+          <div class="confirm-title">Product</div>
+          <div class="confirm-row"><span class="confirm-label">Model</span><span class="confirm-value" id="conf-product"></span></div>
+          <div class="confirm-row"><span class="confirm-label">Quantity</span><span class="confirm-value" id="conf-qty"></span></div>
+          <div class="confirm-row"><span class="confirm-label">Subtotal</span><span class="confirm-value" id="conf-subtotal"></span></div>
+          <div style="margin:10px 0 4px;">
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="promo-input" placeholder="Promo code (optional)" style="flex:1;text-transform:uppercase;padding:9px 11px;border:1.5px solid var(--border,#d5dde3);border-radius:9px;font-size:13px;">
+              <button type="button" onclick="applyPromo()" id="promo-btn" style="padding:9px 16px;border:none;border-radius:9px;background:#0D3B6E;color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">Apply</button>
+            </div>
+            <div id="promo-msg" style="font-size:12px;margin-top:6px;display:none;"></div>
+          </div>
+          <div class="confirm-row" id="conf-discount-row" style="display:none;"><span class="confirm-label" style="color:#0d7a63;">Discount <span id="conf-promo-label"></span></span><span class="confirm-value" id="conf-discount" style="color:#0d7a63;"></span></div>
+          <div class="confirm-row"><span class="confirm-label" style="font-weight:700;">Total</span><span class="confirm-value" id="conf-total" style="font-weight:700;"></span></div>
+        </div>
+        <div class="confirm-block">
+          <div class="confirm-title">Appointment</div>
+          <div class="confirm-row"><span class="confirm-label">Date</span><span class="confirm-value" id="conf-date"></span></div>
+          <div class="confirm-row"><span class="confirm-label">Time</span><span class="confirm-value" id="conf-time"></span></div>
+        </div>
+        <div class="error-msg" id="step4-error"></div>
+        <button class="btn-primary" onclick="submitBooking()" id="btn-submit">Confirm Booking</button>
+      </div>
+
+      <!-- SUCCESS -->
+      <div id="step-success" style="display:none;">
+        <div class="success-icon">✓</div>
+        <h2 class="success-title">Booking Confirmed!</h2>
+        <p class="success-message">Your installation appointment has been successfully booked.</p>
+        <div class="booking-ref">
+          <div class="booking-ref-label">Your Booking Reference</div>
+          <div class="booking-ref-code" id="booking-ref-display"></div>
+        </div>
+        <p class="success-message" style="font-size:13px;">Thank you for trusting SA'DA H2O. Our team will contact you prior to the booking.</p>
+        <p class="success-message" style="font-size:16px;">Please visit our website by clicking <a href="https://h2o.sadawater.com" target="_blank" style="color:#1565C0;font-weight:600;text-decoration:underline;">here</a>.</p>
+        <div id="portal-link" style="display:none;margin-top:16px;">
+          <a href="portal.html" style="display:inline-block;background:linear-gradient(135deg,#0D3B6E,#1565C0);color:white;padding:14px 28px;border-radius:14px;font-size:15px;font-weight:600;text-decoration:none;">📋 Track My Booking →</a>
+        </div>
+      </div>
+
+      <div class="card-footer">SA'DA H2O · www.sadawater.com · Powered by A360</div>
+    </div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="../shared/supabase.js"></script>
+<script>
+// db is a global from shared/supabase.js
+
+let state = { phone:'', name:'', cityName:'', regionId:null, address:'', latitude:null, longitude:null, selectedDate:null, selectedHour:null, selectedSlotId:null, generatedOTP:null, isReturning:false, existingProfile:null, otpAttempts:0, otpGeneratedAt:null, items:{} };
+// items: { [model_name]: { model, price, qty, is_serialized } }  — the basket
+let catalogueCache = [];  // [{ model_name, price_sar, is_serialized, image_url, description }]
+let regionsCache = [];  // [{ id, key, name, city_labels }]
+let citiesCache = [];   // [{ id, name, region_id }]
+const MAX_OTP_ATTEMPTS = 3;
+const OTP_EXPIRY_MS = 2 * 60 * 1000; // 2 minutes
+let currentStep = 1;
+let timerInterval = null;
+let leafletMap = null;
+let leafletMarker = null;
+
+async function loadRegionsAndCities() {
+  const [r, c] = await Promise.all([
+    db.from('service_regions').select('id, key, name, city_labels, sort_order').order('sort_order', { ascending: true }),
+    db.from('cities').select('id, name, region_id').order('name', { ascending: true })
+  ]);
+  const sel = document.getElementById('customer-region');
+  if (r.error || c.error || !r.data?.length) {
+    sel.innerHTML = '<option value="">Service areas unavailable</option>';
+    const hint = document.getElementById('region-hint');
+    if (hint) { hint.textContent = 'Cannot load service areas right now. Please contact SA\'DA H2O on WhatsApp: +966 54 798 9055'; hint.style.color = '#B71C1C'; }
+    return;
+  }
+  regionsCache = r.data;
+  citiesCache = c.data || [];
+  sel.innerHTML = '<option value="">Select service area…</option>' +
+    regionsCache.map(rr => `<option value="${rr.id}">${rr.name} — ${rr.city_labels}</option>`).join('');
+}
+
+function onRegionChange() {
+  const rid = document.getElementById('customer-region').value;
+  state.regionId = rid || null;
+  const citySel = document.getElementById('customer-city');
+  if (!rid) {
+    citySel.disabled = true;
+    citySel.innerHTML = '<option value="">Choose service area first</option>';
+    return;
+  }
+  const cities = citiesCache.filter(c => c.region_id === rid);
+  citySel.disabled = false;
+  citySel.innerHTML = '<option value="">Select city…</option>' +
+    cities.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+}
+
+function formatSaudiPhone(p) {
+  p = p.replace(/\s/g,'');
+  if(p.startsWith('05')) p = '+966'+p.slice(1);
+  if(p.startsWith('5')&&p.length===9) p = '+966'+p;
+  return p;
+}
+function isValidSaudiPhone(p) { return /^\+9665\d{8}$/.test(formatSaudiPhone(p)); }
+// Show phones as 05XXXXXXXX to the customer; storage/SMS keep +9665XXXXXXXX.
+function displayPhone(p) { return typeof p === 'string' && p.startsWith('+9665') ? '0' + p.slice(4) : p; }
+
+async function sendSMS(to, body) {
+  try {
+    const r = await fetch('/api/send-sms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Secret-Key': 'sada-h2o-relay-2026-secure' },
+      body: JSON.stringify({to, body})
+    });
+    if (r.status === 429) {
+      const d = await r.json().catch(() => ({}));
+      return { ok: false, retryMessage: d.error || 'Please wait a moment before requesting another SMS.' };
+    }
+    if (!r.ok) return { ok: false };
+    return { ok: true };
+  } catch(e) { console.error('SMS error:', e); return { ok: false }; }
+}
+
+async function sendOTP() {
+  const phone = document.getElementById('phone-input').value.trim();
+  const errEl = document.getElementById('step1-error');
+  if(!phone){errEl.style.display='block';errEl.textContent='Please enter your mobile number.';return;}
+  if(!isValidSaudiPhone(phone)){errEl.style.display='block';errEl.textContent='Please enter a valid mobile number (e.g. 05XX XXX XXXX).';return;}
+  errEl.style.display='none';
+  const btn = document.getElementById('btn-send-otp');
+  btn.disabled=true; btn.textContent='Sending OTP...';
+  const formatted = formatSaudiPhone(phone);
+  state.phone = formatted;
+
+  // Check if returning customer — flag it but still require OTP.
+  // Look at customers first; if no row (some older customers only exist as
+  // bookings rows), fall back to the latest booking and synthesize a profile.
+  const { data: existing } = await db.from('customers').select('*').eq('phone', formatted).maybeSingle();
+  if (existing) {
+    state.isReturning = true;
+    state.existingProfile = existing;
+  } else {
+    const { data: lastBooking } = await db.from('bookings')
+      .select('customer_name, customer_phone, city_name, location_address, latitude, longitude, service_region_id')
+      .eq('customer_phone', formatted)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastBooking) {
+      state.isReturning = true;
+      state.existingProfile = {
+        phone:     formatted,
+        name:      lastBooking.customer_name || '',
+        city:      lastBooking.city_name || '',
+        address:   lastBooking.location_address || '',
+        latitude:  lastBooking.latitude,
+        longitude: lastBooking.longitude,
+        regionId:  lastBooking.service_region_id || null
+      };
+    } else {
+      state.isReturning = false;
+    }
+  }
+
+  const otp = Math.floor(100000+Math.random()*900000).toString();
+  state.generatedOTP = otp;
+  state.otpGeneratedAt = Date.now();
+  state.otpAttempts = 0;
+  const sent = await sendSMS(state.phone, `SA'DA H2O: Your verification code is ${otp}. It expires in 2 minutes.`);
+  if(!sent.ok){
+    errEl.style.display='block';
+    errEl.textContent = sent.retryMessage || 'Failed to send OTP. Please try again.';
+    btn.disabled=false; btn.textContent='Send OTP →';
+    return;
+  }
+  document.getElementById('otp-phone-display').textContent=displayPhone(state.phone);
+  showStep('1b');
+  startTimer();
+  btn.disabled=false; btn.textContent='Send OTP →';
+}
+
+function startTimer() {
+  let seconds=120;
+  const timerEl=document.getElementById('timer-countdown');
+  const timerText=document.getElementById('timer-text');
+  const resendBtn=document.getElementById('resend-btn');
+  resendBtn.disabled=true; timerText.classList.remove('expired');
+  clearInterval(timerInterval);
+  timerInterval=setInterval(()=>{
+    seconds--;
+    timerEl.textContent=`${Math.floor(seconds/60)}:${(seconds%60).toString().padStart(2,'0')}`;
+    if(seconds<=0){clearInterval(timerInterval);timerEl.textContent='Expired';timerText.classList.add('expired');resendBtn.disabled=false;}
+  },1000);
+}
+
+async function resendOTP() {
+  const otp=Math.floor(100000+Math.random()*900000).toString();
+  state.generatedOTP=otp;
+  state.otpAttempts=0;
+  document.getElementById('step1b-error').style.display='none';
+  document.getElementById('otp-input').value='';
+  document.getElementById('otp-input').disabled=false;
+  document.getElementById('timer-text').classList.remove('expired');
+  const btn=document.getElementById('resend-btn');
+  btn.disabled=true; btn.textContent='Sending...';
+  const sent = await sendSMS(state.phone,`SA'DA H2O: Your new verification code is ${otp}. It expires in 2 minutes.`);
+  btn.textContent='Resend OTP';
+  if(!sent.ok){
+    const errEl = document.getElementById('step1b-error');
+    errEl.style.display='block';
+    errEl.textContent = sent.retryMessage || 'Failed to resend OTP. Please try again in a moment.';
+    btn.disabled=false;
+    return;
+  }
+  startTimer();
+  const s=document.getElementById('step1b-success');
+  s.style.display='block'; s.textContent='A new OTP has been sent.';
+}
+
+function verifyOTP() {
+  const entered=document.getElementById('otp-input').value.trim();
+  const errEl=document.getElementById('step1b-error');
+  if(!entered||entered.length!==6){errEl.style.display='block';errEl.textContent='Please enter the 6-digit OTP.';return;}
+
+  // Check OTP expiry
+  if(Date.now() - state.otpGeneratedAt > OTP_EXPIRY_MS) {
+    errEl.style.display='block';
+    errEl.textContent='OTP has expired. Please request a new one.';
+    document.getElementById('otp-input').disabled=true;
+    document.getElementById('resend-btn').disabled=false;
+    return;
+  }
+
+  state.otpAttempts++;
+  if(state.otpAttempts > MAX_OTP_ATTEMPTS) {
+    errEl.style.display='block';
+    errEl.textContent='Too many incorrect attempts. Please request a new OTP.';
+    document.getElementById('otp-input').disabled=true;
+    document.getElementById('resend-btn').disabled=false;
+    return;
+  }
+
+  if(entered!==state.generatedOTP){
+    const remaining = MAX_OTP_ATTEMPTS - state.otpAttempts;
+    errEl.style.display='block';
+    errEl.textContent=`Incorrect OTP. ${remaining} attempt${remaining===1?'':'s'} remaining.`;
+    return;
+  }
+
+  clearInterval(timerInterval);
+  errEl.style.display='none';
+  state.otpAttempts=0;
+  if(state.isReturning && state.existingProfile) {
+    localStorage.setItem('sada_customer', JSON.stringify({ ...state.existingProfile, phone: state.phone }));
+    window.location.href = 'portal.html';
+  } else {
+    goToStep(2);
+  }
+}
+
+function showStep(step) {
+  document.querySelectorAll('.form-section').forEach(s=>s.classList.remove('active'));
+  const el = document.getElementById(`step-${step}`);
+  if(el) el.classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function goToStep(step) {
+  if(step===3) {
+    const name=document.getElementById('customer-name').value.trim();
+    const region=document.getElementById('customer-region').value;
+    const city=document.getElementById('customer-city').value;
+    const address=document.getElementById('customer-address').value.trim();
+    const errEl=document.getElementById('step2-error');
+    if(!name||!region||!city||!address){errEl.style.display='block';errEl.textContent='Please fill in all fields.';return;}
+    errEl.style.display='none';
+    // Canonicalise the city so reporting groups spellings consistently.
+    const cityCanon = (window.SADACity ? (SADACity.canonicalCity(city) || city) : city);
+    state.name=name; state.regionId=region; state.cityName=cityCanon; state.address=address;
+    state.source=document.getElementById('customer-source').value || null;
+    loadProducts();
+    loadAvailableDates();
+  }
+  showStep(step);
+  currentStep = step === '1b' ? 1 : parseInt(step);
+  updateProgress();
+}
+
+function updateProgress() {
+  const total=4;
+  for(let i=1;i<=total;i++){
+    const prog=document.getElementById(`prog-${i}`);if(!prog)continue;
+    prog.classList.remove('active','done');
+    if(i<currentStep)prog.classList.add('done');else if(i===currentStep)prog.classList.add('active');
+    if(i<total){const line=document.getElementById(`line-${i}`);if(line)line.classList.toggle('done',i<currentStep);}
+  }
+}
+
+function setLocationBtn(state, labelText, hintText, hintIsError) {
+  const btn = document.getElementById('location-btn');
+  const lbl = document.getElementById('location-btn-label');
+  const hint = document.getElementById('location-hint');
+  btn.classList.remove('got-location','error-location');
+  if (state === 'got') btn.classList.add('got-location');
+  if (state === 'err') btn.classList.add('error-location');
+  lbl.textContent = labelText;
+  hint.textContent = hintText;
+  hint.classList.toggle('error', !!hintIsError);
+}
+
+async function reverseGeocode(lat, lon) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
+      headers: { 'Accept-Language': 'en' }
+    });
+    if (!res.ok) throw new Error('geocode ' + res.status);
+    const data = await res.json();
+    return data.display_name || null;
+  } catch (e) {
+    console.warn('reverse geocode failed:', e);
+    return null;
+  }
+}
+
+function ensureMap(lat, lon) {
+  const el = document.getElementById('location-map');
+  el.classList.add('visible');
+  document.getElementById('map-caption').style.display = 'block';
+  if (!leafletMap) {
+    leafletMap = L.map(el, { zoomControl: true, attributionControl: true }).setView([lat, lon], 17);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap'
+    }).addTo(leafletMap);
+    leafletMarker = L.marker([lat, lon], { draggable: true }).addTo(leafletMap);
+    leafletMarker.on('dragend', async () => {
+      const ll = leafletMarker.getLatLng();
+      state.latitude = ll.lat; state.longitude = ll.lng;
+      const addr = await reverseGeocode(ll.lat, ll.lng);
+      if (addr) {
+        document.getElementById('customer-address').value = addr;
+        state.address = addr;
+      }
+    });
+    // Fix Leaflet map sizing issue in animated containers
+    setTimeout(() => leafletMap.invalidateSize(), 100);
+  } else {
+    leafletMap.setView([lat, lon], 17);
+    leafletMarker.setLatLng([lat, lon]);
+    setTimeout(() => leafletMap.invalidateSize(), 50);
+  }
+}
+
+function getLocation() {
+  if (!navigator.geolocation) {
+    setLocationBtn('err', '❌ GPS not supported', 'Your browser does not support location. Please enter your address manually.', true);
+    return;
+  }
+  const btn = document.getElementById('location-btn');
+  btn.disabled = true;
+  setLocationBtn('', '⏳ Getting your location…', 'Please allow location access when prompted.', false);
+
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    state.latitude = pos.coords.latitude;
+    state.longitude = pos.coords.longitude;
+    const accuracy = Math.round(pos.coords.accuracy);
+    const addr = await reverseGeocode(state.latitude, state.longitude);
+    if (addr) {
+      document.getElementById('customer-address').value = addr;
+      state.address = addr;
+      setLocationBtn('got', '✓ Location captured', `Accurate to ±${accuracy}m. Drag the pin on the map to refine.`, false);
+    } else {
+      // Fallback — keep coords but ask for a human-readable address
+      document.getElementById('customer-address').value = `${state.latitude.toFixed(6)}, ${state.longitude.toFixed(6)}`;
+      state.address = document.getElementById('customer-address').value;
+      setLocationBtn('got', '✓ GPS captured (address lookup failed)', 'We couldn\'t look up your street. Please replace the coordinates with your address, or drag the pin.', false);
+    }
+    ensureMap(state.latitude, state.longitude);
+    btn.disabled = false;
+  }, (err) => {
+    btn.disabled = false;
+    let msg;
+    if (err.code === 1)      msg = 'Location permission was denied. Please enter your address manually or enable location in your browser settings.';
+    else if (err.code === 2) msg = 'Your device could not determine your location. Please enter your address manually.';
+    else if (err.code === 3) msg = 'Location request timed out. Please try again or enter your address manually.';
+    else                     msg = 'Could not get location. Please enter your address manually.';
+    setLocationBtn('err', '⚠️ Location unavailable', msg, true);
+  }, { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 });
+}
+
+async function loadAvailableDates() {
+  const grid=document.getElementById('date-grid');
+  grid.innerHTML='<div class="loading"><div class="spinner"></div> Loading...</div>';
+  // 2-day lead time; window is 60 days after that.
+  const today=new Date(); today.setHours(0,0,0,0);
+  const start=new Date(today); start.setDate(start.getDate()+2);
+  const end=new Date(start); end.setDate(end.getDate()+60);
+  const toIso=d=>window.localDateISO(d);
+  const{data}=await db.from('availability_slots')
+    .select('slot_date')
+    .eq('service_region_id', state.regionId)
+    .eq('is_available',true).eq('is_booked',false)
+    .gte('slot_date',toIso(start)).lte('slot_date',toIso(end));
+  const availableDates=[...new Set((data||[]).map(d=>d.slot_date))].sort();
+  grid.innerHTML='';
+  if(!availableDates.length){grid.innerHTML='<p style="color:var(--muted);font-size:13px;padding:24px;text-align:center;">No available slots in this service area for the next 2 months. Please contact SA\'DA H2O directly.</p>';return;}
+  availableDates.forEach(dateStr=>{
+    const d=new Date(dateStr+'T00:00:00');
+    const box=document.createElement('div');
+    box.className='date-box';
+    box.innerHTML=`<div class="date-day">${d.toLocaleDateString('en-US',{weekday:'short'})}</div><div class="date-num">${String(d.getDate()).padStart(2,'0')}</div><div class="date-month">${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}</div>`;
+    box.onclick=()=>selectDate(dateStr,box);
+    grid.appendChild(box);
+  });
+}
+
+function selectDate(dateStr,el) {
+  document.querySelectorAll('.date-box').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected'); state.selectedDate=dateStr; state.selectedHour=null; state.selectedSlotId=null;
+  document.getElementById('btn-step3').disabled=true;
+  loadTimeSlots(dateStr);
+}
+
+async function loadTimeSlots(dateStr) {
+  const section=document.getElementById('time-section'); const grid=document.getElementById('time-grid');
+  section.style.display='block'; grid.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  const{data}=await db.from('availability_slots').select('*').eq('service_region_id', state.regionId).eq('slot_date',dateStr).eq('is_available',true).order('slot_hour');
+  if(!data||!data.length){grid.innerHTML='<div class="empty-msg">😔 No slots available for this date.</div>';return;}
+  grid.innerHTML='';
+  data.forEach(slot=>{
+    const box=document.createElement('div');
+    box.className=`time-slot${slot.is_booked?' booked':''}`;
+    box.innerHTML=`<div>${formatHour(slot.slot_hour)}</div>`;
+    if(!slot.is_booked)box.onclick=()=>selectTime(slot.slot_hour,slot.id,box);
+    grid.appendChild(box);
+  });
+}
+
+function selectTime(hour,slotId,el) {
+  document.querySelectorAll('.time-slot').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected'); state.selectedHour=hour; state.selectedSlotId=slotId;
+  document.getElementById('btn-step3').disabled=false;
+}
+
+// ---- Product basket (multiple line items, each with a quantity stepper) ----
+async function loadProducts() {
+  const grid = document.getElementById('product-grid');
+  if (catalogueCache.length) { renderProducts(); return; }
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div> Loading products...</div>';
+  const { data, error } = await db.from('product_models')
+    .select('model_name, price_sar, is_serialized, image_url, description')
+    .eq('is_catalogue', true).order('sort_order', { ascending: true });
+  if (error || !data || !data.length) {
+    grid.innerHTML = '<div style="font-size:13px;color:#B45309;">Product list unavailable — our team will confirm your product.</div>';
+    catalogueCache = [];
+    return;
+  }
+  catalogueCache = data;
+  renderProducts();
+}
+
+// Product photos (served from the repo). Keyed by exact catalogue model name.
+const PRODUCT_IMAGES = {
+  '7-Stage RO Purifier':          '../assets/products/ro-7stage.png',
+  '7-Stage RO Purifier + UV':     '../assets/products/ro-7stage-uv.png',
+  '6-Stage Smart RO':             '../assets/products/ro-6stage-smart.png',
+  '7-Stage Smart RO':             '../assets/products/ro-7stage-smart.png',
+  '200 GPD Commercial RO System': '../assets/products/ro-commercial-gpd.png',
+  '400 GPD Commercial RO System': '../assets/products/ro-commercial-gpd.png',
+};
+// The dispenser is one product offered in two colours.
+const DISPENSER_COLORS = [
+  { name: 'Black', img: '../assets/products/dispenser-black.png' },
+  { name: 'White', img: '../assets/products/dispenser-white.png' },
+];
+const isDispenserModel = (m) => /dispenser/i.test(m || '');
+
+function renderProducts() {
+  const grid = document.getElementById('product-grid');
+  grid.innerHTML = catalogueCache.map(p => {
+    const enc = encodeURIComponent(p.model_name);
+    const inBasket = state.items[p.model_name];
+    const qty = inBasket ? inBasket.qty : 0;
+    const isDisp = isDispenserModel(p.model_name);
+    const chosenColor = inBasket?.color || 'Black';
+
+    // Image area: dispenser shows two selectable colour thumbnails; others show one photo.
+    let imageBlock = '';
+    if (isDisp) {
+      imageBlock = `<div style="display:flex;gap:10px;justify-content:center;margin:6px 0 10px;">
+        ${DISPENSER_COLORS.map(c => `
+          <div onclick="pickDispenserColor('${enc}','${c.name}')" style="cursor:pointer;text-align:center;">
+            <div style="width:78px;height:78px;border-radius:10px;border:2px solid ${chosenColor===c.name ? '#1565C0' : 'var(--border,#e2e8f0)'};background:#fff url('${c.img}') center/contain no-repeat;box-shadow:${chosenColor===c.name ? '0 0 0 3px rgba(21,101,192,.15)' : 'none'};"></div>
+            <div style="font-size:10px;font-weight:700;margin-top:3px;color:${chosenColor===c.name ? '#1565C0' : 'var(--muted,#667)'};">${c.name}</div>
+          </div>`).join('')}
+      </div>`;
+    } else {
+      // Prefer the catalogue's image_url (DB = source of truth); fall back to the built-in map.
+      const imgSrc = (p.image_url && !/purifier-generic/.test(p.image_url)) ? p.image_url : PRODUCT_IMAGES[p.model_name];
+      if (imgSrc) imageBlock = `<div style="height:96px;margin:4px 0 8px;background:#fff url('${imgSrc}') center/contain no-repeat;"></div>`;
+    }
+
+    return `<div style="border:2px solid ${qty ? '#1565C0' : 'var(--border,#ddd)'};border-radius:12px;padding:12px 14px;background:${qty ? '#EFF6FF' : '#fff'};transition:all .12s;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div style="font-weight:700;font-size:14px;">${p.model_name}${isDisp && qty ? ` <span style="font-size:11px;color:#1565C0;">· ${chosenColor}</span>` : ''}</div>
+        <div style="font-weight:800;font-size:14px;color:#1565C0;white-space:nowrap;">SAR ${Number(p.price_sar).toLocaleString('en-US')}</div>
+      </div>
+      ${p.description ? `<div style="font-size:11px;color:var(--muted,#667);margin-top:4px;line-height:1.4;">${p.description}</div>` : ''}
+      ${imageBlock}
+      <div style="display:flex;align-items:center;gap:12px;margin-top:6px;">
+        <button type="button" onclick="basketQty('${enc}',-1)" style="width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border,#ccc);background:#fff;font-size:18px;cursor:pointer;">−</button>
+        <span style="font-size:17px;font-weight:700;min-width:24px;text-align:center;">${qty}</span>
+        <button type="button" onclick="basketQty('${enc}',1)" style="width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border,#ccc);background:#fff;font-size:18px;cursor:pointer;">+</button>
+        ${qty ? `<span style="font-size:12px;color:var(--muted,#667);margin-left:auto;">SAR ${(p.price_sar*qty).toLocaleString('en-US')}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  updateBasketTotal();
+}
+
+// Choosing a dispenser colour also adds one to the basket if none yet.
+function pickDispenserColor(encName, color) {
+  const name = decodeURIComponent(encName);
+  const p = catalogueCache.find(x => x.model_name === name);
+  if (!p) return;
+  const cur = state.items[name];
+  const qty = cur ? cur.qty : 1;
+  state.items[name] = { model: p.model_name, price: Number(p.price_sar), qty, is_serialized: false, color };
+  renderProducts();
+}
+
+function basketQty(encName, delta) {
+  const name = decodeURIComponent(encName);
+  const p = catalogueCache.find(x => x.model_name === name);
+  if (!p) return;
+  const cur = state.items[name]?.qty || 0;
+  const next = Math.max(0, cur + delta);
+  if (next === 0) {
+    delete state.items[name];
+  } else {
+    const isDisp = isDispenserModel(p.model_name);
+    const color = state.items[name]?.color || (isDisp ? 'Black' : null);  // default dispenser to Black
+    state.items[name] = { model: p.model_name, price: Number(p.price_sar), qty: next, is_serialized: p.is_serialized !== false, ...(isDisp ? { color } : {}) };
+  }
+  renderProducts();
+}
+
+function basketLines() { return Object.values(state.items); }
+function basketTotal() { return basketLines().reduce((s, l) => s + l.price * l.qty, 0); }
+function basketCount() { return basketLines().reduce((s, l) => s + l.qty, 0); }
+
+function updateBasketTotal() {
+  const el = document.getElementById('basket-total');
+  const lines = basketLines();
+  if (!lines.length) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.textContent = `Total: SAR ${basketTotal().toLocaleString('en-US')} (${basketCount()} unit${basketCount()>1?'s':''})`;
+}
+
+function goToStep4() {
+  if (catalogueCache.length && !basketLines().length) {
+    const errEl=document.getElementById('step3-error');errEl.style.display='block';errEl.textContent='Please choose at least one product.';return;
+  }
+  if(!state.selectedDate||state.selectedHour===null){
+    const errEl=document.getElementById('step3-error');errEl.style.display='block';errEl.textContent='Please select a date and time slot.';return;
+  }
+  document.getElementById('step3-error').style.display='none';
+  document.getElementById('conf-name').textContent=state.name;
+  document.getElementById('conf-phone').textContent=displayPhone(state.phone);
+  document.getElementById('conf-city').textContent=state.cityName;
+  document.getElementById('conf-address').textContent=state.address;
+  // product summary — list every line
+  const lines = basketLines();
+  const prodEl=document.getElementById('conf-product'), qtyEl=document.getElementById('conf-qty');
+  if (lines.length) {
+    prodEl.innerHTML = lines.map(l => `${l.model}${l.color ? ` — ${l.color}` : ''} ×${l.qty}`).join('<br>');
+    qtyEl.textContent = basketCount();
+  } else {
+    prodEl.textContent = '—'; qtyEl.textContent = '—';
+  }
+  // Reset any previously-applied promo when re-entering the step, then render totals.
+  state.promo = null;
+  document.getElementById('promo-input').value = '';
+  document.getElementById('promo-msg').style.display = 'none';
+  renderConfirmTotals();
+  document.getElementById('conf-date').textContent=formatDateFull(state.selectedDate);
+  document.getElementById('conf-time').textContent=formatHour(state.selectedHour);
+  goToStep(4);
+}
+
+// Render subtotal / discount / total on the confirm screen from the basket + any promo.
+function renderConfirmTotals() {
+  const subtotal = basketTotal();
+  const sub = document.getElementById('conf-subtotal');
+  if (sub) sub.textContent = 'SAR ' + subtotal.toLocaleString('en-US');
+  const discRow = document.getElementById('conf-discount-row');
+  const discEl = document.getElementById('conf-discount');
+  const lblEl = document.getElementById('conf-promo-label');
+  const totEl = document.getElementById('conf-total');
+  let discount = 0;
+  if (state.promo) {
+    discount = promoDiscountFor(subtotal, state.promo);
+    discRow.style.display = '';
+    lblEl.textContent = `(${state.promo.code}${state.promo.discount_type==='percent' ? ` · ${state.promo.discount_value}%` : ''})`;
+    discEl.textContent = '− SAR ' + discount.toLocaleString('en-US');
+  } else {
+    discRow.style.display = 'none';
+  }
+  totEl.textContent = 'SAR ' + Math.max(0, subtotal - discount).toLocaleString('en-US');
+}
+
+// Compute SAR discount for a subtotal under a promo (percent or fixed amount), capped at subtotal.
+function promoDiscountFor(subtotal, promo) {
+  let d = promo.discount_type === 'percent'
+    ? subtotal * (Number(promo.discount_value) / 100)
+    : Number(promo.discount_value);
+  d = Math.round(d * 100) / 100;              // 2dp
+  return Math.min(Math.max(0, d), subtotal);  // never below 0 or above subtotal
+}
+
+// Validate a typed promo code against the DB (active + within validity window).
+async function applyPromo() {
+  const input = document.getElementById('promo-input');
+  const msg = document.getElementById('promo-msg');
+  const code = (input.value || '').trim();
+  if (!code) return;
+  const show = (text, ok) => { msg.style.display = 'block'; msg.style.color = ok ? '#0d7a63' : '#B71C1C'; msg.textContent = text; };
+
+  const { data, error } = await db.from('promo_codes').select('*').ilike('code', code).maybeSingle();
+  if (error || !data) { state.promo = null; renderConfirmTotals(); show('That code isn\u2019t valid.', false); return; }
+  if (!data.is_active) { state.promo = null; renderConfirmTotals(); show('This code is no longer active.', false); return; }
+  const today = new Date().toISOString().slice(0,10);
+  if (data.valid_from && today < data.valid_from) { state.promo = null; renderConfirmTotals(); show('This code isn\u2019t active yet.', false); return; }
+  if (data.valid_until && today > data.valid_until) { state.promo = null; renderConfirmTotals(); show('This code has expired.', false); return; }
+
+  state.promo = data;
+  renderConfirmTotals();
+  const off = state.promo.discount_type === 'percent' ? `${state.promo.discount_value}% off` : `SAR ${state.promo.discount_value} off`;
+  show(`\u2713 Code applied — ${off}!`, true);
+}
+
+async function submitBooking() {
+  const btn=document.getElementById('btn-submit');
+  btn.disabled=true; btn.textContent='Processing...';
+
+  // Atomic booking via server-side RPC: reserves the slot AND creates the booking
+  // in one transaction. Eliminates the old leak window where a reserved slot
+  // could be stranded (network drop / tab close between reserve and insert).
+  const { data: rpcData, error: rpcErr } = await db.rpc('create_booking', {
+    p_slot_id:   state.selectedSlotId,
+    p_name:      state.name,
+    p_phone:     state.phone,
+    p_city_name: state.cityName,
+    p_region_id: state.regionId,
+    p_address:   state.address,
+    p_latitude:  state.latitude,
+    p_longitude: state.longitude
+  });
+
+  const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+
+  if (rpcErr || !row) {
+    const msg = (rpcErr && rpcErr.message) || '';
+    let text = 'Booking failed. Please try again.';
+    if (/already_booked/.test(msg)) {
+      text = 'Sorry, this slot was just booked by someone else. Please go back and choose another.';
+    } else if (/region_mismatch/.test(msg)) {
+      text = 'Sorry, the slot you picked doesn\'t match your service area. Please go back and choose a slot again.';
+      state.selectedDate=null; state.selectedHour=null; state.selectedSlotId=null;
+    } else if (/slot_not_found|not_available/.test(msg)) {
+      text = 'That slot is no longer available. Please go back and choose another.';
+    }
+    document.getElementById('step4-error').style.display='block';
+    document.getElementById('step4-error').textContent = text;
+    btn.disabled=false; btn.textContent='Confirm Booking';
+    return;
+  }
+
+  const booking = { id: null, booking_reference: row.booking_reference };
+  const bookedDate = row.slot_date;
+  const bookedHour = row.slot_hour;
+  // Persist the product basket. The booking row keeps a SUMMARY (primary line, so
+  // existing displays/flow keep working); the full basket goes to booking_items.
+  const lines = basketLines();
+  if (lines.length) {
+    // A dispenser line carries a colour choice — fold it into the model name so the
+    // office/installer knows which colour to deliver (e.g. "RO Water Dispenser … — White").
+    const modelWithColor = (l) => l.color ? `${l.model} — ${l.color}` : l.model;
+    // summary = the line with the highest total (usually the RO)
+    const primary = lines.slice().sort((a,b)=> (b.price*b.qty)-(a.price*a.qty))[0];
+    // fetch booking id by reference (RPC returns reference only)
+    const { data: bkRow } = await db.from('bookings').select('id')
+      .eq('booking_reference', row.booking_reference).maybeSingle();
+    const bkId = bkRow?.id;
+    if (bkId) {
+      // Money: subtotal, promo, discount.
+      const subtotal = basketTotal();
+      const discount = state.promo ? promoDiscountFor(subtotal, state.promo) : 0;
+      await db.from('bookings')
+        .update({
+          product_model: modelWithColor(primary), product_qty: primary.qty,
+          order_total: subtotal,
+          promo_code: state.promo ? state.promo.code : null,
+          discount_amount: discount || null,
+          referral_source: state.source || null
+        })
+        .eq('id', bkId);
+      await db.from('booking_items').insert(lines.map(l => ({
+        booking_id: bkId, product_model: modelWithColor(l), qty: l.qty,
+        unit_price: l.price, is_serialized: l.is_serialized
+      })));
+      // Bump the promo usage counter (atomic RPC, best-effort).
+      if (state.promo) {
+        db.rpc('increment_promo_usage', { p_code: state.promo.code }).then(()=>{}).catch(()=>{});
+      }
+    }
+  }
+  // Save customer profile
+  await db.from('customers').upsert({
+    phone:state.phone,name:state.name,city:state.cityName,address:state.address,
+    latitude:state.latitude,longitude:state.longitude,
+    updated_at:new Date().toISOString()
+  },{onConflict:'phone'});
+  localStorage.setItem('sada_customer',JSON.stringify({phone:state.phone,name:state.name,city:state.cityName,regionId:state.regionId,address:state.address}));
+  // Confirmation SMS
+  const msg=`SA'DA H2O - Booking Confirmed!\n\nDear ${state.name},\nRef: ${booking.booking_reference}\nDate: ${formatDateFull(bookedDate)}\nTime: ${formatHour(bookedHour)}\nCity: ${state.cityName}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
+  await sendSMS(state.phone, msg);
+  // Fire-and-forget: broadcast to all active installers. Look up the booking id
+  // by its reference (the RPC returns the reference, not the uuid).
+  db.from('bookings').select('id').eq('booking_reference', booking.booking_reference).maybeSingle()
+    .then(({ data }) => {
+      if (data?.id) {
+        fetch('/api/notify-installers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookingId: data.id })
+        }).catch(e => console.warn('notify-installers failed:', e));
+      }
+    });
+  document.querySelectorAll('.form-section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('step-success').style.display='block';
+  document.getElementById('booking-ref-display').textContent=booking.booking_reference;
+  document.getElementById('portal-link').style.display='block';
+  document.getElementById('progress-bar').style.display='none';
+}
+
+// formatHour is provided by shared/supabase.js (fixed edge cases for 11 AM, 11 PM, midnight cross-over).
+function formatDateFull(dateStr) {
+  const d = new Date(dateStr+'T00:00:00');
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const weekday = d.toLocaleDateString('en-US',{weekday:'long'});
+  return `${weekday}, ${dd}/${mm}/${d.getFullYear()}`;
+}
+
+window.addEventListener('DOMContentLoaded', () => { loadRegionsAndCities(); });
+</script>
+</body>
+</html>

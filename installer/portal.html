@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>My Appointments · SA'DA H2O</title>
+  <meta name="theme-color" content="#1B3A2D">
+
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/apple-touch-icon.png">
+  <link rel="manifest" href="../assets/manifest-installer.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SA'DA Installer">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
+  <link rel="stylesheet" href="../css/inspection-report.css">
+  <script defer src="../js/inspection-report.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --green-deep:#1B3A2D;--green:#2D6A4F;--green-light:#40916C;--foam:#ECFDF5;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#E2E8F0;--bg:#F8FAFC; }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;}
+    header{background:var(--green-deep);padding:0 24px;padding-top:env(safe-area-inset-top);height:calc(80px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 4px 20px rgba(0,0,0,0.15);}
+    header img{height:70px;}
+    .header-right{display:flex;align-items:center;gap:16px;}
+    .installer-chip{background:rgba(255,255,255,0.1);border-radius:20px;padding:6px 14px;font-size:13px;color:white;display:flex;align-items:center;gap:8px;}
+    .installer-dot{width:8px;height:8px;background:#4ADE80;border-radius:50%;box-shadow:0 0 8px rgba(74,222,128,0.6);}
+    .logout-btn{background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.75);padding:8px 14px;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;transition:all 0.15s;}
+    .logout-btn:hover{background:rgba(255,255,255,0.18);color:white;}
+    .container{max-width:800px;margin:0 auto;padding:28px 20px calc(28px + env(safe-area-inset-bottom));}
+    .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px;}
+    .stat-card{background:white;border-radius:16px;padding:20px;border:1px solid var(--border);text-align:center;box-shadow:0 1px 3px rgba(15,23,42,0.04);transition:box-shadow 0.15s;}
+    .stat-card:hover{box-shadow:0 4px 12px rgba(15,23,42,0.06);}
+    .stat-icon{font-size:28px;margin-bottom:8px;}
+    .stat-value{font-family:'Playfair Display',serif;font-size:28px;color:var(--text);}
+    .stat-label{font-size:12px;color:var(--muted);margin-top:4px;font-weight:500;}
+    .tabs{display:flex;gap:4px;margin-bottom:20px;background:white;border-radius:12px;padding:4px;border:1px solid var(--border);width:fit-content;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
+    .tab{padding:8px 20px;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);background:none;transition:all 0.15s;}
+    .tab:hover:not(.active){background:var(--bg);color:var(--text);}
+    .tab.active{background:var(--green);color:white;box-shadow:0 2px 8px rgba(45,106,79,0.35);}
+    .loc-chip{padding:6px 13px;border-radius:100px;border:1.5px solid var(--border);background:#fff;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .15s;}
+    .loc-chip:hover{border-color:var(--green);color:var(--green);}
+    .loc-chip.on{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 2px 6px rgba(45,106,79,0.28);}
+    .appointment-list{display:flex;flex-direction:column;gap:16px;}
+    .appointment-card{background:white;border-radius:18px;border:1px solid var(--border);overflow:hidden;transition:box-shadow 0.15s,transform 0.15s;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
+    .appointment-card:hover{box-shadow:0 8px 24px rgba(15,23,42,0.08);transform:translateY(-1px);}
+    .appt-header{padding:18px 22px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+    .appt-time{background:var(--green-deep);color:white;border-radius:14px;padding:12px 16px;text-align:center;min-width:80px;flex-shrink:0;box-shadow:0 4px 12px rgba(27,58,45,0.25);}
+    .appt-day{font-size:11px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;}
+    .appt-date-num{font-family:'Playfair Display',serif;font-size:26px;line-height:1;}
+    .appt-month{font-size:12px;opacity:0.8;}
+    .appt-main{flex:1;}
+    .appt-hour{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;}
+    .appt-city{font-size:13px;color:var(--muted);margin-bottom:10px;}
+    .appt-customer{background:var(--bg);border-radius:10px;padding:12px 14px;}
+    .customer-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;}
+    .customer-contact{display:flex;gap:16px;flex-wrap:wrap;}
+    .contact-item{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);}
+    .contact-link{color:var(--green);text-decoration:none;font-weight:600;}
+    .contact-link:hover{text-decoration:underline;}
+    .appt-address{margin-top:10px;font-size:13px;color:var(--muted);display:flex;align-items:flex-start;gap:6px;}
+    .appt-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg);flex-wrap:wrap;}
+    .status-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;}
+    .status-upcoming{background:#EFF6FF;color:#1D4ED8;}
+    .status-in_progress{background:#FFFBEB;color:#92400E;}
+    .status-completed{background:#F0FDF4;color:#166534;}
+    .btn-complete{padding:10px 20px;background:linear-gradient(135deg,var(--green),var(--green-light));color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:transform 0.1s,box-shadow 0.15s;}
+    .btn-complete:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(45,106,79,0.4);}
+    .btn-complete:active{transform:translateY(0);}
+    .btn-complete:disabled{opacity:0.55;cursor:not-allowed;}
+    .btn-claim{padding:10px 20px;background:linear-gradient(135deg,#1B3A2D,#40916C);color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:transform 0.1s,box-shadow 0.15s;}
+    .btn-claim:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(45,106,79,0.4);}
+    .btn-claim:disabled{opacity:0.55;cursor:not-allowed;}
+    .badge-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;background:#EF4444;color:white;border-radius:10px;font-size:11px;font-weight:700;margin-left:6px;}
+    .when-badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;margin-left:8px;}
+    .when-today{background:#FEF3C7;color:#92400E;}
+    .when-tomorrow{background:#DBEAFE;color:#1D4ED8;}
+    .btn-map{padding:10px 16px;background:white;color:var(--text);border:1px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;}
+    .btn-map:hover{background:var(--bg);border-color:var(--muted);}
+    .proof-section{padding:16px 22px;border-top:1px solid var(--border);background:#FAFDF9;}
+    .proof-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;}
+    .proof-uploads{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .upload-box{border:2px dashed var(--border);border-radius:12px;padding:16px;text-align:center;cursor:pointer;transition:all 0.15s;background:white;display:block;}
+    /* Android Chrome refuses programmatic .click() on display:none inputs, so keep
+       the input in the layout but invisible and drive it with a <label for>. */
+    .file-hidden{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;z-index:-1;}
+    .upload-box:hover{border-color:var(--green);background:var(--foam);}
+    .upload-box.has-file{border-color:var(--green);border-style:solid;background:var(--foam);}
+    .upload-icon{font-size:28px;margin-bottom:8px;}
+    .upload-label{font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;}
+    .upload-sub{font-size:11px;color:var(--muted);}
+    .upload-preview{width:100%;height:80px;object-fit:cover;border-radius:8px;margin-top:8px;}
+    .qr-input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;margin-top:8px;outline:none;transition:border-color 0.15s,box-shadow 0.15s;}
+    .qr-input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(45,106,79,0.15);}
+    .loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:48px;color:var(--muted);}
+    .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin 0.8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
+    .empty-icon{font-size:56px;margin-bottom:16px;opacity:0.5;}
+    .empty-title{font-size:18px;font-weight:600;color:var(--text);margin-bottom:8px;}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:999;padding:20px;}
+    .modal{background:white;border-radius:20px;padding:32px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.35);}
+    .modal-icon{font-size:48px;text-align:center;margin-bottom:16px;}
+    .modal-title{font-family:'Playfair Display',serif;font-size:22px;text-align:center;margin-bottom:8px;}
+    .modal-sub{color:var(--muted);font-size:14px;text-align:center;margin-bottom:24px;}
+    .modal-btns{display:flex;gap:12px;justify-content:center;}
+    .btn-modal-cancel{padding:12px 24px;background:var(--bg);border:1px solid var(--border);border-radius:10px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;transition:background 0.15s;}
+    .btn-modal-cancel:hover{background:#F1F5F9;}
+    .btn-modal-confirm{padding:12px 24px;background:var(--green);color:white;border:none;border-radius:10px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;transition:background 0.15s;}
+    .btn-modal-confirm:hover{background:var(--green-deep);}
+    .error-msg{background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-top:10px;display:none;}
+    @media(max-width:480px){
+      .stat-row{grid-template-columns:repeat(3,1fr); gap:8px;}
+      .stat-card{padding:12px 8px;}
+      .stat-value{font-size:22px;}
+      .stat-icon{font-size:22px;}
+      .stat-label{font-size:10px;}
+      .container{padding:16px 12px calc(16px + env(safe-area-inset-bottom));}
+      .appt-header{flex-direction:column; gap:12px;}
+      .appt-time{display:flex; gap:12px; align-items:center; border-radius:10px; padding:10px 14px; min-width:unset; width:100%;}
+      .appt-date-num{font-size:20px;}
+      .appt-main{width:100%;}
+      .appt-footer{flex-direction:column; align-items:flex-start; gap:10px;}
+      .appt-footer > div{width:100%; display:flex; gap:8px;}
+      .btn-complete{flex:1; text-align:center;}
+      .btn-map{flex:1; justify-content:center;}
+      .proof-uploads{grid-template-columns:1fr;}
+      .modal{padding:20px 16px; border-radius:16px 16px 0 0; margin:0; max-width:100%;}
+      .modal-overlay{align-items:flex-end; padding:0;}
+      .tabs{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+      header{padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));height:auto;}
+      header img{height:52px;}
+    }
+    @media(prefers-reduced-motion:reduce){
+      *{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}
+    }
+  </style>
+</head>
+<body>
+<header>
+  <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O">
+  <div class="header-right">
+    <div class="installer-chip"><div class="installer-dot"></div><span id="installer-name">Loading...</span></div>
+    <button class="logout-btn" onclick="logout()">Sign Out</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="stat-row">
+    <div class="stat-card"><div class="stat-icon">🔔</div><div class="stat-value" id="stat-available">—</div><div class="stat-label">Available</div></div>
+    <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="stat-upcoming">—</div><div class="stat-label">My Upcoming</div></div>
+    <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="stat-done">—</div><div class="stat-label">Completed</div></div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="filterTab('available',this)">Available <span class="badge-count" id="badge-available" style="display:none;"></span></button>
+    <button class="tab" onclick="filterTab('upcoming',this)">My Upcoming</button>
+    <button class="tab" onclick="filterTab('in_progress',this)">In Progress</button>
+    <button class="tab" onclick="filterTab('completed',this)">Completed</button>
+  </div>
+  <div id="loc-filter" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0 14px;">
+    <div id="region-chips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    <select id="city-filter" onchange="renderAppointments()" style="margin-left:auto;padding:7px 10px;border:1.5px solid var(--border,#d5dde3);border-radius:9px;font-size:13px;background:#fff;color:inherit;max-width:180px;">
+      <option value="">All cities</option>
+    </select>
+  </div>
+  <div class="appointment-list" id="appointments-list">
+    <div class="loading"><div class="spinner"></div> Loading appointments...</div>
+  </div>
+</div>
+
+<!-- PROOF UPLOAD MODAL -->
+<div class="modal-overlay" id="proof-modal" style="display:none;">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-icon">📸</div>
+    <div class="modal-title">Upload Proof of Installation</div>
+    <div class="modal-sub" id="proof-sub">Upload two photos to finish this job: the completed installation and the QR sticker on the unit. The customer activates each warranty by scanning that QR.</div>
+    <div class="proof-uploads">
+      <div>
+        <label class="upload-box" id="photo-upload-box" for="photo-input">
+          <div class="upload-icon">📷</div>
+          <div class="upload-label" id="photo-label">Installation Photo</div>
+          <div class="upload-sub">Tap to take a photo or choose one</div>
+          <img id="photo-preview" class="upload-preview" style="display:none;">
+        </label>
+        <input type="file" id="photo-input" accept="image/*" class="file-hidden" onchange="previewPhoto(this)">
+      </div>
+      <div>
+        <label class="upload-box" id="qr-upload-box" for="qr-input">
+          <div class="upload-icon">🏷️</div>
+          <div class="upload-label" id="qr-label">QR Sticker Photo</div>
+          <div class="upload-sub" id="qr-sub">Tap to take a photo or choose one</div>
+          <img id="qr-preview" class="upload-preview" style="display:none;">
+        </label>
+        <input type="file" id="qr-input" accept="image/*" class="file-hidden" onchange="previewQRPhoto(this)">
+      </div>
+      <div id="unit-info-note" style="display:none;font-size:13px;color:#3730A3;background:#E0E7FF;border-radius:10px;padding:12px 14px;grid-column:1 / -1;"></div>
+      <!-- On-site location capture. Auto for customer bookings; needs confirmation for admin-created ones. -->
+      <div id="location-section" style="display:none;border:1px solid var(--border);border-radius:12px;padding:14px;grid-column:1 / -1;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px;">📍 Installation Location</div>
+        <div id="location-note" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
+        <div id="location-status" style="font-size:12px;margin-bottom:10px;"></div>
+        <button type="button" id="capture-loc-btn" onclick="captureLocation()"
+          style="width:100%;padding:10px;background:#0F766E;color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
+          Use my current location
+        </button>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);cursor:pointer;">
+          <input type="checkbox" id="loc-confirm-check" style="width:auto;"> The pin matches where I installed the unit
+        </label>
+        <div id="loc-override-wrap" style="display:none;margin-top:12px;padding:12px;border:1.5px solid #FCD34D;background:#FFFBEB;border-radius:10px;">
+          <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;color:#92400E;cursor:pointer;font-weight:600;">
+            <input type="checkbox" id="loc-override-check" style="width:auto;margin-top:2px;transform:scale(1.25);">
+            <span>GPS isn’t working here — continue without a location pin.<br>
+            <span style="font-weight:400;font-size:12px;">Tick this, then tap “Submit &amp; Complete”. The office will see no pin was captured.</span></span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="error-msg" id="proof-error"></div>
+    <div class="modal-btns" style="margin-top:20px;">
+      <button class="btn-modal-cancel" onclick="closeProofModal()">Cancel</button>
+      <button class="btn-modal-confirm" onclick="submitProof()" id="btn-submit-proof">Submit & Complete ✓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://ykgtrloptgazeqjgxney.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrZ3RybG9wdGdhemVxamd4bmV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NjAxODEsImV4cCI6MjA5MjQzNjE4MX0.4yr-4mlvQQSw7R6qNUYmDfLA4ITVC09Iei2k3JB6M4A';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Expose to the inspection-report module (js/inspection-report.js reads window.db).
+window.db = db;
+
+// YYYY-MM-DD in the LOCAL calendar — never in UTC. See shared/supabase.js for
+// why: `d.toISOString().split('T')[0]` reports the previous day in KSA (UTC+3)
+// for anything from local midnight to 03:00.
+function localDateISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+let installerId = null;
+let installerPhone = '';
+let myBookings = [];       // bookings assigned to me
+let availableBookings = []; // unassigned upcoming — pool for everyone
+let serviceRegions = [];    // [{id,name}] for the location filter
+let officialCities = [];    // [{name, region_id}] — the exact cities customers can book
+let activeRegionId = '';    // '' = all regions
+
+// Match a booking's (messy, free-text) city_name to one of the official cities a
+// customer can actually book. Returns the official city name, or '' if none matches.
+function matchCity(raw) {
+  const s = (raw || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (!s) return '';
+  // exact-ish contains match against the official list, longest name first so
+  // "Al Khobar" wins over a bare token.
+  const sorted = officialCities.slice().sort((a, b) => b.name.length - a.name.length);
+  for (const c of sorted) {
+    const key = c.name.toLowerCase().replace(/[^a-z]/g, '');   // "alkhobar", "dammam"
+    if (s.includes(key) || key.includes(s)) return c.name;
+  }
+  // common aliases the official names don't cover literally
+  if (s.includes('khobar')) return 'Al Khobar';
+  if (s.includes('hofuf') || s.includes('hufuf') || s.includes('ahsa')) return 'Al Ahsa';
+  return '';
+}
+let reportsByBooking = {};  // { [bookingId]: { id, status } } — submitted/draft state per booking
+let itemsByBooking = {};    // { [bookingId]: [{product_model, qty, is_serialized}] } — what to bring
+let activeTab = 'available';
+let pendingCompleteId = null;
+let realtimeChannel = null;
+
+window.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+  installerId = session.user.id;
+  const { data: inst } = await db.from('installers').select('name, phone').eq('id', installerId).maybeSingle();
+  if (inst) {
+    document.getElementById('installer-name').textContent = inst.name;
+    installerPhone = inst.phone || '';
+  }
+
+  requestNotificationPermission();
+  const [{ data: regs }, { data: cits }] = await Promise.all([
+    db.from('service_regions').select('id, name').order('name'),
+    db.from('cities').select('name, region_id').order('name')
+  ]);
+  serviceRegions = regs || [];
+  officialCities = cits || [];
+  await loadAll();
+  buildLocationFilter();
+  subscribeRealtime();
+  notifyUpcomingToday();
+});
+
+
+// ============================================================
+// SESSION GUARD — the portal stays open all day on a phone. If the login token
+// expires, writes silently fail (RLS rejects the anon role) while reads still
+// work, which looks like "the app did nothing". Refresh before every write.
+// ============================================================
+async function ensureSession() {
+  let { data: { session } } = await db.auth.getSession();
+  const expSoon = session?.expires_at && (session.expires_at * 1000 - Date.now() < 120000);
+  if (!session || expSoon) {
+    try { const { data } = await db.auth.refreshSession(); session = data?.session || null; } catch (e) { session = null; }
+  }
+  if (!session) {
+    alert('Your session expired. Please sign in again — your photos are still on your phone, nothing is lost.');
+    window.location.href = 'login.html';
+    return false;
+  }
+  installerId = session.user.id;
+  return true;
+}
+setInterval(() => { try { db.auth.getSession().catch(()=>{}); } catch(e){} }, 10 * 60 * 1000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') { try { db.auth.getSession().catch(()=>{}); } catch(e){} }
+});
+
+async function loadAll() {
+  const todayIso = localDateISO(new Date());
+  const [mine, avail] = await Promise.all([
+    db.from('bookings').select('*').eq('installer_id', installerId)
+      .order('slot_date', { ascending: true }).order('slot_hour', { ascending: true }),
+    db.from('bookings').select('*').is('installer_id', null).eq('status', 'upcoming')
+      .gte('slot_date', todayIso)
+      .order('slot_date', { ascending: true }).order('slot_hour', { ascending: true })
+  ]);
+  myBookings = mine.data || [];
+  availableBookings = avail.data || [];
+
+  // Load the product lines for every visible job so each card can tell the
+  // installer exactly what to load in the van before leaving.
+  itemsByBooking = {};
+  const allIds = [...myBookings, ...availableBookings].map(b => b.id);
+  if (allIds.length) {
+    const { data: items } = await db.from('booking_items')
+      .select('booking_id, product_model, qty, is_serialized').in('booking_id', allIds);
+    (items || []).forEach(it => {
+      (itemsByBooking[it.booking_id] = itemsByBooking[it.booking_id] || []).push(it);
+    });
+  }
+
+  // Load submitted/draft inspection reports for MY bookings so the UI can
+  // gate "Mark Complete" on the presence of a submitted report.
+  reportsByBooking = {};
+  if (myBookings.length) {
+    const ids = myBookings.map(b => b.id);
+    const { data: reports } = await db.from('inspection_reports')
+      .select('id, booking_id, status, submitted_at').in('booking_id', ids);
+    (reports || []).forEach(r => {
+      // If multiple exist for one booking (shouldn't, due to unique constraint), prefer submitted.
+      const existing = reportsByBooking[r.booking_id];
+      if (!existing || (r.status === 'submitted' && existing.status !== 'submitted')) {
+        reportsByBooking[r.booking_id] = { id: r.id, status: r.status, submitted_at: r.submitted_at };
+      }
+    });
+  }
+
+  document.getElementById('stat-available').textContent = availableBookings.length;
+  document.getElementById('stat-upcoming').textContent = myBookings.filter(b => b.status === 'upcoming').length;
+  document.getElementById('stat-done').textContent = myBookings.filter(b => b.status === 'completed').length;
+
+  const badge = document.getElementById('badge-available');
+  if (availableBookings.length) { badge.textContent = availableBookings.length; badge.style.display = 'inline-flex'; }
+  else badge.style.display = 'none';
+
+  if (typeof buildLocationFilter === 'function' && serviceRegions.length) buildLocationFilter();
+  renderAppointments();
+}
+
+function subscribeRealtime() {
+  if (realtimeChannel) realtimeChannel.unsubscribe();
+  realtimeChannel = db.channel('bookings-installer-feed')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings' }, async (payload) => {
+      const row = payload.new;
+      if (row.installer_id === null && row.status === 'upcoming') {
+        showBrowserNotification(
+          'New job available',
+          `${row.customer_name} · ${row.city_name} · ${formatDateLocal(row.slot_date)} ${formatHour(row.slot_hour)}`
+        );
+        await loadAll();
+      }
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings' }, async () => {
+      await loadAll();  // someone claimed / admin changed something
+    })
+    .subscribe();
+}
+
+function requestNotificationPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') Notification.requestPermission();
+}
+
+function showBrowserNotification(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    new Notification(title, { body, icon: '/assets/apple-touch-icon.png', tag: 'sada-installer' });
+  } catch (e) { console.warn('Notification failed', e); }
+}
+
+function notifyUpcomingToday() {
+  const today = localDateISO(new Date());
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowIso = localDateISO(tomorrow);
+  const todays = myBookings.filter(b => b.slot_date === today && b.status === 'upcoming');
+  const tomorrows = myBookings.filter(b => b.slot_date === tomorrowIso && b.status === 'upcoming');
+  if (todays.length) showBrowserNotification(`You have ${todays.length} job(s) today`, todays.map(b => `${formatHour(b.slot_hour)} · ${b.customer_name}`).join('\n'));
+  else if (tomorrows.length) showBrowserNotification(`You have ${tomorrows.length} job(s) tomorrow`, tomorrows.map(b => `${formatHour(b.slot_hour)} · ${b.customer_name}`).join('\n'));
+}
+
+function filterTab(tab, el) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderAppointments();
+}
+
+function whenBadge(slotDate) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+  const d = new Date(slotDate + 'T00:00:00');
+  if (d.getTime() === today.getTime()) return '<span class="when-badge when-today">Today</span>';
+  if (d.getTime() === tomorrow.getTime()) return '<span class="when-badge when-tomorrow">Tomorrow</span>';
+  return '';
+}
+
+// Build the region chips + city dropdown from the bookings currently in view.
+function buildLocationFilter() {
+  const chipWrap = document.getElementById('region-chips');
+  const citySel = document.getElementById('city-filter');
+  if (!chipWrap || !citySel) return;
+
+  // Only show regions that actually have jobs assigned to / available for this installer.
+  const pool = myBookings.concat(availableBookings);
+  const regionIdsInUse = new Set(pool.map(b => b.service_region_id).filter(Boolean));
+
+  // If the remembered region has no jobs right now, fall back to "All areas" so
+  // the installer never lands on an empty, confusing view.
+  if (activeRegionId && !regionIdsInUse.has(activeRegionId)) activeRegionId = '';
+
+  const chips = [`<button class="loc-chip${activeRegionId==='' ? ' on':''}" onclick="setRegion('')">All areas</button>`];
+  serviceRegions
+    .filter(r => regionIdsInUse.has(r.id))
+    .forEach(r => chips.push(`<button class="loc-chip${activeRegionId===r.id ? ' on':''}" onclick="setRegion('${r.id}')">${r.name}</button>`));
+  chipWrap.innerHTML = chips.join('');
+
+  // City dropdown — only official cities that (a) have jobs in the pool and
+  // (b) belong to the selected region (if any). No free-text guesses.
+  const citiesWithJobs = new Set();
+  pool.forEach(b => {
+    if (activeRegionId && b.service_region_id !== activeRegionId) return;
+    const c = matchCity(b.city_name);
+    if (c) citiesWithJobs.add(c);
+  });
+  const ordered = officialCities
+    .map(c => c.name)
+    .filter((n, i, a) => a.indexOf(n) === i && citiesWithJobs.has(n));
+  const prev = citySel.value;
+  citySel.innerHTML = '<option value="">All cities</option>' +
+    ordered.map(c => `<option value="${c}">${c}</option>`).join('');
+  citySel.value = ordered.includes(prev) ? prev : '';
+}
+
+function setRegion(id) {
+  activeRegionId = id;
+  buildLocationFilter();   // refresh chips + city list for this region
+  renderAppointments();
+}
+
+// Apply the active region + city filter to a list of bookings.
+function applyLocationFilter(rows) {
+  const city = (document.getElementById('city-filter') || {}).value || '';
+  return rows.filter(b => {
+    if (activeRegionId && b.service_region_id !== activeRegionId) return false;
+    if (city && matchCity(b.city_name) !== city) return false;
+    return true;
+  });
+}
+
+// ---- What kind of visit is this? Drives the coloured badge on every job card.
+const JOB_TYPES = {
+  installation:     { label: 'NEW INSTALLATION', icon: '🔧', bg: '#DBEAFE', fg: '#1D4ED8' },
+  repair:           { label: 'REPAIR / FIX',     icon: '🛠️', bg: '#FEE2E2', fg: '#B91C1C' },
+  quarterly_service:{ label: 'FILTER CHANGE',    icon: '🔄', bg: '#FEF3C7', fg: '#B45309' },
+  annual_service:   { label: 'ANNUAL SERVICE',   icon: '📅', bg: '#EDE9FE', fg: '#6D28D9' },
+  relocation:       { label: 'RELOCATION',       icon: '🚚', bg: '#FFE4E6', fg: '#BE123C' },
+  inspection:       { label: 'INSPECTION',       icon: '🔍', bg: '#CCFBF1', fg: '#0F766E' }
+};
+function jobTypeOf(b) {
+  return JOB_TYPES[(b.booking_type || 'installation')] ||
+    { label: String(b.booking_type || 'VISIT').replace(/_/g,' ').toUpperCase(), icon: '📌', bg: '#F1F5F9', fg: '#475569' };
+}
+function jobTypeBadge(b) {
+  const t = jobTypeOf(b);
+  return `<span style="display:inline-flex;align-items:center;gap:5px;background:${t.bg};color:${t.fg};font-size:11px;font-weight:800;letter-spacing:.3px;padding:4px 10px;border-radius:20px;white-space:nowrap;">${t.icon} ${t.label}</span>`;
+}
+
+// ---- What the installer must load in the van for this job.
+function equipmentPanel(b) {
+  const items = itemsByBooking[b.id] || [];
+  let lines;
+  if (items.length) {
+    lines = items.map(it => ({ name: it.product_model, qty: it.qty || 1 }));
+  } else if (b.product_model) {
+    lines = [{ name: b.product_model, qty: b.product_qty || 1 }];
+  } else {
+    lines = [];
+  }
+  const type = (b.booking_type || 'installation');
+  const isService = type === 'quarterly_service' || type === 'annual_service' || type === 'repair';
+
+  const body = lines.length
+    ? lines.map(l => `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed #E2E8F0;">
+         <span style="font-weight:700;font-size:13px;color:#0A1628;">${l.name}</span>
+         <span style="font-weight:800;font-size:13px;color:#0D3B6E;white-space:nowrap;">× ${l.qty}</span>
+       </div>`).join('')
+    : `<div style="font-size:12px;color:#B45309;">No product recorded — call the office before you go.</div>`;
+
+  const note = type === 'relocation'
+    ? `<div style="font-size:11px;color:#BE123C;margin-top:7px;">Relocation — uninstall at the old address and refit at the new one. Bring fittings and spare tubing, and re-capture the location on site.</div>`
+    : isService
+    ? `<div style="font-size:11px;color:#92400E;margin-top:7px;">Service visit — bring the matching filter set / spares for the unit above.</div>`
+    : `<div style="font-size:11px;color:var(--muted);margin-top:7px;">Bring the unit(s) above plus fittings. QR sticker photo is required to finish.</div>`;
+
+  const panelTitle = (type === 'installation') ? '📦 What to bring' : '📦 Unit on site';
+
+  return `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:11px 13px;margin-top:10px;">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#64748B;text-transform:uppercase;margin-bottom:6px;">${panelTitle}</div>
+      ${body}${note}
+    </div>`;
+}
+
+
+// Where should the Directions button point?
+//  1. an exact GPS pin, if we have one
+//  2. a Google Maps link the office pasted (short links carry no coordinates,
+//     so we open the link itself rather than searching for its text)
+//  3. otherwise search the address / city
+function destinationUrl(b) {
+  if (b.latitude && b.longitude) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}`;
+  }
+  const addr = b.location_address || '';
+  const link = addr.match(/https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\.[a-z.]+|www\.google\.[a-z.]+\/maps)\S*/i);
+  if (link) return link[0];
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr || b.city_name || '')}`;
+}
+
+function renderAppointments() {
+  const list = document.getElementById('appointments-list');
+  let filtered;
+  if (activeTab === 'available') filtered = availableBookings;
+  else if (activeTab === 'completed') filtered = myBookings.filter(b => b.status === 'installed' || b.status === 'completed');
+  else filtered = myBookings.filter(b => b.status === activeTab);
+  filtered = applyLocationFilter(filtered);
+
+  if (!filtered.length) {
+    const emptyMsg = activeTab === 'available'
+      ? { icon: '🎯', title: 'No available jobs right now', sub: 'You\'ll be notified when new bookings come in.' }
+      : activeTab === 'completed'
+      ? { icon: '🎉', title: 'No completed jobs yet', sub: '' }
+      : { icon: '📭', title: 'No appointments here', sub: '' };
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">${emptyMsg.icon}</div><div class="empty-title">${emptyMsg.title}</div><div style="font-size:13px;color:var(--muted);margin-top:6px;">${emptyMsg.sub}</div></div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(b => {
+    const d = new Date(b.slot_date + 'T00:00:00');
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const mapsUrl = destinationUrl(b);
+    const proofSection = b.status === 'completed' && b.proof_photo_url ? `
+      <div class="proof-section">
+        <div class="proof-title">📸 Installation Proof</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <img src="${b.proof_photo_url}" style="height:80px;border-radius:8px;object-fit:cover;" alt="Photo">
+          ${b.proof_qr_url ? `<img src="${b.proof_qr_url}" style="height:80px;border-radius:8px;object-fit:cover;" alt="QR">` : ''}
+          ${b.proof_qr_code ? `<div style="font-size:12px;color:var(--muted);align-self:center;">Serial: <strong>${b.proof_qr_code}</strong></div>` : ''}
+        </div>
+      </div>` : '';
+
+    // Actions depend on tab
+    let actions;
+    if (activeTab === 'available') {
+      actions = `
+        <a href="${mapsUrl}" target="_blank" class="btn-map">🗺️ Directions</a>
+        <button class="btn-claim" onclick="claimJob('${b.id}')" id="claim-${b.id}">✋ Claim this Job</button>`;
+    } else {
+      // Inspection-report state for this booking
+      const rep = reportsByBooking[b.id];
+      const reportSubmitted = rep && rep.status === 'submitted';
+      const reportDraft     = rep && rep.status === 'draft';
+
+      const reportLabel =
+        reportSubmitted ? '✅ Report Submitted'
+        : reportDraft    ? '📝 Continue Report'
+        :                  '📋 Fill Inspection Report';
+      const reportBtnStyle = reportSubmitted
+        ? 'background:#16A34A;color:white;border-color:#16A34A;'
+        : 'background:#0D3B6E;color:white;border-color:#0D3B6E;';
+      const reportBtn = `<button class="btn-map" style="${reportBtnStyle}" onclick="openInspectionReport('${b.id}')">${reportLabel}</button>`;
+
+      let completeBtn = '';
+      if (b.status === 'completed') {
+        completeBtn = '<span style="font-size:13px;color:var(--muted);">✓ Done</span>';
+      } else if (b.status !== 'cancelled') {
+        // Mark Complete is gated on a submitted inspection report.
+        if (reportSubmitted) {
+          completeBtn = `<button class="btn-complete" onclick="openProofModal('${b.id}')">Mark Complete ✓</button>`;
+        } else {
+          completeBtn = `<button class="btn-complete" style="opacity:0.55;cursor:not-allowed;" onclick="requireReportFirst('${b.id}')" title="Submit the inspection report before marking complete.">🔒 Mark Complete</button>`;
+        }
+      }
+
+      actions = `
+        <a href="${mapsUrl}" target="_blank" class="btn-map">🗺️ Directions</a>
+        ${reportBtn}
+        ${completeBtn}`;
+    }
+
+    return `
+      <div class="appointment-card">
+        <div class="appt-header">
+          <div class="appt-time">
+            <div class="appt-day">${d.toLocaleDateString('en-US',{weekday:'short'})}</div>
+            <div class="appt-date-num">${dd}</div>
+            <div class="appt-month">${mm}/${d.getFullYear()}</div>
+          </div>
+          <div class="appt-main">
+            <div style="margin-bottom:6px;">${jobTypeBadge(b)}</div>
+            <div class="appt-hour">🕐 ${formatHour(b.slot_hour)} ${whenBadge(b.slot_date)}</div>
+            <div class="appt-city">📍 ${b.city_name}</div>
+            <div class="appt-customer">
+              <div class="customer-name">👤 ${b.customer_name}</div>
+              <div class="customer-contact">
+                <div class="contact-item"><span>📞</span><a href="tel:${b.customer_phone}" class="contact-link">${b.customer_phone}</a></div>
+              </div>
+              ${b.location_address ? `<div class="appt-address"><span>🏠</span> ${b.location_address}</div>` : ''}
+            </div>
+            ${equipmentPanel(b)}
+          </div>
+        </div>
+        ${proofSection}
+        <div class="appt-footer">
+          <span class="status-badge status-${b.status}">${activeTab === 'available' ? '🔔 Open' : getStatusLabel(b.status)}</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            ${actions}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function claimJob(bookingId) {
+  if (!(await ensureSession())) return;
+  const btn = document.getElementById(`claim-${bookingId}`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Claiming…'; }
+
+  // Atomic claim: only succeeds if installer_id IS NULL (RLS + WHERE clause).
+  const { data, error } = await db.from('bookings')
+    .update({ installer_id: installerId })
+    .eq('id', bookingId)
+    .is('installer_id', null)
+    .select();
+
+  if (error || !data || !data.length) {
+    if (btn) { btn.disabled = false; btn.textContent = '✋ Claim this Job'; }
+    alert('Someone else just claimed this job. Refreshing the list…');
+    await loadAll();
+    return;
+  }
+  showBrowserNotification('Job claimed', `${data[0].customer_name} · ${formatDateLocal(data[0].slot_date)}`);
+  await loadAll();
+  // Switch to My Upcoming so they see it landed
+  activeTab = 'upcoming';
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab')[1]?.classList.add('active');
+  renderAppointments();
+}
+
+// State for the currently-open proof modal.
+let proofBooking = null;          // the booking row being completed
+let capturedLocation = null;      // { lat, lng } if installer captured GPS this session
+
+async function openProofModal(bookingId) {
+  // Belt-and-suspenders: require a submitted inspection report before mark-complete
+  // even if someone bypassed the disabled button (devtools, etc).
+  const rep = reportsByBooking[bookingId];
+  if (!rep || rep.status !== 'submitted') {
+    requireReportFirst(bookingId);
+    return;
+  }
+  pendingCompleteId = bookingId;
+  proofBooking = myBookings.find(x => x.id === bookingId) || null;
+  capturedLocation = null;
+
+  document.getElementById('photo-preview').style.display = 'none';
+  document.getElementById('photo-input').value = '';
+  document.getElementById('photo-upload-box').classList.remove('has-file');
+  document.getElementById('qr-preview').style.display = 'none';
+  document.getElementById('qr-input').value = '';
+  document.getElementById('qr-upload-box').classList.remove('has-file');
+  document.getElementById('proof-error').style.display = 'none';
+
+  // How many serialized RO units will this install create warranties for?
+  let serialCount = 0;
+  const { data: items } = await db.from('booking_items')
+    .select('product_model, qty, is_serialized').eq('booking_id', bookingId);
+  if (items && items.length) {
+    items.filter(it => it.is_serialized).forEach(it => { serialCount += (it.qty || 1); });
+  } else {
+    const model = proofBooking?.product_model || '';
+    if (model && !model.toLowerCase().includes('dispenser')) serialCount = Math.max(1, proofBooking?.product_qty || 1);
+  }
+  const note = document.getElementById('unit-info-note');
+
+  // Tailor the proof modal to the kind of visit — a service call has no new QR sticker.
+  const jt = (proofBooking?.booking_type || 'installation');
+  const isInstall = jt === 'installation';
+  const jtLabel = (typeof jobTypeOf === 'function') ? jobTypeOf(proofBooking || {}).label : 'JOB';
+  const subEl = document.getElementById('proof-sub');
+  const photoLbl = document.getElementById('photo-label');
+  const qrLbl = document.getElementById('qr-label');
+  const qrSub = document.getElementById('qr-sub');
+  if (subEl) subEl.textContent = isInstall
+    ? 'Upload two photos to finish this job: the completed installation and the QR sticker on the unit. The customer activates each warranty by scanning that QR.'
+    : `${jtLabel} — upload a photo of the completed work to finish this job. The QR photo is optional for service visits.`;
+  if (photoLbl) photoLbl.textContent = isInstall ? 'Installation Photo' : 'Completed Work Photo';
+  if (qrLbl) qrLbl.textContent = isInstall ? 'QR Sticker Photo' : 'QR Sticker Photo (optional)';
+  if (qrSub) qrSub.textContent = isInstall ? 'Tap to upload' : 'Optional — tap to upload';
+  if (serialCount > 0) {
+    note.style.display = 'block';
+    note.innerHTML = `🛡️ This install covers <strong>${serialCount} RO unit${serialCount>1?'s':''}</strong>. A pending warranty will be created for each — the customer activates it by scanning that unit's QR sticker.`;
+  } else {
+    note.style.display = 'block';
+    note.style.background = '#E0E7FF';
+    note.innerHTML = '💧 Dispenser-only install — no warranty units.';
+  }
+
+  // Location section: require an on-site pin when the office created the booking
+  // (address may be approximate) and always for a relocation (address has changed).
+  const isRelocation = (proofBooking?.booking_type === 'relocation');
+  const isAdminBooking = proofBooking?.created_by === 'admin' || isRelocation;
+  const locSec = document.getElementById('location-section');
+  const locNote = document.getElementById('location-note');
+  const locStatus = document.getElementById('location-status');
+  const locCheck = document.getElementById('loc-confirm-check');
+  locSec.style.display = 'block';
+  locStatus.textContent = '';
+  locCheck.checked = false;
+  capturedLocation = null;
+  const ovWrap = document.getElementById('loc-override-wrap');
+  const ovChk = document.getElementById('loc-override-check');
+  if (ovWrap) ovWrap.style.display = 'none';
+  if (ovChk) ovChk.checked = false;
+  const capBtn = document.getElementById('capture-loc-btn');
+  if (capBtn) { capBtn.disabled = false; capBtn.textContent = 'Use my current location'; }
+  // Start trying immediately — by the time the photos are attached the fix is
+  // usually ready, and any failure surfaces the override early instead of at submit.
+  setTimeout(() => { try { captureLocation(); } catch (e) {} }, 400);
+  if (isAdminBooking) {
+    locNote.innerHTML = isRelocation
+      ? '🚚 Relocation — the unit is moving to a new address. Please capture the NEW location on-site and confirm the pin.'
+      : '⚠️ This booking was created by the office — the address may be approximate. Please capture the real location on-site and confirm the pin.';
+    document.getElementById('loc-confirm-check').closest('label').style.display = 'flex';
+  } else {
+    locNote.textContent = 'We\u2019ll record where the unit was installed. Tap below to capture your current location (optional).';
+    document.getElementById('loc-confirm-check').closest('label').style.display = 'none';
+  }
+
+  document.getElementById('proof-modal').style.display = 'flex';
+}
+
+// Capture the installer's current GPS position.
+// Robust: tries high accuracy first, then falls back to a coarser/cached fix so a
+// slow or indoor GPS doesn't leave the installer unable to finish the job.
+function captureLocation() {
+  const status = document.getElementById('location-status');
+  const btn = document.getElementById('capture-loc-btn');
+  if (!navigator.geolocation) {
+    status.style.color = '#B71C1C';
+    status.textContent = 'Location is not available on this device/browser.';
+    revealLocationOverride();
+    return;
+  }
+  status.style.color = 'var(--muted)';
+  status.textContent = 'Getting your location… (keep this screen open)';
+  btn.disabled = true;
+
+  // Some Android/in-app browsers never fire either callback. This watchdog makes
+  // sure the installer is never left waiting with no way forward.
+  let settled = false;
+  const watchdog = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    btn.disabled = false;
+    status.style.color = '#B71C1C';
+    status.textContent = 'Location is taking too long on this device. You can tick the box below and continue.';
+    revealLocationOverride();
+  }, 40000);
+
+  const onOk = (pos) => {
+    if (settled) return;
+    settled = true; clearTimeout(watchdog);
+    capturedLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    status.style.color = '#166534';
+    status.innerHTML = `✓ Location captured (±${Math.round(pos.coords.accuracy)}m). <a href="https://maps.google.com/?q=${capturedLocation.lat},${capturedLocation.lng}" target="_blank" style="color:#1565C0;">preview</a>`;
+    btn.disabled = false; btn.textContent = 'Re-capture location';
+  };
+
+  const onFail = (err) => {
+    if (settled) return;
+    settled = true; clearTimeout(watchdog);
+    btn.disabled = false;
+    status.style.color = '#B71C1C';
+    let hint = err && err.code === 1
+      ? 'Permission denied — enable Location for this site in your browser settings, then tap again.'
+      : (err && err.code === 3 ? 'Timed out — move near a window or outdoors and tap again.' : 'Could not get a fix.');
+    status.textContent = hint + ' You can also tick the box below and continue.';
+    revealLocationOverride();
+  };
+
+  // Pass 1: high accuracy, generous timeout.
+  navigator.geolocation.getCurrentPosition(onOk, () => {
+    // Pass 2: coarse fix, accept a recently cached position.
+    status.textContent = 'Still trying (using a coarser fix)…';
+    navigator.geolocation.getCurrentPosition(onOk, onFail,
+      { enableHighAccuracy: false, timeout: 30000, maximumAge: 120000 });
+  }, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
+}
+
+// If GPS genuinely cannot be obtained, let the installer proceed rather than being
+// stuck on site — but make it explicit and record that no pin was captured.
+function revealLocationOverride() {
+  const box = document.getElementById('loc-override-wrap');
+  if (box) box.style.display = 'block';
+}
+
+function showProofError(msg) {
+  const el = document.getElementById('proof-error');
+  el.style.display = 'block'; el.textContent = msg;
+}
+
+function requireReportFirst(bookingId) {
+  const rep = reportsByBooking[bookingId];
+  const msg = rep && rep.status === 'draft'
+    ? 'Your inspection report is still a draft. Please finish and submit it before marking the job complete.'
+    : 'Please fill and submit the inspection report before marking the job complete.';
+  if (confirm(msg + '\n\nOpen the inspection report now?')) {
+    openInspectionReport(bookingId);
+  }
+}
+
+function closeProofModal() {
+  document.getElementById('proof-modal').style.display = 'none';
+  pendingCompleteId = null;
+  proofBooking = null;
+  capturedLocation = null;
+}
+
+function previewPhoto(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.getElementById('photo-preview');
+      img.src = e.target.result; img.style.display = 'block';
+      document.getElementById('photo-upload-box').classList.add('has-file');
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function previewQRPhoto(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.getElementById('qr-preview');
+      img.src = e.target.result; img.style.display = 'block';
+      document.getElementById('qr-upload-box').classList.add('has-file');
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+// Shrink a camera photo before upload. Android phones produce 8-12MB images that
+// frequently time out on mobile data; ~1600px JPEG is plenty for proof and uploads
+// in a second or two. Falls back to the original file if anything goes wrong.
+async function compressImage(file, maxDim = 1600, quality = 0.82) {
+  try {
+    if (!file || !/^image\//.test(file.type)) return file;
+    if (file.size < 600 * 1024) return file;           // already small enough
+    const bitmap = await new Promise((res, rej) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => { URL.revokeObjectURL(url); res(img); };
+      img.onerror = (e) => { URL.revokeObjectURL(url); rej(e); };
+      img.src = url;
+    });
+    let { width: w, height: h } = bitmap;
+    const scale = Math.min(1, maxDim / Math.max(w, h));
+    if (scale >= 1 && file.size < 3 * 1024 * 1024) return file;
+    w = Math.round(w * scale); h = Math.round(h * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch (e) {
+    console.warn('compress failed, using original', e);
+    return file;
+  }
+}
+
+async function uploadFile(file, path) {
+  const { data, error } = await db.storage.from('installation-proofs').upload(path, file, { upsert: true });
+  if (error) {
+    // Surface the real reason — a silent null used to make this look like "nothing happened".
+    console.error('Photo upload failed:', error);
+    window.__lastUploadError = error.message || String(error);
+    return null;
+  }
+  const { data: urlData } = db.storage.from('installation-proofs').getPublicUrl(path);
+  return urlData.publicUrl;
+}
+
+async function submitProof() {
+  if (!(await ensureSession())) return;
+  const photoFile = document.getElementById('photo-input').files[0];
+  const qrFile = document.getElementById('qr-input').files[0];
+  const errEl = document.getElementById('proof-error');
+
+  // A repair / filter change / annual service fits no new unit, so there is no new
+  // QR sticker to photograph — only installations require the second photo.
+  const isInstall = (proofBooking?.booking_type || 'installation') === 'installation';
+
+  if (!photoFile) { errEl.style.display = 'block'; errEl.textContent = 'Please upload the ' + (isInstall ? 'installation' : 'completed work') + ' photo.'; return; }
+  if (isInstall && !qrFile) { errEl.style.display = 'block'; errEl.textContent = 'Please upload a photo of the QR sticker on the unit.'; return; }
+
+  // Admin-created bookings: require the installer to confirm the pin matches.
+  // If GPS genuinely failed, an explicit override lets them finish the job on site.
+  const isAdminBooking = proofBooking?.created_by === 'admin' || proofBooking?.booking_type === 'relocation';
+  const locOverride = document.getElementById('loc-override-check')?.checked;
+  if (isAdminBooking && !locOverride) {
+    const confirmed = document.getElementById('loc-confirm-check').checked;
+    if (!capturedLocation) {
+      // Show the escape hatch at the moment we block — otherwise the message tells
+      // the installer to tick a box that isn't on screen yet, and he's stuck.
+      revealLocationOverride();
+      errEl.style.display = 'block';
+      errEl.innerHTML = 'No location pin captured yet. Tap <strong>“Use my current location”</strong> above — or, if GPS will not work here, tick <strong>“GPS isn’t working here”</strong> (now shown below the location box) and submit again.';
+      const ow = document.getElementById('loc-override-wrap');
+      if (ow && ow.scrollIntoView) ow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (!confirmed) { errEl.style.display = 'block'; errEl.textContent = 'Please tick the box to confirm the captured pin matches the install location.'; return; }
+  }
+
+  errEl.style.display = 'none';
+  const btn = document.getElementById('btn-submit-proof');
+  btn.disabled = true; btn.textContent = 'Uploading...';
+
+  const { data: booking } = await db.from('bookings').select('id, installer_id, status').eq('id', pendingCompleteId).maybeSingle();
+  if (!booking || booking.installer_id !== installerId) {
+    errEl.style.display = 'block'; errEl.textContent = 'Unauthorized: this booking is not assigned to you.';
+    btn.disabled = false; btn.textContent = 'Submit & Complete ✓'; return;
+  }
+  if (booking.status === 'completed' || booking.status === 'installed') {
+    errEl.style.display = 'block'; errEl.textContent = 'This booking is already marked as installed.';
+    btn.disabled = false; btn.textContent = 'Submit & Complete ✓'; return;
+  }
+
+  // Final gate — inspection report must be submitted (re-check for races).
+  const { data: repCheck } = await db.from('inspection_reports')
+    .select('id, status').eq('booking_id', pendingCompleteId).eq('status', 'submitted').maybeSingle();
+  if (!repCheck) {
+    errEl.style.display = 'block';
+    errEl.textContent = 'The inspection report for this booking is not submitted. Please submit it first.';
+    btn.disabled = false; btn.textContent = 'Submit & Complete ✓';
+    return;
+  }
+
+  const ts = Date.now();
+  btn.textContent = 'Preparing photos…';
+  const photoSmall = await compressImage(photoFile);
+  const qrSmall = qrFile ? await compressImage(qrFile) : null;
+  btn.textContent = 'Uploading…';
+  const photoUrl = await uploadFile(photoSmall, `${pendingCompleteId}/photo_${ts}.jpg`);
+  if (!photoUrl) { errEl.style.display = 'block'; errEl.textContent = 'Installation photo upload failed' + (window.__lastUploadError ? ': ' + window.__lastUploadError : '') + '. Check your connection and try again.'; btn.disabled = false; btn.textContent = 'Submit & Complete ✓'; return; }
+  // QR photo is optional on service/repair visits (no new sticker to shoot).
+  let qrUrl = null;
+  if (qrFile) {
+    qrUrl = await uploadFile(qrSmall, `${pendingCompleteId}/qr_${ts}.jpg`);
+    if (!qrUrl) { errEl.style.display = 'block'; errEl.textContent = 'QR photo upload failed' + (window.__lastUploadError ? ': ' + window.__lastUploadError : '') + '. Check your connection and try again.'; btn.disabled = false; btn.textContent = 'Submit & Complete ✓'; return; }
+  }
+
+  const nowIso = new Date().toISOString();
+  const patch = {
+    status: 'installed',
+    proof_photo_url: photoUrl,
+    completed_by: 'installer',
+    installed_at: nowIso
+  };
+  if (qrUrl) patch.proof_qr_url = qrUrl;
+  // If the installer captured GPS on-site, record it as the precise location.
+  if (capturedLocation) {
+    patch.latitude = capturedLocation.lat;
+    patch.longitude = capturedLocation.lng;
+    patch.location_updated_by = 'installer';
+    patch.location_updated_at = nowIso;
+  }
+  await db.from('bookings').update(patch).eq('id', pendingCompleteId).eq('installer_id', installerId);
+
+  // Create ONE PENDING warranty per serialized RO unit. The customer activates
+  // each by scanning its QR sticker. Dispensers get none. Never blocks completion.
+  try {
+    if ((proofBooking?.booking_type || 'installation') === 'installation') await createPendingWarranties(pendingCompleteId);
+  } catch (e) { console.warn('pending warranty creation failed', e); }
+
+  btn.disabled = false; btn.textContent = 'Submit & Complete ✓';
+  closeProofModal();
+  await loadAll();
+}
+
+// Create pending warranties (no serial yet) — one per serialized unit on the booking.
+async function createPendingWarranties(bookingId) {
+  const { data: b } = await db.from('bookings')
+    .select('id, customer_name, customer_phone, product_model, product_qty').eq('id', bookingId).maybeSingle();
+  if (!b) return;
+
+  // Build the unit list from booking_items (serialized only), else fall back to summary.
+  let units = [];
+  const { data: items } = await db.from('booking_items')
+    .select('product_model, qty, is_serialized').eq('booking_id', bookingId);
+  if (items && items.length) {
+    items.filter(it => it.is_serialized).forEach(it => {
+      for (let i = 0; i < (it.qty || 1); i++) units.push(it.product_model);
+    });
+  } else if (b.product_model && !b.product_model.toLowerCase().includes('dispenser')) {
+    for (let i = 0; i < Math.max(1, b.product_qty || 1); i++) units.push(b.product_model);
+  }
+  if (!units.length) return;   // dispenser-only → no warranties
+
+  // Ensure a customer row exists (with name from the booking).
+  let cid = null;
+  const { data: cust } = await db.from('customers').select('id, name').eq('phone', b.customer_phone).maybeSingle();
+  if (cust) {
+    cid = cust.id;
+    if ((!cust.name || !cust.name.trim()) && b.customer_name && b.customer_name.trim()) {
+      await db.from('customers').update({ name: b.customer_name.trim() }).eq('id', cid);
+    }
+  } else {
+    const { data: ins } = await db.from('customers').insert({ phone: b.customer_phone, name: b.customer_name }).select('id').maybeSingle();
+    cid = ins?.id;
+  }
+  if (!cid) return;
+
+  // How many pending warranties already exist for this booking? (avoid dupes on re-submit)
+  const { data: existing } = await db.from('warranties').select('id').eq('booking_id', bookingId);
+  if (existing && existing.length >= units.length) return;   // already created
+  const toCreate = units.slice((existing || []).length);
+
+  // Filter (+90d) and Service (+365d) countdowns start at INSTALL completion.
+  // Warranty (+730d) is intentionally left null here — it only starts when the
+  // customer scans & activates. registration_date = install date.
+  const installDate = new Date();
+  const iso = (days) => { const x = new Date(installDate); x.setDate(x.getDate() + days); return x.toISOString(); };
+  const regDate = installDate.toISOString().slice(0,10);
+
+  for (const model of toCreate) {
+    await db.from('warranties').insert({
+      customer_id: cid,
+      qr_code: null,                       // set when the customer scans
+      product_type: model,
+      quantity: 1,
+      booking_id: bookingId,
+      status: 'pending',
+      registration_date: regDate,          // install date
+      filter_expiry: iso(90),              // starts at install
+      service_expiry: iso(365),            // starts at install
+      warranty_expiry: null,               // starts only when customer activates
+      activated_by: null,
+      activated_at: null
+    });
+  }
+}
+
+function formatDateLocal(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+function formatHour(hour) {
+  const h = parseInt(hour);
+  if (isNaN(h) || h < 0 || h > 23) return String(hour);
+  const next = (h + 1) % 24;
+  const label = (n) => {
+    const period = n >= 12 && n < 24 ? 'PM' : 'AM';
+    const twelve = n % 12 === 0 ? 12 : n % 12;
+    return `${twelve}:00 ${period}`;
+  };
+  return `${label(h)} – ${label(next)}`;
+}
+
+function getStatusLabel(s) { return {upcoming:'Upcoming',in_progress:'In Progress',completed:'Completed',cancelled:'Cancelled'}[s] || s; }
+
+function openInspectionReport(bookingId) {
+  if (!window.SADA || !window.SADA.InspectionReport) { alert('Report module not loaded'); return; }
+  const nameEl = document.getElementById('installer-name');
+  // Pull the QR serial already scanned for this booking (if any) so it prefills Serial No.
+  const bk = myBookings.find(x => x.id === bookingId);
+  window.SADA.InspectionReport.openForm(bookingId, {
+    installerId: installerId,
+    installerName: nameEl ? nameEl.textContent : '',
+    installerPhone: installerPhone,
+    scannedSerial: bk ? (bk.proof_qr_code || '') : '',
+    onSaved: () => loadAll()
+  });
+}
+async function logout() {
+  if (realtimeChannel) realtimeChannel.unsubscribe();
+  await db.auth.signOut();
+  window.location.href = 'login.html';
+}
+</script>
+</body>
+</html>

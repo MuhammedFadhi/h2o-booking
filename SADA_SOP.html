@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SA'DA H2O — Standard Operating Procedure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --abyss:#06202F; --deep:#0A3A54; --teal:#0E5A73;
+    --aqua:#2AD4E0; --aqua-soft:#7FE9F0; --aqua-deep:#159CB0;
+    --mist:#EAF6F8; --ink:#06202F; --ink-soft:#3D5462;
+    --amber:#F4A62A; --paper:#FFFFFF;
+    --disp:#B9A5E0;
+    --sans:'DM Sans',system-ui,sans-serif;
+    --display:'Space Grotesk',system-ui,sans-serif;
+    --mono:'Space Mono',ui-monospace,monospace;
+    --ar:'IBM Plex Sans Arabic',var(--sans);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:var(--sans); color:var(--ink); background:var(--mist);
+    -webkit-font-smoothing:antialiased; overflow-x:hidden; line-height:1.5;
+  }
+  .ar{font-family:var(--ar); direction:rtl; unicode-bidi:isolate}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    position:relative; min-height:100vh; background:
+      radial-gradient(120% 90% at 80% -10%, #0d4a63 0%, transparent 55%),
+      radial-gradient(100% 80% at 0% 110%, #0a3247 0%, transparent 50%),
+      var(--abyss);
+    color:#EAF6F8; display:grid; grid-template-columns:1.15fr 0.85fr;
+    align-items:center; gap:24px; padding:64px clamp(24px,6vw,110px); overflow:hidden;
+  }
+  .hero-eyebrow{
+    font-family:var(--mono); font-size:12px; letter-spacing:.34em; text-transform:uppercase;
+    color:var(--aqua); display:flex; align-items:center; gap:14px; margin-bottom:26px;
+    opacity:0; transform:translateY(14px); animation:rise .9s .1s forwards cubic-bezier(.2,.7,.2,1);
+  }
+  .hero-eyebrow::before{content:""; width:34px; height:1px; background:var(--aqua); opacity:.7}
+  .hero h1{
+    font-family:var(--display); font-weight:600; font-size:clamp(38px,6vw,80px);
+    line-height:.98; letter-spacing:-.025em; margin-bottom:8px;
+  }
+  .hero h1 .drop{color:var(--aqua)}
+  .hero h1 span{display:block; opacity:0; transform:translateY(24px)}
+  .hero h1 span:nth-child(1){animation:rise .9s .22s forwards cubic-bezier(.2,.7,.2,1)}
+  .hero h1 span:nth-child(2){animation:rise .9s .34s forwards cubic-bezier(.2,.7,.2,1)}
+  .hero h1 span:nth-child(3){animation:rise .9s .46s forwards cubic-bezier(.2,.7,.2,1)}
+  .hero-ar{
+    font-family:var(--ar); direction:rtl; font-size:clamp(17px,2vw,22px); font-weight:600;
+    color:var(--aqua-soft); margin-top:18px; opacity:0; animation:fade 1s .7s forwards;
+  }
+  .hero-sub{
+    max-width:32ch; font-size:clamp(15px,1.4vw,18px); color:#B7D6DF; margin-top:22px;
+    opacity:0; animation:fade 1s .8s forwards;
+  }
+  .hero-meta{
+    display:flex; gap:28px; margin-top:38px; flex-wrap:wrap;
+    opacity:0; animation:fade 1s .95s forwards;
+  }
+  .hero-meta div{display:flex; flex-direction:column; gap:3px}
+  .hero-meta .n{font-family:var(--display); font-size:26px; font-weight:600; color:#fff}
+  .hero-meta .l{font-family:var(--mono); font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:#6f97a4}
+
+  /* filtration column signature */
+  .column-wrap{position:relative; height:78vh; display:flex; align-items:center; justify-content:center}
+  .col-caption{
+    position:absolute; bottom:2%; left:50%; transform:translateX(-50%);
+    font-family:var(--mono); font-size:10px; letter-spacing:.2em; text-transform:uppercase;
+    color:#5f8593; white-space:nowrap; opacity:0; animation:fade 1s 1.3s forwards;
+  }
+  .tube{
+    position:relative; width:min(150px,34vw); height:100%;
+    border:2px solid rgba(127,233,240,.28); border-radius:80px;
+    background:linear-gradient(180deg, rgba(10,58,84,.4), rgba(6,32,47,.7));
+    overflow:hidden; box-shadow:0 0 60px rgba(42,212,224,.14), inset 0 0 40px rgba(6,32,47,.6);
+  }
+  .fill{
+    position:absolute; left:0; right:0; bottom:0; height:0;
+    background:linear-gradient(180deg, var(--aqua-soft), var(--aqua) 30%, var(--aqua-deep));
+    animation:fillUp 2.4s 1s forwards cubic-bezier(.4,0,.2,1); border-radius:0 0 78px 78px;
+  }
+  .fill::before{ /* surface shimmer */
+    content:""; position:absolute; top:-6px; left:0; right:0; height:12px;
+    background:radial-gradient(60% 100% at 50% 0%, rgba(255,255,255,.55), transparent 70%);
+    animation:wobble 3s ease-in-out infinite;
+  }
+  .ring{position:absolute; left:-2px; right:-2px; height:2px; background:rgba(127,233,240,.22)}
+  .ring.r1{top:20%} .ring.r2{top:40%} .ring.r3{top:60%} .ring.r4{top:80%}
+  .stage-tag{
+    position:absolute; right:-14px; transform:translateX(100%); white-space:nowrap;
+    font-family:var(--mono); font-size:9px; letter-spacing:.15em; text-transform:uppercase; color:#5f8593;
+  }
+  .stage-tag.r1{top:calc(20% - 6px)} .stage-tag.r2{top:calc(40% - 6px)}
+  .stage-tag.r3{top:calc(60% - 6px)} .stage-tag.r4{top:calc(80% - 6px)}
+  .bubble{position:absolute; bottom:6%; border-radius:50%; background:rgba(255,255,255,.45); opacity:0}
+  .b1{width:6px;height:6px;left:32%; animation:bub 4.2s 2.6s infinite}
+  .b2{width:4px;height:4px;left:58%; animation:bub 3.4s 3.4s infinite}
+  .b3{width:5px;height:5px;left:46%; animation:bub 5s 3s infinite}
+  .b4{width:3px;height:3px;left:70%; animation:bub 3.8s 4s infinite}
+  .droplet{
+    position:absolute; top:-4%; left:50%; width:16px; height:20px; transform:translateX(-50%);
+    background:var(--aqua); border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
+    filter:drop-shadow(0 0 10px rgba(42,212,224,.7)); animation:dropIn 1s .6s forwards, bob 3s 1.6s ease-in-out infinite; opacity:0;
+  }
+
+  .scrollcue{
+    position:absolute; bottom:26px; left:clamp(24px,6vw,110px);
+    font-family:var(--mono); font-size:10px; letter-spacing:.24em; text-transform:uppercase;
+    color:#6f97a4; display:flex; align-items:center; gap:10px; opacity:0; animation:fade 1s 1.6s forwards;
+  }
+  .scrollcue .bar{width:1px; height:30px; background:linear-gradient(var(--aqua),transparent); animation:cue 1.8s infinite}
+
+  /* ---------- FLOW ---------- */
+  .flow{position:relative; padding:clamp(60px,9vw,120px) clamp(20px,6vw,90px) 80px; max-width:1180px; margin:0 auto}
+  .flow-head{max-width:640px; margin:0 auto 60px; text-align:center}
+  .kicker{
+    font-family:var(--mono); font-size:12px; letter-spacing:.3em; text-transform:uppercase;
+    color:var(--aqua-deep); margin-bottom:16px;
+  }
+  .flow-head h2{font-family:var(--display); font-weight:600; font-size:clamp(28px,4vw,44px); letter-spacing:-.02em; line-height:1.05}
+  .flow-head p{color:var(--ink-soft); margin-top:16px; font-size:clamp(15px,1.5vw,17px)}
+
+  .track{position:relative; padding-left:clamp(46px,7vw,96px)}
+  /* the spine */
+  .spine{position:absolute; left:clamp(20px,3.4vw,44px); top:6px; bottom:60px; width:3px; background:rgba(14,90,115,.16); border-radius:2px}
+  .spine-fill{position:absolute; left:0; top:0; width:100%; height:var(--fill,0%);
+    background:linear-gradient(var(--aqua-soft),var(--aqua) 40%,var(--aqua-deep)); border-radius:2px;
+    box-shadow:0 0 14px rgba(42,212,224,.5); transition:height .15s linear}
+  .spine-fill::after{content:""; position:absolute; bottom:-5px; left:50%; transform:translateX(-50%);
+    width:11px; height:11px; border-radius:50%; background:var(--aqua); box-shadow:0 0 14px 3px rgba(42,212,224,.7)}
+
+  .stage{position:relative; margin-bottom:clamp(30px,5vw,54px); opacity:0; transform:translateY(34px);
+    transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1)}
+  .stage.in{opacity:1; transform:none}
+  .node{position:absolute; left:calc(clamp(20px,3.4vw,44px) - clamp(46px,7vw,96px)); top:4px;
+    width:34px; height:34px; margin-left:-15px; border-radius:50%; background:var(--paper);
+    border:3px solid rgba(14,90,115,.2); display:grid; place-items:center; z-index:2;
+    font-family:var(--mono); font-weight:700; font-size:13px; color:var(--ink-soft);
+    transition:border-color .5s, color .5s, box-shadow .5s, background .5s}
+  .stage.in .node{border-color:var(--aqua); color:var(--aqua-deep); box-shadow:0 0 0 6px rgba(42,212,224,.12)}
+
+  .card{
+    background:var(--paper); border-radius:20px; padding:clamp(22px,3vw,34px);
+    box-shadow:0 1px 0 rgba(6,32,47,.04), 0 18px 40px -24px rgba(6,32,47,.28);
+    border:1px solid rgba(14,90,115,.08); transition:transform .3s, box-shadow .3s;
+  }
+  .card:hover{transform:translateY(-4px); box-shadow:0 24px 50px -26px rgba(6,32,47,.4)}
+  .card-top{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:6px}
+  .stage-no{font-family:var(--mono); font-size:12px; letter-spacing:.2em; color:var(--aqua-deep)}
+  .role{
+    font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+    padding:5px 11px; border-radius:100px; font-weight:700; margin-left:auto;
+  }
+  .role.office{background:#E4F1F6; color:#0A3A54}
+  .role.customer{background:#E7F7F3; color:#0d7a63}
+  .role.installer{background:#FDF0DA; color:#a9660a}
+  .role.auto{background:#EEE8FB; color:#5b3fa6}
+  .card h3{font-family:var(--display); font-weight:600; font-size:clamp(20px,2.4vw,27px); letter-spacing:-.01em; line-height:1.12}
+  .card h3 .h-ar{display:block; font-family:var(--ar); direction:rtl; font-size:.66em; font-weight:600; color:var(--aqua-deep); margin-top:5px}
+  .lead{color:var(--ink-soft); margin:14px 0 18px; font-size:15.5px; max-width:60ch}
+  .steps{list-style:none; display:grid; gap:11px}
+  .steps li{position:relative; padding-left:30px; font-size:15px; color:#22414f}
+  .steps li::before{
+    content:""; position:absolute; left:0; top:7px; width:13px; height:13px; border-radius:50%;
+    border:2px solid var(--aqua); background:radial-gradient(circle at 50% 40%, var(--aqua-soft), transparent 70%);
+  }
+  .callout{
+    margin-top:20px; display:flex; gap:14px; align-items:flex-start;
+    background:linear-gradient(100deg,#FFF7E9,#FEF0D6); border:1px solid #F4D79A;
+    border-radius:14px; padding:16px 18px;
+  }
+  .callout .ic{font-size:20px; line-height:1.2}
+  .callout b{font-family:var(--display); font-weight:600; color:#9a5c05; display:block; font-size:14px; letter-spacing:.01em}
+  .callout p{font-size:14px; color:#7a4d08; margin-top:3px}
+  .callout .ar{color:#8a5a12; font-size:13px; margin-top:5px}
+
+  /* ---------- RULES ---------- */
+  .rules{background:
+      radial-gradient(100% 80% at 100% 0%, #0d4a63 0%, transparent 55%),
+      var(--abyss); color:#EAF6F8; padding:clamp(70px,10vw,120px) clamp(24px,6vw,90px)}
+  .rules-inner{max-width:1120px; margin:0 auto}
+  .rules h2{font-family:var(--display); font-weight:600; font-size:clamp(26px,3.6vw,42px); letter-spacing:-.02em; max-width:16ch}
+  .rules .kicker{color:var(--aqua)}
+  .rules-sub{color:#9cc0cb; margin-top:14px; max-width:48ch}
+  .rule-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; margin-top:48px}
+  .rule{
+    background:linear-gradient(160deg, rgba(14,90,115,.34), rgba(10,58,84,.16));
+    border:1px solid rgba(127,233,240,.16); border-radius:18px; padding:26px 24px;
+    opacity:0; transform:translateY(24px); transition:opacity .6s, transform .6s;
+  }
+  .rule.in{opacity:1; transform:none}
+  .rule .rn{font-family:var(--mono); font-size:12px; color:var(--aqua); letter-spacing:.2em}
+  .rule h4{font-family:var(--display); font-weight:600; font-size:19px; margin:14px 0 8px; line-height:1.2}
+  .rule p{font-size:14px; color:#a9cbd4}
+  .rule .ar{font-family:var(--ar); direction:rtl; color:#7fb0bd; font-size:13px; margin-top:8px}
+
+  /* ---------- FOOTER ---------- */
+  footer{background:var(--abyss); color:#5f8593; text-align:center; padding:34px 24px 42px;
+    font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; border-top:1px solid rgba(127,233,240,.1)}
+  footer .art{color:var(--aqua-soft); font-family:var(--ar); direction:rtl; font-size:13px; letter-spacing:normal; text-transform:none; margin-bottom:10px}
+
+  /* ---------- keyframes ---------- */
+  @keyframes rise{to{opacity:1; transform:none}}
+  @keyframes fade{to{opacity:1}}
+  @keyframes fillUp{to{height:82%}}
+  @keyframes wobble{0%,100%{transform:translateY(0) scaleX(1)}50%{transform:translateY(-2px) scaleX(1.04)}}
+  @keyframes bub{0%{transform:translateY(0); opacity:0}10%{opacity:.6}90%{opacity:.3}100%{transform:translateY(-62vh); opacity:0}}
+  @keyframes dropIn{to{opacity:1}}
+  @keyframes bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(5px)}}
+  @keyframes cue{0%{transform:scaleY(1); transform-origin:top; opacity:1}50%{transform:scaleY(.4); opacity:.4}100%{transform:scaleY(1); opacity:1}}
+
+  /* ---------- responsive ---------- */
+  @media(max-width:860px){
+    .hero{grid-template-columns:1fr; min-height:auto; padding-top:74px; padding-bottom:40px; gap:10px}
+    .column-wrap{height:46vh; order:2; margin-top:20px}
+    .hero-meta{margin-top:28px}
+    .scrollcue{display:none}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none !important; transition:none !important}
+    .hero-eyebrow,.hero h1 span,.hero-ar,.hero-sub,.hero-meta,.col-caption,.scrollcue,.droplet{opacity:1 !important; transform:none !important}
+    .fill{height:82%}
+    .stage,.rule{opacity:1 !important; transform:none !important}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== HERO ===================== -->
+<header class="hero">
+  <div class="hero-copy">
+    <div class="hero-eyebrow">SA'DA H2O · Operations</div>
+    <h1><span>From first drop</span><span>to a lifetime</span><span class="drop">of pure water.</span></h1>
+    <div class="hero-ar">من أول قطرة إلى خدمة تدوم — دليل العمل</div>
+    <p class="hero-sub">The standard operating procedure, stage by stage — how an enquiry becomes an install, a warranty, and a customer we keep.</p>
+    <div class="hero-meta">
+      <div><span class="n">6</span><span class="l">Stages</span></div>
+      <div><span class="n">4</span><span class="l">Roles</span></div>
+      <div><span class="n">24<span style="font-size:14px">mo</span></span><span class="l">Warranty</span></div>
+    </div>
+  </div>
+
+  <div class="column-wrap">
+    <div class="tube" aria-hidden="true">
+      <div class="droplet"></div>
+      <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="ring r4"></div>
+      <div class="stage-tag r1">Enquiry</div>
+      <div class="stage-tag r2">Booking</div>
+      <div class="stage-tag r3">Install</div>
+      <div class="stage-tag r4">Service</div>
+      <div class="fill"></div>
+      <span class="bubble b1"></span><span class="bubble b2"></span><span class="bubble b3"></span><span class="bubble b4"></span>
+    </div>
+    <div class="col-caption">Every stage, purified</div>
+  </div>
+
+  <div class="scrollcue"><span class="bar"></span> Scroll the process</div>
+</header>
+
+<!-- ===================== FLOW ===================== -->
+<section class="flow">
+  <div class="flow-head">
+    <div class="kicker">The Procedure</div>
+    <h2>One flow, end to end</h2>
+    <p>Each stage below is a real step someone performs. The colour tag tells you whose job it is.</p>
+  </div>
+
+  <div class="track">
+    <div class="spine"><div class="spine-fill" id="spineFill"></div></div>
+
+    <!-- 01 -->
+    <div class="stage">
+      <div class="node">01</div>
+      <div class="card">
+        <div class="card-top"><span class="stage-no">STAGE 01</span><span class="role office">Office</span></div>
+        <h3>New enquiry<span class="h-ar">تسجيل عميل مهتم</span></h3>
+        <p class="lead">Someone shows interest — a WhatsApp message, a call, a walk-in, or a referral. Log them so no lead is ever forgotten.</p>
+        <ul class="steps">
+          <li>Capture their name and mobile number — the number is their identity, so get it exactly (<b>+9665…</b>).</li>
+          <li>Note what they're interested in and their area.</li>
+          <li>Move them along as you follow up: New → Contacted → Qualified.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 02 -->
+    <div class="stage">
+      <div class="node">02</div>
+      <div class="card">
+        <div class="card-top"><span class="stage-no">STAGE 02</span><span class="role customer">Customer</span></div>
+        <h3>Customer books<span class="h-ar">حجز الموعد والمنتجات</span></h3>
+        <p class="lead">The customer opens the booking link and chooses what they want and when. They can also be booked in by the office on their behalf.</p>
+        <ul class="steps">
+          <li>They build a basket — any mix of purifiers and a dispenser, each with its own quantity.</li>
+          <li>They pick a free date and time slot for their area.</li>
+          <li>They confirm. A booking reference is created and a confirmation SMS is sent automatically.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 03 -->
+    <div class="stage">
+      <div class="node">03</div>
+      <div class="card">
+        <div class="card-top"><span class="stage-no">STAGE 03</span><span class="role office">Office</span></div>
+        <h3>Assign an installer<span class="h-ar">إسناد الفني</span></h3>
+        <p class="lead">In the dashboard, hand the booking to an installer who covers that region.</p>
+        <ul class="steps">
+          <li>Open Bookings and find the new booking.</li>
+          <li>Assign an active installer for that area.</li>
+          <li>The customer and installer are both notified automatically.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 04 -->
+    <div class="stage">
+      <div class="node">04</div>
+      <div class="card">
+        <div class="card-top"><span class="stage-no">STAGE 04</span><span class="role installer">Installer</span></div>
+        <h3>Install &amp; scan each unit<span class="h-ar">التركيب ومسح كل وحدة</span></h3>
+        <p class="lead">On site, complete the job in the installer app. The app walks you through every unit, one at a time.</p>
+        <ul class="steps">
+          <li>Fill and submit the inspection report first — the job can't be completed without it.</li>
+          <li>Take the installation photo.</li>
+          <li>Scan the QR on each purifier — the app guides you unit by unit (<b>Unit 1 of 2, Unit 2 of 2…</b>).</li>
+          <li>Submit to complete the job.</li>
+        </ul>
+        <div class="callout">
+          <span class="ic">💧</span>
+          <div>
+            <b>One RO = one QR = one warranty. A dispenser has no QR.</b>
+            <p>Scan every purifier. Skip the water dispenser — it needs only the photo, no scan.</p>
+            <p class="ar">كل جهاز تنقية له رمز QR وضمان خاص به. جهاز التوزيع لا يحتاج مسح — فقط الصورة.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 05 -->
+    <div class="stage">
+      <div class="node">05</div>
+      <div class="card">
+        <div class="card-top"><span class="stage-no">STAGE 05</span><span class="role auto">Automatic</span></div>
+        <h3>Warranties activate<span class="h-ar">تفعيل الضمان تلقائياً</span></h3>
+        <p class="lead">The moment the job is marked complete, the system does the paperwork itself — no forms to fill.</p>
+        <ul class="steps">
+          <li>Each scanned purifier becomes its own 24-month warranty.</li>
+          <li>The filter clock (90 days) and annual service clock start automatically.</li>
+          <li>Dispensers are recorded on the booking but carry no warranty.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 06 -->
+    <div class="stage">
+      <div class="node">06</div>
+      <div class="card">
+        <div class="card-top"><span class="stage-no">STAGE 06</span><span class="role office">Office</span></div>
+        <h3>Lifetime service<span class="h-ar">الخدمة الدورية</span></h3>
+        <p class="lead">Keep every customer covered for years — reminders, filter changes, and annual service.</p>
+        <ul class="steps">
+          <li>Send filter and service reminders when they come due.</li>
+          <li>Log each visit — the due-date clock resets from that date.</li>
+          <li>A customer who declines visits can be marked "no service"; their warranty stays valid.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== RULES ===================== -->
+<section class="rules">
+  <div class="rules-inner">
+    <div class="kicker">Keep These Five</div>
+    <h2>The rules everyone remembers</h2>
+    <p class="rules-sub">Small habits that keep the whole system clean — from the office desk to the customer's kitchen.</p>
+    <div class="rule-grid">
+      <div class="rule"><div class="rn">01</div><h4>The number is the customer</h4><p>Every record is tied to the mobile number. Always <b>+9665…</b>, always exact.</p><p class="ar">رقم الجوال هو هوية العميل — دائماً وبدقة.</p></div>
+      <div class="rule"><div class="rn">02</div><h4>Scan every purifier</h4><p>One RO unit = one QR scan = one warranty. Two units means two scans.</p><p class="ar">كل جهاز تنقية = مسح واحد = ضمان واحد.</p></div>
+      <div class="rule"><div class="rn">03</div><h4>Dispensers ride free</h4><p>No QR, no warranty — just the installation photo. Never invent a serial.</p><p class="ar">جهاز التوزيع بدون رمز أو ضمان — فقط الصورة.</p></div>
+      <div class="rule"><div class="rn">04</div><h4>Report before complete</h4><p>No inspection report, no completion. Submit it first, every time.</p><p class="ar">لا إتمام بدون تقرير الفحص — قدّمه أولاً.</p></div>
+      <div class="rule"><div class="rn">05</div><h4>One booking, many units</h4><p>A single visit can install several units. Scan every serialized one before you finish.</p><p class="ar">الحجز الواحد قد يشمل عدة وحدات — امسحها جميعاً.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="art">صــدى — فن النقاء</div>
+  SA'DA H2O · Standard Operating Procedure · Powered by A360
+</footer>
+
+<script>
+  // Reveal stages + light up their spine node as they enter view.
+  const stages = document.querySelectorAll('.stage');
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }});
+  }, {threshold:.28, rootMargin:'0px 0px -8% 0px'});
+  stages.forEach(s=>io.observe(s));
+
+  const rules = document.querySelectorAll('.rule');
+  const io2 = new IntersectionObserver((entries)=>{
+    entries.forEach((e,i)=>{ if(e.isIntersecting){ setTimeout(()=>e.target.classList.add('in'), i*90); io2.unobserve(e.target);} });
+  }, {threshold:.4});
+  rules.forEach(r=>io2.observe(r));
+
+  // The spine fills as you scroll through the flow section — water rising with progress.
+  const track = document.querySelector('.track');
+  const fill = document.getElementById('spineFill');
+  const reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  function updateSpine(){
+    if(reduce){ fill.style.height='100%'; return; }
+    const r = track.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const start = vh*0.75, end = -r.height + vh*0.45;
+    const total = start - end;
+    const p = Math.min(1, Math.max(0, (start - r.top) / total));
+    fill.style.height = (p*100).toFixed(1) + '%';
+  }
+  updateSpine();
+  window.addEventListener('scroll', updateSpine, {passive:true});
+  window.addEventListener('resize', updateSpine);
+</script>
+</body>
+</html>

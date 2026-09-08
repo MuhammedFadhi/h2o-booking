@@ -1,0 +1,421 @@
+/* SA'DA H2O — Inspection Report styles
+   Scoped under .sada-ir | Print-optimized | Mobile-first
+   Layout matches SADA_Domestic_RO_Inspection_Report.pdf */
+
+:root {
+  --ir-green:        #2E6E45;
+  --ir-green-accent: #7EB652;
+  --ir-navy:         #1B2A52;
+  --ir-line:         #d9dde3;
+  --ir-fill:         #f5f7f5;
+  --ir-alt:          #fafafa;
+  --ir-text:         #1f2937;
+  --ir-muted:        #6b7280;
+  --ir-danger:       #b91c1c;
+}
+
+/* ---------- Modal shell ---------- */
+.sada-ir-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15, 23, 42, .55);
+  display: flex; align-items: flex-start; justify-content: center;
+  z-index: 9999;
+  overflow-y: auto;
+  padding: 12px;
+}
+.sada-ir {
+  position: relative;
+  background: #fff;
+  width: 100%; max-width: 900px;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0,0,0,.25);
+  color: var(--ir-text);
+  font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  overflow: hidden;
+  margin: 12px auto;
+}
+.sada-ir__close {
+  position: absolute; top: 14px; right: 18px;
+  border: 0; background: rgba(255,255,255,.9);
+  width: 34px; height: 34px; border-radius: 50%;
+  font-size: 20px; cursor: pointer; color: var(--ir-navy);
+  box-shadow: 0 2px 6px rgba(0,0,0,.15);
+  z-index: 2;
+}
+
+/* ---------- Header ---------- */
+.sada-ir__head {
+  padding: 18px 22px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+  border-bottom: 3px solid var(--ir-green-accent);
+}
+.sada-ir__title h1 {
+  margin: 0; color: var(--ir-green);
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 22px; font-weight: 700; line-height: 1.15;
+}
+.sada-ir__title p {
+  margin: 4px 0 0; color: var(--ir-green);
+  font-size: 14px; direction: rtl; font-weight: 700;
+}
+.sada-ir__logo { height: 48px; width: auto; object-fit: contain; }
+
+/* ---------- Sections ---------- */
+.sada-ir__body { padding: 16px 22px 20px; }
+.sada-ir__section { margin: 14px 0 22px; }
+.sada-ir__section-head {
+  background: var(--ir-green); color: #fff;
+  padding: 8px 12px; border-radius: 4px 4px 0 0;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; font-weight: 700; letter-spacing: .04em;
+}
+.sada-ir__section-head--navy { background: var(--ir-navy); }
+.sada-ir__section-head span[dir="rtl"] { font-weight: 700; }
+
+/* ---------- Client detail grid ---------- */
+.sada-ir__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.sada-ir__field {
+  background: var(--ir-fill);
+  border: 1px solid var(--ir-line);
+  border-radius: 8px;
+  padding: 8px 10px 10px;
+}
+.sada-ir__field label {
+  display: flex; justify-content: space-between; gap: 8px;
+  color: var(--ir-green);
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.sada-ir__field label span[dir="rtl"] {
+  text-transform: none; letter-spacing: 0; direction: rtl;
+}
+.sada-ir__field input,
+.sada-ir__field select,
+.sada-ir__field textarea {
+  width: 100%; box-sizing: border-box;
+  border: 0; background: #fff;
+  border-radius: 5px; padding: 8px;
+  font-size: 14px; color: var(--ir-text);
+  outline: 1px solid #e5e7eb;
+  font-family: inherit;
+}
+.sada-ir__field input:focus,
+.sada-ir__field select:focus,
+.sada-ir__field textarea:focus {
+  outline: 2px solid var(--ir-green-accent);
+}
+.sada-ir__field textarea { min-height: 68px; resize: vertical; }
+.sada-ir__col-span-2 { grid-column: span 2; }
+
+/* ---------- Water analysis ---------- */
+.sada-ir__water {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+.sada-ir__stat {
+  background: var(--ir-fill);
+  border: 1px solid var(--ir-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+}
+.sada-ir__stat label {
+  display: block; color: var(--ir-green);
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.sada-ir__stat .ar {
+  display: block; color: var(--ir-muted);
+  font-size: 11px; direction: rtl; margin-bottom: 6px;
+}
+.sada-ir__stat input {
+  width: 100%; box-sizing: border-box;
+  border: 0; background: #fff;
+  border-radius: 5px; padding: 8px;
+  font-size: 20px; font-weight: 700;
+  text-align: center; color: var(--ir-navy);
+  outline: 1px solid #e5e7eb;
+  font-family: inherit;
+}
+.sada-ir__stat .unit { font-size: 11px; color: var(--ir-muted); margin-top: 2px; }
+.sada-ir__stat--calc { background: #eef8ee; border-color: #cfe8cf; }
+.sada-ir__stat--calc .value {
+  font-size: 22px; font-weight: 800;
+  color: var(--ir-green); padding: 6px 0 2px;
+}
+.sada-ir__stat--calc .value.warn { color: #b45309; }
+.sada-ir__stat--calc .value.bad  { color: var(--ir-danger); }
+
+/* ---------- Checklist ---------- */
+.sada-ir__checklist {
+  border: 1px solid var(--ir-line);
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+}
+.sada-ir__check-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 60px 60px 1.2fr;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ir-line);
+  font-size: 13px;
+}
+.sada-ir__check-row:last-child { border-bottom: 0; }
+.sada-ir__check-row:nth-child(odd) { background: var(--ir-alt); }
+.sada-ir__check-row .name .en { display: block; color: var(--ir-text); font-weight: 600; }
+.sada-ir__check-row .name .ar {
+  display: block; color: var(--ir-muted);
+  font-size: 11px; direction: rtl;
+}
+.sada-ir__check-row .opt { display: flex; justify-content: center; }
+.sada-ir__check-row .remark input {
+  width: 100%; box-sizing: border-box;
+  border: 0; background: #fff;
+  border-radius: 4px; padding: 6px 8px;
+  font-size: 12px; outline: 1px solid #e5e7eb;
+  font-family: inherit;
+}
+.sada-ir__radio {
+  appearance: none; -webkit-appearance: none;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid #b8b8b8; background: #fff;
+  cursor: pointer; margin: 0;
+  transition: all .12s ease-in-out;
+}
+.sada-ir__radio:hover { border-color: var(--ir-green); }
+.sada-ir__radio:checked {
+  border-color: var(--ir-green);
+  background: radial-gradient(circle, var(--ir-green) 55%, #fff 60%);
+}
+.sada-ir__radio[data-val="normal"]:checked {
+  border-color: #d97706;
+  background: radial-gradient(circle, #d97706 55%, #fff 60%);
+}
+.sada-ir__radio[data-val="poor"]:checked {
+  border-color: var(--ir-danger);
+  background: radial-gradient(circle, var(--ir-danger) 55%, #fff 60%);
+}
+.sada-ir__check-head {
+  display: grid;
+  grid-template-columns: 1fr 60px 60px 60px 1.2fr;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--ir-fill);
+  border-bottom: 1px solid var(--ir-line);
+  font-size: 10.5px; font-weight: 700;
+  color: var(--ir-green);
+  text-transform: uppercase; letter-spacing: .04em;
+  text-align: center;
+}
+.sada-ir__check-head :first-child { text-align: left; }
+.sada-ir__check-head :last-child  { text-align: left; }
+
+/* ---------- Signatures ---------- */
+.sada-ir__sigs {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.sada-ir__sig {
+  border: 1px solid var(--ir-line);
+  border-radius: 8px; overflow: hidden;
+}
+.sada-ir__sig-head {
+  background: var(--ir-navy); color: #fff;
+  padding: 7px 12px; font-size: 12px; font-weight: 700;
+  display: flex; justify-content: space-between;
+}
+.sada-ir__sig-body { padding: 8px 10px 10px; }
+.sada-ir__sig-body input {
+  width: 100%; box-sizing: border-box;
+  border: 0; background: #fff;
+  border-radius: 5px; padding: 7px 8px;
+  font-size: 13px; outline: 1px solid #e5e7eb;
+  margin-bottom: 6px;
+  font-family: inherit;
+}
+.sada-ir__pad {
+  background: #fff; border: 1px dashed #cbd5e1;
+  border-radius: 6px; height: 120px;
+  width: 100%; touch-action: none;
+  display: block;
+}
+.sada-ir__pad-actions {
+  margin-top: 6px; display: flex; justify-content: space-between;
+  font-size: 12px;
+}
+.sada-ir__pad-actions button {
+  background: none; border: 0; color: var(--ir-muted);
+  cursor: pointer; text-decoration: underline;
+  padding: 0; font-family: inherit;
+}
+
+/* ---------- Actions bar ---------- */
+.sada-ir__actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 22px 20px;
+  border-top: 1px solid var(--ir-line);
+  background: #fafafa;
+}
+.sada-ir__btn {
+  background: var(--ir-green); color: #fff;
+  border: 0; border-radius: 7px;
+  padding: 10px 18px; font-weight: 600; cursor: pointer;
+  font-size: 14px; font-family: inherit;
+}
+.sada-ir__btn:hover { filter: brightness(1.05); }
+.sada-ir__btn:disabled { opacity: .55; cursor: not-allowed; }
+.sada-ir__btn--ghost {
+  background: #fff; color: var(--ir-text);
+  border: 1px solid var(--ir-line);
+}
+.sada-ir__btn--navy { background: var(--ir-navy); }
+
+/* ---------- Read-only view diffs ---------- */
+.sada-ir--view .sada-ir__field input,
+.sada-ir--view .sada-ir__stat input,
+.sada-ir--view .sada-ir__field textarea,
+.sada-ir--view .sada-ir__sig-body input,
+.sada-ir--view .sada-ir__check-row .remark input {
+  background: transparent; outline: 0;
+  pointer-events: none;
+}
+.sada-ir--view .sada-ir__radio { pointer-events: none; }
+.sada-ir--view .sada-ir__pad-actions { display: none; }
+
+/* ---------- Footer (brand) ---------- */
+.sada-ir__foot {
+  border-top: 3px solid var(--ir-green-accent);
+  padding: 12px 22px 14px;
+  display: flex; justify-content: space-between; align-items: center;
+  color: var(--ir-navy);
+}
+.sada-ir__foot .phone { font-size: 20px; font-weight: 800; }
+.sada-ir__foot .web   { font-size: 13px; font-weight: 700; }
+
+/* ---------- Admin list rows ---------- */
+.sada-ir-list { display: flex; flex-direction: column; gap: 8px; }
+.sada-ir-list__item {
+  padding: 12px 16px; background: white; border: 1px solid var(--ir-line);
+  border-radius: 10px; cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.15s;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.sada-ir-list__item:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); transform: translateY(-1px); }
+.sada-ir-list__title { font-weight: 700; font-size: 14px; color: var(--ir-text); }
+.sada-ir-list__meta  { font-size: 12px; color: var(--ir-muted); margin-top: 2px; }
+.sada-ir-badge {
+  display: inline-block; padding: 3px 10px; border-radius: 12px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+}
+.sada-ir-badge--draft     { background: #f1f5f9; color: #64748b; }
+.sada-ir-badge--submitted { background: #dcfce7; color: #166534; }
+.sada-ir-badge--good      { background: #dcfce7; color: #166534; }
+.sada-ir-badge--warn      { background: #fef3c7; color: #92400e; }
+.sada-ir-badge--bad       { background: #fee2e2; color: #991b1b; }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 640px) {
+  .sada-ir__head { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .sada-ir__grid,
+  .sada-ir__water,
+  .sada-ir__sigs { grid-template-columns: 1fr; }
+  .sada-ir__col-span-2 { grid-column: auto; }
+  .sada-ir__check-row,
+  .sada-ir__check-head { grid-template-columns: 1fr 44px 44px 44px; gap: 4px; }
+  .sada-ir__check-row .remark { grid-column: 1 / -1; margin-top: 6px; }
+  .sada-ir__check-head :last-child { display: none; }
+  .sada-ir__radio { width: 26px; height: 26px; }
+}
+
+/* ---------- Print (PDF via Save-as-PDF) ---------- */
+@media print {
+  /* Hide everything, then reveal only the report — but the report must be
+     PULLED OUT of the modal's centered flex layout and pinned to the page
+     origin, or it prints offset-right with a blank left column (the original
+     bug). position:static on the overlay + absolute top-left on the card. */
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  body * { visibility: hidden !important; }
+  .sada-ir, .sada-ir * { visibility: visible !important; }
+
+  .sada-ir-overlay {
+    position: static !important;
+    inset: auto !important;
+    background: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  .sada-ir {
+    position: absolute !important;
+    left: 0 !important; top: 0 !important;
+    width: 100% !important; max-width: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Tighten everything so the whole report fits one A4 page, not three. */
+  .sada-ir { font-size: 10px !important; }
+  .sada-ir__body { padding: 6px 12px 8px !important; }
+  .sada-ir__section { margin: 5px 0 7px !important; }
+  .sada-ir__section-head { padding: 4px 10px !important; font-size: 10px !important; }
+  .sada-ir__head { padding: 8px 12px 6px !important; }
+  .sada-ir__title h1 { font-size: 16px !important; }
+  .sada-ir__title p  { font-size: 10px !important; }
+  .sada-ir__logo { height: 34px !important; }
+  .sada-ir__grid { gap: 6px !important; }
+  .sada-ir__field input,
+  .sada-ir__field textarea { padding: 3px 6px !important; font-size: 10px !important; }
+  .sada-ir__field label { font-size: 8px !important; margin-bottom: 1px !important; }
+  .sada-ir__field textarea { rows: 2; }
+
+  /* Checklist: the biggest offender. Compress rows hard, collapse the stacked
+     Arabic onto the same line, shrink radios, and let rows FLOW across a page
+     break instead of forcing the whole 13-row block to stay together. */
+  .sada-ir__checklist { page-break-inside: auto !important; }
+  .sada-ir__check-row,
+  .sada-ir__check-head { padding: 2px 8px !important; gap: 4px !important; page-break-inside: avoid !important; }
+  .sada-ir__check-row { font-size: 9.5px !important; }
+  .sada-ir__check-row .name .en { display: inline !important; font-size: 9.5px !important; }
+  .sada-ir__check-row .name .ar { display: inline !important; font-size: 8px !important; margin-right: 4px; }
+  .sada-ir__radio { width: 13px !important; height: 13px !important; border-width: 1.5px !important; }
+  .sada-ir__check-row .remark input { padding: 2px 5px !important; font-size: 9px !important; }
+
+  .sada-ir__water { gap: 8px !important; }
+  .sada-ir__stat { padding: 6px !important; }
+  .sada-ir__stat input { font-size: 12px !important; }
+  .sada-ir__stat--calc .value { font-size: 16px !important; }
+  .sada-ir__sig-body { min-height: 60px !important; }
+  .sada-ir__sig-body img { height: 54px !important; }
+  .sada-ir__foot { padding: 8px 12px !important; }
+  /* Keep these atomic; the checklist is allowed to flow (set above). */
+  .sada-ir__head,
+  .sada-ir__sigs,
+  .sada-ir__water { page-break-inside: avoid; }
+  .sada-ir__section-head { page-break-after: avoid; }
+
+  .sada-ir__close,
+  .sada-ir__actions,
+  .sada-ir__pad-actions { display: none !important; }
+  .sada-ir__pad { border-color: transparent !important; }
+
+  .sada-ir__head,
+  .sada-ir__section-head,
+  .sada-ir__section-head--navy,
+  .sada-ir__sig-head,
+  .sada-ir__foot,
+  .sada-ir__stat--calc {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  @page { size: A4 portrait; margin: 10mm; }
+}

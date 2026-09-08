@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/regis",
+      "destination": "/warranty/claim.html"
+    },
+    {
+      "source": "/regis/",
+      "destination": "/warranty/claim.html"
+    },
+    {
+      "source": "/booking",
+      "destination": "/customer/book.html"
+    },
+    {
+      "source": "/booking/",
+      "destination": "/customer/book.html"
+    }
+  ]
+}

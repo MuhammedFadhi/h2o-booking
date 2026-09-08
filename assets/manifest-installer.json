@@ -1,0 +1,16 @@
+{
+  "name": "SA'DA H2O — Installer",
+  "short_name": "SA'DA Installer",
+  "description": "Installer portal for SA'DA H2O technicians.",
+  "start_url": "/installer/portal.html",
+  "scope": "/installer/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1B3A2D",
+  "background_color": "#0A1628",
+  "icons": [
+    { "src": "/assets/pwa-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

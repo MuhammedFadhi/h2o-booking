@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Activate Your Warranty · SA'DA H2O</title>
+<meta name="description" content="Register your SA'DA H2O water purifier warranty in seconds.">
+<meta name="theme-color" content="#0D3B6E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="../assets/favicon.png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<meta property="og:title" content="Activate Your Warranty · SA'DA H2O">
+<meta property="og:image" content="https://sada-water-booking.vercel.app/assets/og-preview.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../shared/supabase.js"></script>
+<script defer src="../js/warranty.js"></script>
+<script defer src="../js/warranty-certificate.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#fff;--text:#1A2B47;--muted:#607D8B;--border:#CFD8DC;--error:#B71C1C;--success:#15803D;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--foam);color:var(--text);min-height:100dvh;
+     padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
+header{background:linear-gradient(135deg,var(--deep),var(--ocean));color:#fff;padding:26px 20px 22px;text-align:center;}
+header img{height:38px;margin-bottom:9px;}
+h1{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;}
+.sub{font-size:13px;opacity:.85;margin-top:3px;}
+.container{max-width:520px;margin:0 auto;padding:20px 16px 44px;}
+.card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 2px 14px rgba(13,59,110,.06);}
+.pid{display:inline-flex;flex-direction:column;align-items:center;background:var(--foam);border:1px solid var(--border);
+     padding:9px 18px;border-radius:12px;margin:0 auto 18px;}
+.pid .lbl{font-size:9px;letter-spacing:.15em;color:var(--muted);font-weight:700;text-transform:uppercase;}
+.pid .val{font-family:ui-monospace,Menlo,monospace;font-weight:700;color:var(--ocean);font-size:15px;word-break:break-all;}
+.icon{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 15px;font-size:26px;}
+.icon.ok{background:#DCFCE7;} .icon.warn{background:#FEE2E2;} .icon.info{background:var(--foam);}
+h2{font-size:19px;font-weight:800;text-align:center;margin-bottom:7px;}
+.lead{font-size:13.5px;color:var(--muted);text-align:center;line-height:1.65;margin-bottom:19px;}
+label{display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--text);}
+input{width:100%;padding:13px 14px;border:1px solid var(--border);border-radius:11px;font-size:16px;font-family:inherit;background:#fff;color:var(--text);}
+input:focus{outline:none;border-color:var(--water);box-shadow:0 0 0 3px rgba(21,101,192,.1);}
+.btn{width:100%;padding:14px;border:none;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s;}
+.btn:disabled{opacity:.55;cursor:not-allowed;}
+.btn-primary{background:var(--water);color:#fff;}
+.btn-ghost{background:none;border:1px solid var(--border);color:var(--ocean);}
+.msg{padding:11px 13px;border-radius:10px;font-size:12.5px;margin-bottom:13px;display:none;line-height:1.5;}
+.msg.err{background:#FEF2F2;border:1px solid #FECACA;color:var(--error);}
+.msg.ok{background:#F0FDF4;border:1px solid #BBF7D0;color:var(--success);}
+.timer{text-align:center;font-size:12px;color:var(--muted);margin:11px 0;}
+.timer.expired{color:var(--error);font-weight:700;}
+.step{display:none;} .step.active{display:block;}
+.spinner{width:22px;height:22px;border:2.5px solid var(--border);border-top-color:var(--water);border-radius:50%;
+         animation:spin .7s linear infinite;margin:24px auto;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.foot{text-align:center;margin-top:17px;font-size:12px;color:var(--muted);}
+.foot a{color:var(--water);text-decoration:none;font-weight:600;}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+</head>
+<body>
+
+<header>
+  <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O" onerror="this.style.display='none'">
+  <h1>Warranty Activation</h1>
+  <div class="sub">Secure your unit's coverage in seconds</div>
+</header>
+
+<div class="container">
+
+  <!-- LOADING -->
+  <div class="step active" id="step-loading">
+    <div class="card"><div class="spinner"></div>
+      <p style="text-align:center;color:var(--muted);font-size:13px;">Checking your unit…</p></div>
+  </div>
+
+  <!-- NO PID -->
+  <div class="step" id="step-nopid">
+    <div class="card">
+      <div class="icon info">📷</div>
+      <h2>Scan your unit's QR code</h2>
+      <p class="lead">This page activates the warranty on a SA'DA H2O purifier. Scan the QR sticker on your unit to begin.</p>
+      <a href="../customer/portal.html" class="btn btn-ghost" style="display:block;text-align:center;text-decoration:none;">Go to My Account</a>
+    </div>
+  </div>
+
+  <!-- AVAILABLE → phone -->
+  <div class="step" id="step-phone">
+    <div class="card">
+      <div style="text-align:center;"><div class="pid"><span class="lbl">Serial Number</span><span class="val" id="pid-1"></span></div></div>
+      <div class="icon ok">🛡️</div>
+      <h2 id="phone-title">Activate Warranty</h2>
+      <p class="lead" id="phone-lead">Enter the mobile number you booked with — we'll pull up your details automatically.</p>
+      <div class="msg err" id="err-phone"></div>
+      <div style="margin-bottom:15px;">
+        <label for="phone">Mobile Number</label>
+        <input type="tel" id="phone" inputmode="numeric" placeholder="05XX XXX XXXX" autocomplete="tel">
+      </div>
+      <button class="btn btn-primary" id="btn-otp" onclick="sendOTP()">Activate →</button>
+    </div>
+  </div>
+
+  <!-- OTP -->
+  <div class="step" id="step-otp">
+    <div class="card">
+      <div class="icon info">💬</div>
+      <h2>Enter the code</h2>
+      <p class="lead">Sent to <strong id="otp-phone"></strong></p>
+      <div class="msg err" id="err-otp"></div>
+      <div class="msg ok" id="ok-otp"></div>
+      <div style="margin-bottom:5px;">
+        <label for="otp">6-Digit Code</label>
+        <input type="text" id="otp" inputmode="numeric" maxlength="6" placeholder="••••••"
+               style="text-align:center;letter-spacing:.45em;font-weight:700;font-size:20px;">
+      </div>
+      <div class="timer" id="timer-text">Expires in <span id="countdown">2:00</span></div>
+      <button class="btn btn-primary" id="btn-verify" onclick="verifyOTP()">Verify &amp; View</button>
+      <button class="btn btn-ghost" id="btn-resend" onclick="resendOTP()" style="margin-top:9px;" disabled>Resend Code</button>
+    </div>
+  </div>
+
+  <!-- PROFILE (repeat scan, after OTP) -->
+  <div class="step" id="step-profile">
+    <div class="card">
+      <div id="profile-body"></div>
+      <a href="../customer/portal.html" class="btn btn-ghost" style="display:block;text-align:center;text-decoration:none;margin-top:12px;">Full account portal →</a>
+    </div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div class="step" id="step-done">
+    <div class="card">
+      <div class="icon ok">✅</div>
+      <h2 id="done-title">Warranty Activated</h2>
+      <p class="lead" id="done-lead"></p>
+      <div id="done-summary" style="background:var(--foam);border-radius:12px;padding:14px;font-size:13px;margin-bottom:17px;"></div>
+      <a href="../customer/portal.html" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;">View My Units →</a>
+    </div>
+  </div>
+
+  <!-- TAKEN BY SOMEONE ELSE -->
+  <div class="step" id="step-taken">
+    <div class="card">
+      <div style="text-align:center;"><div class="pid"><span class="lbl">Serial Number</span><span class="val" id="pid-2"></span></div></div>
+      <div class="icon warn">🔒</div>
+      <h2>Already Registered</h2>
+      <p class="lead">This unit is already protected by an active warranty registered to another account. If you believe this is a mistake, our team can sort it out.</p>
+      <a class="btn btn-primary" id="wa-link" style="display:block;text-align:center;text-decoration:none;background:#10B981;">Contact Support</a>
+      <a href="../customer/portal.html" class="btn btn-ghost" style="display:block;text-align:center;text-decoration:none;margin-top:9px;">Go to My Account</a>
+    </div>
+  </div>
+
+  <div class="foot">Need help? <a id="wa-foot" href="#">Chat with us on WhatsApp</a></div>
+</div>
+
+<script>
+const OTP_EXPIRY_MS = 2 * 60 * 1000;
+const MAX_OTP_ATTEMPTS = 3;
+const SUPPORT_WA = 'https://wa.me/966547989055';
+let timerInterval = null;
+const state = { pid: null, phone: null, otp: null, otpAt: 0, attempts: 0, existing: null };
+
+document.getElementById('wa-link').href = SUPPORT_WA;
+document.getElementById('wa-foot').href = SUPPORT_WA;
+
+function show(id) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function err(id, m) { const e = document.getElementById(id); e.style.display = 'block'; e.textContent = m; }
+function clr(id) { document.getElementById(id).style.display = 'none'; }
+
+/* Phone helpers — identical to customer/book.html. Kept verbatim rather than
+   shared, because book.html has no dependency on warranty.js and vice versa. */
+function formatSaudiPhone(p) {
+  p = p.replace(/\s/g, '');
+  if (p.startsWith('05')) p = '+966' + p.slice(1);
+  if (p.startsWith('5') && p.length === 9) p = '+966' + p;
+  return p;
+}
+function isValidSaudiPhone(p) { return /^\+9665\d{8}$/.test(formatSaudiPhone(p)); }
+function displayPhone(p) { return typeof p === 'string' && p.startsWith('+9665') ? '0' + p.slice(4) : p; }
+
+async function sendSMS(to, body) {
+  try {
+    const r = await fetch('/api/send-sms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Secret-Key': 'sada-h2o-relay-2026-secure' },
+      body: JSON.stringify({ to, body })
+    });
+    if (r.status === 429) {
+      const d = await r.json().catch(() => ({}));
+      return { ok: false, retryMessage: d.error || 'Please wait a moment before requesting another SMS.' };
+    }
+    if (!r.ok) return { ok: false };
+    return { ok: true };
+  } catch (e) { console.error('SMS error:', e); return { ok: false }; }
+}
+
+/* ── boot ────────────────────────────────────────────────────────────────
+   The ?pid= contract is inherited from the PHP app and is printed on every
+   sticker in the field. It must never change.                              */
+window.addEventListener('DOMContentLoaded', async () => {
+  // Accept the serial under any of the common param names the stickers / redirects
+  // might use (pid is the canonical one, but /regis?serial= and others exist in the
+  // field). Fall back to the last path segment if someone used a path-style URL.
+  const qs = new URLSearchParams(location.search);
+  let pid = (qs.get('pid') || qs.get('serial') || qs.get('code') || qs.get('id') || '').trim();
+  if (!pid) {
+    // path-style e.g. /warranty/claim.html/A100... or /regis/A100...
+    const segs = location.pathname.split('/').filter(Boolean);
+    const last = segs[segs.length - 1] || '';
+    if (/^[A-Za-z0-9\-_]{6,}$/.test(last) && !/\.(html?|php)$/i.test(last)) pid = last;
+  }
+  if (!pid) { show('step-nopid'); return; }
+  state.pid = pid;
+  document.getElementById('pid-1').textContent = pid;
+  document.getElementById('pid-2').textContent = pid;
+
+  // Is this serial already activated (belongs to someone)? Determines the flow:
+  //   - not yet active  → first scan → phone-only activation
+  //   - already active  → repeat scan → phone + OTP → profile
+  let activeWarranty = null;
+  try {
+    const { data } = await db.from('warranties').select('id, customer_id, qr_code, status').eq('qr_code', pid).maybeSingle();
+    if (data && data.status && data.status !== 'pending') activeWarranty = data;
+  } catch (e) { /* ignore — treat as unclaimed */ }
+  state.activeWarranty = activeWarranty;
+
+  document.getElementById('phone-title') && (document.getElementById('phone-title').textContent = activeWarranty ? 'View your account' : 'Activate your warranty');
+  document.getElementById('phone-lead') && (document.getElementById('phone-lead').textContent = activeWarranty
+    ? 'Enter your mobile number and we\u2019ll text you a code to view your warranties.'
+    : 'Enter the mobile number you booked with — we\u2019ll pull up your details automatically.');
+  const btnOtp = document.getElementById('btn-otp');
+  if (btnOtp) btnOtp.textContent = activeWarranty ? 'Send Code →' : 'Activate →';
+
+  show('step-phone');
+});
+
+function renderAlreadyYours(w) {
+  document.getElementById('done-title').textContent = 'This unit is yours';
+  document.getElementById('done-lead').textContent = 'Already registered to your account — nothing to do.';
+  document.getElementById('done-summary').innerHTML =
+    '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted);">Serial</span><strong>' + SADA.Warranty.esc(w.qr_code) + '</strong></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted);">Model</span><strong>' + SADA.Warranty.esc(w.product_type) + '</strong></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted);">Registered</span><strong>' + SADA.Warranty.fmtDate(w.registration_date) + '</strong></div>';
+  show('step-done');
+}
+
+async function sendOTP() {
+  const raw = document.getElementById('phone').value.trim();
+  if (!raw) return err('err-phone', 'Please enter your mobile number.');
+  if (!isValidSaudiPhone(raw)) return err('err-phone', 'Please enter a valid mobile number (e.g. 05XX XXX XXXX).');
+  clr('err-phone');
+  const btn = document.getElementById('btn-otp');
+  state.phone = formatSaudiPhone(raw);
+
+  // FIRST SCAN (unit not yet active): activate directly — phone only, no OTP.
+  // The RPC verifies the phone against a real booking, so this is safe.
+  if (!state.activeWarranty) {
+    btn.disabled = true; btn.textContent = 'Activating…';
+    await claim();               // handles success + "no booking" error itself
+    btn.disabled = false; btn.textContent = 'Activate →';
+    return;
+  }
+
+  // REPEAT SCAN (unit already active): require OTP before showing the profile.
+  btn.disabled = true; btn.textContent = 'Sending…';
+  state.otp = Math.floor(100000 + Math.random() * 900000).toString();
+  state.otpAt = Date.now();
+  state.attempts = 0;
+  const sent = await sendSMS(state.phone, `SA'DA H2O: Your verification code is ${state.otp}. It expires in 2 minutes.`);
+  btn.disabled = false; btn.textContent = 'Send Code →';
+  if (!sent.ok) return err('err-phone', sent.retryMessage || 'Failed to send the code. Please try again.');
+
+  document.getElementById('otp-phone').textContent = displayPhone(state.phone);
+  show('step-otp');
+  startTimer();
+}
+
+function startTimer() {
+  let s = 120;
+  const el = document.getElementById('countdown'), txt = document.getElementById('timer-text'),
+        rb = document.getElementById('resend-btn') || document.getElementById('btn-resend');
+  rb.disabled = true; txt.classList.remove('expired');
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    s--;
+    el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    if (s <= 0) { clearInterval(timerInterval); el.textContent = 'Expired'; txt.classList.add('expired'); rb.disabled = false; }
+  }, 1000);
+}
+
+async function resendOTP() {
+  state.otp = Math.floor(100000 + Math.random() * 900000).toString();
+  state.otpAt = Date.now();
+  state.attempts = 0;
+  clr('err-otp');
+  const inp = document.getElementById('otp'); inp.value = ''; inp.disabled = false;
+  const btn = document.getElementById('btn-resend');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const sent = await sendSMS(state.phone, `SA'DA H2O: Your new verification code is ${state.otp}. It expires in 2 minutes.`);
+  btn.textContent = 'Resend Code';
+  if (!sent.ok) { btn.disabled = false; return err('err-otp', sent.retryMessage || 'Failed to resend. Try again shortly.'); }
+  startTimer();
+  const o = document.getElementById('ok-otp'); o.style.display = 'block'; o.textContent = 'A new code has been sent.';
+}
+
+async function verifyOTP() {
+  const v = document.getElementById('otp').value.trim();
+  if (!v || v.length !== 6) return err('err-otp', 'Please enter the 6-digit code.');
+  if (Date.now() - state.otpAt > OTP_EXPIRY_MS) {
+    document.getElementById('otp').disabled = true;
+    document.getElementById('btn-resend').disabled = false;
+    return err('err-otp', 'This code has expired. Please request a new one.');
+  }
+  state.attempts++;
+  if (state.attempts > MAX_OTP_ATTEMPTS) {
+    document.getElementById('otp').disabled = true;
+    document.getElementById('btn-resend').disabled = false;
+    return err('err-otp', 'Too many incorrect attempts. Please request a new code.');
+  }
+  if (v !== state.otp) {
+    const left = MAX_OTP_ATTEMPTS - state.attempts;
+    return err('err-otp', `Incorrect code. ${left} attempt${left === 1 ? '' : 's'} remaining.`);
+  }
+  clearInterval(timerInterval);
+  clr('err-otp');
+  const btn = document.getElementById('btn-verify');
+  btn.disabled = true; btn.textContent = 'Verifying…';
+  localStorage.setItem('sada_customer', JSON.stringify({ phone: state.phone }));
+  await viewProfile();           // OTP is only used on repeat scans → show their account
+  btn.disabled = false; btn.textContent = 'Verify & View';
+}
+
+// Activate via the server RPC: matches the phone to an installed/completed booking,
+// stamps the oldest pending warranty with this serial, pulls the name from the booking.
+async function claim() {
+  const { data, error } = await db.rpc('activate_pending_warranty', { p_phone: state.phone, p_serial: state.pid });
+  if (error) {
+    console.error(error);
+    show('step-phone');
+    return err('err-phone', 'Could not activate the warranty. Please try again or contact support.');
+  }
+  const res = data || {};
+  if (!res.ok) {
+    if (res.reason === 'not_installed_yet') {
+      show('step-phone');
+      return err('err-phone', 'We found your booking, but the installation isn\u2019t marked complete yet. Please try again after your unit is installed, or contact support if it\u2019s already done.');
+    }
+    if (res.reason === 'no_booking' || res.reason === 'no_phone') {
+      show('step-phone');
+      return err('err-phone', 'No booking is linked to this number. Please enter the number used when booking, or contact support.');
+    }
+    show('step-phone');
+    return err('err-phone', 'Could not activate the warranty. Please contact support.');
+  }
+  if (res.reason === 'already_active') { show('step-taken'); return; }
+
+  // Success — remember the session and show the activated card.
+  localStorage.setItem('sada_customer', JSON.stringify({ phone: state.phone }));
+
+  // Fetch the freshly-activated warranty to show its dates.
+  let w = null;
+  if (res.warranty_id) {
+    const { data: wrow } = await db.from('warranties').select('*').eq('id', res.warranty_id).maybeSingle();
+    w = wrow;
+  }
+  document.getElementById('done-title').textContent = 'Warranty Activated';
+  document.getElementById('done-lead').textContent = res.name
+    ? `Thank you, ${res.name}! Your unit is now covered. We'll remind you before your filter is due.`
+    : "Your unit is now covered. We'll remind you before your filter is due.";
+  document.getElementById('done-summary').innerHTML = w ? (
+    '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted);">Serial</span><strong>' + SADA.Warranty.esc(w.qr_code || state.pid) + '</strong></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted);">Model</span><strong>' + SADA.Warranty.esc(w.product_type) + '</strong></div>' +
+    (w.filter_expiry ? '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted);">Filter due</span><strong>' + SADA.Warranty.fmtDate(w.filter_expiry) + '</strong></div>' : '') +
+    (w.service_expiry ? '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted);">Service due</span><strong>' + SADA.Warranty.fmtDate(w.service_expiry) + '</strong></div>' : '') +
+    (w.warranty_expiry ? '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted);">Warranty until</span><strong style="color:var(--success);">' + SADA.Warranty.fmtDate(w.warranty_expiry) + '</strong></div>' : '')
+  ) : '';
+  // Stash the activated warranty for the certificate button.
+  if (w) {
+    window.__lastActivated = {
+      name: res.name || '', serial: w.qr_code || state.pid, product: w.product_type,
+      registrationDate: w.registration_date, filterExpiry: w.filter_expiry,
+      serviceExpiry: w.service_expiry, warrantyExpiry: w.warranty_expiry
+    };
+  }
+  // Offer a link to view their full profile (which will require OTP on a fresh visit).
+  const dLead = document.getElementById('done-summary');
+  if (dLead) dLead.innerHTML += '<div style="margin-top:14px;text-align:center;display:flex;flex-direction:column;gap:8px;">'
+    + '<button class="btn btn-primary" onclick="downloadCert()" style="font-size:13px;">📄 Download Warranty Certificate</button>'
+    + '<button class="btn btn-ghost" onclick="viewProfile()" style="font-size:13px;">View all my warranties →</button></div>';
+  show('step-done');
+}
+
+function downloadCert() {
+  if (window.__lastActivated && window.SADACert) SADACert.open(window.__lastActivated);
+}
+
+// Load and render the customer's profile (their warranties + bookings). Requires
+// a verified session (reached only after OTP on a repeat scan, or right after activation).
+async function viewProfile() {
+  const host = document.getElementById('profile-body');
+  if (!host) { return; }
+  show('step-profile');
+  host.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;">Loading your account…</div>';
+  const cid = await SADA.Warranty.customerIdForPhone(state.phone);
+  if (!cid) { host.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;">No account found for this number.</div>'; return; }
+
+  const [{ data: cust }, { data: warrs }, { data: bks }] = await Promise.all([
+    db.from('customers').select('name, phone').eq('id', cid).maybeSingle(),
+    db.from('warranties').select('*').eq('customer_id', cid).order('created_at', { ascending: false }),
+    db.from('bookings').select('booking_reference, product_model, status, slot_date, installed_at').eq('customer_phone', state.phone).order('slot_date', { ascending: false })
+  ]);
+
+  const esc = SADA.Warranty.esc, fmt = SADA.Warranty.fmtDate;
+  const nm = cust?.name || 'there';
+  window.__profileName = cust?.name || '';
+  window.__profileWarrs = {};
+
+  // Colour-code a due date: overdue (red), due within 30d (amber), else on-track (green).
+  const dueChip = (label, date) => {
+    if (!date) return `<div class="unit-mile"><div class="ml">${label}</div><div class="md" style="color:#94a3b8;">—</div></div>`;
+    const days = Math.ceil((new Date(date) - new Date()) / 86400000);
+    const col = days < 0 ? '#B91C1C' : (days <= 30 ? '#B45309' : '#15803D');
+    const note = days < 0 ? 'Overdue' : (days <= 30 ? `${days}d left` : 'On track');
+    return `<div class="unit-mile"><div class="ml">${label}</div><div class="md" style="color:${col};">${fmt(date)}</div><div class="mn" style="color:${col};">${note}</div></div>`;
+  };
+
+  let html = `<style>
+    .unit-card{border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(13,59,110,.05);}
+    .unit-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+    .unit-name{font-weight:800;font-size:15px;color:var(--text);}
+    .unit-serial{font-size:12px;color:var(--muted);margin-top:2px;}
+    .unit-badge{font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;white-space:nowrap;}
+    .unit-miles{display:flex;gap:8px;margin:12px 0;}
+    .unit-mile{flex:1;text-align:center;background:#F8FAFC;border-radius:9px;padding:8px 4px;}
+    .unit-mile .ml{font-size:9px;text-transform:uppercase;letter-spacing:.3px;color:#94a3b8;}
+    .unit-mile .md{font-size:12px;font-weight:700;margin-top:3px;}
+    .unit-mile .mn{font-size:9px;font-weight:600;margin-top:1px;}
+    .unit-actions{display:flex;gap:8px;}
+    .unit-actions button{flex:1;font-size:12px;padding:8px;border-radius:9px;border:none;cursor:pointer;font-weight:700;font-family:inherit;}
+    .ua-cert{background:var(--water);color:#fff;}
+    .ua-book{background:#F0F6FF;color:var(--ocean);border:1px solid #DBEAFE!important;}
+  </style>
+  <div style="font-size:18px;font-weight:800;margin-bottom:2px;">Hi ${esc(nm)} 👋</div>
+    <div style="color:var(--muted);font-size:13px;margin-bottom:18px;">${esc(displayPhone(state.phone))} · Your SA'DA H₂O account</div>`;
+
+  html += '<div style="font-weight:800;font-size:15px;margin:8px 0 10px;">My Units</div>';
+  if (warrs && warrs.length) {
+    window.__profileWarrs = {};
+    html += warrs.map(w => {
+      const active = w.status === 'active';
+      const pending = w.status === 'pending';
+      const badgeCol = active ? 'background:#DCFCE7;color:#15803D;' : (pending ? 'background:#FFEDD5;color:#C2410C;' : 'background:#F1F5F9;color:#64748B;');
+      const badgeTxt = active ? 'ACTIVE' : (pending ? 'NOT ACTIVATED' : (w.status||'').toUpperCase());
+      window.__profileWarrs[w.id] = {
+        name: nm, serial: w.qr_code || '', product: w.product_type,
+        registrationDate: w.registration_date, filterExpiry: w.filter_expiry,
+        serviceExpiry: w.service_expiry, warrantyExpiry: w.warranty_expiry
+      };
+      return `<div class="unit-card">
+        <div class="unit-head">
+          <div><div class="unit-name">${esc(w.product_type || 'RO Unit')}</div>
+          ${w.qr_code ? `<div class="unit-serial">Serial: ${esc(w.qr_code)}</div>` : '<div class="unit-serial">Scan the QR on the unit to activate</div>'}</div>
+          <span class="unit-badge" style="${badgeCol}">${badgeTxt}</span>
+        </div>
+        <div class="unit-miles">
+          ${dueChip('Filter Due', w.filter_expiry)}
+          ${dueChip('Service Due', w.service_expiry)}
+          ${dueChip('Warranty', w.warranty_expiry)}
+        </div>
+        <div class="unit-actions">
+          ${active ? `<button class="ua-cert" onclick="certFor('${w.id}')">📄 Certificate</button>` : ''}
+          <button class="ua-book" onclick="serviceFor('${w.id}')">🔧 Book a Service Visit</button>
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    html += '<div style="color:var(--muted);font-size:13px;margin-bottom:14px;">No units registered yet.</div>';
+  }
+
+  html += '<div style="font-weight:800;font-size:15px;margin:20px 0 10px;">Booking History</div>';
+  if (bks && bks.length) {
+    html += bks.map(b => `<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;"><strong>${esc(b.product_model || '—')}</strong><span style="font-size:11px;color:var(--muted);font-weight:700;">${esc((b.status||'').toUpperCase())}</span></div>
+      <div style="font-size:12px;color:var(--muted);">Ref: ${esc(b.booking_reference || '')}${b.slot_date ? ' · ' + fmt(b.slot_date) : ''}</div>
+    </div>`).join('');
+  } else {
+    html += '<div style="color:var(--muted);font-size:13px;">No bookings found.</div>';
+  }
+
+  // ---- What would you like to do next? ----
+  html += `
+    <div style="font-weight:800;font-size:15px;margin:22px 0 10px;">Need something else?</div>
+    <div style="display:grid;gap:10px;">
+      <button onclick="requestNewInstall()" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;border:1px solid var(--border);border-radius:12px;background:#fff;cursor:pointer;font-family:inherit;">
+        <span style="font-size:22px;">➕</span>
+        <span><span style="display:block;font-weight:700;font-size:14px;color:var(--text);">Book another installation</span>
+        <span style="display:block;font-size:12px;color:var(--muted);">Add a new unit at this or another address</span></span>
+      </button>
+      <button onclick="requestRepair()" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;border:1px solid var(--border);border-radius:12px;background:#fff;cursor:pointer;font-family:inherit;">
+        <span style="font-size:22px;">🔧</span>
+        <span><span style="display:block;font-weight:700;font-size:14px;color:var(--text);">Report a fault or request a repair</span>
+        <span style="display:block;font-size:12px;color:var(--muted);">Leaks, noise, low flow, taste or any other issue</span></span>
+      </button>
+      <button onclick="contactSupport()" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;border:1px solid #25D366;border-radius:12px;background:#F0FFF4;cursor:pointer;font-family:inherit;">
+        <span style="font-size:22px;">💬</span>
+        <span><span style="display:block;font-weight:700;font-size:14px;color:#128C4A;">Contact us on WhatsApp</span>
+        <span style="display:block;font-size:12px;color:#128C4A;">Any questions or issues — we're here to help</span></span>
+      </button>
+    </div>`;
+
+  host.innerHTML = html;
+}
+
+// Open WhatsApp with a pre-filled message so support has context immediately.
+function waOpen(message) {
+  const url = SUPPORT_WA + '?text=' + encodeURIComponent(message);
+  window.open(url, '_blank');
+}
+
+// Summarise the customer's units so support knows what they own.
+function myUnitsSummary() {
+  const w = window.__profileWarrs || {};
+  const list = Object.values(w).map(u => `${u.product || 'RO unit'}${u.serial ? ' (' + u.serial + ')' : ''}`);
+  return list.length ? list.join(', ') : 'no registered units';
+}
+
+function requestNewInstall() {
+  const name = (window.__profileName || '').trim();
+  waOpen(`Hello SA'DA H2O,\n\nI would like to book another installation.\n\nName: ${name || '-'}\nPhone: ${displayPhone(state.phone)}\n\nPlease let me know the available dates. Thank you.`);
+}
+
+function requestRepair() {
+  const name = (window.__profileName || '').trim();
+  waOpen(`Hello SA'DA H2O,\n\nI need help with a repair / fault on my unit.\n\nName: ${name || '-'}\nPhone: ${displayPhone(state.phone)}\nUnit(s): ${myUnitsSummary()}\n\nIssue: `);
+}
+
+function contactSupport() {
+  const name = (window.__profileName || '').trim();
+  waOpen(`Hello SA'DA H2O,\n\nI have a question about my water purifier.\n\nName: ${name || '-'}\nPhone: ${displayPhone(state.phone)}\n\nMy question: `);
+}
+
+function certFor(wid) {
+  const d = window.__profileWarrs && window.__profileWarrs[wid];
+  if (d && window.SADACert) SADACert.open(d);
+}
+
+// Service visit for one specific unit — pre-fills the unit + its due dates.
+function serviceFor(wid) {
+  const d = (window.__profileWarrs || {})[wid];
+  const name = (window.__profileName || '').trim();
+  const unit = d ? `${d.product || 'RO unit'}${d.serial ? ' (' + d.serial + ')' : ''}` : 'my unit';
+  const due = d && d.filterExpiry ? `\nFilter due: ${SADA.Warranty.fmtDate(d.filterExpiry)}` : '';
+  waOpen(`Hello SA'DA H2O,\n\nI would like to book a service visit (filter replacement / annual service).\n\nName: ${name || '-'}\nPhone: ${displayPhone(state.phone)}\nUnit: ${unit}${due}\n\nPlease let me know the available dates. Thank you.`);
+}
+document.getElementById('otp').addEventListener('keypress', e => { if (e.key === 'Enter') verifyOTP(); });
+document.getElementById('phone').addEventListener('keypress', e => { if (e.key === 'Enter') sendOTP(); });
+</script>
+</body>
+</html>

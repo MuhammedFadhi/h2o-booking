@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Admin Sign In · SA'DA H2O</title>
+  <meta name="theme-color" content="#0A1628">
+  <meta name="description" content="Admin console for SA'DA H2O.">
+
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/apple-touch-icon.png">
+  <link rel="manifest" href="../assets/manifest-admin.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SA'DA Admin">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background:
+        radial-gradient(900px 500px at 12% -6%, rgba(21,101,192,0.35), transparent 60%),
+        radial-gradient(700px 500px at 92% 108%, rgba(201,168,76,0.18), transparent 60%),
+        linear-gradient(160deg, #0A1628 0%, #0D3B6E 60%, #1565C0 100%);
+      min-height: 100dvh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; padding-top: calc(20px + env(safe-area-inset-top));
+      color: #1A2B47;
+    }
+    .login-card {
+      width: 100%; max-width: 420px;
+      background: #FFFFFF;
+      border-radius: 20px;
+      padding: 36px 28px;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    .logo { height: 96px; margin-bottom: 24px; display: block; margin-inline: auto; filter: brightness(0) invert(0.12); }
+    h1 { font-family: 'Playfair Display', serif; font-size: 26px; color: #0A1628; margin-bottom: 6px; letter-spacing: -0.01em; }
+    .subtitle { color: #607D8B; font-size: 14px; margin-bottom: 28px; }
+    .badge {
+      display: inline-block;
+      background: #EEF2FF; color: #0A1628;
+      border: 1px solid #E0E7FF;
+      font-size: 11px; font-weight: 700; padding: 5px 12px;
+      border-radius: 999px; margin-bottom: 20px;
+      text-transform: uppercase; letter-spacing: 1.2px;
+    }
+    .form-group { margin-bottom: 16px; text-align: left; }
+    label { display: block; font-size: 12px; font-weight: 600; color: #1A2B47; margin-bottom: 6px; letter-spacing: 0.3px; }
+    input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 12px;
+      font-family: inherit; font-size: 15px;
+      outline: none;
+      background: #FFF;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input:hover { border-color: #CFD8DC; }
+    input:focus { border-color: #1565C0; box-shadow: 0 0 0 3px rgba(21,101,192,0.15); }
+    .pw-wrap { position: relative; }
+    .pw-toggle {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: 0; color: #607D8B; font-size: 12px; font-weight: 600;
+      cursor: pointer; padding: 6px 8px; border-radius: 6px;
+    }
+    .pw-toggle:hover { background: #F1F5F9; color: #1A2B47; }
+    .btn {
+      width: 100%; padding: 15px; margin-top: 6px;
+      background: linear-gradient(135deg, #0D3B6E, #1565C0);
+      color: #FFF; border: none; border-radius: 12px;
+      font-family: inherit; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: transform 0.1s, box-shadow 0.15s;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(21,101,192,0.4); }
+    .btn:active:not(:disabled) { transform: translateY(0); }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .spinner {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.35); border-top-color: #FFF;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-msg {
+      background: #FEF2F2; border: 1px solid #FECACA; color: #B71C1C;
+      padding: 12px 14px; border-radius: 10px;
+      font-size: 13px; margin-top: 14px; display: none;
+      text-align: left;
+    }
+    .installer-link { margin-top: 22px; font-size: 13px; color: #607D8B; }
+    .installer-link a { color: #1565C0; text-decoration: none; font-weight: 600; }
+    .installer-link a:hover { text-decoration: underline; }
+
+    @media (max-width: 480px) {
+      body { padding: 16px; }
+      .login-card { padding: 28px 22px; border-radius: 18px; }
+      .logo { height: 78px; margin-bottom: 20px; }
+      h1 { font-size: 22px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .btn { transition: none; }
+      .spinner { animation: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="login-card" role="main">
+  <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O" class="logo">
+  <span class="badge">Admin Console</span>
+  <h1>Welcome back</h1>
+  <p class="subtitle">Sign in to manage bookings, slots and installers</p>
+
+  <div class="form-group">
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="you@sadawater.com" autocomplete="email" autocapitalize="none" inputmode="email">
+  </div>
+  <div class="form-group">
+    <label for="password">Password</label>
+    <div class="pw-wrap">
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+      <button type="button" class="pw-toggle" id="pw-toggle" aria-label="Show password">Show</button>
+    </div>
+  </div>
+
+  <div class="error-msg" id="error-msg" role="alert" aria-live="polite"></div>
+
+  <button class="btn" id="login-btn" type="button">Sign in</button>
+
+  <div class="installer-link">
+    Are you an installer? <a href="../installer/login.html">Installer Portal →</a>
+  </div>
+</div>
+
+<script src="../shared/supabase.js"></script>
+<script>
+  // Already signed in? Skip to dashboard.
+  db.auth.getSession().then(({ data: { session } }) => {
+    if (session) window.location.href = 'dashboard.html';
+  });
+
+  const emailEl = document.getElementById('email');
+  const passEl  = document.getElementById('password');
+  const btn     = document.getElementById('login-btn');
+  const errEl   = document.getElementById('error-msg');
+  const toggle  = document.getElementById('pw-toggle');
+
+  toggle.addEventListener('click', () => {
+    const now = passEl.type === 'password' ? 'text' : 'password';
+    passEl.type = now;
+    toggle.textContent = now === 'password' ? 'Show' : 'Hide';
+    toggle.setAttribute('aria-label', now === 'password' ? 'Show password' : 'Hide password');
+  });
+  passEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+  emailEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') passEl.focus(); });
+  btn.addEventListener('click', doLogin);
+
+  async function doLogin() {
+    const email = emailEl.value.trim();
+    const password = passEl.value;
+    errEl.style.display = 'none';
+
+    if (!email || !password) {
+      errEl.textContent = 'Please enter your email and password.';
+      errEl.style.display = 'block';
+      return;
+    }
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Signing in…';
+
+    const { error } = await db.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      errEl.textContent = 'Invalid credentials. Please try again.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+      return;
+    }
+    window.location.href = 'dashboard.html';
+  }
+</script>
+</body>
+</html>

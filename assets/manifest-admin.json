@@ -1,0 +1,16 @@
+{
+  "name": "SA'DA H2O — Admin Console",
+  "short_name": "SA'DA Admin",
+  "description": "Admin console for SA'DA H2O bookings, installers, and slots.",
+  "start_url": "/admin/dashboard.html",
+  "scope": "/admin/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0A1628",
+  "background_color": "#0A1628",
+  "icons": [
+    { "src": "/assets/pwa-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

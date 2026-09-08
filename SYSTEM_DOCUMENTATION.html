@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SA'DA H2O System Reference</title>
+<style>
+  html{ background:#F1F3EF; }
+  @media (prefers-color-scheme: dark){
+    html:not([data-theme="light"]){ background:#0B1615; }
+  }
+  html[data-theme="dark"]{ background:#0B1615; }
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --paper:#F1F3EF;
+    --paper-raised:#FFFFFF;
+    --ink:#101B19;
+    --ink-soft:#465650;
+    --line:#D8DED9;
+    --accent:#0E7C86;
+    --accent-ink:#063F45;
+    --accent-soft:#DCEEEC;
+    --gold:#9C7626;
+    --gold-soft:#F1E6CE;
+    --ok:#2E7D46;
+    --ok-soft:#DFF0E2;
+    --warn:#9C7626;
+    --warn-soft:#F1E6CE;
+    --danger:#AE3B3B;
+    --danger-soft:#F6DEDE;
+    --code-bg:#0F211F;
+    --code-ink:#CFE8E3;
+    --shadow: 0 1px 2px rgba(16,27,25,.06), 0 8px 24px -12px rgba(16,27,25,.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0B1615;
+      --paper-raised:#111F1D;
+      --ink:#E7EFEC;
+      --ink-soft:#A9BDB6;
+      --line:#22332F;
+      --accent:#3FB6BE;
+      --accent-ink:#CFF3F1;
+      --accent-soft:#132C2C;
+      --gold:#D8B569;
+      --gold-soft:#2A2313;
+      --ok:#6FCB8B;
+      --ok-soft:#123322;
+      --warn:#D8B569;
+      --warn-soft:#2A2313;
+      --danger:#E28A8A;
+      --danger-soft:#331717;
+      --code-bg:#081312;
+      --code-ink:#B9E4DD;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0B1615;
+    --paper-raised:#111F1D;
+    --ink:#E7EFEC;
+    --ink-soft:#A9BDB6;
+    --line:#22332F;
+    --accent:#3FB6BE;
+    --accent-ink:#CFF3F1;
+    --accent-soft:#132C2C;
+    --gold:#D8B569;
+    --gold-soft:#2A2313;
+    --ok:#6FCB8B;
+    --ok-soft:#123322;
+    --warn:#D8B569;
+    --warn-soft:#2A2313;
+    --danger:#E28A8A;
+    --danger-soft:#331717;
+    --code-bg:#081312;
+    --code-ink:#B9E4DD;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Work Sans', ui-sans-serif, system-ui, sans-serif;
+    font-size:16px;
+    line-height:1.6;
+  }
+  ::selection{ background:var(--accent-soft); color:var(--accent-ink); }
+
+  h1,h2,h3,h4{
+    font-family:'Fraunces', Georgia, 'Times New Roman', serif;
+    font-weight:600;
+    color:var(--ink);
+    text-wrap:balance;
+    line-height:1.15;
+    margin:0;
+  }
+  a{ color:var(--accent); }
+  code, .mono{ font-family:'IBM Plex Mono', ui-monospace, Consolas, monospace; }
+
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.72rem;
+    letter-spacing:.11em;
+    text-transform:uppercase;
+    color:var(--gold);
+    font-weight:600;
+  }
+
+  /* ---------- shell layout ---------- */
+  .shell{
+    display:grid;
+    grid-template-columns: 264px minmax(0,1fr);
+    max-width:1240px;
+    margin:0 auto;
+  }
+  .toc{
+    position:sticky;
+    top:0;
+    align-self:start;
+    height:100vh;
+    overflow-y:auto;
+    padding:2.25rem 1.25rem 2rem 1.75rem;
+    border-right:1px solid var(--line);
+  }
+  .toc-brand{
+    display:flex;
+    align-items:center;
+    gap:.6rem;
+    margin-bottom:1.6rem;
+  }
+  .drop{
+    width:26px; height:26px; flex:none;
+  }
+  .toc-brand strong{
+    font-family:'Fraunces', serif;
+    font-size:1.05rem;
+    font-weight:600;
+  }
+  .toc nav{ display:flex; flex-direction:column; gap:.15rem; }
+  .toc nav a{
+    text-decoration:none;
+    color:var(--ink-soft);
+    font-size:.86rem;
+    padding:.4rem .6rem;
+    border-radius:6px;
+    border-left:2px solid transparent;
+  }
+  .toc nav a:hover{ color:var(--ink); background:var(--paper-raised); }
+  .toc nav a.active{
+    color:var(--accent-ink);
+    border-left-color:var(--accent);
+    background:var(--accent-soft);
+    font-weight:600;
+  }
+  .toc-foot{
+    margin-top:1.75rem;
+    padding-top:1rem;
+    border-top:1px solid var(--line);
+    font-size:.74rem;
+    color:var(--ink-soft);
+  }
+
+  main{ padding:0; min-width:0; }
+
+  .menu-toggle{ display:none; }
+
+  /* ---------- hero ---------- */
+  .hero{
+    padding:3.2rem 3rem 2.6rem;
+    border-bottom:1px solid var(--line);
+    background:
+      radial-gradient(680px 320px at 88% -10%, var(--accent-soft), transparent 70%),
+      var(--paper);
+  }
+  .hero .eyebrow{ margin-bottom:.9rem; display:block; }
+  .hero h1{
+    font-size:clamp(2.1rem, 3.4vw, 3rem);
+    max-width:16ch;
+  }
+  .hero p.lede{
+    margin-top:1rem;
+    max-width:62ch;
+    font-size:1.08rem;
+    color:var(--ink-soft);
+  }
+  .hero-meta{
+    display:flex; flex-wrap:wrap; gap:.5rem;
+    margin-top:1.5rem;
+  }
+  .pill{
+    display:inline-flex; align-items:center; gap:.4rem;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:.74rem;
+    padding:.32rem .7rem;
+    border-radius:99px;
+    border:1px solid var(--line);
+    background:var(--paper-raised);
+    color:var(--ink-soft);
+  }
+  .pill b{ color:var(--ink); font-weight:600; }
+  .pill .dot{ width:6px; height:6px; border-radius:50%; background:var(--ok); flex:none; }
+
+  /* ---------- sections ---------- */
+  section{
+    padding:2.75rem 3rem;
+    border-bottom:1px solid var(--line);
+    scroll-margin-top:1rem;
+  }
+  section:last-of-type{ border-bottom:none; }
+  .section-head{ margin-bottom:1.5rem; }
+  .section-head .eyebrow{ margin-bottom:.5rem; display:block; }
+  .section-head h2{ font-size:1.6rem; }
+  .section-head p{ margin:.6rem 0 0; color:var(--ink-soft); max-width:70ch; }
+
+  p{ margin:0 0 .9rem; }
+  p:last-child{ margin-bottom:0; }
+
+  /* ---------- architecture diagram ---------- */
+  .diagram-card{
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:1.4rem 1.4rem .8rem;
+    box-shadow:var(--shadow);
+    overflow-x:auto;
+  }
+  .diagram-card svg{ display:block; min-width:640px; width:100%; height:auto; }
+  .diagram-caption{
+    font-size:.8rem; color:var(--ink-soft); padding:.7rem .2rem .2rem;
+  }
+
+  /* ---------- stat tiles ---------- */
+  .stat-row{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(140px,1fr));
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    border-radius:12px;
+    overflow:hidden;
+  }
+  .stat{
+    background:var(--paper-raised);
+    padding:1.1rem 1.2rem;
+  }
+  .stat .n{
+    font-family:'Fraunces', serif;
+    font-size:1.9rem;
+    font-weight:600;
+    font-variant-numeric:tabular-nums;
+  }
+  .stat .l{ font-size:.76rem; color:var(--ink-soft); margin-top:.15rem; }
+
+  /* ---------- tech grid ---------- */
+  .tech-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(240px,1fr));
+    gap:1rem;
+  }
+  .tech-card{
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:1.2rem 1.3rem;
+    box-shadow:var(--shadow);
+  }
+  .tech-card h3{
+    font-family:'Work Sans',sans-serif;
+    font-size:.72rem;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--accent-ink);
+    font-weight:700;
+    margin-bottom:.75rem;
+  }
+  .tech-card ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.55rem;}
+  .tech-card li{ display:flex; justify-content:space-between; gap:.8rem; font-size:.88rem; align-items:baseline; }
+  .tech-card li .t-name{ color:var(--ink); font-weight:500; }
+  .tech-card li .t-detail{ color:var(--ink-soft); font-size:.78rem; text-align:right; }
+
+  /* ---------- interfaces ---------- */
+  .card-row{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(260px,1fr));
+    gap:1.1rem;
+  }
+  .iface-card{
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:1.4rem 1.4rem 1.5rem;
+    box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:.7rem;
+  }
+  .iface-card .badge{
+    align-self:flex-start;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.68rem;
+    padding:.22rem .55rem;
+    border-radius:5px;
+    background:var(--accent-soft);
+    color:var(--accent-ink);
+    font-weight:600;
+  }
+  .iface-card h3{ font-size:1.15rem; }
+  .iface-card .path{ color:var(--ink-soft); font-size:.8rem; }
+  .iface-card ol{ margin:0; padding-left:1.15rem; font-size:.88rem; color:var(--ink-soft); display:flex; flex-direction:column; gap:.3rem;}
+  .iface-card ol b{ color:var(--ink); font-weight:600; }
+
+  /* ---------- data model ---------- */
+  .table-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--paper-raised); box-shadow:var(--shadow);}
+  table{ border-collapse:collapse; width:100%; font-size:.86rem; min-width:640px;}
+  thead th{
+    text-align:left;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.7rem;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    padding:.75rem 1rem;
+    border-bottom:1px solid var(--line);
+    background:var(--paper);
+  }
+  tbody td{
+    padding:.75rem 1rem;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.tname{ font-family:'IBM Plex Mono',monospace; font-weight:600; color:var(--accent-ink); white-space:nowrap; }
+  td.tdesc{ color:var(--ink-soft); }
+
+  /* ---------- flow list ---------- */
+  .flow-list{ display:flex; flex-direction:column; gap:0; }
+  .flow-item{
+    display:grid;
+    grid-template-columns:2.6rem minmax(0,1fr);
+    gap:1rem;
+    padding:1.15rem 0;
+    border-bottom:1px solid var(--line);
+  }
+  .flow-item:last-child{ border-bottom:none; }
+  .flow-icon{
+    width:2.6rem; height:2.6rem; border-radius:9px;
+    background:var(--accent-soft); color:var(--accent-ink);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Fraunces',serif; font-weight:600; font-size:1.05rem;
+  }
+  .flow-item h4{ font-size:1.02rem; margin-bottom:.3rem; }
+  .flow-item p{ color:var(--ink-soft); font-size:.9rem; }
+  .flow-item .rule{
+    display:inline-block; margin-top:.5rem;
+    font-family:'IBM Plex Mono',monospace; font-size:.74rem;
+    background:var(--gold-soft); color:var(--gold);
+    padding:.2rem .5rem; border-radius:5px;
+  }
+
+  /* ---------- migration ledger ---------- */
+  .ledger{ border-left:2px solid var(--line); margin-left:.55rem; }
+  .ledger-item{
+    position:relative;
+    padding:0 0 1.35rem 1.6rem;
+  }
+  .ledger-item:last-child{ padding-bottom:0; }
+  .ledger-item::before{
+    content:'';
+    position:absolute; left:-6.5px; top:.3rem;
+    width:11px; height:11px; border-radius:50%;
+    background:var(--paper-raised);
+    border:2px solid var(--accent);
+  }
+  .ledger-item.superseded::before{ border-color:var(--ink-soft); }
+  .ledger-head{ display:flex; align-items:baseline; gap:.65rem; flex-wrap:wrap; }
+  .ledger-v{ font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:.86rem; color:var(--accent-ink); }
+  .ledger-title{ font-weight:600; font-size:.92rem; }
+  .ledger-item p{ margin-top:.3rem; color:var(--ink-soft); font-size:.86rem; max-width:70ch; }
+  .tag-superseded{
+    font-family:'IBM Plex Mono',monospace; font-size:.68rem;
+    color:var(--danger); background:var(--danger-soft);
+    padding:.1rem .45rem; border-radius:4px;
+  }
+
+  /* ---------- file map ---------- */
+  .filemap{ font-size:.86rem; }
+  .filemap td.tname{ white-space:normal; }
+
+  /* ---------- callouts ---------- */
+  .callout{
+    border-radius:12px;
+    padding:1rem 1.2rem;
+    border:1px solid var(--line);
+    display:flex; gap:.85rem;
+    margin-bottom:.9rem;
+  }
+  .callout:last-child{ margin-bottom:0; }
+  .callout .mark{ font-family:'Fraunces',serif; font-weight:700; font-size:1.1rem; flex:none; }
+  .callout.warn{ background:var(--warn-soft); border-color:transparent; }
+  .callout.warn .mark{ color:var(--warn); }
+  .callout.danger{ background:var(--danger-soft); border-color:transparent; }
+  .callout.danger .mark{ color:var(--danger); }
+  .callout.ok{ background:var(--ok-soft); border-color:transparent; }
+  .callout.ok .mark{ color:var(--ok); }
+  .callout h4{ font-size:.92rem; margin-bottom:.25rem; }
+  .callout p{ font-size:.85rem; color:var(--ink-soft); margin:0; }
+
+  footer{
+    padding:2rem 3rem 3rem;
+    color:var(--ink-soft);
+    font-size:.8rem;
+  }
+
+  @media (max-width: 880px){
+    .shell{ grid-template-columns:1fr; }
+    .toc{
+      position:fixed; inset:0 30% 0 0; z-index:50;
+      transform:translateX(-100%);
+      transition:transform .25s ease;
+      background:var(--paper); width:78%; height:100vh;
+      box-shadow:var(--shadow);
+    }
+    .toc.open{ transform:translateX(0); }
+    .menu-toggle{
+      display:flex; align-items:center; gap:.5rem;
+      position:sticky; top:0; z-index:40;
+      background:var(--paper); border-bottom:1px solid var(--line);
+      padding:.85rem 1.2rem; font-family:'IBM Plex Mono',monospace;
+      font-size:.78rem; color:var(--ink);
+      cursor:pointer;
+    }
+    .scrim{
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:45;
+    }
+    .scrim.open{ display:block; }
+    .hero, section{ padding-left:1.4rem; padding-right:1.4rem; }
+    footer{ padding-left:1.4rem; padding-right:1.4rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    html{ scroll-behavior:auto; }
+    .toc{ transition:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="menu-toggle" id="menuToggle">☰&nbsp;&nbsp;Contents</div>
+  <div class="scrim" id="scrim"></div>
+
+  <aside class="toc" id="toc">
+    <div class="toc-brand">
+      <svg class="drop" viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 11.2 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 11.2 12 2 12 2Z" fill="var(--accent)"/></svg>
+      <strong>SA'DA H2O</strong>
+    </div>
+    <nav id="tocNav">
+      <a href="#overview">Overview</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#stack">Tech stack</a>
+      <a href="#interfaces">The three interfaces</a>
+      <a href="#data-model">Data model</a>
+      <a href="#flows">Key flows</a>
+      <a href="#migrations">Migration history</a>
+      <a href="#infra">Infrastructure &amp; ops</a>
+      <a href="#files">File map</a>
+      <a href="#risks">Known risks</a>
+    </nav>
+    <div class="toc-foot">
+      Reference doc, compiled from the repository at<br>
+      <span class="mono">sada-water-booking</span> · generated by Claude
+    </div>
+  </aside>
+
+  <main>
+    <header class="hero" id="overview">
+      <span class="eyebrow">System reference · booking &amp; warranty platform</span>
+      <h1>SA'DA H2O — Installation Booking &amp; Warranty System</h1>
+      <p class="lede">
+        A browser-only web app that runs the full lifecycle of a SA'DA H2O reverse-osmosis
+        water-purifier sale in Saudi Arabia's Eastern Province: a customer books an installation →
+        an installer completes the job and scans each unit's QR → each unit becomes a warranty →
+        the warranty drives filter and service reminders. One admin dashboard runs all of it.
+      </p>
+      <div class="hero-meta">
+        <span class="pill"><span class="dot"></span><b>No build step</b> — static HTML + CDN scripts</span>
+        <span class="pill">Hosted on <b>Vercel</b></span>
+        <span class="pill">Data on <b>Supabase</b> (Postgres, Bahrain region)</span>
+        <span class="pill">SMS via <b>Taqnyat</b> relay</span>
+        <span class="pill">44 migrations shipped</span>
+      </div>
+    </header>
+
+    <!-- ================= ARCHITECTURE ================= -->
+    <section id="architecture">
+      <div class="section-head">
+        <span class="eyebrow">01 — How the pieces fit</span>
+        <h2>Architecture</h2>
+        <p>Three static front ends talk directly to Supabase with a public anon key; a thin
+        layer of Vercel serverless functions holds the two things a browser must never hold —
+        the Supabase service-role key and the SMS relay's shared secret.</p>
+      </div>
+
+      <div class="diagram-card">
+        <svg viewBox="0 0 1080 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Architecture diagram">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"/>
+            </marker>
+          </defs>
+          <style>
+            .lbl{ font-family:'IBM Plex Mono',monospace; font-size:12px; fill:var(--ink-soft); }
+            .box-t{ font-family:'Work Sans',sans-serif; font-size:14px; font-weight:600; fill:var(--ink); }
+            .box-s{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; fill:var(--ink-soft); }
+            .edge{ stroke:var(--ink-soft); stroke-width:1.4; fill:none; }
+          </style>
+
+          <!-- Client apps column -->
+          <g>
+            <rect x="20" y="20" width="230" height="90" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+            <text x="40" y="46" class="box-t">customer/book.html</text>
+            <text x="40" y="63" class="box-s">public · OTP identity</text>
+            <text x="40" y="78" class="box-s">4-step wizard, no login</text>
+
+            <rect x="20" y="130" width="230" height="90" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+            <text x="40" y="156" class="box-t">admin/dashboard.html</text>
+            <text x="40" y="173" class="box-s">Supabase Auth (email+pw)</text>
+            <text x="40" y="188" class="box-s">bookings · warranties · SMS</text>
+
+            <rect x="20" y="240" width="230" height="90" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+            <text x="40" y="266" class="box-t">installer/portal.html</text>
+            <text x="40" y="283" class="box-s">passcode login · PWA</text>
+            <text x="40" y="298" class="box-s">QR scan (jsQR) · signature</text>
+          </g>
+          <text x="30" y="360" class="lbl">3 static front ends — vanilla HTML/CSS/JS, no framework, no bundler</text>
+
+          <!-- arrows to supabase -->
+          <path class="edge" d="M250,65 C 340,65 340,190 430,190" marker-end="url(#arrow)"/>
+          <path class="edge" d="M250,175 L430,190" marker-end="url(#arrow)"/>
+          <path class="edge" d="M250,285 C 340,285 340,200 430,192" marker-end="url(#arrow)"/>
+
+          <!-- Supabase -->
+          <rect x="440" y="120" width="230" height="150" rx="10" fill="var(--paper)" stroke="var(--ink-soft)"/>
+          <text x="460" y="148" class="box-t">Supabase</text>
+          <text x="460" y="166" class="box-s">Postgres · Bahrain region</text>
+          <text x="460" y="184" class="box-s">Row-Level Security (RLS)</text>
+          <text x="460" y="200" class="box-s">Auth (admin email+pw)</text>
+          <text x="460" y="216" class="box-s">Storage (proof photos)</text>
+          <text x="460" y="232" class="box-s">Realtime (booking changes)</text>
+          <text x="460" y="248" class="box-s">anon key hard-coded client-side —</text>
+          <text x="460" y="260" class="box-s">by design; RLS is the real gate</text>
+
+          <!-- arrow supabase to vercel functions (dashed, admin ops only) -->
+          <path class="edge" d="M460,120 C 420,90 420,55 260,55" marker-end="url(#arrow)" stroke-dasharray="4 3"/>
+
+          <!-- Vercel functions -->
+          <rect x="440" y="20" width="230" height="80" rx="10" fill="var(--gold-soft)" stroke="var(--gold)"/>
+          <text x="460" y="46" class="box-t">Vercel functions /api</text>
+          <text x="460" y="63" class="box-s">holds SERVICE_ROLE_KEY</text>
+          <text x="460" y="78" class="box-s">admin JWT + allowlist check</text>
+
+          <path class="edge" d="M670,60 L780,60" marker-end="url(#arrow)"/>
+          <path class="edge" d="M670,195 C 720,195 720,130 780,90" marker-end="url(#arrow)"/>
+
+          <!-- SMS relay -->
+          <rect x="790" y="20" width="270" height="90" rx="10" fill="var(--paper)" stroke="var(--ink-soft)"/>
+          <text x="810" y="46" class="box-t">DigitalOcean droplet</text>
+          <text x="810" y="63" class="box-s">206.189.42.165:443 · PM2 + Node</text>
+          <text x="810" y="78" class="box-s">self-signed cert, static IP</text>
+          <text x="810" y="93" class="box-s">(required by Saudi telecom law)</text>
+
+          <path class="edge" d="M925,110 L925,150" marker-end="url(#arrow)"/>
+          <rect x="790" y="160" width="270" height="60" rx="10" fill="var(--paper-raised)" stroke="var(--line)"/>
+          <text x="810" y="186" class="box-t">Taqnyat SMS gateway</text>
+          <text x="810" y="203" class="box-s">sender ID: SADA.co</text>
+
+          <!-- QR / physical layer -->
+          <path class="edge" d="M135,330 L135,370" marker-end="url(#arrow)"/>
+          <rect x="20" y="378" width="920" height="34" rx="8" fill="var(--paper)" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <text x="40" y="400" class="box-s">Physical layer — a QR sticker is printed per serialized RO unit; scanning it (installer, then customer) drives warranty status</text>
+        </svg>
+      </div>
+      <p class="diagram-caption">Solid arrows = data reads/writes at runtime. Dashed arrow = the service-role path used only by <span class="mono">/api/admin/*</span> endpoints, migrated one panel at a time from the dashboard's direct client.</p>
+    </section>
+
+    <!-- ================= TECH STACK ================= -->
+    <section id="stack">
+      <div class="section-head">
+        <span class="eyebrow">02 — What it's built with</span>
+        <h2>Technology stack</h2>
+        <p>Deliberately framework-free. Every page is edited directly and deploys the moment it's pushed — there is nothing to compile.</p>
+      </div>
+
+      <div class="tech-grid">
+        <div class="tech-card">
+          <h3>Front end</h3>
+          <ul>
+            <li><span class="t-name">Vanilla HTML / CSS / JS</span><span class="t-detail">no framework, no bundler</span></li>
+            <li><span class="t-name">shared/theme.css</span><span class="t-detail">design tokens, dark-first admin/installer</span></li>
+            <li><span class="t-name">shared/ui.js</span><span class="t-detail">toasts, modals, skeletons, CSV export</span></li>
+            <li><span class="t-name">Leaflet 1.9.4</span><span class="t-detail">map + address pin (customer)</span></li>
+            <li><span class="t-name">jsQR</span><span class="t-detail">in-browser QR decode, rear camera</span></li>
+            <li><span class="t-name">signature_pad 4.2.0</span><span class="t-detail">installer sign-off capture</span></li>
+          </ul>
+        </div>
+        <div class="tech-card">
+          <h3>Data &amp; backend</h3>
+          <ul>
+            <li><span class="t-name">Supabase JS v2</span><span class="t-detail">loaded from jsDelivr CDN</span></li>
+            <li><span class="t-name">Postgres</span><span class="t-detail">Supabase-managed, Bahrain region</span></li>
+            <li><span class="t-name">Row-Level Security</span><span class="t-detail">the real authorization boundary</span></li>
+            <li><span class="t-name">Postgres RPC / triggers</span><span class="t-detail">atomic booking, warranty rules</span></li>
+            <li><span class="t-name">Supabase Auth</span><span class="t-detail">admin email + password login</span></li>
+            <li><span class="t-name">Supabase Storage</span><span class="t-detail">install proof photos, public bucket</span></li>
+            <li><span class="t-name">Supabase Realtime</span><span class="t-detail">admin dashboard live refresh</span></li>
+          </ul>
+        </div>
+        <div class="tech-card">
+          <h3>Hosting &amp; deploy</h3>
+          <ul>
+            <li><span class="t-name">Vercel</span><span class="t-detail">primary host, auto-deploy on push</span></li>
+            <li><span class="t-name">Node 24.x</span><span class="t-detail">serverless function runtime</span></li>
+            <li><span class="t-name">vercel.json</span><span class="t-detail">rewrites: /regis, /booking</span></li>
+            <li><span class="t-name">GitHub</span><span class="t-detail">source of truth, web-editor workflow</span></li>
+            <li><span class="t-name">PWA</span><span class="t-detail">installer + customer manifests, service worker</span></li>
+          </ul>
+        </div>
+        <div class="tech-card">
+          <h3>Comms &amp; identity</h3>
+          <ul>
+            <li><span class="t-name">Taqnyat</span><span class="t-detail">SMS gateway, sender "SADA.co"</span></li>
+            <li><span class="t-name">DigitalOcean droplet</span><span class="t-detail">PM2-managed relay, static IP</span></li>
+            <li><span class="t-name">Client-side OTP</span><span class="t-detail">6-digit, 2-min expiry, 3 attempts</span></li>
+            <li><span class="t-name">localStorage session</span><span class="t-detail">sada_customer key, no server session</span></li>
+          </ul>
+        </div>
+        <div class="tech-card">
+          <h3>Fonts</h3>
+          <ul>
+            <li><span class="t-name">Playfair Display</span><span class="t-detail">headings, app UI</span></li>
+            <li><span class="t-name">DM Sans</span><span class="t-detail">body copy, app UI</span></li>
+            <li><span class="t-name">Space Grotesk / Space Mono</span><span class="t-detail">internal SOP document</span></li>
+            <li><span class="t-name">IBM Plex Sans Arabic</span><span class="t-detail">Arabic labels (SOP)</span></li>
+          </ul>
+        </div>
+        <div class="tech-card">
+          <h3>Tooling footprint</h3>
+          <ul>
+            <li><span class="t-name">package.json</span><span class="t-detail">engines.node only — no deps</span></li>
+            <li><span class="t-name">No test suite</span><span class="t-detail">verified manually against prod</span></li>
+            <li><span class="t-name">No CI pipeline</span><span class="t-detail">Vercel build is the only gate</span></li>
+            <li><span class="t-name">44 SQL migrations</span><span class="t-detail">hand-run, idempotent, ordered</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= INTERFACES ================= -->
+    <section id="interfaces">
+      <div class="section-head">
+        <span class="eyebrow">03 — Who uses what</span>
+        <h2>The three interfaces</h2>
+        <p>One app, three logged-in experiences, sharing the same database and the same <span class="mono">shared/</span> helpers.</p>
+      </div>
+      <div class="card-row">
+        <div class="iface-card">
+          <span class="badge">public · no login</span>
+          <h3>Customer</h3>
+          <div class="path mono">customer/book.html · customer/portal.html</div>
+          <ol>
+            <li><b>Identify</b> — phone number → SMS OTP</li>
+            <li><b>Details</b> — name, city, GPS address (Leaflet + Nominatim reverse-geocode)</li>
+            <li><b>Basket + slot</b> — pick products (RO / dispenser) + a time slot ≥ today+2</li>
+            <li><b>Confirm</b> — atomic <span class="mono">create_booking</span> RPC</li>
+          </ol>
+          <p style="font-size:.85rem;color:var(--ink-soft)">Returning customers skip straight to the portal: view / cancel / reschedule / book again, plus a <b>My Units</b> tab with warranty coverage gauges.</p>
+        </div>
+        <div class="iface-card">
+          <span class="badge">Supabase Auth</span>
+          <h3>Admin</h3>
+          <div class="path mono">admin/login.html · admin/dashboard.html</div>
+          <ol>
+            <li><b>Overview</b> — today's schedule, attention lists, orphaned-slot cleanup</li>
+            <li><b>Bookings</b> — assign, reschedule, complete, cancel, edit products</li>
+            <li><b>Warranties</b> — activate, edit, mark serviced, opt-out, pause</li>
+            <li><b>Customers, Follow-ups, Activity log, Installers, SMS settings</b></li>
+          </ol>
+          <p style="font-size:.85rem;color:var(--ink-soft)">Gated by <span class="mono">is_admin()</span> against the <span class="mono">admin_emails</span> allowlist, enforced in RLS and re-checked in every <span class="mono">/api/admin/*</span> function.</p>
+        </div>
+        <div class="iface-card">
+          <span class="badge">passcode · PWA</span>
+          <h3>Installer</h3>
+          <div class="path mono">installer/login.html · installer/portal.html</div>
+          <ol>
+            <li><b>Today's route</b> — Google Maps embed, stops sorted by hour</li>
+            <li><b>Inspection report</b> — filed before completion, signature captured</li>
+            <li><b>Per-unit QR scan</b> — jsQR + rear camera, "Unit 1 of 2…" checklist</li>
+            <li><b>Complete</b> — upload install photo → each scanned RO activates its own warranty</li>
+          </ol>
+          <p style="font-size:.85rem;color:var(--ink-soft)">Installable to the home screen; offline shell via <span class="mono">sw-installer.js</span> (stale-while-revalidate on HTML/CSS/JS, cache-first on images, network-only on Supabase/API).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= DATA MODEL ================= -->
+    <section id="data-model">
+      <div class="section-head">
+        <span class="eyebrow">04 — What's stored</span>
+        <h2>Data model</h2>
+        <p>The phone number is the customer identity key — everything ties back to a customer by their normalized <span class="mono">+9665XXXXXXXX</span> number.</p>
+      </div>
+
+      <div class="diagram-card" style="margin-bottom:1.6rem;">
+        <svg viewBox="0 0 1080 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Data flow from booking to warranty">
+          <style>
+            .n-t{ font-family:'Work Sans',sans-serif; font-size:13.5px; font-weight:600; fill:var(--ink); }
+            .n-s{ font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--ink-soft); }
+            .e{ stroke:var(--ink-soft); stroke-width:1.4; fill:none; }
+            .e-l{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; fill:var(--ink-soft); }
+          </style>
+          <defs>
+            <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"/>
+            </marker>
+          </defs>
+
+          <rect x="10" y="60" width="150" height="70" rx="9" fill="var(--paper-raised)" stroke="var(--line)"/>
+          <text x="30" y="90" class="n-t">customers</text>
+          <text x="30" y="107" class="n-s">key: phone</text>
+
+          <path class="e" d="M160,95 L210,95" marker-end="url(#arrow2)"/>
+          <text x="164" y="88" class="e-l">by phone</text>
+
+          <rect x="215" y="60" width="160" height="70" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
+          <text x="235" y="90" class="n-t">bookings</text>
+          <text x="235" y="107" class="n-s">slot_id · installer_id</text>
+
+          <path class="e" d="M375,80 L430,50" marker-end="url(#arrow2)"/>
+          <text x="378" y="55" class="e-l">1 → many</text>
+          <rect x="435" y="15" width="180" height="60" rx="9" fill="var(--paper-raised)" stroke="var(--line)"/>
+          <text x="455" y="41" class="n-t">booking_items</text>
+          <text x="455" y="58" class="n-s">product line, qty, is_serialized</text>
+
+          <path class="e" d="M375,110 L430,140" marker-end="url(#arrow2)"/>
+          <text x="378" y="150" class="e-l">slot_id</text>
+          <rect x="435" y="115" width="180" height="60" rx="9" fill="var(--paper-raised)" stroke="var(--line)"/>
+          <text x="455" y="141" class="n-t">availability_slots</text>
+          <text x="455" y="158" class="n-s">is_booked guards double-book</text>
+
+          <path class="e" d="M615,55 C 680,55 680,95 700,95" marker-end="url(#arrow2)"/>
+          <text x="640" y="45" class="e-l">on install completion,</text>
+          <text x="640" y="58" class="e-l">1 warranty per serialized unit</text>
+
+          <rect x="705" y="60" width="170" height="70" rx="9" fill="var(--gold-soft)" stroke="var(--gold)"/>
+          <text x="725" y="90" class="n-t">warranties</text>
+          <text x="725" y="107" class="n-s">qr_code = unit serial</text>
+
+          <path class="e" d="M875,95 L925,95" marker-end="url(#arrow2)"/>
+          <rect x="930" y="60" width="140" height="70" rx="9" fill="var(--paper-raised)" stroke="var(--line)"/>
+          <text x="950" y="90" class="n-t">warranty_</text>
+          <text x="950" y="105" class="n-t">service_history</text>
+        </svg>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Table</th><th>Holds</th><th>Notable rule</th></tr></thead>
+          <tbody>
+            <tr><td class="tname">customers</td><td class="tdesc">One row per phone. Name may be null (QR-registered, never gave one).</td><td class="tdesc">Backfilled from bookings automatically (v33) when possible.</td></tr>
+            <tr><td class="tname">bookings</td><td class="tdesc">One installation appointment: customer, address, slot, installer, status.</td><td class="tdesc"><span class="mono">booking_reference</span> (e.g. SW-20260726-5AEB61) set by trigger; created only via the atomic <span class="mono">create_booking</span> RPC.</td></tr>
+            <tr><td class="tname">booking_items</td><td class="tdesc">The basket: one row per product line (model, qty, unit price, is_serialized).</td><td class="tdesc">ROs are serialized (need a QR); dispensers are not.</td></tr>
+            <tr><td class="tname">availability_slots</td><td class="tdesc">The bookable schedule, scoped to a service region.</td><td class="tdesc"><span class="mono">is_booked</span> is the only thing preventing double-booking.</td></tr>
+            <tr><td class="tname">warranties</td><td class="tdesc">One row per physical unit. Links to customer + originating booking.</td><td class="tdesc">status: pending → active / paused / deactivated. Dispensers get none.</td></tr>
+            <tr><td class="tname">warranty_service_history</td><td class="tdesc">Filter changes and services over a unit's life.</td><td class="tdesc"><span class="mono">source</span> distinguishes a SA'DA job from a self-report.</td></tr>
+            <tr><td class="tname">product_models</td><td class="tdesc">The catalogue: name, price, image, is_catalogue, is_serialized.</td><td class="tdesc">Legacy models (A100, A1UV…) stay for old warranty history only.</td></tr>
+            <tr><td class="tname">customer_followups</td><td class="tdesc">Internal admin notes on a customer relationship.</td><td class="tdesc">Admin-only RLS; <span class="mono">anon</span> is revoked — never shown to customers.</td></tr>
+            <tr><td class="tname">service_regions</td><td class="tdesc">Groups of cities that scope slots and bookings.</td><td class="tdesc">Introduced in v25 to replace a flat city model.</td></tr>
+            <tr><td class="tname">promo_codes / invoices</td><td class="tdesc">Discount codes and the payment/invoice lifecycle.</td><td class="tdesc">Added together in v37; invoices are admin-read-only since v43.</td></tr>
+            <tr><td class="tname">activity_log</td><td class="tdesc">Audit trail of consequential admin actions.</td><td class="tdesc">Read-only history, added v30.</td></tr>
+            <tr><td class="tname">admin_emails</td><td class="tdesc">The admin allowlist backing <span class="mono">is_admin()</span>.</td><td class="tdesc">Checked by RLS and by every serverless admin endpoint.</td></tr>
+            <tr><td class="tname">sms_settings / sms_throttle</td><td class="tdesc">Per-message-type SMS toggles; per-phone send throttling.</td><td class="tdesc">Admin-only write since v26 — previously anon could disable OTP.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="stat-row" style="margin-top:1.5rem;">
+        <div class="stat"><div class="n">98</div><div class="l">customers</div></div>
+        <div class="stat"><div class="n">78</div><div class="l">bookings</div></div>
+        <div class="stat"><div class="n">82</div><div class="l">warranties</div></div>
+        <div class="stat"><div class="n">79</div><div class="l">booking items</div></div>
+        <div class="stat"><div class="n">5</div><div class="l">installers</div></div>
+        <div class="stat"><div class="n">379</div><div class="l">slots</div></div>
+        <div class="stat"><div class="n">7</div><div class="l">catalogue products</div></div>
+      </div>
+      <p style="margin-top:.6rem;font-size:.8rem;color:var(--ink-soft);">Snapshot as last verified in <span class="mono">SYSTEM_REFERENCE.md</span>, 26 Jul 2026 — treat as a point-in-time reading, not live data.</p>
+    </section>
+
+    <!-- ================= FLOWS ================= -->
+    <section id="flows">
+      <div class="section-head">
+        <span class="eyebrow">05 — Rules that shape the code</span>
+        <h2>Key flows &amp; invariants</h2>
+        <p>The behaviors most likely to surprise someone extending this system.</p>
+      </div>
+      <div class="flow-list">
+        <div class="flow-item">
+          <div class="flow-icon">1</div>
+          <div>
+            <h4>Booking is one atomic transaction</h4>
+            <p>A slot used to be reserved (UPDATE) then a booking inserted (INSERT) as two client calls — a dropped connection mid-flow could strand a slot as booked with no booking behind it. The <span class="mono">create_booking</span> RPC (v31) locks the slot, checks it's free and in-region, reserves it, and inserts — all or nothing.</p>
+            <span class="rule">Never revert to two-step reserve-then-insert</span>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-icon">2</div>
+          <div>
+            <h4>Orphaned slots self-heal</h4>
+            <p>An abandoned admin reschedule can still leak a slot. The Overview panel shows a banner with a one-click "Free them" whenever a slot is marked booked with no active booking behind it.</p>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-icon">3</div>
+          <div>
+            <h4>One booking, many warranties</h4>
+            <p>A booking can install several units. <span class="mono">warranties.booking_id</span> is the authoritative many-side; <span class="mono">bookings.warranty_id</span> only holds one representative pointer. To see every unit from a booking, query warranties by <span class="mono">booking_id</span> — there is deliberately no one-warranty-per-booking constraint.</p>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-icon">4</div>
+          <div>
+            <h4>Warranty activation is a two-scan handshake</h4>
+            <p>Since v39, the installer's photo creates a <em>pending</em> warranty per RO unit; the customer's own QR scan attaches the serial and activates it. Since v41, the 90-day filter and 365-day service countdowns start on that customer scan, not on install completion.</p>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-icon">5</div>
+          <div>
+            <h4>Dispensers carry no QR and no warranty</h4>
+            <p>Detected by <span class="mono">is_serialized = false</span> on the product row. The installer's scan checklist skips them entirely; they generate no reminders.</p>
+          </div>
+        </div>
+        <div class="flow-item">
+          <div class="flow-icon">6</div>
+          <div>
+            <h4>Reminders are manual, not cron</h4>
+            <p>Filter (90-day) and service (365-day) due dates live on each warranty. A 🔔 admin action sends due reminders through the existing SMS relay — by design there is no scheduled job. Opted-out and non-serialized units are excluded.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MIGRATIONS ================= -->
+    <section id="migrations">
+      <div class="section-head">
+        <span class="eyebrow">06 — How the schema got here</span>
+        <h2>Migration history</h2>
+        <p>44 hand-run, idempotent SQL files in <span class="mono">migrations/</span>, applied top-to-bottom in the Supabase SQL editor — never auto-applied. A schema change and its code are shipped as a pair; skipping one is the most common cause of a post-deploy break.</p>
+      </div>
+      <div class="ledger">
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v22</span><span class="ledger-title">Security overhaul + polish</span></div>
+          <p>48-hour lead time trigger, <span class="mono">admin_emails</span> + <span class="mono">is_admin()</span>, dark-first admin/installer theme, toast/modal system, real-time dashboard, in-browser QR scanner (jsQR), PWA for installers.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v23</span><span class="ledger-title">Installer self-serve claim</span></div>
+          <p><span class="mono">is_installer()</span> function; installers can browse and atomically claim unassigned bookings.</p>
+        </div>
+        <div class="ledger-item superseded">
+          <div class="ledger-head"><span class="ledger-v">v24</span><span class="ledger-title">Round-robin auto-assignment</span><span class="tag-superseded">superseded by v25</span></div>
+          <p>Auto-picks the active installer with the fewest ongoing jobs. Retained in the repo for history only — do not run on a fresh database.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v25</span><span class="ledger-title">Service regions</span></div>
+          <p>Introduces grouped-city <span class="mono">service_regions</span> as the slot/booking scope; reverts to self-serve claim over auto-assign.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v26</span><span class="ledger-title">RLS lockdown + phone normalization</span></div>
+          <p>Closes an audit finding: anon could freely SELECT/UPDATE/DELETE bookings, disable OTP, and read installer PII. Locked to admin-only where it matters.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v27</span><span class="ledger-title">Warranty CRM merged in</span></div>
+          <p>Ports the standalone PHP/MySQL warranty CRM into this app: <span class="mono">warranties</span>, <span class="mono">product_models</span>, <span class="mono">warranty_service_history</span>, <span class="mono">customer_followups</span>. Phone+bcrypt auth replaced by phone+OTP.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v28</span><span class="ledger-title">Warranty status + admin activation</span></div>
+          <p>Adds active / paused / deactivated status; admin can activate a warranty straight from a completed install.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v30</span><span class="ledger-title">Admin activity log</span></div>
+          <p>Lightweight audit trail — who did what, when — for cancels, completions, reschedules, warranty state changes, bulk ops.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v31</span><span class="ledger-title">Atomic booking creation</span></div>
+          <p>Fixes the slot-reservation leak: the <span class="mono">create_booking</span> RPC replaces the two-step client-side reserve-then-insert. See Key flows above.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v32</span><span class="ledger-title">Booking ↔ warranty ↔ service links</span></div>
+          <p>Wires <span class="mono">bookings.warranty_id</span>, adds service opt-out and manual "mark as serviced".</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v33</span><span class="ledger-title">Backfill customer names</span></div>
+          <p>Copies a name from a booking onto a nameless <span class="mono">customers</span> row (QR-registered customers who never typed one).</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v34</span><span class="ledger-title">Product catalogue + prices</span></div>
+          <p>Adopts the 5-product official catalogue with SAR prices; customers pick product + quantity at booking time.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v35</span><span class="ledger-title">Multi-product baskets</span></div>
+          <p>Adds <span class="mono">booking_items</span> so one booking can hold several product lines with independent serialization.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v36</span><span class="ledger-title">Real product images</span></div>
+          <p>Replaces the generic placeholder image used across the whole catalogue with real per-product photos.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v37</span><span class="ledger-title">Jeddah region · promo codes · invoices</span></div>
+          <p>Three features at once: a new service region, discount <span class="mono">promo_codes</span>, and the <span class="mono">invoices</span> payment lifecycle table.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v38</span><span class="ledger-title">Referral source</span></div>
+          <p>Optional "where did you hear about us?" captured at booking time for channel attribution.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v39</span><span class="ledger-title">Customer-driven activation + admin booking</span></div>
+          <p>Warranty gains a <span class="mono">pending</span> status: the installer's photo creates it, the customer's own QR scan attaches the serial and activates it.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v40</span><span class="ledger-title">Fix customer-scan expiries</span></div>
+          <p>Bugfix: the SECURITY DEFINER activation function ran as its owner, not <span class="mono">anon</span>, so an expiry-date guard trigger never fired for customer-driven scans.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v41</span><span class="ledger-title">Countdown starts on scan</span></div>
+          <p>Filter (+90d) and service (+365d) expiries now start at the customer's QR scan, not at install completion.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v42</span><span class="ledger-title">Clearer activation errors</span></div>
+          <p>Separates "booking exists but isn't installed yet" from "no booking at all" — previously both returned the same opaque <span class="mono">no_booking</span> reason.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v43</span><span class="ledger-title">RLS hardening, phase 1</span></div>
+          <p>Audit found <span class="mono">anon</span> could read <span class="mono">invoices</span> (financial data) despite no public page needing it. Locked out.</p>
+        </div>
+        <div class="ledger-item">
+          <div class="ledger-head"><span class="ledger-v">v44</span><span class="ledger-title">Commercial products + city cleanup</span></div>
+          <p>Adds 200/400 GPD commercial RO systems to the catalogue; expands and de-duplicates the city list.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= INFRA ================= -->
+    <section id="infra">
+      <div class="section-head">
+        <span class="eyebrow">07 — Where it runs</span>
+        <h2>Infrastructure &amp; operations</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Piece</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td class="tname">Hosting</td><td class="tdesc">Vercel, auto-deploy on push to GitHub. Not Netlify — STC blocks <span class="mono">*.netlify.app</span> via DNS inside Saudi Arabia.</td></tr>
+            <tr><td class="tname">Live app</td><td class="tdesc"><span class="mono">sada-water-booking.vercel.app</span> · custom domain <span class="mono">h2o.sadawater.com</span></td></tr>
+            <tr><td class="tname">Database</td><td class="tdesc">Supabase project <span class="mono">ykgtrloptgazeqjgxney</span>, Bahrain region. Free tier sleeps — kept warm by an UptimeRobot ping to <span class="mono">/rest/v1/cities</span>.</td></tr>
+            <tr><td class="tname">SMS relay</td><td class="tdesc">DigitalOcean droplet <span class="mono">206.189.42.165:443</span>, PM2-managed Node process, forwards to Taqnyat (sender <span class="mono">SADA.co</span>). Self-signed cert; Vercel calls it with <span class="mono">rejectUnauthorized:false</span>.</td></tr>
+            <tr><td class="tname">Admin login</td><td class="tdesc">Supabase Auth, email + password, gated by the <span class="mono">admin_emails</span> allowlist.</td></tr>
+            <tr><td class="tname">Env vars (Vercel)</td><td class="tdesc"><span class="mono">SUPABASE_URL</span>, <span class="mono">SUPABASE_SERVICE_ROLE_KEY</span> — server-side only, never in the browser bundle.</td></tr>
+            <tr><td class="tname">Deploy workflow</td><td class="tdesc">No local terminal, no build step — edits made via the GitHub web editor, pushed straight to <span class="mono">main</span>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= FILE MAP ================= -->
+    <section id="files">
+      <div class="section-head">
+        <span class="eyebrow">08 — Files that matter</span>
+        <h2>File map</h2>
+      </div>
+      <div class="table-wrap">
+        <table class="filemap">
+          <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td class="tname">shared/supabase.js</td><td class="tdesc">Anon Supabase client + phone/date helpers + auth guards. The anon key lives here by design.</td></tr>
+            <tr><td class="tname">shared/ui.js</td><td class="tdesc">Toast / confirm / modal / skeleton system, CSV export, <span class="mono">MIN_LEAD_DAYS</span>.</td></tr>
+            <tr><td class="tname">shared/theme.css</td><td class="tdesc">Design tokens shared by admin + installer (dark-first).</td></tr>
+            <tr><td class="tname">customer/book.html</td><td class="tdesc">Public 4-step booking wizard; skips to the portal for returning customers.</td></tr>
+            <tr><td class="tname">customer/portal.html</td><td class="tdesc">Returning-customer view: bookings, cancel/reschedule/book-again, My Units.</td></tr>
+            <tr><td class="tname">admin/dashboard.html</td><td class="tdesc">The entire admin app — bookings, slots, installers, customers, warranties, SMS, reports.</td></tr>
+            <tr><td class="tname">installer/portal.html</td><td class="tdesc">Installer's jobs, inspection reports, QR-scan completion, proof upload.</td></tr>
+            <tr><td class="tname">warranty/claim.html</td><td class="tdesc">The public QR-sticker landing page, honouring the <span class="mono">?pid=</span> contract printed on every unit.</td></tr>
+            <tr><td class="tname">api/send-sms.js</td><td class="tdesc">SMS relay bridge + throttle. Off-limits to casual edits — do not break the Taqnyat wiring.</td></tr>
+            <tr><td class="tname">api/admin/_auth.js</td><td class="tdesc">Verifies the caller's Supabase JWT and checks the admin allowlist before any service-role call.</td></tr>
+            <tr><td class="tname">api/admin/{bookings,installers,slots,user-ops}.js</td><td class="tdesc">Serverless admin API, migrated in one panel at a time from the dashboard's direct client.</td></tr>
+            <tr><td class="tname">api/notify-installers.js / notify-report.js</td><td class="tdesc">SMS notifications on new bookings and inspection-report submissions.</td></tr>
+            <tr><td class="tname">js/warranty.js</td><td class="tdesc">Warranty date math, milestone logic, model-image joins.</td></tr>
+            <tr><td class="tname">js/inspection-report.js + css/inspection-report.css</td><td class="tdesc">The inspection-report drawer, shared by admin and installer.</td></tr>
+            <tr><td class="tname">migrations/vNN_*.sql · sql/*.sql</td><td class="tdesc">All schema history — run in numeric order, in the Supabase SQL editor, before pushing matching code.</td></tr>
+            <tr><td class="tname">supabase_schema.sql</td><td class="tdesc">The original base-table reference (v21 baseline).</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= RISKS ================= -->
+    <section id="risks">
+      <div class="section-head">
+        <span class="eyebrow">09 — Read before you touch these</span>
+        <h2>Known constraints &amp; deliberate risks</h2>
+      </div>
+
+      <div class="callout danger">
+        <span class="mark">!</span>
+        <div>
+          <h4>Customer auth is client-side OTP in localStorage</h4>
+          <p>Anyone who knows a customer's phone number could in principle access that customer's portal session. This is a known, deliberately-deferred decision, not an active bug — revisit if customer-account privacy becomes a hard requirement.</p>
+        </div>
+      </div>
+      <div class="callout warn">
+        <span class="mark">!</span>
+        <div>
+          <h4>A migration and its code are a pair</h4>
+          <p>Migrations are never auto-applied. Shipping code without its matching migration (or vice versa) is the most common cause of a post-deploy error — check the migration first if something breaks right after a push.</p>
+        </div>
+      </div>
+      <div class="callout warn">
+        <span class="mark">!</span>
+        <div>
+          <h4>Anon can insert and update, but never delete bookings</h4>
+          <p>Needed for public booking and installer auto-activation to work without a login — but it also means a test booking made from a public session can't be removed from that session; delete it from the admin dashboard instead.</p>
+        </div>
+      </div>
+      <div class="callout danger">
+        <span class="mark">!</span>
+        <div>
+          <h4>The SMS relay path is off-limits to casual edits</h4>
+          <p><span class="mono">api/send-sms.js</span> and the DigitalOcean droplet are wired to Taqnyat with a fixed static IP required by Saudi telecom law. Changing them risks breaking all outbound SMS. Never commit the Taqnyat bearer token to this repo.</p>
+        </div>
+      </div>
+      <div class="callout ok">
+        <span class="mark">✓</span>
+        <div>
+          <h4>Two product vocabularies coexist deliberately</h4>
+          <p>Old warranties reference legacy model names (A100, A1UV…); new sales use the 5-product catalogue introduced in v34. Both are valid at once — this is intentional, not debt to clean up.</p>
+        </div>
+      </div>
+      <div class="callout ok">
+        <span class="mark">✓</span>
+        <div>
+          <h4>STC blocks Netlify in Saudi Arabia</h4>
+          <p>Netlify support was removed entirely in v26 for this reason. Vercel is the only supported host — do not reintroduce a Netlify deployment path as a fallback.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      Compiled from the <span class="mono">sada-water-booking</span> repository — README.md, CHANGELOG.md, SYSTEM_REFERENCE.md, and the migrations under <span class="mono">migrations/</span> and <span class="mono">sql/</span>. Data-scale figures are a point-in-time snapshot, not a live query.
+    </footer>
+  </main>
+</div>
+
+<script>
+  (function(){
+    var toggle = document.getElementById('menuToggle');
+    var toc = document.getElementById('toc');
+    var scrim = document.getElementById('scrim');
+    function close(){ toc.classList.remove('open'); scrim.classList.remove('open'); }
+    if (toggle) {
+      toggle.addEventListener('click', function(){
+        toc.classList.toggle('open');
+        scrim.classList.toggle('open');
+      });
+    }
+    if (scrim) scrim.addEventListener('click', close);
+    document.querySelectorAll('#tocNav a').forEach(function(a){
+      a.addEventListener('click', close);
+    });
+
+    var links = Array.prototype.slice.call(document.querySelectorAll('#tocNav a'));
+    var sections = links.map(function(a){ return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+
+    function onScroll(){
+      var pos = window.scrollY + 120;
+      var current = sections[0];
+      sections.forEach(function(s){ if (s.offsetTop <= pos) current = s; });
+      links.forEach(function(a){
+        a.classList.toggle('active', current && a.getAttribute('href') === '#' + current.id);
+      });
+    }
+    document.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+</script>
+</body>
+</html>

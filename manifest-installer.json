@@ -1,0 +1,18 @@
+{
+  "name": "SA'DA H2O — Installer",
+  "short_name": "SA'DA Installer",
+  "description": "Field portal for SA'DA H2O installation technicians.",
+  "start_url": "/installer/portal.html",
+  "scope": "/installer/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0A1628",
+  "background_color": "#0A1628",
+  "icons": [
+    { "src": "assets/sada-app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/sada-app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/sada-app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "en"
+}

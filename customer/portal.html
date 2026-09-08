@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>My Account · SA'DA H2O</title>
+  <meta name="theme-color" content="#0D3B6E">
+
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/apple-touch-icon.png">
+  <link rel="manifest" href="../assets/manifest-customer.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SA'DA H2O">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="../css/inspection-report.css">
+  <script defer src="../js/inspection-report.js"></script>
+  <script defer src="../js/warranty.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#E2E8F0;--bg:#F8FAFC;--green:#16A34A;--red:#DC2626;--amber:#D97706;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;}
+    header{background:linear-gradient(135deg,var(--deep),var(--ocean));padding:0 24px;padding-top:env(safe-area-inset-top);height:calc(72px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 4px 20px rgba(10,22,40,0.2);}
+    header img{height:60px;}
+    .header-right{display:flex;align-items:center;gap:12px;}
+    .user-chip{background:rgba(255,255,255,0.12);border-radius:20px;padding:6px 14px;font-size:13px;color:white;display:flex;align-items:center;gap:8px;}
+    .logout-btn{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.85);padding:6px 14px;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;transition:background 0.15s;}
+    .logout-btn:hover{background:rgba(255,255,255,0.18);color:white;}
+    .container{max-width:720px;margin:0 auto;padding:28px 16px calc(40px + env(safe-area-inset-bottom));}
+    .tabs{display:flex;gap:4px;background:white;border-radius:14px;padding:5px;border:1px solid var(--border);margin-bottom:24px;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
+    .tab{flex:1;padding:10px;border-radius:10px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);background:none;transition:all 0.15s;text-align:center;}
+    .tab:hover:not(.active){color:var(--text);background:var(--bg);}
+    .tab.active{background:var(--water);color:white;box-shadow:0 2px 8px rgba(21,101,192,0.35);}
+    .tab-panel{display:none;}
+    .tab-panel.active{display:block;}
+
+    /* BOOKING CARDS */
+    .booking-card{background:white;border-radius:18px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px;box-shadow:0 1px 3px rgba(15,23,42,0.04);transition:box-shadow 0.15s,transform 0.15s;}
+    .booking-card:hover{box-shadow:0 6px 20px rgba(15,23,42,0.08);transform:translateY(-1px);}
+    .booking-card-header{padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--border);}
+    .booking-ref{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--water);}
+    .booking-type-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.4px;}
+    .type-installation{background:#EFF6FF;color:#1D4ED8;}
+    .type-maintenance{background:#F0FDF4;color:#166534;}
+    .type-repair{background:#FEF3C7;color:#92400E;}
+    .type-relocation{background:#F5F3FF;color:#6D28D9;}
+    .booking-card-body{padding:18px 20px;}
+    .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+    .info-item label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px;}
+    .info-item span{font-size:14px;font-weight:500;color:var(--text);}
+
+    /* PROGRESS BAR */
+    .progress-track{display:flex;align-items:center;margin-bottom:16px;}
+    .progress-step{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;}
+    .progress-step:not(:last-child)::after{content:'';position:absolute;top:14px;left:50%;width:100%;height:2px;background:var(--border);z-index:0;}
+    .progress-step.done:not(:last-child)::after{background:var(--green);}
+    .progress-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:white;display:flex;align-items:center;justify-content:center;font-size:12px;position:relative;z-index:1;transition:all 0.3s;}
+    .progress-step.done .progress-dot{background:var(--green);border-color:var(--green);color:white;}
+    .progress-step.active .progress-dot{background:var(--water);border-color:var(--water);color:white;}
+    .progress-label{font-size:10px;color:var(--muted);margin-top:6px;text-align:center;font-weight:500;}
+    .progress-step.done .progress-label,.progress-step.active .progress-label{color:var(--text);}
+
+    /* ACTION BUTTONS */
+    .booking-actions{display:flex;gap:8px;flex-wrap:wrap;}
+    .btn-outline{padding:9px 16px;border:1.5px solid var(--border);border-radius:10px;background:white;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;}
+    .btn-outline:hover{border-color:var(--water);color:var(--water);}
+    .btn-danger{padding:9px 16px;border:1.5px solid #FECACA;border-radius:10px;background:white;color:var(--red);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;}
+    .btn-danger:hover{background:#FEF2F2;}
+    .btn-primary{padding:9px 16px;background:var(--water);color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.15s;}
+    .btn-primary:hover{background:var(--ocean);}
+    .btn-primary:disabled{opacity:0.55;cursor:not-allowed;}
+    .btn-wa{padding:9px 16px;background:#25D366;color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;text-decoration:none;transition:background 0.15s;}
+    .btn-wa:hover{background:#128C7E;}
+    .btn-disabled{padding:9px 16px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:not-allowed;}
+
+    /* BOOK AGAIN */
+    .type-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;}
+    .type-card{border:2px solid var(--border);border-radius:14px;padding:18px;cursor:pointer;text-align:center;transition:all 0.15s;background:white;}
+    .type-card:hover{border-color:var(--water);}
+    .type-card.selected{border-color:var(--water);background:var(--foam);box-shadow:0 2px 8px rgba(21,101,192,0.15);}
+    .type-icon{font-size:28px;margin-bottom:8px;}
+    .type-name{font-size:14px;font-weight:600;color:var(--text);}
+    .type-desc{font-size:12px;color:var(--muted);margin-top:4px;}
+    .form-group{margin-bottom:16px;}
+    .form-group label{display:block;font-size:12px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px;}
+    .form-group input,.form-group select{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:var(--white);outline:none;transition:border-color 0.15s,box-shadow 0.15s;}
+    .form-group input:focus,.form-group select:focus{border-color:var(--water);box-shadow:0 0 0 3px rgba(21,101,192,0.15);}
+    .form-group select:disabled{background:var(--foam);color:var(--muted);cursor:not-allowed;}
+
+    /* LOCATION (Book Again) */
+    .location-btn{width:100%;padding:12px;background:var(--foam);border:2px dashed var(--water);border-radius:10px;color:var(--water);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s;margin-top:8px;}
+    .location-btn:hover:not(:disabled){background:#DBEAFE;}
+    .location-btn:disabled{opacity:0.75;cursor:progress;}
+    .location-btn.got-location{background:#ECFDF5;border:2px solid #16A34A;color:#15803D;}
+    .location-btn.error-location{background:#FEF2F2;border:2px solid #EF4444;color:#B71C1C;}
+    .location-hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;}
+    .location-hint.error{color:var(--red);}
+    #book-map{display:none;margin-top:10px;height:200px;border-radius:10px;overflow:hidden;border:1px solid var(--border);box-shadow:0 2px 8px rgba(15,23,42,0.05);}
+    #book-map.visible{display:block;}
+    .map-caption{font-size:12px;color:var(--muted);margin-top:6px;text-align:center;}
+
+    .date-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;}
+    .date-box{padding:12px 6px;border:2px solid var(--border);border-radius:12px;cursor:pointer;text-align:center;transition:all 0.15s;background:white;}
+    .date-box:hover:not(.disabled){border-color:var(--water);}
+    .date-box.selected{border-color:var(--water);background:var(--water);color:white;box-shadow:0 4px 12px rgba(21,101,192,0.3);}
+    .date-box.disabled{opacity:0.35;cursor:not-allowed;}
+    .date-day{font-size:10px;font-weight:600;text-transform:uppercase;opacity:0.7;}
+    .date-num{font-size:20px;font-weight:700;line-height:1.2;}
+    .date-month{font-size:10px;opacity:0.7;}
+    .time-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
+    .time-slot{padding:12px 8px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center;font-size:12px;font-weight:600;transition:all 0.15s;background:white;}
+    .time-slot:hover:not(.booked){border-color:var(--water);}
+    .time-slot.selected{border-color:var(--water);background:var(--water);color:white;}
+    .time-slot.booked{background:var(--bg);color:var(--muted);cursor:not-allowed;text-decoration:line-through;}
+
+    /* PROFILE */
+    .profile-card{background:white;border-radius:18px;border:1px solid var(--border);padding:24px;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
+    .profile-avatar{width:64px;height:64px;background:linear-gradient(135deg,var(--ocean),var(--water));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:white;margin-bottom:16px;box-shadow:0 4px 12px rgba(21,101,192,0.35);}
+
+    /* MISC */
+    .section-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--deep);margin-bottom:4px;letter-spacing:-0.01em;}
+    .section-sub{font-size:13px;color:var(--muted);margin-bottom:20px;}
+    .empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
+    .empty-icon{font-size:48px;margin-bottom:12px;opacity:0.5;}
+    .loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px;color:var(--muted);}
+    .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--water);border-radius:50%;animation:spin 0.8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .toast{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));right:24px;background:#1A2B47;color:white;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:500;z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,0.25);}
+    .toast.show{opacity:1;}
+    .alert-box{padding:14px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;}
+    .alert-info{background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;}
+    .alert-warning{background:#FEF3C7;border:1px solid #FDE68A;color:#92400E;}
+    .status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;}
+    .status-upcoming{background:#EFF6FF;color:#1D4ED8;}
+    .status-in_progress{background:#FEF3C7;color:#92400E;}
+    .status-completed{background:#F0FDF4;color:#166534;}
+    .status-cancelled{background:#FEF2F2;color:#991B1B;}
+    @media(max-width:480px){
+      .info-grid{grid-template-columns:1fr;}
+      .type-grid{grid-template-columns:1fr 1fr;}
+      .time-grid{grid-template-columns:repeat(2,1fr);}
+      .booking-actions{flex-direction:column;}
+      .booking-actions a,.booking-actions button{width:100%;justify-content:center;text-align:center;}
+      header{padding:0 16px;padding-top:env(safe-area-inset-top);}
+      header img{height:52px;}
+    }
+    @media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}}
+  </style>
+</head>
+<body>
+<header>
+  <a href="https://h2o.sadawater.com" target="_blank"><img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O"></a>
+  <div class="header-right">
+    <div class="user-chip">👤 <span id="user-name-header">My Account</span></div>
+    <button class="logout-btn" onclick="logout()">Sign Out</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('bookings',this)">📋 My Bookings</button>
+    <button class="tab" onclick="switchTab('units',this)">🛡️ My Units</button>
+    <button class="tab" onclick="switchTab('book',this)">➕ Book Again</button>
+    <button class="tab" onclick="switchTab('profile',this)">👤 My Profile</button>
+  </div>
+
+  <!-- MY BOOKINGS -->
+  <div class="tab-panel active" id="tab-bookings">
+    <p class="section-title">My Installations</p>
+    <p class="section-sub">Track your current and past SA'DA H2O bookings.</p>
+    <div id="bookings-list"><div class="loading"><div class="spinner"></div> Loading your bookings...</div></div>
+  </div>
+
+  <!-- MY UNITS (warranty) -->
+  <div class="tab-panel" id="tab-units">
+    <p class="section-title">My Units</p>
+    <p class="section-sub">Warranty coverage and service history for every SA'DA H2O purifier you own.</p>
+    <div id="units-list"><div class="loading"><div class="spinner"></div> Loading your units...</div></div>
+  </div>
+
+  <!-- BOOK AGAIN -->
+  <div class="tab-panel" id="tab-book">
+    <p class="section-title">New Booking</p>
+    <p class="section-sub">Choose a service type and select your slot.</p>
+    <div class="type-grid">
+      <div class="type-card selected" id="type-installation" onclick="selectType('installation')">
+        <div class="type-icon">🚰</div>
+        <div class="type-name">Installation</div>
+        <div class="type-desc">New RO filter setup</div>
+      </div>
+      <div class="type-card" id="type-maintenance" onclick="selectType('maintenance')">
+        <div class="type-icon">🔄</div>
+        <div class="type-name">Maintenance</div>
+        <div class="type-desc">Regular service (3 months)</div>
+      </div>
+      <div class="type-card" id="type-repair" onclick="selectType('repair')">
+        <div class="type-icon">🛠</div>
+        <div class="type-name">Repair</div>
+        <div class="type-desc">Fix an issue</div>
+      </div>
+      <div class="type-card" id="type-relocation" onclick="selectType('relocation')">
+        <div class="type-icon">📦</div>
+        <div class="type-name">Relocation</div>
+        <div class="type-desc">Move to new address</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Service Area</label>
+      <select id="book-region" onchange="onBookRegionChange()"><option value="">Loading service areas…</option></select>
+    </div>
+    <div class="form-group">
+      <label>City</label>
+      <select id="book-city" disabled><option value="">Choose service area first</option></select>
+    </div>
+    <div class="form-group">
+      <label>Address</label>
+      <input type="text" id="book-address" placeholder="Confirm or update your address">
+      <button type="button" class="location-btn" id="book-location-btn" onclick="getBookLocation()"><span>📍</span> <span id="book-location-btn-label">Use my current location</span></button>
+      <div class="location-hint" id="book-location-hint">Tap to fill your address from GPS. Drag the pin on the map to refine.</div>
+      <div id="book-map" aria-label="Draggable map pin"></div>
+      <div class="map-caption" id="book-map-caption" style="display:none;">Drag the pin to your exact door.</div>
+    </div>
+    <div class="form-group">
+      <label>Available Dates</label>
+      <div class="date-grid" id="book-date-grid"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+    <div class="form-group" id="book-time-section" style="display:none;">
+      <label>Available Time Slots</label>
+      <div class="time-grid" id="book-time-grid"></div>
+    </div>
+    <div id="book-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:12px;"></div>
+    <button class="btn-primary" onclick="submitNewBooking()" style="width:100%;padding:14px;">Confirm Booking →</button>
+  </div>
+
+  <!-- MY PROFILE -->
+  <div class="tab-panel" id="tab-profile">
+    <div class="profile-card">
+      <div class="profile-avatar">👤</div>
+      <p class="section-title" id="profile-name-display">—</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:24px;" id="profile-phone-display">—</p>
+      <div class="form-group"><label>Full Name</label><input type="text" id="profile-name" placeholder="Your name"></div>
+      <div class="form-group"><label>City</label><input type="text" id="profile-city" placeholder="Your city"></div>
+      <div class="form-group"><label>Address</label><input type="text" id="profile-address" placeholder="Your address"></div>
+      <div class="form-group"><label>Phone (cannot be changed)</label><input type="text" id="profile-phone" disabled style="background:var(--bg);color:var(--muted);"></div>
+      <button class="btn-primary" onclick="saveProfile()" style="width:100%;padding:14px;">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- RESCHEDULE MODAL -->
+<div style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end;justify-content:center;padding:0;" id="reschedule-modal">
+  <div style="background:white;border-radius:20px 20px 0 0;padding:28px 24px;width:100%;max-width:500px;">
+    <h3 style="font-family:'Playfair Display',serif;font-size:20px;margin-bottom:8px;">Reschedule Booking</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:20px;">Select a new available date and time slot.</p>
+    <div class="form-group"><label>New Date</label><input type="date" id="rs-date" onchange="loadRescheduleSlotsCustomer()"></div>
+    <div class="form-group"><label>Available Slots</label><select id="rs-slot" style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;"><option>— Pick a date first —</option></select></div>
+    <div id="rs-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn-outline" onclick="document.getElementById('reschedule-modal').style.display='none'" style="flex:1;">Cancel</button>
+      <button class="btn-primary" onclick="confirmCustomerReschedule()" style="flex:1;">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="../shared/supabase.js"></script>
+<script>
+// db is a global from shared/supabase.js
+const WA_LINK = 'https://api.whatsapp.com/send/?phone=966547989055&text&type=phone_number&app_absent=0';
+
+let customer = null;
+let selectedType = 'installation';
+let bookDate = null, bookHour = null, bookSlotId = null;
+let activeRescheduleId = null, activeRescheduleSlotId = null;
+let bookLat = null, bookLng = null;
+let bookMap = null, bookMarker = null;
+let bookRegionId = null;
+let regionsCache = [];
+let citiesCache = [];
+
+window.addEventListener('DOMContentLoaded', async () => {
+  const stored = localStorage.getItem('sada_customer');
+  if (!stored) { window.location.href = 'book.html'; return; }
+  customer = JSON.parse(stored);
+  document.getElementById('user-name-header').textContent = customer.name || customer.phone;
+  loadProfile();
+  loadMyBookings();
+  await loadBookRegionsAndCities();
+});
+
+async function loadBookRegionsAndCities() {
+  const [r, c] = await Promise.all([
+    db.from('service_regions').select('id, key, name, city_labels, sort_order').order('sort_order', { ascending: true }),
+    db.from('cities').select('id, name, region_id').order('name', { ascending: true })
+  ]);
+  const sel = document.getElementById('book-region');
+  if (r.error || c.error || !r.data?.length) {
+    sel.innerHTML = '<option value="">Service areas unavailable</option>';
+    document.getElementById('book-date-grid').innerHTML = '<p style="color:#B71C1C;font-size:13px;padding:20px;text-align:center;">Cannot load service areas right now. Contact SA\'DA H2O.</p>';
+    return;
+  }
+  regionsCache = r.data;
+  citiesCache = c.data || [];
+  sel.innerHTML = '<option value="">Select service area…</option>' +
+    regionsCache.map(rr => `<option value="${rr.id}">${rr.name} — ${rr.city_labels}</option>`).join('');
+  // Preselect region if stored
+  if (customer.regionId && regionsCache.some(rr => rr.id === customer.regionId)) {
+    sel.value = customer.regionId;
+    onBookRegionChange();
+    const citySel = document.getElementById('book-city');
+    if (customer.city) citySel.value = customer.city;
+  }
+}
+
+function onBookRegionChange() {
+  const rid = document.getElementById('book-region').value;
+  bookRegionId = rid || null;
+  const citySel = document.getElementById('book-city');
+  if (!rid) {
+    citySel.disabled = true;
+    citySel.innerHTML = '<option value="">Choose service area first</option>';
+    document.getElementById('book-date-grid').innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">Select a service area to see available slots.</p>';
+    return;
+  }
+  const cities = citiesCache.filter(c => c.region_id === rid);
+  citySel.disabled = false;
+  citySel.innerHTML = '<option value="">Select city…</option>' +
+    cities.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+  loadBookDates();
+}
+
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(`tab-${name}`).classList.add('active');
+  // Units are loaded lazily — most visits are about bookings, and this saves
+  // 2 round trips on every portal open.
+  if (name === 'units' && !unitsLoaded) loadUnits();
+}
+
+let unitsLoaded = false;
+async function loadUnits() {
+  const el = document.getElementById('units-list');
+  if (!window.SADA || !window.SADA.Warranty) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Warranty module still loading — please try again in a moment.</p></div>';
+    return;
+  }
+  try {
+    const units = await SADA.Warranty.unitsForPhone(customer.phone);
+    unitsLoaded = true;
+    if (!units.length) {
+      el.innerHTML =
+        '<div class="empty-state"><div class="empty-icon">🛡️</div>' +
+        '<p style="font-weight:700;margin-bottom:6px;">No units registered yet</p>' +
+        '<p style="font-size:13px;color:var(--muted);line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty and start tracking filter and service dates here.</p>' +
+        '</div>';
+      return;
+    }
+    el.innerHTML = units.map((u, i) => SADA.Warranty.unitCard(u, i)).join('');
+  } catch (e) {
+    console.error('loadUnits failed:', e);
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load your units. Please refresh.</p></div>';
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function logout() {
+  localStorage.removeItem('sada_customer');
+  sessionStorage.clear();
+  window.location.href = 'book.html';
+}
+
+// ── PROFILE ──
+async function loadProfile() {
+  const { data } = await db.from('customers').select('*').eq('phone', customer.phone).maybeSingle();
+  if (data) {
+    customer = { ...customer, ...data };
+    localStorage.setItem('sada_customer', JSON.stringify(customer));
+  }
+  document.getElementById('profile-name').value = customer.name || '';
+  document.getElementById('profile-city').value = customer.city || '';
+  document.getElementById('profile-address').value = customer.address || '';
+  document.getElementById('profile-phone').value = customer.phone || '';
+  document.getElementById('profile-name-display').textContent = customer.name || 'My Account';
+  document.getElementById('profile-phone-display').textContent = customer.phone || '';
+  document.getElementById('book-address').value = customer.address || '';
+}
+
+async function saveProfile() {
+  const name = document.getElementById('profile-name').value.trim();
+  const city = document.getElementById('profile-city').value.trim();
+  const address = document.getElementById('profile-address').value.trim();
+  await db.from('customers').upsert({ phone: customer.phone, name, city, address, updated_at: new Date().toISOString() }, { onConflict: 'phone' });
+  customer = { ...customer, name, city, address };
+  localStorage.setItem('sada_customer', JSON.stringify(customer));
+  document.getElementById('user-name-header').textContent = name || customer.phone;
+  document.getElementById('profile-name-display').textContent = name || 'My Account';
+  showToast('Profile saved!');
+}
+
+// ── MY BOOKINGS ──
+async function loadMyBookings() {
+  const list = document.getElementById('bookings-list');
+  const { data } = await db.from('bookings').select('*, installers(name)').eq('customer_phone', customer.phone).order('created_at', { ascending: false });
+  if (!data || !data.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px;">No bookings yet</p><p>Your installations will appear here after booking.</p></div>`;
+    return;
+  }
+  // Fetch submitted reports for this customer once, index by booking_id
+  window._sadaReportsByBooking = {};
+  try {
+    if (window.SADA?.InspectionReport) {
+      const reports = await window.SADA.InspectionReport.listByCustomerPhone(customer.phone);
+      reports.forEach(r => { window._sadaReportsByBooking[r.booking_id] = r; });
+    }
+  } catch (_) { /* non-fatal */ }
+  list.innerHTML = data.map(b => renderBookingCard(b)).join('');
+}
+
+function renderBookingCard(b) {
+  const steps = ['upcoming','in_progress','completed'];
+  const stepLabels = ['Scheduled','In Progress','Completed'];
+  const stepIcons = ['📅','⚙️','✅'];
+  const currentIdx = steps.indexOf(b.status);
+  const d = new Date(b.slot_date + 'T00:00:00');
+  const now = new Date();
+  const slotTime = new Date(b.slot_date + 'T' + String(b.slot_hour).padStart(2,'0') + ':00:00');
+  const hoursUntil = (slotTime - now) / 3600000;
+  const isCancelled = b.status === 'cancelled';
+
+  const progressHTML = isCancelled ? '' : `
+    <div class="progress-track">
+      ${steps.map((s,i) => `
+        <div class="progress-step ${i < currentIdx ? 'done' : i === currentIdx ? 'active' : ''}">
+          <div class="progress-dot">${i < currentIdx ? '✓' : stepIcons[i]}</div>
+          <div class="progress-label">${stepLabels[i]}</div>
+        </div>
+        ${i < steps.length-1 ? '' : ''}
+      `).join('')}
+    </div>`;
+
+  let actionsHTML = '';
+  if (!isCancelled && b.status !== 'completed') {
+    if (hoursUntil > 6) {
+      actionsHTML = `
+        <button class="btn-outline" onclick="openRescheduleModal('${b.id}','${b.slot_id}')">📅 Reschedule</button>
+        ${hoursUntil > 24 ? `<button class="btn-danger" onclick="cancelBooking('${b.id}','${b.slot_id}')">Cancel</button>` : ''}`;
+    } else {
+      actionsHTML = `
+        <span class="btn-disabled">📅 Cannot Reschedule</span>
+        <a href="${WA_LINK}" target="_blank" class="btn-wa">💬 Contact SA'DA H2O</a>`;
+    }
+  }
+  // Inspection report — customers only see submitted reports
+  const report = window._sadaReportsByBooking?.[b.id];
+  if (report) {
+    actionsHTML = `<button class="btn-outline" onclick="viewInspectionReport('${report.id}')">📋 View Inspection Report</button>` + actionsHTML;
+  }
+
+  const typeLabel = b.booking_type ? b.booking_type.charAt(0).toUpperCase() + b.booking_type.slice(1) : 'Installation';
+
+  return `
+    <div class="booking-card">
+      <div class="booking-card-header">
+        <div>
+          <div class="booking-ref">${b.booking_reference}</div>
+          <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span class="status-badge status-${b.status}">${getStatusLabel(b.status)}</span>
+            <span class="booking-type-badge type-${b.booking_type||'installation'}">${typeLabel}</span>
+          </div>
+        </div>
+        <div style="text-align:right;font-size:12px;color:var(--muted);">
+          <div style="font-weight:600;color:var(--text);">${formatDate(b.slot_date)}</div>
+          <div>${formatHour(b.slot_hour)}</div>
+        </div>
+      </div>
+      <div class="booking-card-body">
+        ${progressHTML}
+        <div class="info-grid">
+          <div class="info-item"><label>City</label><span>${b.city_name || '—'}</span></div>
+          <div class="info-item"><label>Address</label><span>${b.location_address || '—'}</span></div>
+          ${b.installers?.name ? `<div class="info-item"><label>Installer</label><span>👷 ${b.installers.name}</span></div>` : ''}
+          ${b.rescheduled_at ? `<div class="info-item"><label>Rescheduled</label><span>${formatDate(b.rescheduled_at.split('T')[0])}</span></div>` : ''}
+        </div>
+        ${actionsHTML ? `<div class="booking-actions">${actionsHTML}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+function viewInspectionReport(reportId) {
+  if (!window.SADA?.InspectionReport) { showToast('Report module still loading...'); return; }
+  window.SADA.InspectionReport.openView(reportId, { canPrint: true });
+}
+
+async function cancelBooking(bookingId, slotId) {
+  if (!confirm('Are you sure you want to cancel this booking?')) return;
+  // Verify booking belongs to this customer
+  const { data: booking } = await db.from('bookings').select('customer_phone, status').eq('id', bookingId).maybeSingle();
+  if (!booking || booking.customer_phone !== customer.phone) { showToast('Unauthorized action.'); return; }
+  if (booking.status === 'cancelled') { showToast('Already cancelled.'); return; }
+  await db.from('bookings').update({ status: 'cancelled' }).eq('id', bookingId).eq('customer_phone', customer.phone);
+  if (slotId) await db.from('availability_slots').update({ is_booked: false }).eq('id', slotId);
+  showToast('Booking cancelled.');
+  loadMyBookings();
+}
+
+// ── RESCHEDULE ──
+function openRescheduleModal(bookingId, slotId) {
+  activeRescheduleId = bookingId;
+  activeRescheduleSlotId = slotId;
+  const dateInput = document.getElementById('rs-date');
+  // 2-day lead time — earliest reschedulable date is today + 2.
+  const today = new Date(); today.setHours(0,0,0,0);
+  const minDate = new Date(today); minDate.setDate(minDate.getDate() + 2);
+  const toIso = d => window.localDateISO(d);
+  dateInput.min = toIso(minDate);
+  dateInput.value = '';
+  document.getElementById('rs-slot').innerHTML = '<option>— Pick a date first —</option>';
+  document.getElementById('rs-error').style.display = 'none';
+  document.getElementById('reschedule-modal').style.display = 'flex';
+}
+
+async function loadRescheduleSlotsCustomer() {
+  const date = document.getElementById('rs-date').value;
+  const sel = document.getElementById('rs-slot');
+  sel.innerHTML = '<option>Loading...</option>';
+  if (!date) return;
+
+  // Defence-in-depth: reject anything under the 2-day lead time even if the
+  // user forced the date via devtools.
+  const today = new Date(); today.setHours(0,0,0,0);
+  const minDate = new Date(today); minDate.setDate(minDate.getDate() + 2);
+  const chosen = new Date(date + 'T00:00:00');
+  if (chosen < minDate) {
+    sel.innerHTML = '<option>Reschedule requires at least 2 days notice</option>';
+    return;
+  }
+
+  const { data } = await db.from('availability_slots')
+    .select('*')
+    .eq('slot_date', date)
+    .eq('is_available', true).eq('is_booked', false)
+    .order('slot_hour');
+  if (!data || !data.length) { sel.innerHTML = '<option>No slots available on this date</option>'; return; }
+  sel.innerHTML = '<option value="">— Select a time —</option>';
+  data.forEach(s => { const o = document.createElement('option'); o.value = s.id; o.dataset.hour = s.slot_hour; o.textContent = formatHour(s.slot_hour); sel.appendChild(o); });
+}
+
+async function confirmCustomerReschedule() {
+  const date = document.getElementById('rs-date').value;
+  const sel = document.getElementById('rs-slot');
+  const newSlotId = sel.value;
+  const newHour = parseInt(sel.options[sel.selectedIndex]?.dataset?.hour);
+  const errEl = document.getElementById('rs-error');
+  if (!date || !newSlotId) { errEl.style.display = 'block'; errEl.textContent = 'Please select a date and time.'; return; }
+
+  // 2-day lead time — final gate before any writes.
+  const today = new Date(); today.setHours(0,0,0,0);
+  const minDate = new Date(today); minDate.setDate(minDate.getDate() + 2);
+  if (new Date(date + 'T00:00:00') < minDate) {
+    errEl.style.display = 'block';
+    errEl.textContent = 'Reschedule requires at least 2 days notice. Please pick a later date.';
+    return;
+  }
+
+  // Verify ownership
+  const { data: booking } = await db.from('bookings').select('customer_phone, status').eq('id', activeRescheduleId).maybeSingle();
+  if (!booking || booking.customer_phone !== customer.phone) { errEl.style.display = 'block'; errEl.textContent = 'Unauthorized action.'; return; }
+  if (booking.status === 'completed' || booking.status === 'cancelled') { errEl.style.display = 'block'; errEl.textContent = 'Cannot reschedule this booking.'; return; }
+
+  // Atomic slot reservation on the NEW slot
+  const { data: reserved, error: reserveErr } = await db.from('availability_slots')
+    .update({ is_booked: true }).eq('id', newSlotId).eq('is_booked', false).select();
+  if (reserveErr || !reserved || !reserved.length) {
+    errEl.style.display = 'block'; errEl.textContent = 'This slot was just taken. Please pick another.';
+    return;
+  }
+
+  // Update booking, referencing the new slot
+  const { error: updErr } = await db.from('bookings').update({
+    slot_date: date, slot_hour: newHour, slot_id: newSlotId, status: 'upcoming',
+    rescheduled_at: new Date().toISOString()
+  }).eq('id', activeRescheduleId).eq('customer_phone', customer.phone);
+
+  if (updErr) {
+    // Roll back the new slot reservation
+    await db.from('availability_slots').update({ is_booked: false }).eq('id', newSlotId);
+    errEl.style.display = 'block'; errEl.textContent = 'Reschedule failed. Please try again.';
+    return;
+  }
+
+  // Release the old slot only after the update succeeded
+  if (activeRescheduleSlotId && activeRescheduleSlotId !== newSlotId) {
+    await db.from('availability_slots').update({ is_booked: false }).eq('id', activeRescheduleSlotId);
+  }
+  document.getElementById('reschedule-modal').style.display = 'none';
+  showToast('Booking rescheduled!');
+  loadMyBookings();
+}
+
+// ── BOOK AGAIN ──
+function selectType(type) {
+  selectedType = type;
+  document.querySelectorAll('.type-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById(`type-${type}`).classList.add('selected');
+}
+
+async function loadBookDates() {
+  const grid = document.getElementById('book-date-grid');
+  if (!bookRegionId) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">Select a service area to see available slots.</p>'; return; }
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(today); start.setDate(start.getDate() + 2);
+  const end = new Date(start); end.setDate(end.getDate() + 60);
+  const toIso = d => window.localDateISO(d);
+  const { data } = await db.from('availability_slots')
+    .select('slot_date')
+    .eq('service_region_id', bookRegionId)
+    .eq('is_available', true).eq('is_booked', false)
+    .gte('slot_date', toIso(start)).lte('slot_date', toIso(end));
+  const availableDates = [...new Set((data || []).map(d => d.slot_date))].sort();
+  grid.innerHTML = '';
+  if (!availableDates.length) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">No available slots for this service area in the next 2 months.</p>'; return; }
+  availableDates.forEach(dateStr => {
+    const d = new Date(dateStr + 'T00:00:00');
+    const box = document.createElement('div');
+    box.className = 'date-box';
+    box.innerHTML = `<div class="date-day">${d.toLocaleDateString('en-US',{weekday:'short'})}</div><div class="date-num">${String(d.getDate()).padStart(2,'0')}</div><div class="date-month">${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}</div>`;
+    box.onclick = () => selectBookDate(dateStr, box);
+    grid.appendChild(box);
+  });
+}
+
+function selectBookDate(dateStr, el) {
+  document.querySelectorAll('.date-box').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected'); bookDate = dateStr; bookHour = null; bookSlotId = null;
+  loadBookSlots(dateStr);
+}
+
+async function loadBookSlots(dateStr) {
+  const section = document.getElementById('book-time-section');
+  const grid = document.getElementById('book-time-grid');
+  section.style.display = 'block'; grid.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const { data } = await db.from('availability_slots').select('*').eq('service_region_id', bookRegionId).eq('slot_date', dateStr).eq('is_available', true).order('slot_hour');
+  if (!data || !data.length) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;">No slots available.</p>'; return; }
+  grid.innerHTML = '';
+  data.forEach(slot => {
+    const box = document.createElement('div');
+    box.className = `time-slot${slot.is_booked ? ' booked' : ''}`;
+    box.textContent = formatHour(slot.slot_hour);
+    if (!slot.is_booked) box.onclick = () => { document.querySelectorAll('.time-slot').forEach(b => b.classList.remove('selected')); box.classList.add('selected'); bookHour = slot.slot_hour; bookSlotId = slot.id; };
+    grid.appendChild(box);
+  });
+}
+
+async function submitNewBooking() {
+  const address = document.getElementById('book-address').value.trim();
+  const cityName = document.getElementById('book-city').value;
+  const errEl = document.getElementById('book-error');
+  if (!bookRegionId || !cityName) { errEl.style.display = 'block'; errEl.textContent = 'Please pick a service area and city.'; return; }
+  if (!bookDate || bookHour === null) { errEl.style.display = 'block'; errEl.textContent = 'Please select a date and time slot.'; return; }
+  errEl.style.display = 'none';
+
+  // Check for existing active booking
+  const { data: existing } = await db.from('bookings').select('id, status, slot_date').eq('customer_phone', customer.phone).eq('status', 'upcoming').limit(1);
+  if (existing && existing.length > 0) {
+    if (!confirm(`You already have an upcoming booking on ${formatDate(existing[0].slot_date)}. Do you want to book again anyway?`)) return;
+  }
+
+  // Atomic slot reservation
+  const { data: reserved, error: reserveErr } = await db.from('availability_slots')
+    .update({ is_booked: true }).eq('id', bookSlotId).eq('is_booked', false).select();
+  if (reserveErr || !reserved || !reserved.length) {
+    errEl.style.display = 'block'; errEl.textContent = 'This slot was just taken. Please pick another.';
+    loadBookDates();
+    return;
+  }
+  // Ground truth from the reserved slot itself.
+  const bookedDate = reserved[0].slot_date;
+  const bookedHour = reserved[0].slot_hour;
+
+  // Region sanity check
+  if (reserved[0].service_region_id && bookRegionId && reserved[0].service_region_id !== bookRegionId) {
+    await db.from('availability_slots').update({ is_booked: false }).eq('id', bookSlotId);
+    errEl.style.display = 'block';
+    errEl.textContent = 'This slot doesn\'t match your service area. Please pick a slot again.';
+    bookDate = null; bookHour = null; bookSlotId = null;
+    loadBookDates();
+    return;
+  }
+
+  const { data: booking, error } = await db.from('bookings').insert({
+    customer_name: customer.name, customer_email: '', customer_phone: customer.phone,
+    city_id: null, city_name: cityName, service_region_id: bookRegionId, location_address: address || customer.address,
+    latitude: bookLat, longitude: bookLng,
+    slot_id: bookSlotId, slot_date: bookedDate, slot_hour: bookedHour,
+    status: 'upcoming', booking_type: selectedType
+  }).select().maybeSingle();
+  if (error || !booking) {
+    // Roll back
+    await db.from('availability_slots').update({ is_booked: false }).eq('id', bookSlotId);
+    errEl.style.display = 'block'; errEl.textContent = 'Booking failed. Please try again.'; return;
+  }
+  // Persist region so next Book Again pre-fills.
+  customer.regionId = bookRegionId; customer.city = cityName;
+  localStorage.setItem('sada_customer', JSON.stringify(customer));
+  showToast(`✅ ${selectedType} booked! Ref: ${booking.booking_reference}`);
+  // Notify installers about the new available job (broadcast).
+  fetch('/api/notify-installers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bookingId: booking.id })
+  }).catch(e => console.warn('notify-installers failed:', e));
+  bookDate = null; bookHour = null; bookSlotId = null;
+  bookLat = null; bookLng = null;
+  // Reset location UI
+  const btn = document.getElementById('book-location-btn');
+  const lbl = document.getElementById('book-location-btn-label');
+  const hint = document.getElementById('book-location-hint');
+  if (btn) { btn.classList.remove('got-location','error-location'); btn.disabled = false; }
+  if (lbl) lbl.textContent = 'Use my current location';
+  if (hint) { hint.textContent = 'Tap to fill your address from GPS. Drag the pin on the map to refine.'; hint.classList.remove('error'); }
+  const mapEl = document.getElementById('book-map');
+  if (mapEl) { mapEl.classList.remove('visible'); mapEl.style.display = 'none'; }
+  const cap = document.getElementById('book-map-caption');
+  if (cap) cap.style.display = 'none';
+  loadBookDates();
+  setTimeout(() => switchTab('bookings', document.querySelector('.tab')), 1500);
+  loadMyBookings();
+}
+
+// ── GPS + MAP FOR BOOK AGAIN ──
+async function reverseGeocode(lat, lon) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, { headers: { 'Accept-Language': 'en' } });
+    if (!res.ok) throw new Error('geocode ' + res.status);
+    const data = await res.json();
+    return data.display_name || null;
+  } catch (e) { console.warn('reverse geocode failed:', e); return null; }
+}
+
+function setBookBtn(state, labelText, hintText, hintIsError) {
+  const btn = document.getElementById('book-location-btn');
+  const lbl = document.getElementById('book-location-btn-label');
+  const hint = document.getElementById('book-location-hint');
+  btn.classList.remove('got-location','error-location');
+  if (state === 'got') btn.classList.add('got-location');
+  if (state === 'err') btn.classList.add('error-location');
+  lbl.textContent = labelText;
+  hint.textContent = hintText;
+  hint.classList.toggle('error', !!hintIsError);
+}
+
+function ensureBookMap(lat, lon) {
+  const el = document.getElementById('book-map');
+  el.classList.add('visible'); el.style.display = 'block';
+  document.getElementById('book-map-caption').style.display = 'block';
+  if (!bookMap) {
+    bookMap = L.map(el, { zoomControl: true, attributionControl: true }).setView([lat, lon], 17);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(bookMap);
+    bookMarker = L.marker([lat, lon], { draggable: true }).addTo(bookMap);
+    bookMarker.on('dragend', async () => {
+      const ll = bookMarker.getLatLng();
+      bookLat = ll.lat; bookLng = ll.lng;
+      const addr = await reverseGeocode(ll.lat, ll.lng);
+      if (addr) document.getElementById('book-address').value = addr;
+    });
+    setTimeout(() => bookMap.invalidateSize(), 100);
+  } else {
+    bookMap.setView([lat, lon], 17);
+    bookMarker.setLatLng([lat, lon]);
+    setTimeout(() => bookMap.invalidateSize(), 50);
+  }
+}
+
+function getBookLocation() {
+  if (!navigator.geolocation) {
+    setBookBtn('err', '❌ GPS not supported', 'Your browser does not support location. Please enter your address manually.', true);
+    return;
+  }
+  const btn = document.getElementById('book-location-btn');
+  btn.disabled = true;
+  setBookBtn('', '⏳ Getting your location…', 'Please allow location access when prompted.', false);
+
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    bookLat = pos.coords.latitude; bookLng = pos.coords.longitude;
+    const accuracy = Math.round(pos.coords.accuracy);
+    const addr = await reverseGeocode(bookLat, bookLng);
+    if (addr) {
+      document.getElementById('book-address').value = addr;
+      setBookBtn('got', '✓ Location captured', `Accurate to ±${accuracy}m. Drag the pin on the map to refine.`, false);
+    } else {
+      document.getElementById('book-address').value = `${bookLat.toFixed(6)}, ${bookLng.toFixed(6)}`;
+      setBookBtn('got', '✓ GPS captured (address lookup failed)', 'We could not look up your street. Please edit the address, or drag the pin.', false);
+    }
+    ensureBookMap(bookLat, bookLng);
+    btn.disabled = false;
+  }, (err) => {
+    btn.disabled = false;
+    let msg;
+    if (err.code === 1)      msg = 'Location permission was denied. Please enter your address manually.';
+    else if (err.code === 2) msg = 'Your device could not determine your location. Please enter manually.';
+    else if (err.code === 3) msg = 'Location request timed out. Please try again or enter manually.';
+    else                     msg = 'Could not get location. Please enter your address manually.';
+    setBookBtn('err', '⚠️ Location unavailable', msg, true);
+  }, { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 });
+}
+
+// ── HELPERS ──
+// formatHour is provided by shared/supabase.js
+function getStatusLabel(s) { return {upcoming:'Scheduled',in_progress:'In Progress',completed:'Completed',cancelled:'Cancelled'}[s] || s; }
+</script>
+</body>
+</html>
