@@ -3,10 +3,7 @@
 // Adds: per-phone throttle (3 free / 15-min window, then 1 send per 2 min).
 // Still enforces: shared X-Secret-Key header from client, IP-level flood cap, Saudi phone regex.
 
-const https = require('https');
-
-const RELAY_HOST = '206.189.42.165';
-const RELAY_PORT = 443;
+const RELAY_HOST = 'relay.sadawater.com';
 const RELAY_PATH = '/';
 const RELAY_TIMEOUT_MS = 30_000;
 const CLIENT_SECRET_KEY = 'sada-h2o-relay-2026-secure';
@@ -84,29 +81,25 @@ async function checkPhoneThrottle(phone) {
   return { allowed: true };
 }
 
-function forwardToDroplet(to, body) {
-  return new Promise((resolve, reject) => {
-    const payload = JSON.stringify({ to, body });
-    const req = https.request({
-      hostname: RELAY_HOST, port: RELAY_PORT, path: RELAY_PATH, method: 'POST',
-      rejectUnauthorized: false,
-      timeout: RELAY_TIMEOUT_MS,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payload)
-      }
-    }, (r) => {
-      let data = '';
-      r.on('data', c => (data += c));
-      r.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { resolve({ raw: data }); }
-      });
+async function forwardToDroplet(to, body) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), RELAY_TIMEOUT_MS);
+  try {
+    const r = await fetch(`https://${RELAY_HOST}${RELAY_PATH}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, body }),
+      signal: ac.signal
     });
-    req.on('timeout', () => { req.destroy(); reject(new Error('Relay timeout')); });
-    req.on('error', reject);
-    req.write(payload); req.end();
-  });
+    const text = await r.text();
+    try { return JSON.parse(text); }
+    catch { return { raw: text }; }
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Relay timeout');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 module.exports = async function handler(req, res) {

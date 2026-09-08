@@ -3,10 +3,7 @@
 // Anti-replay: booking must exist, be status='upcoming', and <5 min old.
 // Bypasses per-phone throttle (system-initiated).
 
-const https = require('https');
-
-const RELAY_HOST = '206.189.42.165';
-const RELAY_PORT = 443;
+const RELAY_HOST = 'relay.sadawater.com';
 const RELAY_PATH = '/';
 const RELAY_TIMEOUT_MS = 30_000;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ykgtrloptgazeqjgxney.supabase.co';
@@ -24,22 +21,23 @@ async function sb(method, path) {
   return txt ? JSON.parse(txt) : null;
 }
 
-function relaySend(to, body) {
-  return new Promise((resolve) => {
-    const payload = JSON.stringify({ to, body });
-    const req = https.request({
-      hostname: RELAY_HOST, port: RELAY_PORT, path: RELAY_PATH, method: 'POST',
-      rejectUnauthorized: false, timeout: RELAY_TIMEOUT_MS,
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
-    }, (r) => {
-      let data = '';
-      r.on('data', c => (data += c));
-      r.on('end', () => resolve({ status: r.statusCode, body: data }));
+async function relaySend(to, body) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), RELAY_TIMEOUT_MS);
+  try {
+    const r = await fetch(`https://${RELAY_HOST}${RELAY_PATH}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, body }),
+      signal: ac.signal
     });
-    req.on('timeout', () => { req.destroy(); resolve({ status: 504, body: 'timeout' }); });
-    req.on('error', (e) => resolve({ status: 500, body: e.message }));
-    req.write(payload); req.end();
-  });
+    const text = await r.text();
+    return { status: r.status, body: text };
+  } catch (err) {
+    return { status: err.name === 'AbortError' ? 504 : 500, body: err.name === 'AbortError' ? 'timeout' : err.message };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function formatSaudi(phone) {

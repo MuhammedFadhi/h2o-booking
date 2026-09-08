@@ -29,11 +29,9 @@
 // Response: 200 with {} means "sent". Any non-2xx makes Supabase fail the login.
 // ============================================================================
 
-const https = require('https');
 const crypto = require('crypto');
 
-const RELAY_HOST = '206.189.42.165';
-const RELAY_PORT = 443;
+const RELAY_HOST = 'relay.sadawater.com';
 const RELAY_PATH = '/';
 const RELAY_TIMEOUT_MS = 30_000;
 
@@ -99,28 +97,24 @@ function verifySignature(raw, headers, secretRaw) {
 }
 
 // Duplicated from send-sms.js — see the note at the top of this file.
-function forwardToDroplet(to, body) {
-  return new Promise((resolve, reject) => {
-    const payload = JSON.stringify({ to, body });
-    const req = https.request({
-      hostname: RELAY_HOST, port: RELAY_PORT, path: RELAY_PATH, method: 'POST',
-      rejectUnauthorized: false,          // droplet uses a self-signed cert
-      timeout: RELAY_TIMEOUT_MS,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payload)
-      }
-    }, (r) => {
-      let data = '';
-      r.on('data', c => (data += c));
-      r.on('end', () => {
-        try { resolve(JSON.parse(data)); } catch { resolve({ raw: data }); }
-      });
+async function forwardToDroplet(to, body) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), RELAY_TIMEOUT_MS);
+  try {
+    const r = await fetch(`https://${RELAY_HOST}${RELAY_PATH}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, body }),
+      signal: ac.signal
     });
-    req.on('timeout', () => { req.destroy(); reject(new Error('Relay timeout')); });
-    req.on('error', reject);
-    req.write(payload); req.end();
-  });
+    const text = await r.text();
+    try { return JSON.parse(text); } catch { return { raw: text }; }
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Relay timeout');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 module.exports = async function handler(req, res) {

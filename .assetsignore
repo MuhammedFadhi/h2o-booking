@@ -1,0 +1,12 @@
+node_modules/
+api/
+worker/
+migrations/
+sql/
+.env
+.env.*
+.git/
+.gitignore
+wrangler.jsonc
+package.json
+package-lock.json

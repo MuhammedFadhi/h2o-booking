@@ -3,12 +3,11 @@
 // Never returns the code; stores only bcrypt-style hash.
 
 const crypto = require('crypto');
-const https = require('https');
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ykgtrloptgazeqjgxney.supabase.co';
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const RELAY_HOST = '206.189.42.165';
+const RELAY_HOST = 'relay.sadawater.com';
 const RELAY_PATH = '/send';
 const OTP_TTL_MS = 2 * 60 * 1000;
 const MAX_ATTEMPTS = 4;
@@ -36,20 +35,14 @@ function issueToken(phone, ttlSec = 60 * 60 * 24 * 7) {
 }
 
 async function sendSms(to, body) {
-  const data = JSON.stringify({ to, body });
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname: RELAY_HOST, port: 443, path: RELAY_PATH, method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
-      rejectUnauthorized: false
-    }, (resp) => {
-      let chunks = '';
-      resp.on('data', (c) => chunks += c);
-      resp.on('end', () => (resp.statusCode || 502) >= 400 ? reject(new Error(chunks)) : resolve(chunks));
-    });
-    req.on('error', reject);
-    req.write(data); req.end();
+  const r = await fetch(`https://${RELAY_HOST}${RELAY_PATH}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ to, body })
   });
+  const text = await r.text();
+  if (!r.ok) throw new Error(text);
+  return text;
 }
 
 const sendBucket = new Map(); // simple IP send rate limit
