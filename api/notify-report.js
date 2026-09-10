@@ -1,7 +1,7 @@
 // /api/notify-report — SMS customer that their inspection report is ready.
 // Anti-replay: report must exist, status='submitted', <10 min since submitted_at.
 // Skipped if sms_settings.inspection_report is disabled.
-const RELAY_HOST = 'relay.sadawater.com';
+const RELAY_HOST = 'smsrelay.sadawater.com';
 const RELAY_TIMEOUT_MS = 30_000;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ykgtrloptgazeqjgxney.supabase.co';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';

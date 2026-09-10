@@ -31,7 +31,7 @@
 
 const crypto = require('crypto');
 
-const RELAY_HOST = 'relay.sadawater.com';
+const RELAY_HOST = 'smsrelay.sadawater.com';
 const RELAY_PATH = '/';
 const RELAY_TIMEOUT_MS = 30_000;
 

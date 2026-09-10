@@ -3,7 +3,7 @@
 // Anti-replay: booking must exist, be status='upcoming', and <5 min old.
 // Bypasses per-phone throttle (system-initiated).
 
-const RELAY_HOST = 'relay.sadawater.com';
+const RELAY_HOST = 'smsrelay.sadawater.com';
 const RELAY_PATH = '/';
 const RELAY_TIMEOUT_MS = 30_000;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ykgtrloptgazeqjgxney.supabase.co';

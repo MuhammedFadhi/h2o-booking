@@ -3,7 +3,7 @@
 // Adds: per-phone throttle (3 free / 15-min window, then 1 send per 2 min).
 // Still enforces: shared X-Secret-Key header from client, IP-level flood cap, Saudi phone regex.
 
-const RELAY_HOST = 'relay.sadawater.com';
+const RELAY_HOST = 'smsrelay.sadawater.com';
 const RELAY_PATH = '/';
 const RELAY_TIMEOUT_MS = 30_000;
 const CLIENT_SECRET_KEY = 'sada-h2o-relay-2026-secure';

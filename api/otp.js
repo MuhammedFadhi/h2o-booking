@@ -7,7 +7,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ykgtrloptgazeqjgxney.supabase.co';
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const RELAY_HOST = 'relay.sadawater.com';
+const RELAY_HOST = 'smsrelay.sadawater.com';
 const RELAY_PATH = '/send';
 const OTP_TTL_MS = 2 * 60 * 1000;
 const MAX_ATTEMPTS = 4;
