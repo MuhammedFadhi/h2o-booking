@@ -1262,6 +1262,14 @@
         <div id="ab-basket-total" style="margin-top:8px;text-align:right;font-weight:700;color:#1565C0;font-size:13px;"></div>
       </div>
       <div class="form-group">
+        <label>Promo Code <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" id="ab-promo-input" placeholder="e.g. SUMMER25" style="flex:1;text-transform:uppercase;">
+          <button type="button" class="btn btn-ghost" onclick="abApplyPromo()" style="white-space:nowrap;">Apply</button>
+        </div>
+        <div id="ab-promo-msg" style="font-size:12px;margin-top:6px;display:none;"></div>
+      </div>
+      <div class="form-group">
         <label>Job Type</label>
         <select class="form-input" id="ab-jobtype">
           <option value="installation">🔧 New Installation</option>
@@ -2048,6 +2056,7 @@ async function submitPayment() {
 // ============================================================
 let abSelectedSlotId = null;
 let abBasket = [];   // [{ model, qty, unit_price, is_serialized, color|null }]
+let abPromo = null;  // applied promo_codes row, or null
 
 // ============================================================
 // SERVICE / REPAIR / RELOCATION BOOKING — for an EXISTING customer.
@@ -2377,6 +2386,9 @@ async function submitServiceBooking() {
 async function openAdminBookingModal() {
   abSelectedSlotId = null;
   abBasket = [];
+  abPromo = null;
+  document.getElementById('ab-promo-input').value = '';
+  document.getElementById('ab-promo-msg').style.display = 'none';
   const { data: regions } = await dbAdmin.from('service_regions').select('id, name').order('sort_order');
   const rsel = document.getElementById('ab-region');
   rsel.innerHTML = (regions||[]).map(r => `<option value="${r.id}">${escB(r.name)}</option>`).join('');
@@ -2449,7 +2461,7 @@ function abRenderBasket() {
   const host = document.getElementById('ab-basket-lines');
   if (!abBasket.length) {
     host.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:6px 0;">No products yet — add one below.</div>';
-    document.getElementById('ab-basket-total').textContent = '';
+    document.getElementById('ab-basket-total').innerHTML = '';
     return;
   }
   host.innerHTML = abBasket.map((l, i) => {
@@ -2473,7 +2485,44 @@ function abRenderBasket() {
   }).join('');
   const total = abBasket.reduce((s,l)=>s+(l.unit_price||0)*l.qty,0);
   const units = abBasket.reduce((s,l)=>s+l.qty,0);
-  document.getElementById('ab-basket-total').textContent = `Total: SAR ${total.toLocaleString('en-US')} (${units} unit${units!==1?'s':''})`;
+  const discount = abPromo ? abPromoDiscountFor(total, abPromo) : 0;
+  document.getElementById('ab-basket-total').innerHTML = discount > 0
+    ? `Subtotal: SAR ${total.toLocaleString('en-US')} (${units} unit${units!==1?'s':''})<br>`
+      + `<span style="color:#0d7a63;">Discount (${escB(abPromo.code)}): − SAR ${discount.toLocaleString('en-US')}</span><br>`
+      + `Total: SAR ${Math.max(0, total-discount).toLocaleString('en-US')}`
+    : `Total: SAR ${total.toLocaleString('en-US')} (${units} unit${units!==1?'s':''})`;
+}
+
+// Compute SAR discount for a subtotal under a promo (percent or fixed amount), capped at subtotal.
+// Mirrors promoDiscountFor() in customer/book.html — kept as a separate copy since these
+// are independent static pages with no shared JS module.
+function abPromoDiscountFor(subtotal, promo) {
+  let d = promo.discount_type === 'percent'
+    ? subtotal * (Number(promo.discount_value) / 100)
+    : Number(promo.discount_value);
+  d = Math.round(d * 100) / 100;
+  return Math.min(Math.max(0, d), subtotal);
+}
+
+// Validate a typed promo code against the DB (active + within validity window).
+async function abApplyPromo() {
+  const input = document.getElementById('ab-promo-input');
+  const msg = document.getElementById('ab-promo-msg');
+  const code = (input.value || '').trim();
+  if (!code) return;
+  const show = (text, ok) => { msg.style.display = 'block'; msg.style.color = ok ? '#0d7a63' : '#B71C1C'; msg.textContent = text; };
+
+  const { data, error } = await dbAdmin.from('promo_codes').select('*').ilike('code', code).maybeSingle();
+  if (error || !data) { abPromo = null; abRenderBasket(); show('That code isn’t valid.', false); return; }
+  if (!data.is_active) { abPromo = null; abRenderBasket(); show('This code is no longer active.', false); return; }
+  const today = new Date().toISOString().slice(0,10);
+  if (data.valid_from && today < data.valid_from) { abPromo = null; abRenderBasket(); show('This code isn’t active yet.', false); return; }
+  if (data.valid_until && today > data.valid_until) { abPromo = null; abRenderBasket(); show('This code has expired.', false); return; }
+
+  abPromo = data;
+  abRenderBasket();
+  const off = abPromo.discount_type === 'percent' ? `${abPromo.discount_value}% off` : `SAR ${abPromo.discount_value} off`;
+  show(`✓ Code applied — ${off}!`, true);
 }
 
 async function abBasketAdd() {
@@ -2553,14 +2602,19 @@ async function submitAdminBooking() {
 
     // Patch admin fields + summary = highest-value line.
     const nowIso = new Date().toISOString();
+    const discount = abPromo ? abPromoDiscountFor(subtotal, abPromo) : 0;
     const patch = {
       product_model: nameWithColor(primary), product_qty: primary.qty,
       order_total: subtotal,
+      promo_code: abPromo ? abPromo.code : null,
+      discount_amount: discount || null,
       booking_type: (document.getElementById('ab-jobtype')?.value || 'installation'),
       created_by: 'admin'
     };
     if (startStatus === 'installed') { patch.status = 'installed'; patch.installed_at = nowIso; patch.completed_by = 'admin'; }
     await dbAdmin.from('bookings').update(patch).eq('id', bkId);
+    // Bump the promo usage counter (atomic RPC, best-effort — matches customer flow).
+    if (abPromo) dbAdmin.rpc('increment_promo_usage', { p_code: abPromo.code }).then(()=>{}).catch(()=>{});
 
     // Upsert the customer profile (the RPC does NOT create a customers row — the
     // customer flow does this separately, so the admin flow must too).

@@ -209,6 +209,16 @@
         <div class="type-desc">Move to new address</div>
       </div>
     </div>
+    <div class="form-group" id="book-product-section">
+      <label>Products</label>
+      <div id="book-product-grid" style="display:grid;grid-template-columns:1fr;gap:8px;"></div>
+      <div id="book-basket-total" style="display:none;margin-top:10px;padding:10px 14px;background:#EFF6FF;border-radius:10px;font-weight:700;text-align:right;color:#1565C0;"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <input type="text" id="book-promo-input" placeholder="Promo code (optional)" style="flex:1;text-transform:uppercase;padding:9px 11px;border:1.5px solid var(--border,#d5dde3);border-radius:9px;font-size:13px;">
+        <button type="button" onclick="applyBookPromo()" style="padding:9px 16px;border:none;border-radius:9px;background:#0D3B6E;color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">Apply</button>
+      </div>
+      <div id="book-promo-msg" style="font-size:12px;margin-top:6px;display:none;"></div>
+    </div>
     <div class="form-group">
       <label>Service Area</label>
       <select id="book-region" onchange="onBookRegionChange()"><option value="">Loading service areas…</option></select>
@@ -277,6 +287,10 @@ const WA_LINK = 'https://api.whatsapp.com/send/?phone=966547989055&text&type=pho
 
 let customer = null;
 let selectedType = 'installation';
+let bookItems = {};       // basket for the Installation type: { [model_name]: { model, price, qty, is_serialized, color|undefined } }
+let bookCatalogueCache = []; // [{ model_name, price_sar, is_serialized, image_url, description }]
+let bookPromo = null;     // applied promo_codes row, or null
+let bookProductsLoaded = false;
 let bookDate = null, bookHour = null, bookSlotId = null;
 let activeRescheduleId = null, activeRescheduleSlotId = null;
 let bookLat = null, bookLng = null;
@@ -293,6 +307,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   loadProfile();
   loadMyBookings();
   await loadBookRegionsAndCities();
+  if (selectedType === 'installation') loadBookProducts();
 });
 
 async function loadBookRegionsAndCities() {
@@ -616,6 +631,154 @@ function selectType(type) {
   selectedType = type;
   document.querySelectorAll('.type-card').forEach(c => c.classList.remove('selected'));
   document.getElementById(`type-${type}`).classList.add('selected');
+  const showProducts = type === 'installation';
+  document.getElementById('book-product-section').style.display = showProducts ? '' : 'none';
+  if (showProducts && !bookProductsLoaded) loadBookProducts();
+}
+
+// ── PRODUCTS + PROMO (Installation only) — mirrors book.html's basket/promo logic ──
+const BOOK_PRODUCT_IMAGES = {
+  '7-Stage RO Purifier':          '../assets/products/ro-7stage.png',
+  '7-Stage RO Purifier + UV':     '../assets/products/ro-7stage-uv.png',
+  '6-Stage Smart RO':             '../assets/products/ro-6stage-smart.png',
+  '7-Stage Smart RO':             '../assets/products/ro-7stage-smart.png',
+  '200 GPD Commercial RO System': '../assets/products/ro-commercial-gpd.png',
+  '400 GPD Commercial RO System': '../assets/products/ro-commercial-gpd.png',
+};
+const BOOK_DISPENSER_COLORS = [
+  { name: 'Black', img: '../assets/products/dispenser-black.png' },
+  { name: 'White', img: '../assets/products/dispenser-white.png' },
+];
+const isBookDispenser = (m) => /dispenser/i.test(m || '');
+
+async function loadBookProducts() {
+  const grid = document.getElementById('book-product-grid');
+  bookProductsLoaded = true;
+  if (bookCatalogueCache.length) { renderBookProducts(); return; }
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div> Loading products...</div>';
+  const { data, error } = await db.from('product_models')
+    .select('model_name, price_sar, is_serialized, image_url, description')
+    .eq('is_catalogue', true).order('sort_order', { ascending: true });
+  if (error || !data || !data.length) {
+    grid.innerHTML = '<div style="font-size:13px;color:#B45309;">Product list unavailable — our team will confirm your product.</div>';
+    bookCatalogueCache = [];
+    return;
+  }
+  bookCatalogueCache = data;
+  renderBookProducts();
+}
+
+function renderBookProducts() {
+  const grid = document.getElementById('book-product-grid');
+  grid.innerHTML = bookCatalogueCache.map(p => {
+    const enc = encodeURIComponent(p.model_name);
+    const inBasket = bookItems[p.model_name];
+    const qty = inBasket ? inBasket.qty : 0;
+    const isDisp = isBookDispenser(p.model_name);
+    const chosenColor = inBasket?.color || 'Black';
+
+    let imageBlock = '';
+    if (isDisp) {
+      imageBlock = `<div style="display:flex;gap:10px;justify-content:center;margin:6px 0 10px;">
+        ${BOOK_DISPENSER_COLORS.map(c => `
+          <div onclick="pickBookDispenserColor('${enc}','${c.name}')" style="cursor:pointer;text-align:center;">
+            <div style="width:78px;height:78px;border-radius:10px;border:2px solid ${chosenColor===c.name ? '#1565C0' : 'var(--border,#e2e8f0)'};background:#fff url('${c.img}') center/contain no-repeat;box-shadow:${chosenColor===c.name ? '0 0 0 3px rgba(21,101,192,.15)' : 'none'};"></div>
+            <div style="font-size:10px;font-weight:700;margin-top:3px;color:${chosenColor===c.name ? '#1565C0' : 'var(--muted,#667)'};">${c.name}</div>
+          </div>`).join('')}
+      </div>`;
+    } else {
+      const imgSrc = (p.image_url && !/purifier-generic/.test(p.image_url)) ? p.image_url : BOOK_PRODUCT_IMAGES[p.model_name];
+      if (imgSrc) imageBlock = `<div style="height:96px;margin:4px 0 8px;background:#fff url('${imgSrc}') center/contain no-repeat;"></div>`;
+    }
+
+    return `<div style="border:2px solid ${qty ? '#1565C0' : 'var(--border,#ddd)'};border-radius:12px;padding:12px 14px;background:${qty ? '#EFF6FF' : '#fff'};transition:all .12s;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div style="font-weight:700;font-size:14px;">${p.model_name}${isDisp && qty ? ` <span style="font-size:11px;color:#1565C0;">· ${chosenColor}</span>` : ''}</div>
+        <div style="font-weight:800;font-size:14px;color:#1565C0;white-space:nowrap;">SAR ${Number(p.price_sar).toLocaleString('en-US')}</div>
+      </div>
+      ${p.description ? `<div style="font-size:11px;color:var(--muted,#667);margin-top:4px;line-height:1.4;">${p.description}</div>` : ''}
+      ${imageBlock}
+      <div style="display:flex;align-items:center;gap:12px;margin-top:6px;">
+        <button type="button" onclick="bookBasketQty('${enc}',-1)" style="width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border,#ccc);background:#fff;font-size:18px;cursor:pointer;">−</button>
+        <span style="font-size:17px;font-weight:700;min-width:24px;text-align:center;">${qty}</span>
+        <button type="button" onclick="bookBasketQty('${enc}',1)" style="width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border,#ccc);background:#fff;font-size:18px;cursor:pointer;">+</button>
+        ${qty ? `<span style="font-size:12px;color:var(--muted,#667);margin-left:auto;">SAR ${(p.price_sar*qty).toLocaleString('en-US')}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  updateBookBasketTotal();
+}
+
+function pickBookDispenserColor(encName, color) {
+  const name = decodeURIComponent(encName);
+  const p = bookCatalogueCache.find(x => x.model_name === name);
+  if (!p) return;
+  const cur = bookItems[name];
+  const qty = cur ? cur.qty : 1;
+  bookItems[name] = { model: p.model_name, price: Number(p.price_sar), qty, is_serialized: false, color };
+  renderBookProducts();
+}
+
+function bookBasketQty(encName, delta) {
+  const name = decodeURIComponent(encName);
+  const p = bookCatalogueCache.find(x => x.model_name === name);
+  if (!p) return;
+  const cur = bookItems[name]?.qty || 0;
+  const next = Math.max(0, cur + delta);
+  if (next === 0) {
+    delete bookItems[name];
+  } else {
+    const isDisp = isBookDispenser(p.model_name);
+    const color = bookItems[name]?.color || (isDisp ? 'Black' : null);
+    bookItems[name] = { model: p.model_name, price: Number(p.price_sar), qty: next, is_serialized: p.is_serialized !== false, ...(isDisp ? { color } : {}) };
+  }
+  renderBookProducts();
+}
+
+function bookBasketLines() { return Object.values(bookItems); }
+function bookBasketTotal() { return bookBasketLines().reduce((s, l) => s + l.price * l.qty, 0); }
+
+// Compute SAR discount for a subtotal under a promo (percent or fixed amount), capped at subtotal.
+function bookPromoDiscountFor(subtotal, promo) {
+  let d = promo.discount_type === 'percent'
+    ? subtotal * (Number(promo.discount_value) / 100)
+    : Number(promo.discount_value);
+  d = Math.round(d * 100) / 100;
+  return Math.min(Math.max(0, d), subtotal);
+}
+
+function updateBookBasketTotal() {
+  const el = document.getElementById('book-basket-total');
+  const subtotal = bookBasketTotal();
+  if (!subtotal) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  const discount = bookPromo ? bookPromoDiscountFor(subtotal, bookPromo) : 0;
+  el.innerHTML = discount > 0
+    ? `Subtotal: SAR ${subtotal.toLocaleString('en-US')}<br>`
+      + `<span style="color:#0d7a63;">Discount (${bookPromo.code}): − SAR ${discount.toLocaleString('en-US')}</span><br>`
+      + `Total: SAR ${Math.max(0, subtotal-discount).toLocaleString('en-US')}`
+    : `Total: SAR ${subtotal.toLocaleString('en-US')}`;
+}
+
+// Validate a typed promo code against the DB (active + within validity window).
+async function applyBookPromo() {
+  const input = document.getElementById('book-promo-input');
+  const msg = document.getElementById('book-promo-msg');
+  const code = (input.value || '').trim();
+  if (!code) return;
+  const show = (text, ok) => { msg.style.display = 'block'; msg.style.color = ok ? '#0d7a63' : '#B71C1C'; msg.textContent = text; };
+
+  const { data, error } = await db.from('promo_codes').select('*').ilike('code', code).maybeSingle();
+  if (error || !data) { bookPromo = null; updateBookBasketTotal(); show('That code isn’t valid.', false); return; }
+  if (!data.is_active) { bookPromo = null; updateBookBasketTotal(); show('This code is no longer active.', false); return; }
+  const today = new Date().toISOString().slice(0,10);
+  if (data.valid_from && today < data.valid_from) { bookPromo = null; updateBookBasketTotal(); show('This code isn’t active yet.', false); return; }
+  if (data.valid_until && today > data.valid_until) { bookPromo = null; updateBookBasketTotal(); show('This code has expired.', false); return; }
+
+  bookPromo = data;
+  updateBookBasketTotal();
+  const off = bookPromo.discount_type === 'percent' ? `${bookPromo.discount_value}% off` : `SAR ${bookPromo.discount_value} off`;
+  show(`✓ Code applied — ${off}!`, true);
 }
 
 async function loadBookDates() {
@@ -672,6 +835,7 @@ async function submitNewBooking() {
   const errEl = document.getElementById('book-error');
   if (!bookRegionId || !cityName) { errEl.style.display = 'block'; errEl.textContent = 'Please pick a service area and city.'; return; }
   if (!bookDate || bookHour === null) { errEl.style.display = 'block'; errEl.textContent = 'Please select a date and time slot.'; return; }
+  if (selectedType === 'installation' && !bookBasketLines().length) { errEl.style.display = 'block'; errEl.textContent = 'Please add at least one product.'; return; }
   errEl.style.display = 'none';
 
   // Check for existing active booking
@@ -702,17 +866,37 @@ async function submitNewBooking() {
     return;
   }
 
+  // Product/promo fields — only meaningful for Installation (other types have no basket).
+  const lines = selectedType === 'installation' ? bookBasketLines() : [];
+  const nameWithColor = (l) => l.color ? `${l.model} — ${l.color}` : l.model;
+  const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
+  const discount = (lines.length && bookPromo) ? bookPromoDiscountFor(subtotal, bookPromo) : 0;
+  const primary = lines.length ? lines.slice().sort((a, b) => (b.price*b.qty) - (a.price*a.qty))[0] : null;
+
   const { data: booking, error } = await db.from('bookings').insert({
     customer_name: customer.name, customer_email: '', customer_phone: customer.phone,
     city_id: null, city_name: cityName, service_region_id: bookRegionId, location_address: address || customer.address,
     latitude: bookLat, longitude: bookLng,
     slot_id: bookSlotId, slot_date: bookedDate, slot_hour: bookedHour,
-    status: 'upcoming', booking_type: selectedType
+    status: 'upcoming', booking_type: selectedType,
+    ...(primary ? {
+      product_model: nameWithColor(primary), product_qty: primary.qty,
+      order_total: subtotal,
+      promo_code: bookPromo ? bookPromo.code : null,
+      discount_amount: discount || null
+    } : {})
   }).select().maybeSingle();
   if (error || !booking) {
     // Roll back
     await db.from('availability_slots').update({ is_booked: false }).eq('id', bookSlotId);
     errEl.style.display = 'block'; errEl.textContent = 'Booking failed. Please try again.'; return;
+  }
+  if (lines.length) {
+    await db.from('booking_items').insert(lines.map(l => ({
+      booking_id: booking.id, product_model: nameWithColor(l), qty: l.qty,
+      unit_price: l.price, is_serialized: l.is_serialized
+    })));
+    if (bookPromo) db.rpc('increment_promo_usage', { p_code: bookPromo.code }).then(()=>{}).catch(()=>{});
   }
   // Persist region so next Book Again pre-fills.
   customer.regionId = bookRegionId; customer.city = cityName;
@@ -726,6 +910,11 @@ async function submitNewBooking() {
   }).catch(e => console.warn('notify-installers failed:', e));
   bookDate = null; bookHour = null; bookSlotId = null;
   bookLat = null; bookLng = null;
+  // Reset the product basket + promo for the next booking.
+  bookItems = {}; bookPromo = null;
+  document.getElementById('book-promo-input').value = '';
+  document.getElementById('book-promo-msg').style.display = 'none';
+  if (bookProductsLoaded) renderBookProducts();
   // Reset location UI
   const btn = document.getElementById('book-location-btn');
   const lbl = document.getElementById('book-location-btn-label');
