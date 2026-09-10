@@ -4,26 +4,24 @@
 // untouched (aside from the relay calls switching from Node's https module to
 // fetch — Workers cannot bypass TLS validation the way Vercel's Node runtime
 // could, so the relay now needs a real certificate).
-const otp = require('../api/otp.js');
-const sendSms = require('../api/send-sms.js');
-const notifyReport = require('../api/notify-report.js');
-const notifyInstallers = require('../api/notify-installers.js');
-const authSmsHook = require('../api/auth-sms-hook.js');
-const adminBookings = require('../api/admin/bookings.js');
-const adminSlots = require('../api/admin/slots.js');
-const adminInstallers = require('../api/admin/installers.js');
-const adminUserOps = require('../api/admin/user-ops.js');
-
-const ROUTES = {
-  '/api/otp': otp,
-  '/api/send-sms': sendSms,
-  '/api/notify-report': notifyReport,
-  '/api/notify-installers': notifyInstallers,
-  '/api/auth-sms-hook': authSmsHook,
-  '/api/admin/bookings': adminBookings,
-  '/api/admin/slots': adminSlots,
-  '/api/admin/installers': adminInstallers,
-  '/api/admin/user-ops': adminUserOps
+//
+// The handler modules read secrets via `process.env.X` at their own top-level
+// scope (once, when first required). If they were required at the top of this
+// file, that would run before any request's `env` bindings are in scope, so
+// every secret would be captured as undefined. Loading them lazily on first
+// use inside fetch() — after env has been bridged onto process.env — avoids
+// that. require() calls stay as literal strings so esbuild can still bundle
+// them even though they're inside functions.
+const ROUTE_LOADERS = {
+  '/api/otp': () => require('../api/otp.js'),
+  '/api/send-sms': () => require('../api/send-sms.js'),
+  '/api/notify-report': () => require('../api/notify-report.js'),
+  '/api/notify-installers': () => require('../api/notify-installers.js'),
+  '/api/auth-sms-hook': () => require('../api/auth-sms-hook.js'),
+  '/api/admin/bookings': () => require('../api/admin/bookings.js'),
+  '/api/admin/slots': () => require('../api/admin/slots.js'),
+  '/api/admin/installers': () => require('../api/admin/installers.js'),
+  '/api/admin/user-ops': () => require('../api/admin/user-ops.js')
 };
 
 // auth-sms-hook verifies an HMAC over the exact raw bytes Supabase sent, so it
@@ -71,11 +69,18 @@ async function runHandler(handler, request, url) {
 
 export default {
   async fetch(request, env, ctx) {
+    // Belt-and-braces: mirror bindings onto process.env explicitly, in case
+    // Cloudflare's own nodejs_compat_populate_process_env doesn't cover a
+    // module that's about to be required for the first time right below.
+    for (const k in env) {
+      if (typeof env[k] === 'string') process.env[k] = env[k];
+    }
+
     const url = new URL(request.url);
-    const handler = ROUTES[url.pathname];
-    if (handler) {
+    const loadHandler = ROUTE_LOADERS[url.pathname];
+    if (loadHandler) {
       try {
-        return await runHandler(handler, request, url);
+        return await runHandler(loadHandler(), request, url);
       } catch (err) {
         console.error('worker error on', url.pathname, err);
         return new Response(JSON.stringify({ error: err.message || 'Server error' }), {
