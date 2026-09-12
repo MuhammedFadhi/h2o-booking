@@ -409,8 +409,14 @@
         top: auto;
         width: 100%;
         height: auto;
+        min-height: 0;
         flex-direction: row;
         padding: 0;
+        /* Keeps nav icons clear of the home-indicator / gesture-bar area on notched
+           phones — viewport-fit=cover lets the page draw under it, so without this
+           the bottom row of the nav bar visually overlaps that system UI. Resolves
+           to 0px on devices with no inset, so it's a no-op elsewhere. */
+        padding-bottom: env(safe-area-inset-bottom, 0px);
         z-index: 100;
         border-right: none;
         border-top: 1px solid rgba(255,255,255,0.1);
@@ -427,7 +433,10 @@
         width: 100%;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;    /* Firefox */
+        -ms-overflow-style: none; /* old Edge/IE */
       }
+      .nav::-webkit-scrollbar { display: none; } /* Chrome/Safari/new Edge */
       .nav-section { display: none; }
       .nav-item {
         flex: 0 0 auto;
@@ -449,8 +458,11 @@
       }
       .nav-icon { font-size: 18px; }
 
-      /* Main shifts up since sidebar is now bottom */
+      /* Main shifts up since sidebar is now bottom. The plain 80px is declared first as a
+         fallback: if a browser can't parse env() at all, the whole calc() below is invalid
+         and gets dropped, leaving this one in effect instead of losing the padding entirely. */
       .main { margin-left: 0; padding-bottom: 80px; }
+      .main { margin-left: 0; padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
       .topbar { padding: 14px 16px; }
       .topbar-title { font-size: 17px; }
       .content { padding: 16px; }
@@ -522,7 +534,16 @@
       .modal-overlay { align-items: flex-end; padding: 0; }
 
       /* Toast */
-      .toast { bottom: 90px; right: 12px; left: 12px; text-align: center; }
+      /* Shown at the top instead of the bottom on mobile — the bottom nav bar lives
+         there now, and a bottom-anchored toast keeps colliding with it in ways that
+         are fiddly to get right across every device's safe-area/notch size. */
+      .toast {
+        top: calc(14px + env(safe-area-inset-top, 0px));
+        bottom: auto;
+        right: 12px; left: 12px; text-align: center;
+        transform: translateY(-100px);
+      }
+      /* .toast.show already resolves to translateY(0) via the base (non-mobile) rule above. */
 
       /* SMS panel */
       .card { border-radius: 12px; }
@@ -1762,7 +1783,21 @@ async function loadBookings() {
     return;
   }
 
-  const rows = filtered.map(b => `
+  // 'maintenance' is a legacy alias — the customer portal used to save that instead of
+  // 'quarterly_service' before both sides were made consistent; old rows still have it.
+  const bookingTypeLabel = (t) => ({ installation:'Installation', repair:'Repair', quarterly_service:'Filter Change',
+    maintenance:'Filter Change', annual_service:'Annual Service', relocation:'Relocation', inspection:'Inspection' })[t] || (t || 'Installation');
+  const bookingTypeColor = (t) => ({
+    installation:      { fg:'#1D4ED8', bg:'#DBEAFE' },
+    repair:            { fg:'#B45309', bg:'#FEF3C7' },
+    quarterly_service: { fg:'#0F766E', bg:'#CCFBF1' },
+    maintenance:       { fg:'#0F766E', bg:'#CCFBF1' },
+    annual_service:    { fg:'#5B21B6', bg:'#F3E8FF' },
+    relocation:        { fg:'#9A3412', bg:'#FFEDD5' },
+    inspection:        { fg:'#334155', bg:'#E2E8F0' }
+  })[t] || { fg:'#1D4ED8', bg:'#DBEAFE' };
+
+  const rows = filtered.map(b => { const tc = bookingTypeColor(b.booking_type); return `
     <tr>
       <td class="bulk-cell" data-label="" style="width:34px;text-align:center;">
         <input type="checkbox" class="bulk-cb" value="${b.id}" onchange="onBulkToggle()"
@@ -1773,6 +1808,7 @@ async function loadBookings() {
         <div style="font-weight:600;">${b.customer_name}</div>
         <div style="font-size:12px; color:var(--muted);">${b.customer_phone}</div>
         <div style="font-size:11px; color:var(--muted);">${b.booking_reference || ''}</div>
+        <div style="font-size:10px;font-weight:700;color:${tc.fg};background:${tc.bg};display:inline-block;padding:1px 7px;border-radius:8px;margin-top:3px;text-transform:uppercase;letter-spacing:0.3px;">${bookingTypeLabel(b.booking_type)}</div>
         <div style="font-size:11px;color:#1565C0;margin-top:2px;">
           ${(b.booking_items && b.booking_items.length)
             ? b.booking_items.map(it => `${it.product_model}${it.qty > 1 ? ` ×${it.qty}` : ''}`).join(', ')
@@ -1805,7 +1841,7 @@ async function loadBookings() {
         </div>
       </td>
     </tr>
-  `).join('');
+  `; }).join('');
 
   container.innerHTML = `
     <table>
@@ -4938,7 +4974,7 @@ async function viewCustomerUnits(phone) {
                        address: pinSrc?.location_address || c.address || '' };
 
   const typeLabel = (t) => ({ installation:'Installation', repair:'Repair', quarterly_service:'Filter Change',
-    annual_service:'Annual Service', relocation:'Relocation', inspection:'Inspection' })[t] || (t || 'Visit');
+    maintenance:'Filter Change', annual_service:'Annual Service', relocation:'Relocation', inspection:'Inspection' })[t] || (t || 'Visit');
 
   // Which technician handled each unit (matched by the install that created it).
   const techFor = (u) => {

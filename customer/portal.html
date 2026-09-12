@@ -46,9 +46,11 @@
     .booking-ref{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--water);}
     .booking-type-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.4px;}
     .type-installation{background:#EFF6FF;color:#1D4ED8;}
-    .type-maintenance{background:#F0FDF4;color:#166534;}
+    .type-quarterly_service, .type-maintenance{background:#F0FDF4;color:#166534;}
     .type-repair{background:#FEF3C7;color:#92400E;}
     .type-relocation{background:#F5F3FF;color:#6D28D9;}
+    .type-annual_service{background:#F3E8FF;color:#5B21B6;}
+    .type-inspection{background:#E2E8F0;color:#334155;}
     .booking-card-body{padding:18px 20px;}
     .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
     .info-item label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px;}
@@ -193,7 +195,7 @@
         <div class="type-name">Installation</div>
         <div class="type-desc">New RO filter setup</div>
       </div>
-      <div class="type-card" id="type-maintenance" onclick="selectType('maintenance')">
+      <div class="type-card" id="type-quarterly_service" onclick="selectType('quarterly_service')">
         <div class="type-icon">🔄</div>
         <div class="type-name">Maintenance</div>
         <div class="type-desc">Regular service (3 months)</div>
@@ -485,7 +487,10 @@ function renderBookingCard(b) {
     actionsHTML = `<button class="btn-outline" onclick="viewInspectionReport('${report.id}')">📋 View Inspection Report</button>` + actionsHTML;
   }
 
-  const typeLabel = b.booking_type ? b.booking_type.charAt(0).toUpperCase() + b.booking_type.slice(1) : 'Installation';
+  // 'maintenance' is a legacy alias — the booking form now saves 'quarterly_service' (matches the admin side).
+  const typeLabel = ({ installation:'Installation', repair:'Repair', relocation:'Relocation',
+    quarterly_service:'Filter Change', maintenance:'Filter Change',
+    annual_service:'Annual Service', inspection:'Inspection' })[b.booking_type] || (b.booking_type || 'Installation');
 
   return `
     <div class="booking-card">
