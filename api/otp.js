@@ -62,7 +62,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const admin = createClient(SUPABASE_URL, SRK, { auth: { persistSession: false } });
-  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim() || 'unknown';
+  const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || 'unknown';
   const { action, phone: rawPhone, code } = req.body || {};
   const phone = formatSaudi(rawPhone);
   if (!isSaudi(phone)) return res.status(400).json({ error: 'Invalid Saudi mobile' });

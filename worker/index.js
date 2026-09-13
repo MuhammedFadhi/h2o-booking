@@ -61,7 +61,12 @@ async function runHandler(handler, request, url) {
     }
   }
 
-  const req = { method: request.method, headers, query, body };
+  // Cloudflare always sets cf-connecting-ip on requests it proxies to the Worker —
+  // that's the real client IP. Node's req.socket.remoteAddress doesn't exist here
+  // (no raw TCP socket in Workers), so stub it for handlers that fall back to it.
+  const clientIp = headers['cf-connecting-ip'] || '';
+  if (!headers['x-forwarded-for'] && clientIp) headers['x-forwarded-for'] = clientIp;
+  const req = { method: request.method, headers, query, body, socket: { remoteAddress: clientIp } };
   const { res, state } = createRes();
   await handler(req, res);
   return new Response(state.body, { status: state.statusCode, headers: state.headers });
@@ -77,17 +82,6 @@ export default {
     }
 
     const url = new URL(request.url);
-
-    // TEMPORARY diagnostic — reports which binding/env-var NAMES are actually
-    // reaching this deployed Worker, never values. Remove once the missing-secret
-    // issue is resolved; not meant to stay in production.
-    if (url.pathname === '/api/_debug-env') {
-      return new Response(JSON.stringify({
-        envKeys: Object.keys(env),
-        processEnvKeys: Object.keys(process.env || {})
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    }
-
     const loadHandler = ROUTE_LOADERS[url.pathname];
     if (loadHandler) {
       try {
