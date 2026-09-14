@@ -2453,7 +2453,7 @@ async function openAdminBookingModal() {
   const cat = await getCatalogue();
   const sellable = cat.filter(p=>p.is_catalogue);
   document.getElementById('ab-add-select').innerHTML = (sellable.length?sellable:cat).map(p =>
-    `<option value="${escB(p.model_name)}">${escB(p.model_name)}${p.price_sar?` — SAR ${Number(p.price_sar).toLocaleString('en-US')}`:''}</option>`).join('');
+    `<option value="${escB(p.model_name)}">${escB(p.model_name)}${p.price_sar?` — SAR ${Number(p.price_sar).toLocaleString('en-US')}`:''}${p.in_stock===false?' (Out of Stock)':''}</option>`).join('');
   abRenderBasket();
   ['ab-name','ab-phone','ab-address'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ab-status').value = 'upcoming';
@@ -2586,6 +2586,7 @@ async function abBasketAdd() {
   if (!name) return;
   const cat = await getCatalogue();
   const p = cat.find(x => x.model_name === name);
+  if (p?.in_stock === false) { showToast(`${name} is out of stock`, 'error'); return; }
   const isDisp = isDispenserName(name);
   // If same product+colour already present, bump qty. For dispensers, a new add defaults to Black
   // and is treated as a separate colour line only if a different colour is chosen later.
@@ -3183,7 +3184,7 @@ async function editCustomerPhone(oldPhone) {
 async function getCatalogue() {
   if (window.__catalogue) return window.__catalogue;
   const { data } = await dbAdmin.from('product_models')
-    .select('model_name, price_sar, is_catalogue, is_serialized, image_url, sort_order')
+    .select('model_name, price_sar, is_catalogue, is_serialized, image_url, sort_order, in_stock')
     .order('sort_order', { ascending: true });
   window.__catalogue = data || [];
   return window.__catalogue;
@@ -3309,7 +3310,7 @@ async function editBookingProduct(bookingId) {
   const sel = document.getElementById('basket-add-select');
   const sellable = cat.filter(p => p.is_catalogue);
   sel.innerHTML = (sellable.length ? sellable : cat)
-    .map(p => `<option value="${escB(p.model_name)}">${escB(p.model_name)}${p.price_sar ? ` — SAR ${Number(p.price_sar).toLocaleString('en-US')}` : ''}</option>`).join('');
+    .map(p => `<option value="${escB(p.model_name)}">${escB(p.model_name)}${p.price_sar ? ` — SAR ${Number(p.price_sar).toLocaleString('en-US')}` : ''}${p.in_stock===false?' (Out of Stock)':''}</option>`).join('');
 
   document.getElementById('basket-error').style.display = 'none';
   renderBasketLines();
@@ -3359,6 +3360,7 @@ function basketAddLine() {
   if (!name) return;
   const cat = window.__catalogue || [];
   const match = cat.find(p => p.model_name === name);
+  if (match?.in_stock === false) { showToast(`${name} is out of stock`, 'error'); return; }
   // If this product is already a line, just bump its qty.
   const existing = basketEditState.lines.find(l => l.model === name);
   if (existing) { existing.qty += 1; renderBasketLines(); return; }
