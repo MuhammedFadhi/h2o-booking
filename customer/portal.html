@@ -901,7 +901,7 @@ async function submitNewBooking() {
       booking_id: booking.id, product_model: nameWithColor(l), qty: l.qty,
       unit_price: l.price, is_serialized: l.is_serialized
     })));
-    if (bookPromo) db.rpc('increment_promo_usage', { p_code: bookPromo.code }).then(()=>{}).catch(()=>{});
+    // Promo usage is counted when the admin marks the job completed, not here.
   }
   // Persist region so next Book Again pre-fills.
   customer.regionId = bookRegionId; customer.city = cityName;

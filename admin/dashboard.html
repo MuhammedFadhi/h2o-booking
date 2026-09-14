@@ -2032,7 +2032,8 @@ async function submitPayment() {
     }
 
     const { data: b } = await dbAdmin.from('bookings')
-      .select('customer_name, customer_phone, booking_reference, invoice_url').eq('id', bookingId).maybeSingle();
+      .select('customer_name, customer_phone, booking_reference, invoice_url, status, promo_code').eq('id', bookingId).maybeSingle();
+    const wasAlreadyCompleted = b?.status === 'completed';
 
     // Guard FIRST (before changing booking status): invoice numbers are unique.
     // If this number already belongs to a DIFFERENT booking, stop with a clear
@@ -2055,6 +2056,13 @@ async function submitPayment() {
     if (invoiceUrl) patch.invoice_url = invoiceUrl;
     const { error: uErr } = await dbAdmin.from('bookings').update(patch).eq('id', bookingId);
     if (uErr) throw uErr;
+
+    // Promo usage counts on completion, not on booking creation — only bump it the
+    // first time a booking transitions into 'completed', never on a re-edit of an
+    // already-completed booking's payment/invoice details.
+    if (b?.promo_code && !wasAlreadyCompleted) {
+      dbAdmin.rpc('increment_promo_usage', { p_code: b.promo_code }).then(()=>{}).catch(()=>{});
+    }
 
     // Create / update the invoice record (VAT 15% derived from the gross total if given).
     const total = amount;
@@ -2649,8 +2657,7 @@ async function submitAdminBooking() {
     };
     if (startStatus === 'installed') { patch.status = 'installed'; patch.installed_at = nowIso; patch.completed_by = 'admin'; }
     await dbAdmin.from('bookings').update(patch).eq('id', bkId);
-    // Bump the promo usage counter (atomic RPC, best-effort — matches customer flow).
-    if (abPromo) dbAdmin.rpc('increment_promo_usage', { p_code: abPromo.code }).then(()=>{}).catch(()=>{});
+    // Promo usage is counted at completion (see submitPayment), not at booking creation.
 
     // Upsert the customer profile (the RPC does NOT create a customers row — the
     // customer flow does this separately, so the admin flow must too).
@@ -3510,9 +3517,11 @@ async function deletePromo(id) {
 // Show which bookings used a given code (who applied it + how much off).
 async function viewPromoUsage(id) {
   const p = allPromoCodes.find(x => x.id === id); if (!p) return;
+  // Only completed bookings count toward usage_count now (see submitPayment), so
+  // this list is filtered the same way to stay consistent with that number.
   const { data } = await dbAdmin.from('bookings')
     .select('customer_name, customer_phone, discount_amount, booking_reference, created_at')
-    .ilike('promo_code', p.code).order('created_at', { ascending: false });
+    .ilike('promo_code', p.code).eq('status', 'completed').order('created_at', { ascending: false });
   const rows = (data || []).map(b => `<tr>
     <td>${escB(b.customer_name || '—')}<div style="font-size:11px;color:var(--muted);">${escB(b.customer_phone || '')}</div></td>
     <td style="font-size:12px;">${escB(b.booking_reference || '')}</td>

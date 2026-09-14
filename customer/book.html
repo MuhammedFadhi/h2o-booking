@@ -967,10 +967,7 @@ async function submitBooking() {
         booking_id: bkId, product_model: modelWithColor(l), qty: l.qty,
         unit_price: l.price, is_serialized: l.is_serialized
       })));
-      // Bump the promo usage counter (atomic RPC, best-effort).
-      if (state.promo) {
-        db.rpc('increment_promo_usage', { p_code: state.promo.code }).then(()=>{}).catch(()=>{});
-      }
+      // Promo usage is counted when the admin marks the job completed, not here.
     }
   }
   // Save customer profile
