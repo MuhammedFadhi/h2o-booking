@@ -1533,6 +1533,15 @@
         <select id="basket-add-select" class="form-input" style="flex:1;"></select>
         <button class="btn btn-ghost" onclick="basketAddLine()" style="white-space:nowrap;">+ Add</button>
       </div>
+      <div style="margin-top:14px;">
+        <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px;">Promo Code <span style="font-weight:400;">(optional)</span></label>
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" id="basket-promo-input" placeholder="e.g. SADA96" style="flex:1;text-transform:uppercase;">
+          <button type="button" class="btn btn-ghost" onclick="applyBasketPromo()" style="white-space:nowrap;">Apply</button>
+          <button type="button" class="btn btn-ghost" onclick="removeBasketPromo()" style="white-space:nowrap;color:#B71C1C;">Remove</button>
+        </div>
+        <div id="basket-promo-msg" style="font-size:12px;margin-top:6px;display:none;"></div>
+      </div>
       <div id="basket-total-row" style="margin-top:14px;padding:12px 14px;background:#EFF6FF;border-radius:10px;font-weight:700;text-align:right;color:#1565C0;"></div>
       <div id="basket-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-top:12px;"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
@@ -3210,8 +3219,45 @@ function prettyMethod(m) {
   if (!m) return '—';
   return map[m] || String(m).replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
 }
-let basketEditState = { bookingId: null, lines: [] };
+let basketEditState = { bookingId: null, lines: [], promo: null };
 // lines: [{ id|null, model, qty, unit_price, is_serialized, color|null }]
+// promo: the applied promo_codes row, or null
+
+// Compute SAR discount for a subtotal under a promo (percent or fixed amount), capped at subtotal.
+function basketPromoDiscountFor(subtotal, promo) {
+  let d = promo.discount_type === 'percent'
+    ? subtotal * (Number(promo.discount_value) / 100)
+    : Number(promo.discount_value);
+  d = Math.round(d * 100) / 100;
+  return Math.min(Math.max(0, d), subtotal);
+}
+
+async function applyBasketPromo() {
+  const input = document.getElementById('basket-promo-input');
+  const msg = document.getElementById('basket-promo-msg');
+  const code = (input.value || '').trim();
+  if (!code) return;
+  const show = (text, ok) => { msg.style.display = 'block'; msg.style.color = ok ? '#0d7a63' : '#B71C1C'; msg.textContent = text; };
+
+  const { data, error } = await dbAdmin.from('promo_codes').select('*').ilike('code', code).maybeSingle();
+  if (error || !data) { basketEditState.promo = null; renderBasketLines(); show('That code isn’t valid.', false); return; }
+  if (!data.is_active) { basketEditState.promo = null; renderBasketLines(); show('This code is no longer active.', false); return; }
+  const today = new Date().toISOString().slice(0,10);
+  if (data.valid_from && today < data.valid_from) { basketEditState.promo = null; renderBasketLines(); show('This code isn’t active yet.', false); return; }
+  if (data.valid_until && today > data.valid_until) { basketEditState.promo = null; renderBasketLines(); show('This code has expired.', false); return; }
+
+  basketEditState.promo = data;
+  renderBasketLines();
+  const off = data.discount_type === 'percent' ? `${data.discount_value}% off` : `SAR ${data.discount_value} off`;
+  show(`✓ Code applied — ${off}!`, true);
+}
+
+function removeBasketPromo() {
+  basketEditState.promo = null;
+  document.getElementById('basket-promo-input').value = '';
+  document.getElementById('basket-promo-msg').style.display = 'none';
+  renderBasketLines();
+}
 
 const DISPENSER_COLORS_ADMIN = ['Black', 'White'];
 const isDispenserName = (m) => /dispenser/i.test(m || '');
@@ -3223,9 +3269,22 @@ function splitColor(model) {
 
 async function editBookingProduct(bookingId) {
   const { data: b } = await dbAdmin.from('bookings')
-    .select('product_model, product_qty, booking_items(id, product_model, qty, unit_price, is_serialized)')
+    .select('product_model, product_qty, promo_code, booking_items(id, product_model, qty, unit_price, is_serialized)')
     .eq('id', bookingId).maybeSingle();
   const cat = await getCatalogue();
+
+  // Load whatever promo code is already on this booking as-is (no re-validation —
+  // it was legitimately applied before; only a NEW code typed here gets validated).
+  basketEditState.promo = null;
+  document.getElementById('basket-promo-input').value = '';
+  document.getElementById('basket-promo-msg').style.display = 'none';
+  if (b?.promo_code) {
+    const { data: promoRow } = await dbAdmin.from('promo_codes').select('*').ilike('code', b.promo_code).maybeSingle();
+    if (promoRow) {
+      basketEditState.promo = promoRow;
+      document.getElementById('basket-promo-input').value = promoRow.code;
+    }
+  }
 
   let items = (b && b.booking_items) || [];
   // Legacy booking with no items: seed one line from the summary.
@@ -3286,8 +3345,13 @@ function renderBasketLines() {
   }
   const total = basketEditState.lines.reduce((s, l) => s + (l.unit_price || 0) * l.qty, 0);
   const units = basketEditState.lines.reduce((s, l) => s + l.qty, 0);
-  document.getElementById('basket-total-row').textContent =
-    `Total: SAR ${total.toLocaleString('en-US')} (${units} unit${units !== 1 ? 's' : ''})`;
+  const promo = basketEditState.promo;
+  const discount = promo ? basketPromoDiscountFor(total, promo) : 0;
+  document.getElementById('basket-total-row').innerHTML = discount > 0
+    ? `Subtotal: SAR ${total.toLocaleString('en-US')} (${units} unit${units !== 1 ? 's' : ''})<br>`
+      + `<span style="color:#0d7a63;">Discount (${escB(promo.code)}): − SAR ${discount.toLocaleString('en-US')}</span><br>`
+      + `Total: SAR ${Math.max(0, total-discount).toLocaleString('en-US')}`
+    : `Total: SAR ${total.toLocaleString('en-US')} (${units} unit${units !== 1 ? 's' : ''})`;
 }
 
 function basketAddLine() {
@@ -3361,12 +3425,22 @@ async function saveBasket() {
     }
 
     // 4) Keep the booking summary in sync = the highest-value line (usually the RO).
+    // Promo is saved here too (or cleared, if removed) — usage_count itself only
+    // increments later, when the job is marked completed (see submitPayment).
     const primary = lines.slice().sort((a, b) => ((b.unit_price||0)*b.qty) - ((a.unit_price||0)*a.qty))[0];
+    const subtotal = lines.reduce((s, l) => s + (l.unit_price || 0) * l.qty, 0);
+    const promo = basketEditState.promo;
+    const discount = promo ? basketPromoDiscountFor(subtotal, promo) : 0;
     const { error: sErr } = await dbAdmin.from('bookings')
-      .update({ product_model: nameWithColor(primary), product_qty: primary.qty }).eq('id', bookingId);
+      .update({
+        product_model: nameWithColor(primary), product_qty: primary.qty,
+        order_total: subtotal,
+        promo_code: promo ? promo.code : null,
+        discount_amount: discount || null
+      }).eq('id', bookingId);
     if (sErr) throw sErr;
 
-    logActivity('booking.product', `Set ${lines.length} product line(s), ${lines.reduce((s,l)=>s+l.qty,0)} unit(s)`, 'booking', bookingId);
+    logActivity('booking.product', `Set ${lines.length} product line(s), ${lines.reduce((s,l)=>s+l.qty,0)} unit(s)${promo ? `, promo ${promo.code}` : ''}`, 'booking', bookingId);
     showToast('Products updated', 'success');
     closeModal('basket-modal');
     loadBookings();
