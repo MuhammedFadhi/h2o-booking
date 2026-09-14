@@ -326,7 +326,7 @@ async function loadBookRegionsAndCities() {
   regionsCache = r.data;
   citiesCache = c.data || [];
   sel.innerHTML = '<option value="">Select service area…</option>' +
-    regionsCache.map(rr => `<option value="${rr.id}">${rr.name} — ${rr.city_labels}</option>`).join('');
+    regionsCache.map(rr => `<option value="${rr.id}">${rr.name}</option>`).join('');
   // Preselect region if stored
   if (customer.regionId && regionsCache.some(rr => rr.id === customer.regionId)) {
     sel.value = customer.regionId;
