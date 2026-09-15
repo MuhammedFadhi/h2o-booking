@@ -179,7 +179,7 @@
     <div class="modal-title">Upload Proof of Installation</div>
     <div class="modal-sub" id="proof-sub">Upload two photos to finish this job: the completed installation and the QR sticker on the unit. The customer activates each warranty by scanning that QR.</div>
     <div class="proof-uploads">
-      <div>
+      <div id="photo-upload-wrap">
         <label class="upload-box" id="photo-upload-box" for="photo-input">
           <div class="upload-icon">📷</div>
           <div class="upload-label" id="photo-label">Installation Photo</div>
@@ -188,7 +188,7 @@
         </label>
         <input type="file" id="photo-input" accept="image/*" class="file-hidden" onchange="previewPhoto(this)">
       </div>
-      <div>
+      <div id="qr-upload-wrap">
         <label class="upload-box" id="qr-upload-box" for="qr-input">
           <div class="upload-icon">🏷️</div>
           <div class="upload-label" id="qr-label">QR Sticker Photo</div>
@@ -731,20 +731,28 @@ async function openProofModal(bookingId) {
   }
   const note = document.getElementById('unit-info-note');
 
-  // Tailor the proof modal to the kind of visit — a service call has no new QR sticker.
+  // Tailor the proof modal to the kind of visit — only a new install has a QR
+  // sticker to photograph, so that upload box is hidden for every other type.
   const jt = (proofBooking?.booking_type || 'installation');
   const isInstall = jt === 'installation';
+  const PHOTO_LABEL_BY_TYPE = {
+    installation: 'Installation Photo',
+    quarterly_service: 'Changed Filter Photo',
+    maintenance: 'Changed Filter Photo',
+    relocation: 'New Installed RO Photo',
+    repair: 'Repaired Photo'
+  };
   const jtLabel = (typeof jobTypeOf === 'function') ? jobTypeOf(proofBooking || {}).label : 'JOB';
   const subEl = document.getElementById('proof-sub');
   const photoLbl = document.getElementById('photo-label');
-  const qrLbl = document.getElementById('qr-label');
-  const qrSub = document.getElementById('qr-sub');
+  const photoWrap = document.getElementById('photo-upload-wrap');
+  const qrWrap = document.getElementById('qr-upload-wrap');
   if (subEl) subEl.textContent = isInstall
     ? 'Upload two photos to finish this job: the completed installation and the QR sticker on the unit. The customer activates each warranty by scanning that QR.'
-    : `${jtLabel} — upload a photo of the completed work to finish this job. The QR photo is optional for service visits.`;
-  if (photoLbl) photoLbl.textContent = isInstall ? 'Installation Photo' : 'Completed Work Photo';
-  if (qrLbl) qrLbl.textContent = isInstall ? 'QR Sticker Photo' : 'QR Sticker Photo (optional)';
-  if (qrSub) qrSub.textContent = isInstall ? 'Tap to upload' : 'Optional — tap to upload';
+    : `${jtLabel} — upload a photo of the completed work to finish this job.`;
+  if (photoLbl) photoLbl.textContent = PHOTO_LABEL_BY_TYPE[jt] || 'Completed Work Photo';
+  if (qrWrap) qrWrap.style.display = isInstall ? '' : 'none';
+  if (photoWrap) photoWrap.style.gridColumn = isInstall ? '' : '1 / -1';
   if (serialCount > 0) {
     note.style.display = 'block';
     note.innerHTML = `🛡️ This install covers <strong>${serialCount} RO unit${serialCount>1?'s':''}</strong>. A pending warranty will be created for each — the customer activates it by scanning that unit's QR sticker.`;
