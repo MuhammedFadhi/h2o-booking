@@ -1839,7 +1839,7 @@ async function loadBookings() {
           ${installers.filter(i => i.is_active).map(i => `<option value="${i.id}" ${b.installer_id === i.id ? 'selected' : ''}>${i.name}</option>`).join('')}
         </select>
       </td>
-      <td data-label="Status"><span class="status-badge status-${b.status}">${getStatusLabel(b.status)}</span></td>
+      <td data-label="Status"><span class="status-badge status-${b.status}">${getStatusLabel(b.status, b.booking_type)}</span></td>
       <td data-label="Actions">
         <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
           <button class="btn btn-sm btn-ghost" onclick="viewBooking('${b.id}')">View</button>
@@ -2991,7 +2991,7 @@ async function viewBooking(bookingId) {
         </div>
         <div style="background:var(--bg); padding:16px; border-radius:12px;">
           <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Status</div>
-          <span class="status-badge status-${b.status}">${getStatusLabel(b.status)}</span>
+          <span class="status-badge status-${b.status}">${getStatusLabel(b.status, b.booking_type)}</span>
         </div>
       </div>
       <div style="background:var(--bg); padding:16px; border-radius:12px;">
@@ -4603,7 +4603,10 @@ function formatDateTime(ts) {
   return `${dd}/${mm}/${d.getFullYear()} ${HH}:${MM}`;
 }
 
-function getStatusLabel(status) {
+function getStatusLabel(status, bookingType) {
+  // 'installed' reads oddly for anything that isn't a new installation — a filter
+  // change, repair, or annual service visit was "serviced", not "installed".
+  if (status === 'installed' && bookingType && bookingType !== 'installation') return 'Serviced';
   return { upcoming: 'Upcoming', in_progress: 'In Progress', installed: 'Installed', completed: 'Completed', cancelled: 'Cancelled' }[status] || status;
 }
 
@@ -4872,7 +4875,7 @@ async function viewCustomer(phone) {
         <div style="background:white;border:1px solid var(--border);border-radius:12px;padding:14px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <span style="font-weight:700;color:var(--water);font-size:13px;">${b.booking_reference}</span>
-            <span class="status-badge status-${b.status}">${getStatusLabel(b.status)}</span>
+            <span class="status-badge status-${b.status}">${getStatusLabel(b.status, b.booking_type)}</span>
           </div>
           <div style="font-size:13px;color:var(--muted);">${formatDateFull(b.slot_date)} · ${formatHour(b.slot_hour)}</div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px;">Type: ${b.booking_type || 'installation'} · City: ${b.city_name || '—'}</div>
@@ -5226,7 +5229,7 @@ async function loadOverview() {
       <div onclick="viewBooking('${b.id}')" style="display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:9px;background:var(--bg);margin-bottom:6px;cursor:pointer;">
         <div><strong>${esc(b.customer_name)}</strong><div style="font-size:11px;color:var(--muted);">${esc(b.city_name||'')} · ${esc(b.installers?.name||'Unassigned')}</div></div>
         <div style="text-align:right;font-size:12px;"><strong>${b.slot_hour!=null?formatHour(b.slot_hour):'—'}</strong>
-          <div><span class="status-badge status-${b.status}" style="font-size:9px;">${getStatusLabel(b.status)}</span></div></div>
+          <div><span class="status-badge status-${b.status}" style="font-size:9px;">${getStatusLabel(b.status, b.booking_type)}</span></div></div>
       </div>`).join('')
     : '<div style="color:var(--muted);font-size:13px;padding:8px;">No bookings scheduled today.</div>';
 
