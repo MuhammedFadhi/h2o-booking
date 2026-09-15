@@ -809,6 +809,7 @@
               <option value="upcoming">Upcoming</option>
               <option value="in_progress">In Progress</option>
               <option value="installed">Installed</option>
+              <option value="serviced">Serviced</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
@@ -1751,7 +1752,16 @@ async function loadBookings() {
   const range = document.getElementById('filter-range')?.value ?? 'month';
   const search = document.getElementById('search-bookings').value.trim().toLowerCase();
 
-  if (status) q = q.eq('status', status);
+  // 'installed' status is shared by real installations and serviced (repair/filter
+  // change/etc.) jobs alike — split the filter option so admins can pick either
+  // specifically, matching the "Installed" vs "Serviced" badge shown per row.
+  if (status === 'serviced') {
+    q = q.eq('status', 'installed').neq('booking_type', 'installation').not('booking_type', 'is', null);
+  } else if (status === 'installed') {
+    q = q.eq('status', 'installed').or('booking_type.eq.installation,booking_type.is.null');
+  } else if (status) {
+    q = q.eq('status', status);
+  }
   if (date) {
     q = q.eq('slot_date', date);   // explicit date beats the range filter
   } else if (range) {
