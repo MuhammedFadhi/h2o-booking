@@ -672,7 +672,15 @@ async function claimJob(bookingId) {
     .is('installer_id', null)
     .select();
 
-  if (error || !data || !data.length) {
+  if (error) {
+    // A real error (network drop, expired session, RLS rejection) is not the
+    // same as losing the race — don't tell the installer someone else took the
+    // job when the job is probably still sitting there open.
+    if (btn) { btn.disabled = false; btn.textContent = '✋ Claim this Job'; }
+    alert('Could not claim this job: ' + error.message + '\n\nPlease try again.');
+    return;
+  }
+  if (!data || !data.length) {
     if (btn) { btn.disabled = false; btn.textContent = '✋ Claim this Job'; }
     alert('Someone else just claimed this job. Refreshing the list…');
     await loadAll();
