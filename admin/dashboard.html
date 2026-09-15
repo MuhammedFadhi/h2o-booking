@@ -823,6 +823,15 @@
             <select id="filter-city" onchange="loadBookings()">
               <option value="">All Cities</option>
             </select>
+            <select id="filter-type" onchange="loadBookings()">
+              <option value="">All Job Types</option>
+              <option value="installation">Installation</option>
+              <option value="repair">Repair</option>
+              <option value="quarterly_service">Filter Change</option>
+              <option value="annual_service">Annual Service</option>
+              <option value="relocation">Relocation</option>
+              <option value="inspection">Inspection</option>
+            </select>
             <input type="date" id="filter-date" onchange="loadBookings()">
           </div>
         </div>
@@ -1748,6 +1757,7 @@ async function loadBookings() {
     .order('slot_hour', { ascending: false });
 
   const status = document.getElementById('filter-status').value;
+  const jobType = document.getElementById('filter-type')?.value ?? '';
   const date = document.getElementById('filter-date').value;
   const range = document.getElementById('filter-range')?.value ?? 'month';
   const search = document.getElementById('search-bookings').value.trim().toLowerCase();
@@ -1761,6 +1771,15 @@ async function loadBookings() {
     q = q.eq('status', 'installed').or('booking_type.eq.installation,booking_type.is.null');
   } else if (status) {
     q = q.eq('status', status);
+  }
+  // Job type filter — separate from status, matches the same type labels/aliases
+  // used for the badge (legacy 'maintenance' rows count as Filter Change too).
+  if (jobType === 'installation') {
+    q = q.or('booking_type.eq.installation,booking_type.is.null');
+  } else if (jobType === 'quarterly_service') {
+    q = q.or('booking_type.eq.quarterly_service,booking_type.eq.maintenance');
+  } else if (jobType) {
+    q = q.eq('booking_type', jobType);
   }
   if (date) {
     q = q.eq('slot_date', date);   // explicit date beats the range filter
