@@ -333,8 +333,9 @@ async function verifyOTP() {
   btn.disabled = false; btn.textContent = 'Verify & View';
 }
 
-// Activate via the server RPC: matches the phone to an installed/completed booking,
-// stamps the oldest pending warranty with this serial, pulls the name from the booking.
+// Activate via the server RPC: matches the phone to a booking (any status) or
+// existing customer record, stamps the oldest pending warranty with this
+// serial, pulls the name from the booking.
 async function claim() {
   const { data, error } = await db.rpc('activate_pending_warranty', { p_phone: state.phone, p_serial: state.pid });
   if (error) {
@@ -344,10 +345,6 @@ async function claim() {
   }
   const res = data || {};
   if (!res.ok) {
-    if (res.reason === 'not_installed_yet') {
-      show('step-phone');
-      return err('err-phone', 'We found your booking, but the installation isn\u2019t marked complete yet. Please try again after your unit is installed, or contact support if it\u2019s already done.');
-    }
     if (res.reason === 'no_booking' || res.reason === 'no_phone') {
       show('step-phone');
       return err('err-phone', 'No booking is linked to this number. Please enter the number used when booking, or contact support.');
