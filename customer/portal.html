@@ -246,7 +246,7 @@
       <div class="time-grid" id="book-time-grid"></div>
     </div>
     <div id="book-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:12px;"></div>
-    <button class="btn-primary" onclick="submitNewBooking()" style="width:100%;padding:14px;">Confirm Booking →</button>
+    <button class="btn-primary" id="btn-confirm-booking" onclick="submitNewBooking()" style="width:100%;padding:14px;">Confirm Booking →</button>
   </div>
 
   <!-- MY PROFILE -->
@@ -604,7 +604,11 @@ async function confirmCustomerReschedule() {
   // Atomic slot reservation on the NEW slot
   const { data: reserved, error: reserveErr } = await db.from('availability_slots')
     .update({ is_booked: true }).eq('id', newSlotId).eq('is_booked', false).select();
-  if (reserveErr || !reserved || !reserved.length) {
+  if (reserveErr) {
+    errEl.style.display = 'block'; errEl.textContent = 'Could not reserve this slot: ' + reserveErr.message;
+    return;
+  }
+  if (!reserved || !reserved.length) {
     errEl.style.display = 'block'; errEl.textContent = 'This slot was just taken. Please pick another.';
     return;
   }
@@ -847,18 +851,30 @@ async function submitNewBooking() {
   if (selectedType === 'installation' && !bookBasketLines().length) { errEl.style.display = 'block'; errEl.textContent = 'Please add at least one product.'; return; }
   errEl.style.display = 'none';
 
+  // Prevent a double-tap/double-click firing two concurrent reservations for
+  // the same slot, which makes the second one look like a real "just taken" race.
+  const confirmBtn = document.getElementById('btn-confirm-booking');
+  if (confirmBtn) { if (confirmBtn.disabled) return; confirmBtn.disabled = true; confirmBtn.textContent = 'Booking…'; }
+  const resetBtn = () => { if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Confirm Booking →'; } };
+
   // Check for existing active booking
   const { data: existing } = await db.from('bookings').select('id, status, slot_date').eq('customer_phone', customer.phone).eq('status', 'upcoming').limit(1);
   if (existing && existing.length > 0) {
-    if (!confirm(`You already have an upcoming booking on ${formatDate(existing[0].slot_date)}. Do you want to book again anyway?`)) return;
+    if (!confirm(`You already have an upcoming booking on ${formatDate(existing[0].slot_date)}. Do you want to book again anyway?`)) { resetBtn(); return; }
   }
 
   // Atomic slot reservation
   const { data: reserved, error: reserveErr } = await db.from('availability_slots')
     .update({ is_booked: true }).eq('id', bookSlotId).eq('is_booked', false).select();
-  if (reserveErr || !reserved || !reserved.length) {
+  if (reserveErr) {
+    errEl.style.display = 'block'; errEl.textContent = 'Could not reserve this slot: ' + reserveErr.message;
+    resetBtn();
+    return;
+  }
+  if (!reserved || !reserved.length) {
     errEl.style.display = 'block'; errEl.textContent = 'This slot was just taken. Please pick another.';
     loadBookDates();
+    resetBtn();
     return;
   }
   // Ground truth from the reserved slot itself.
@@ -872,6 +888,7 @@ async function submitNewBooking() {
     errEl.textContent = 'This slot doesn\'t match your service area. Please pick a slot again.';
     bookDate = null; bookHour = null; bookSlotId = null;
     loadBookDates();
+    resetBtn();
     return;
   }
 
@@ -898,7 +915,7 @@ async function submitNewBooking() {
   if (error || !booking) {
     // Roll back
     await db.from('availability_slots').update({ is_booked: false }).eq('id', bookSlotId);
-    errEl.style.display = 'block'; errEl.textContent = 'Booking failed. Please try again.'; return;
+    errEl.style.display = 'block'; errEl.textContent = 'Booking failed. Please try again.'; resetBtn(); return;
   }
   if (lines.length) {
     await db.from('booking_items').insert(lines.map(l => ({
@@ -936,6 +953,7 @@ async function submitNewBooking() {
   const cap = document.getElementById('book-map-caption');
   if (cap) cap.style.display = 'none';
   loadBookDates();
+  resetBtn();
   setTimeout(() => switchTab('bookings', document.querySelector('.tab')), 1500);
   loadMyBookings();
 }
