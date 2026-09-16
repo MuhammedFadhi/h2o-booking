@@ -1707,6 +1707,15 @@ const dbAdmin = db;
 
 let installers = [];
 
+// Bookings table column sort — click a header to sort by it, click again to
+// flip direction. Default matches the query's own slot_date/slot_hour asc.
+let bookingSort = { col: 'schedule', dir: 'asc' };
+function sortBookings(col) {
+  if (bookingSort.col === col) bookingSort.dir = bookingSort.dir === 'asc' ? 'desc' : 'asc';
+  else { bookingSort.col = col; bookingSort.dir = 'asc'; }
+  loadBookings();
+}
+
 // ============================================================
 // AUTH CHECK
 // ============================================================
@@ -1873,6 +1882,27 @@ async function loadBookings() {
     );
   }
 
+  // Column sort (click a header) — client-side since it covers joined/computed
+  // fields (installer name, created-by, sales agent) the query can't order by.
+  const sortKey = (b) => {
+    switch (bookingSort.col) {
+      case 'customer': return (b.customer_name || '').toLowerCase();
+      case 'city': return (b.city_name || '').toLowerCase();
+      case 'schedule': return `${b.slot_date || ''} ${String(b.slot_hour ?? '').padStart(2, '0')}`;
+      case 'created_by': return (b.created_by_name || (b.created_by === 'customer' ? 'Customer' : '')).toLowerCase();
+      case 'sales_agent': return (b.sales_agent || '').toLowerCase();
+      case 'installer': return (b.installers?.name || '').toLowerCase();
+      case 'status': return (b.status || '').toLowerCase();
+      default: return '';
+    }
+  };
+  filtered = filtered.slice().sort((a, b) => {
+    const ka = sortKey(a), kb = sortKey(b);
+    if (ka < kb) return bookingSort.dir === 'asc' ? -1 : 1;
+    if (ka > kb) return bookingSort.dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
   if (!filtered.length) {
     container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div>No bookings found</div></div>';
     return;
@@ -1948,18 +1978,24 @@ async function loadBookings() {
     </tr>
   `; }).join('');
 
+  const thSort = (label, col) => {
+    const active = bookingSort.col === col;
+    const arrow = active ? (bookingSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    return `<th onclick="sortBookings('${col}')" style="cursor:pointer;user-select:none;${active ? 'color:var(--text);' : ''}" title="Click to sort">${label}${arrow}</th>`;
+  };
+
   container.innerHTML = `
     <table>
       <thead>
         <tr>
           <th style="width:34px;text-align:center;"><input type="checkbox" id="bulk-all" onchange="onBulkSelectAll(this.checked)" title="Select all" style="width:17px;height:17px;cursor:pointer;"></th>
-          <th>Customer</th>
-          <th>City</th>
-          <th>Schedule</th>
-          <th>Created By</th>
-          <th>Sales Agent</th>
-          <th>Assign Installer</th>
-          <th>Status</th>
+          ${thSort('Customer', 'customer')}
+          ${thSort('City', 'city')}
+          ${thSort('Schedule', 'schedule')}
+          ${thSort('Created By', 'created_by')}
+          ${thSort('Sales Agent', 'sales_agent')}
+          ${thSort('Assign Installer', 'installer')}
+          ${thSort('Status', 'status')}
           <th>Actions</th>
         </tr>
       </thead>
