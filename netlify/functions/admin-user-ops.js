@@ -29,6 +29,34 @@ async function svc(method, path, body) {
   return t ? JSON.parse(t) : null;
 }
 
+// GoTrue's admin API has no exact "get user by email" endpoint — ?email= is
+// ignored, so we page through /admin/users and match client-side.
+async function findAuthUserByEmail(email) {
+  const target = email.toLowerCase();
+  for (let page = 1; page <= 20; page++) {
+    const result = await svc('GET', `/auth/v1/admin/users?page=${page}&per_page=200`);
+    const users = result?.users || [];
+    const match = users.find(u => (u.email || '').toLowerCase() === target);
+    if (match) return match;
+    if (users.length < 200) break;
+  }
+  return null;
+}
+
+// Resolves an admin's auth user id (using the cached admin_emails.user_id
+// when present) and sets their password, backfilling the cache on lookup.
+async function resetAdminPassword(email, password) {
+  const rows = await svc('GET', `/rest/v1/admin_emails?email=eq.${encodeURIComponent(email)}&select=user_id`);
+  let userId = rows?.[0]?.user_id;
+  if (!userId) {
+    const user = await findAuthUserByEmail(email);
+    if (!user) { const e = new Error('No login found for this email.'); e.status = 404; throw e; }
+    userId = user.id;
+    await svc('PATCH', `/rest/v1/admin_emails?email=eq.${encodeURIComponent(email)}`, { user_id: userId });
+  }
+  await svc('PUT', `/auth/v1/admin/users/${userId}`, { password });
+}
+
 exports.handler = async (event) => {
   const cors = {
     'Access-Control-Allow-Origin': '*',
@@ -62,16 +90,24 @@ exports.handler = async (event) => {
     if (action === 'create-admin') {
       if (!email || !password) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'email and password required' }) };
       const authUser = await svc('POST', '/auth/v1/admin/users', { email, password, email_confirm: true });
-      await svc('POST', '/rest/v1/admin_emails', { email });
+      await svc('POST', '/rest/v1/admin_emails', { email, name: name || null, user_id: authUser.id });
       return { statusCode: 201, headers: cors, body: JSON.stringify({ id: authUser.id, email }) };
     }
     if (action === 'grant-admin') {
       if (!email) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'email required' }) };
-      await svc('POST', '/rest/v1/admin_emails', { email });
+      const user = await findAuthUserByEmail(email);
+      if (!user) return { statusCode: 404, headers: cors, body: JSON.stringify({ error: 'No existing login found for that email. Set a password to create one.' }) };
+      await svc('POST', '/rest/v1/admin_emails', { email, name: name || null, user_id: user.id });
       return { statusCode: 201, headers: cors, body: JSON.stringify({ email }) };
     }
+    if (action === 'edit-admin') {
+      if (!email) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'email required' }) };
+      await svc('PATCH', `/rest/v1/admin_emails?email=eq.${encodeURIComponent(email)}`, { name: name || null });
+      if (password) await resetAdminPassword(email, password);
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ ok: true }) };
+    }
     if (action === 'list-admins') {
-      const rows = await svc('GET', '/rest/v1/admin_emails?select=email,created_at&order=created_at.asc');
+      const rows = await svc('GET', '/rest/v1/admin_emails?select=email,name,created_at&order=created_at.asc');
       return { statusCode: 200, headers: cors, body: JSON.stringify({ admins: rows }) };
     }
     if (action === 'delete-admin') {

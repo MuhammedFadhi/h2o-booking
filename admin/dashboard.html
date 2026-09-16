@@ -1635,19 +1635,23 @@
   </div>
 </div>
 
-<!-- ADD ADMIN MODAL -->
+<!-- ADD/EDIT ADMIN MODAL -->
 <div class="modal-overlay" id="admin-modal">
   <div class="modal">
-    <h2 class="modal-title">Add Admin User</h2>
+    <h2 class="modal-title" id="admin-modal-title">Add Admin User</h2>
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" class="form-input" id="admin-name-input" placeholder="Admin's full name">
+    </div>
     <div class="form-group">
       <label>Email Address</label>
       <input type="email" class="form-input" id="admin-email-input" placeholder="admin@sadawater.com" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
     </div>
     <div class="form-group">
-      <label>Login Password</label>
+      <label id="admin-password-label">Login Password</label>
       <input type="password" class="form-input" id="admin-password-input" placeholder="Leave blank to grant an existing login admin access" autocomplete="new-password" data-lpignore="true" data-1p-ignore>
     </div>
-    <div style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:8px;">Set a password to create a brand-new admin login, or leave it blank to grant admin access to an email that already has one (e.g. an existing installer).</div>
+    <div id="admin-password-hint" style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:8px;">Set a password to create a brand-new admin login, or leave it blank to grant admin access to an email that already has one (e.g. an existing installer).</div>
     <div id="admin-error" style="display:none; background:#FEF2F2; border:1px solid #FECACA; color:#B71C1C; padding:12px; border-radius:10px; font-size:13px; margin-top:8px;"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('admin-modal')">Cancel</button>
@@ -4566,28 +4570,55 @@ function renderAdminsTable() {
     const isSelf = a.email.trim().toLowerCase() === myEmail;
     return `
     <tr>
-      <td><div style="font-weight:600;">${a.email}</div></td>
+      <td><div style="font-weight:600;">${a.name || '—'}</div><div style="font-size:11px;color:var(--muted);">${a.email}</div></td>
       <td>${a.created_at ? new Date(a.created_at).toLocaleDateString() : '—'}</td>
       <td>
-        <button class="btn btn-sm btn-danger" onclick="deleteAdmin('${a.email}')" ${isSelf ? 'disabled title="You cannot remove your own admin access"' : ''}>Remove</button>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn btn-sm btn-ghost" onclick="openEditAdminModal('${a.email}')">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteAdmin('${a.email}')" ${isSelf ? 'disabled title="You cannot remove your own admin access"' : ''}>Remove</button>
+        </div>
       </td>
     </tr>`;
   }).join('');
   container.innerHTML = `
     <table>
-      <thead><tr><th>Email</th><th>Added</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Admin</th><th>Added</th><th>Actions</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 }
 
+let editingAdminEmail = null; // null = add mode, otherwise the email being edited
+
 function openAdminModal() {
+  editingAdminEmail = null;
+  document.getElementById('admin-modal-title').textContent = 'Add Admin User';
+  document.getElementById('admin-name-input').value = '';
   document.getElementById('admin-email-input').value = '';
+  document.getElementById('admin-email-input').disabled = false;
   document.getElementById('admin-password-input').value = '';
+  document.getElementById('admin-password-label').textContent = 'Login Password';
+  document.getElementById('admin-password-hint').textContent = 'Set a password to create a brand-new admin login, or leave it blank to grant admin access to an email that already has one (e.g. an existing installer).';
+  document.getElementById('admin-error').style.display = 'none';
+  document.getElementById('admin-modal').style.display = 'flex';
+}
+
+function openEditAdminModal(email) {
+  const a = admins.find(x => x.email === email);
+  if (!a) return;
+  editingAdminEmail = email;
+  document.getElementById('admin-modal-title').textContent = 'Edit Admin User';
+  document.getElementById('admin-name-input').value = a.name || '';
+  document.getElementById('admin-email-input').value = a.email;
+  document.getElementById('admin-email-input').disabled = true;
+  document.getElementById('admin-password-input').value = '';
+  document.getElementById('admin-password-label').textContent = 'New Password (optional)';
+  document.getElementById('admin-password-hint').textContent = 'Leave blank to keep the current password, or set one to reset it.';
   document.getElementById('admin-error').style.display = 'none';
   document.getElementById('admin-modal').style.display = 'flex';
 }
 
 async function saveAdminUser() {
+  const name = document.getElementById('admin-name-input').value.trim();
   const email = document.getElementById('admin-email-input').value.trim();
   const password = document.getElementById('admin-password-input').value;
   const errEl = document.getElementById('admin-error');
@@ -4605,21 +4636,22 @@ async function saveAdminUser() {
 
   const { data: { session } } = await db.auth.getSession();
   if (!session) { errEl.style.display = 'block'; errEl.textContent = 'Session expired. Please sign in again.'; return; }
+  const action = editingAdminEmail ? 'edit-admin' : (password ? 'create-admin' : 'grant-admin');
   const res = await fetch('/api/admin/user-ops', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-    body: JSON.stringify({ action: password ? 'create-admin' : 'grant-admin', email, password: password || undefined })
+    body: JSON.stringify({ action, email, name: name || undefined, password: password || undefined })
   });
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     errEl.style.display = 'block';
-    errEl.textContent = body.error || 'Failed to add admin.';
+    errEl.textContent = body.error || 'Failed to save admin.';
     return;
   }
 
   closeModal('admin-modal');
-  showToast('Admin added successfully', 'success');
+  showToast(editingAdminEmail ? 'Admin updated' : 'Admin added successfully', 'success');
   await loadAdmins();
 }
 
