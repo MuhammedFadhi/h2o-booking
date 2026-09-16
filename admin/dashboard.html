@@ -1338,6 +1338,11 @@
           <option value="installed">Already installed — mark installed now</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Sales Agent</label>
+        <select class="form-input" id="ab-sales-agent"></select>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Defaults to you — change it if you're booking on behalf of a colleague.</div>
+      </div>
       <div id="ab-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button class="btn btn-ghost" onclick="closeModal('admin-booking-modal')">Cancel</button>
@@ -1431,6 +1436,11 @@
         <div class="form-group">
           <label>Charge (optional)</label>
           <input type="number" class="form-input" id="sb-charge" placeholder="Leave blank if free / under warranty" min="0" step="0.01">
+        </div>
+
+        <div class="form-group">
+          <label>Sales Agent</label>
+          <select class="form-input" id="sb-sales-agent"></select>
         </div>
       </div>
 
@@ -1701,6 +1711,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('admin-email').textContent = session.user.email;
   await loadCities();
   await loadInstallers();
+  await loadAdmins();       // needed for the Sales Agent dropdowns (bookings table + booking modals)
   await loadOverview();     // Overview is the landing panel
   await loadBookings();     // pre-load bookings data (its panel is one click away)
   setDefaultDate();
@@ -1897,6 +1908,13 @@ async function loadBookings() {
         <div style="font-weight:500;">${formatDateShort(b.slot_date)}</div>
         <div style="font-size:12px; color:var(--muted);">${formatHour(b.slot_hour)}</div>
       </td>
+      <td data-label="Created By">${escB(b.created_by_name || (b.created_by === 'customer' ? 'Customer' : '—'))}</td>
+      <td data-label="Sales Agent">
+        <select class="assign-select" onchange="updateSalesAgent('${b.id}', this.value)">
+          <option value="">—</option>
+          ${admins.map(a => { const n = a.name || a.email; return `<option value="${escB(n)}" ${b.sales_agent === n ? 'selected' : ''}>${escB(n)}</option>`; }).join('')}
+        </select>
+      </td>
       <td data-label="Installer">
         <select class="assign-select" onchange="assignInstaller('${b.id}', this.value)">
           <option value="">Unassigned</option>
@@ -1927,6 +1945,8 @@ async function loadBookings() {
           <th>Customer</th>
           <th>City</th>
           <th>Schedule</th>
+          <th>Created By</th>
+          <th>Sales Agent</th>
           <th>Assign Installer</th>
           <th>Status</th>
           <th>Actions</th>
@@ -2203,6 +2223,7 @@ async function openServiceBookingModal() {
   document.getElementById('sb-notes').value = '';
   document.getElementById('sb-charge').value = '';
   sbCustomer = null; sbLocation = null; sbUnits = []; sbSelectedSlotId = null;
+  populateSalesAgentSelect('sb-sales-agent');
   document.getElementById('service-booking-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('sb-phone').focus(), 150);
 }
@@ -2451,6 +2472,8 @@ async function submitServiceBooking() {
     const patch = {
       booking_type: jobType,
       created_by: 'admin',
+      created_by_name: currentAdminDisplayName(),
+      sales_agent: document.getElementById('sb-sales-agent').value || null,
       product_model: unit ? unit.product : (sbCustomer.product_model || null),
       product_qty: 1,
       notes: [notes, unit?.serial ? `Unit serial: ${unit.serial}` : ''].filter(Boolean).join(' · ') || null
@@ -2522,6 +2545,7 @@ async function openAdminBookingModal() {
   ['ab-name','ab-phone','ab-address'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ab-status').value = 'upcoming';
   document.getElementById('ab-error').style.display = 'none';
+  populateSalesAgentSelect('ab-sales-agent');
   await abLoadDates();
   openModal('admin-booking-modal');
 }
@@ -2730,7 +2754,9 @@ async function submitAdminBooking() {
       promo_code: abPromo ? abPromo.code : null,
       discount_amount: discount || null,
       booking_type: (document.getElementById('ab-jobtype')?.value || 'installation'),
-      created_by: 'admin'
+      created_by: 'admin',
+      created_by_name: currentAdminDisplayName(),
+      sales_agent: document.getElementById('ab-sales-agent').value || null
     };
     if (startStatus === 'installed') { patch.status = 'installed'; patch.installed_at = nowIso; patch.completed_by = 'admin'; }
     await dbAdmin.from('bookings').update(patch).eq('id', bkId);
@@ -4556,6 +4582,31 @@ async function loadAdmins() {
   const body = await res.json().catch(() => ({}));
   admins = body.admins || [];
   renderAdminsTable();
+}
+
+// Sales-agent dropdown (bookings table + "book for customer" / "service visit"
+// modals) is just the admin roster by display name — reuses the same `admins`
+// list the Administrators table loads, no separate table needed.
+function currentAdminDisplayName() {
+  const myEmail = (document.getElementById('admin-email')?.textContent || '').trim().toLowerCase();
+  const mine = admins.find(a => a.email.toLowerCase() === myEmail);
+  return (mine && mine.name) || myEmail;
+}
+
+function populateSalesAgentSelect(selectId, preselect) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const names = admins.map(a => a.name || a.email);
+  sel.innerHTML = names.map(n => `<option value="${escB(n)}">${escB(n)}</option>`).join('');
+  sel.value = preselect || currentAdminDisplayName();
+}
+
+async function updateSalesAgent(id, value) {
+  const { error } = await dbAdmin.from('bookings').update({ sales_agent: value || null }).eq('id', id);
+  if (error) { showToast('Failed to update sales agent: ' + error.message, 'error'); return; }
+  showToast('Sales agent updated', 'success');
+  const cached = (window.__allBookingsCache || []).find(x => x.id === id);
+  if (cached) cached.sales_agent = value || null;
 }
 
 function renderAdminsTable() {
