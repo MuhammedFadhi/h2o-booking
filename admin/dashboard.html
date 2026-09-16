@@ -1708,6 +1708,12 @@ let installers = [];
 window.addEventListener('DOMContentLoaded', async () => {
   const { data: { session } } = await db.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
+  // Defense in depth: login.html already gates on is_admin(), but a stale
+  // session (installer credentials, admin access since revoked) could still
+  // land here directly. Installers share the same auth.users pool, so a valid
+  // session alone doesn't mean admin access — re-check against admin_emails.
+  const { data: isAdmin } = await db.rpc('is_admin');
+  if (!isAdmin) { await db.auth.signOut(); window.location.href = 'login.html'; return; }
   document.getElementById('admin-email').textContent = session.user.email;
   await loadCities();
   await loadInstallers();

@@ -81,6 +81,11 @@
   window.checkAdminAuth = async function () {
     const { data: { session } } = await db.auth.getSession();
     if (!session) { window.location.href = '../admin/login.html'; return false; }
+    // A valid Supabase Auth session only proves the login/password matched —
+    // installers authenticate through the same auth.users pool. Admin console
+    // access requires the email to also be in admin_emails (is_admin()).
+    const { data: isAdmin } = await db.rpc('is_admin');
+    if (!isAdmin) { await db.auth.signOut(); window.location.href = '../admin/login.html'; return false; }
     return session;
   };
 

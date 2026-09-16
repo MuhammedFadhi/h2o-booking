@@ -183,6 +183,20 @@
       btn.textContent = 'Sign in';
       return;
     }
+
+    // A valid password only proves this is a real login — installers share the
+    // same auth.users pool. Admin console access also requires the email to be
+    // in admin_emails, so re-check here rather than trusting any signed-in user.
+    const { data: isAdmin } = await db.rpc('is_admin');
+    if (!isAdmin) {
+      await db.auth.signOut();
+      errEl.textContent = 'This account does not have admin access.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+      return;
+    }
+
     window.location.href = 'dashboard.html';
   }
 </script>
