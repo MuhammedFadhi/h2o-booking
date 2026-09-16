@@ -805,7 +805,10 @@
             <button class="btn btn-ghost btn-sm" onclick="openServiceBookingModal()" style="white-space:nowrap;">🔧 Service / Repair</button>
           </div>
         </div>
-        <div class="filter-bar" style="margin:0;">
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <div class="filter-bar">
             <input type="text" id="search-bookings" placeholder="🔍 Search by name or phone..." oninput="loadBookings()" style="min-width:220px;">
             <select id="filter-status" onchange="loadBookings()">
               <option value="">All Statuses</option>
@@ -837,9 +840,6 @@
             </select>
             <input type="date" id="filter-date" onchange="loadBookings()">
         </div>
-      </div>
-
-      <div class="card" style="margin-top:20px;">
         <div id="bookings-table">
           <div class="loading"><div class="spinner"></div> Loading bookings...</div>
         </div>
