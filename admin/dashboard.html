@@ -677,7 +677,7 @@
     </div>
     <div class="nav-section">Team</div>
     <div class="nav-item" onclick="showPanel('installers', this)">
-      <span class="nav-icon">👷</span> Installers
+      <span class="nav-icon">👥</span> User Management
     </div>
     <div class="nav-item" onclick="showPanel('passwords', this)">
       <span class="nav-icon">🔑</span> Manage Access
@@ -970,6 +970,16 @@
           <button class="btn btn-primary" onclick="openInstallerModal()">+ Add Installer</button>
         </div>
         <div id="installers-table">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <div class="card-header">
+          <span class="card-title">Administrators</span>
+          <button class="btn btn-primary" onclick="openAdminModal()">+ Add Admin</button>
+        </div>
+        <div id="admins-table">
           <div class="loading"><div class="spinner"></div></div>
         </div>
       </div>
@@ -1625,6 +1635,27 @@
   </div>
 </div>
 
+<!-- ADD ADMIN MODAL -->
+<div class="modal-overlay" id="admin-modal">
+  <div class="modal">
+    <h2 class="modal-title">Add Admin User</h2>
+    <div class="form-group">
+      <label>Email Address</label>
+      <input type="email" class="form-input" id="admin-email-input" placeholder="admin@sadawater.com" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
+    </div>
+    <div class="form-group">
+      <label>Login Password</label>
+      <input type="password" class="form-input" id="admin-password-input" placeholder="Leave blank to grant an existing login admin access" autocomplete="new-password" data-lpignore="true" data-1p-ignore>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:8px;">Set a password to create a brand-new admin login, or leave it blank to grant admin access to an email that already has one (e.g. an existing installer).</div>
+    <div id="admin-error" style="display:none; background:#FEF2F2; border:1px solid #FECACA; color:#B71C1C; padding:12px; border-radius:10px; font-size:13px; margin-top:8px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('admin-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAdminUser()">Save Admin</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -1684,7 +1715,7 @@ const panelTitles = {
   analytics: ['Analytics', 'Business performance at a glance'],
   bookings: ['All Bookings', 'Manage and assign installation appointments'],
   slots: ['Availability Slots', 'Control which time slots customers can book'],
-  installers: ['Installers', 'Add, remove and manage your installer team'],
+  installers: ['User Management', 'Add, remove and manage installers and admin users'],
   passwords: ['Manage Access', 'Create and reset installer login passwords'],
   sms: ['Send Booking Link', 'Send the booking link to a customer via SMS'],
   bulksms: ['Bulk SMS', 'Send a message to a filtered group of customers'],
@@ -1711,7 +1742,7 @@ function showPanel(name, el) {
   if (name === 'analytics') loadAnalytics();
   if (name === 'bulksms') loadBulkSMS();
   if (name === 'slots') populateSlotCities();
-  if (name === 'installers') { loadInstallers().then(() => loadInstallerPerformance()).then(() => renderInstallersTable()); }
+  if (name === 'installers') { loadInstallers().then(() => loadInstallerPerformance()).then(() => renderInstallersTable()); loadAdmins(); }
   if (name === 'passwords') populatePasswordInstallers();
   if (name === 'bookings') loadBookings();
   if (name === 'sms-settings') loadSMSSettings();
@@ -4502,6 +4533,116 @@ async function deleteInstaller(id) {
   showToast('Installer removed successfully', 'success');
   await loadInstallers();
   renderInstallersTable();
+}
+
+// ============================================================
+// ADMINISTRATORS
+// ============================================================
+let admins = [];
+
+async function loadAdmins() {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) return;
+  const res = await fetch('/api/admin/user-ops', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ action: 'list-admins' })
+  });
+  if (!res.ok) { renderAdminsTable(); return; }
+  const body = await res.json().catch(() => ({}));
+  admins = body.admins || [];
+  renderAdminsTable();
+}
+
+function renderAdminsTable() {
+  const container = document.getElementById('admins-table');
+  if (!container) return;
+  if (!admins.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🛡️</div><div>No administrators yet.</div></div>';
+    return;
+  }
+  const myEmail = (document.getElementById('admin-email')?.textContent || '').trim().toLowerCase();
+  const rows = admins.map(a => {
+    const isSelf = a.email.trim().toLowerCase() === myEmail;
+    return `
+    <tr>
+      <td><div style="font-weight:600;">${a.email}</div></td>
+      <td>${a.created_at ? new Date(a.created_at).toLocaleDateString() : '—'}</td>
+      <td>
+        <button class="btn btn-sm btn-danger" onclick="deleteAdmin('${a.email}')" ${isSelf ? 'disabled title="You cannot remove your own admin access"' : ''}>Remove</button>
+      </td>
+    </tr>`;
+  }).join('');
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>Email</th><th>Added</th><th>Actions</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function openAdminModal() {
+  document.getElementById('admin-email-input').value = '';
+  document.getElementById('admin-password-input').value = '';
+  document.getElementById('admin-error').style.display = 'none';
+  document.getElementById('admin-modal').style.display = 'flex';
+}
+
+async function saveAdminUser() {
+  const email = document.getElementById('admin-email-input').value.trim();
+  const password = document.getElementById('admin-password-input').value;
+  const errEl = document.getElementById('admin-error');
+
+  if (!email) {
+    errEl.style.display = 'block';
+    errEl.textContent = 'Email is required.';
+    return;
+  }
+  if (password && password.length < 8) {
+    errEl.style.display = 'block';
+    errEl.textContent = 'Password must be at least 8 characters.';
+    return;
+  }
+
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { errEl.style.display = 'block'; errEl.textContent = 'Session expired. Please sign in again.'; return; }
+  const res = await fetch('/api/admin/user-ops', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ action: password ? 'create-admin' : 'grant-admin', email, password: password || undefined })
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    errEl.style.display = 'block';
+    errEl.textContent = body.error || 'Failed to add admin.';
+    return;
+  }
+
+  closeModal('admin-modal');
+  showToast('Admin added successfully', 'success');
+  await loadAdmins();
+}
+
+async function deleteAdmin(email) {
+  if (!confirm(`Remove admin access for ${email}? Their login (if any) will remain, but they will no longer have admin privileges.`)) return;
+
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { showToast('Session expired. Please sign in again.', 'error'); return; }
+
+  const res = await fetch('/api/admin/user-ops', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ action: 'delete-admin', email })
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    showToast('Failed to remove admin: ' + (body.error || res.statusText), 'error');
+    return;
+  }
+
+  showToast('Admin access removed', 'success');
+  await loadAdmins();
 }
 
 // ============================================================

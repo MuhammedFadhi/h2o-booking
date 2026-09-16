@@ -39,7 +39,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
 
   try {
-    await requireAdmin(event.headers || {});
+    const caller = await requireAdmin(event.headers || {});
     const body = JSON.parse(event.body || '{}');
     const { action, email, password, userId, name, phone } = body;
     if (action === 'create-installer') {
@@ -57,6 +57,29 @@ exports.handler = async (event) => {
     if (action === 'reset-installer-password') {
       if (!userId || !password) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'userId and password required' }) };
       await svc('PUT', `/auth/v1/admin/users/${userId}`, { password });
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ ok: true }) };
+    }
+    if (action === 'create-admin') {
+      if (!email || !password) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'email and password required' }) };
+      const authUser = await svc('POST', '/auth/v1/admin/users', { email, password, email_confirm: true });
+      await svc('POST', '/rest/v1/admin_emails', { email });
+      return { statusCode: 201, headers: cors, body: JSON.stringify({ id: authUser.id, email }) };
+    }
+    if (action === 'grant-admin') {
+      if (!email) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'email required' }) };
+      await svc('POST', '/rest/v1/admin_emails', { email });
+      return { statusCode: 201, headers: cors, body: JSON.stringify({ email }) };
+    }
+    if (action === 'list-admins') {
+      const rows = await svc('GET', '/rest/v1/admin_emails?select=email,created_at&order=created_at.asc');
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ admins: rows }) };
+    }
+    if (action === 'delete-admin') {
+      if (!email) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'email required' }) };
+      if (email.toLowerCase() === (caller.email || '').toLowerCase()) {
+        return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'You cannot remove your own admin access.' }) };
+      }
+      await svc('DELETE', `/rest/v1/admin_emails?email=eq.${encodeURIComponent(email)}`);
       return { statusCode: 200, headers: cors, body: JSON.stringify({ ok: true }) };
     }
     return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Unknown action' }) };

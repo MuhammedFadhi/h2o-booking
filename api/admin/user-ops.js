@@ -1,5 +1,6 @@
 // /api/admin/user-ops — server-side proxy for auth.admin operations
-// Actions: create-installer, delete-installer, reset-installer-password
+// Actions: create-installer, delete-installer, reset-installer-password,
+//          create-admin, grant-admin, list-admins, delete-admin
 // Auth: caller must present a Bearer token whose email is in admin_emails.
 const { requireAdmin, SUPABASE_URL, SERVICE_KEY } = require('./_auth');
 
@@ -22,7 +23,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    await requireAdmin(req);
+    const { email: callerEmail } = await requireAdmin(req);
     const { action, email, password, userId, name, phone } = req.body || {};
 
     if (action === 'create-installer') {
@@ -46,6 +47,34 @@ module.exports = async function handler(req, res) {
     if (action === 'reset-installer-password') {
       if (!userId || !password) return res.status(400).json({ error: 'userId and password required' });
       await admin('PUT', `/auth/v1/admin/users/${userId}`, { password });
+      return res.status(200).json({ ok: true });
+    }
+
+    if (action === 'create-admin') {
+      if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+      const authUser = await admin('POST', '/auth/v1/admin/users', { email, password, email_confirm: true });
+      if (!authUser?.id) return res.status(500).json({ error: 'Auth user creation failed' });
+      await admin('POST', '/rest/v1/admin_emails', { email });
+      return res.status(201).json({ id: authUser.id, email });
+    }
+
+    if (action === 'grant-admin') {
+      if (!email) return res.status(400).json({ error: 'email required' });
+      await admin('POST', '/rest/v1/admin_emails', { email });
+      return res.status(201).json({ email });
+    }
+
+    if (action === 'list-admins') {
+      const rows = await admin('GET', '/rest/v1/admin_emails?select=email,created_at&order=created_at.asc', null);
+      return res.status(200).json({ admins: rows });
+    }
+
+    if (action === 'delete-admin') {
+      if (!email) return res.status(400).json({ error: 'email required' });
+      if (email.toLowerCase() === (callerEmail || '').toLowerCase()) {
+        return res.status(400).json({ error: 'You cannot remove your own admin access.' });
+      }
+      await admin('DELETE', `/rest/v1/admin_emails?email=eq.${encodeURIComponent(email)}`, null);
       return res.status(200).json({ ok: true });
     }
 
