@@ -248,8 +248,8 @@ SADA.InspectionReport = (function () {
         <div class="sada-ir__field">
           <label>Next Service In <span dir="rtl">الخدمة القادمة بعد</span></label>
           <select name="service_interval" data-role="service-interval">
-            <option value="3">3 months / 3 أشهر</option>
-            <option value="6" selected>6 months / 6 أشهر</option>
+            <option value="90d" selected>90 days / 90 يومًا</option>
+            <option value="6">6 months / 6 أشهر</option>
             <option value="12">12 months / 12 شهر</option>
           </select>
         </div>
@@ -528,15 +528,21 @@ SADA.InspectionReport = (function () {
 
   // ------------------------------------------------------------- form wiring
   function wireForm(root, ctx) {
-    // Auto-compute "Next Service Due" = visit date + N months. Recomputes when the
+    // Auto-compute "Next Service Due" = visit date + interval. Recomputes when the
     // interval or the visit date changes; leaves a manually-edited date alone until
-    // the interval is touched again.
+    // the interval is touched again. Default is 90 exact days (the same filter-change
+    // cycle used for warranty_expiry elsewhere), not a calendar-month approximation.
     const intervalEl = $('[data-role="service-interval"]', root);
     const nextEl = $('[data-role="next-service"]', root);
     const visitEl = $('input[name="visit_date"]', root);
-    const addMonths = (iso, n) => {
+    const addInterval = (iso, val) => {
       const d = new Date((iso || isoToday()) + 'T00:00:00');
-      const targetMonth = d.getMonth() + Number(n);
+      if (val === '90d') {
+        const t = new Date(d);
+        t.setDate(t.getDate() + 90);
+        return t.toISOString().slice(0, 10);
+      }
+      const targetMonth = d.getMonth() + Number(val);
       const t = new Date(d);
       t.setMonth(targetMonth);
       // guard month overflow (e.g. 31 Jan + 1mo): clamp to last valid day
@@ -545,7 +551,7 @@ SADA.InspectionReport = (function () {
     };
     const recompute = () => {
       if (!nextEl || !intervalEl) return;
-      nextEl.value = addMonths(visitEl?.value, intervalEl.value);
+      nextEl.value = addInterval(visitEl?.value, intervalEl.value);
     };
     // Only auto-fill if the report doesn't already carry a saved date.
     if (nextEl && !nextEl.value) recompute();
