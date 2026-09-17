@@ -520,8 +520,11 @@ SADA.InspectionReport = (function () {
         </div>
       </div>` : '';
 
+    // Screen-only — the installer still captures/confirms this on submit (see
+    // tplForm), but it's office/admin reference info, not part of the printed
+    // PDF the customer keeps.
     const locationSection = (b.latitude != null && b.longitude != null) ? `
-      <div class="sada-ir__section">
+      <div class="sada-ir__section sada-ir__no-print">
         <div class="sada-ir__section-head"><span>📍 Installation Location</span><span dir="rtl">موقع التركيب</span></div>
         <div class="sada-ir__field" style="border-radius:0 0 8px 8px;">
           <a href="https://maps.google.com/?q=${b.latitude},${b.longitude}" target="_blank" style="color:#1565C0;font-size:13px;">${b.latitude}, ${b.longitude} — open in Google Maps</a>

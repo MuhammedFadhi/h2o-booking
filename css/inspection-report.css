@@ -441,6 +441,7 @@
 
   .sada-ir__close,
   .sada-ir__actions,
+  .sada-ir__no-print,
   .sada-ir__pad-actions { display: none !important; }
   .sada-ir__pad { border-color: transparent !important; }
 
