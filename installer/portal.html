@@ -172,61 +172,6 @@
   </div>
 </div>
 
-<!-- PROOF UPLOAD MODAL -->
-<div class="modal-overlay" id="proof-modal" style="display:none;">
-  <div class="modal" style="max-width:480px;">
-    <div class="modal-icon">📸</div>
-    <div style="text-align:center;font-size:12px;font-weight:700;letter-spacing:.4px;color:#0D3B6E;background:#EFF6FF;border-radius:20px;padding:5px 14px;margin:0 auto 10px;width:fit-content;">STEP 2 OF 2 &middot; PHOTOS &amp; LOCATION</div>
-    <div class="modal-title">Upload Proof of Installation</div>
-    <div class="modal-sub" id="proof-sub">Upload two photos to finish this job: the completed installation and the QR sticker on the unit. The customer activates each warranty by scanning that QR.</div>
-    <div class="proof-uploads">
-      <div id="photo-upload-wrap">
-        <label class="upload-box" id="photo-upload-box" for="photo-input">
-          <div class="upload-icon">📷</div>
-          <div class="upload-label" id="photo-label">Installation Photo</div>
-          <div class="upload-sub">Tap to take a photo or choose one</div>
-          <img id="photo-preview" class="upload-preview" style="display:none;">
-        </label>
-        <input type="file" id="photo-input" accept="image/*" class="file-hidden" onchange="previewPhoto(this)">
-      </div>
-      <div id="qr-upload-wrap">
-        <label class="upload-box" id="qr-upload-box" for="qr-input">
-          <div class="upload-icon">🏷️</div>
-          <div class="upload-label" id="qr-label">QR Sticker Photo</div>
-          <div class="upload-sub" id="qr-sub">Tap to take a photo or choose one</div>
-          <img id="qr-preview" class="upload-preview" style="display:none;">
-        </label>
-        <input type="file" id="qr-input" accept="image/*" class="file-hidden" onchange="previewQRPhoto(this)">
-      </div>
-      <div id="unit-info-note" style="display:none;font-size:13px;color:#3730A3;background:#E0E7FF;border-radius:10px;padding:12px 14px;grid-column:1 / -1;"></div>
-      <!-- On-site location capture. Auto for customer bookings; needs confirmation for admin-created ones. -->
-      <div id="location-section" style="display:none;border:1px solid var(--border);border-radius:12px;padding:14px;grid-column:1 / -1;">
-        <div style="font-size:13px;font-weight:700;margin-bottom:4px;">📍 Installation Location</div>
-        <div id="location-note" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
-        <div id="location-status" style="font-size:12px;margin-bottom:10px;"></div>
-        <button type="button" id="capture-loc-btn" onclick="captureLocation()"
-          style="width:100%;padding:10px;background:#0F766E;color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
-          Use my current location
-        </button>
-        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);cursor:pointer;">
-          <input type="checkbox" id="loc-confirm-check" style="width:auto;"> The pin matches where I installed the unit
-        </label>
-        <div id="loc-override-wrap" style="display:none;margin-top:12px;padding:12px;border:1.5px solid #FCD34D;background:#FFFBEB;border-radius:10px;">
-          <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;color:#92400E;cursor:pointer;font-weight:600;">
-            <input type="checkbox" id="loc-override-check" style="width:auto;margin-top:2px;transform:scale(1.25);">
-            <span>GPS isn’t working here — continue without a location pin.<br>
-            <span style="font-weight:400;font-size:12px;">Tick this, then tap “Submit &amp; Complete”. The office will see no pin was captured.</span></span>
-          </label>
-        </div>
-      </div>
-    </div>
-    <div class="error-msg" id="proof-error"></div>
-    <div class="modal-btns" style="margin-top:20px;">
-      <button class="btn-modal-cancel" onclick="closeProofModal()">Cancel</button>
-      <button class="btn-modal-confirm" onclick="submitProof()" id="btn-submit-proof">Submit & Complete ✓</button>
-    </div>
-  </div>
-</div>
 
 <script>
 const SUPABASE_URL = 'https://ykgtrloptgazeqjgxney.supabase.co';
@@ -274,7 +219,6 @@ function matchCity(raw) {
 let reportsByBooking = {};  // { [bookingId]: { id, status } } — submitted/draft state per booking
 let itemsByBooking = {};    // { [bookingId]: [{product_model, qty, is_serialized}] } — what to bring
 let activeTab = 'available';
-let pendingCompleteId = null;
 let realtimeChannel = null;
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -596,36 +540,21 @@ function renderAppointments() {
         <a href="${mapsUrl}" target="_blank" class="btn-map">🗺️ Directions</a>
         <button class="btn-claim" onclick="claimJob('${b.id}')" id="claim-${b.id}">✋ Claim this Job</button>`;
     } else {
-      // Inspection-report state for this booking
+      // One button does it all now: the inspection report form (checklist,
+      // water analysis, photos, GPS, signatures) finishes the job on submit —
+      // see js/inspection-report.js. No separate "Mark Complete" step.
       const rep = reportsByBooking[b.id];
-      const reportSubmitted = rep && rep.status === 'submitted';
-      const reportDraft     = rep && rep.status === 'draft';
-
-      const reportLabel =
-        reportSubmitted ? '✅ Report Submitted'
-        : reportDraft    ? '📝 Continue Report'
-        :                  '📋 Fill Inspection Report';
-      const reportBtnStyle = reportSubmitted
-        ? 'background:#16A34A;color:white;border-color:#16A34A;'
-        : 'background:#0D3B6E;color:white;border-color:#0D3B6E;';
-      const reportBtn = `<button class="btn-map" style="${reportBtnStyle}" onclick="openInspectionReport('${b.id}')">${reportLabel}</button>`;
-
-      let completeBtn = '';
-      if (b.status === 'completed') {
-        completeBtn = '<span style="font-size:13px;color:var(--muted);">✓ Done</span>';
+      const reportDraft = rep && rep.status === 'draft';
+      let jobBtn = '';
+      if (b.status === 'completed' || b.status === 'installed') {
+        jobBtn = '<span style="font-size:13px;color:var(--muted);">✓ Done</span>';
       } else if (b.status !== 'cancelled') {
-        // Mark Complete is gated on a submitted inspection report.
-        if (reportSubmitted) {
-          completeBtn = `<button class="btn-complete" onclick="openProofModal('${b.id}')">Mark Complete ✓</button>`;
-        } else {
-          completeBtn = `<button class="btn-complete" style="opacity:0.55;cursor:not-allowed;" onclick="requireReportFirst('${b.id}')" title="Submit the inspection report before marking complete.">🔒 Mark Complete</button>`;
-        }
+        jobBtn = `<button class="btn-complete" onclick="openInspectionReport('${b.id}')">${reportDraft ? '📝 Continue Report' : '📋 Fill Inspection Report'}</button>`;
       }
 
       actions = `
         <a href="${mapsUrl}" target="_blank" class="btn-map">🗺️ Directions</a>
-        ${reportBtn}
-        ${completeBtn}`;
+        ${jobBtn}`;
     }
 
     return `
@@ -696,421 +625,6 @@ async function claimJob(bookingId) {
   renderAppointments();
 }
 
-// State for the currently-open proof modal.
-let proofBooking = null;          // the booking row being completed
-let capturedLocation = null;      // { lat, lng } if installer captured GPS this session
-
-async function openProofModal(bookingId) {
-  // Belt-and-suspenders: require a submitted inspection report before mark-complete
-  // even if someone bypassed the disabled button (devtools, etc).
-  const rep = reportsByBooking[bookingId];
-  if (!rep || rep.status !== 'submitted') {
-    requireReportFirst(bookingId);
-    return;
-  }
-  pendingCompleteId = bookingId;
-  proofBooking = myBookings.find(x => x.id === bookingId) || null;
-  capturedLocation = null;
-
-  document.getElementById('photo-preview').style.display = 'none';
-  document.getElementById('photo-input').value = '';
-  document.getElementById('photo-upload-box').classList.remove('has-file');
-  document.getElementById('qr-preview').style.display = 'none';
-  document.getElementById('qr-input').value = '';
-  document.getElementById('qr-upload-box').classList.remove('has-file');
-  document.getElementById('proof-error').style.display = 'none';
-
-  // How many serialized RO units will this install create warranties for?
-  let serialCount = 0;
-  const { data: items } = await db.from('booking_items')
-    .select('product_model, qty, is_serialized').eq('booking_id', bookingId);
-  if (items && items.length) {
-    items.filter(it => it.is_serialized).forEach(it => { serialCount += (it.qty || 1); });
-  } else {
-    const model = proofBooking?.product_model || '';
-    if (model && !model.toLowerCase().includes('dispenser')) serialCount = Math.max(1, proofBooking?.product_qty || 1);
-  }
-  const note = document.getElementById('unit-info-note');
-
-  // Tailor the proof modal to the kind of visit — only a new install has a QR
-  // sticker to photograph, so that upload box is hidden for every other type.
-  const jt = (proofBooking?.booking_type || 'installation');
-  const isInstall = jt === 'installation';
-  const PHOTO_LABEL_BY_TYPE = {
-    installation: 'Installation Photo',
-    quarterly_service: 'Changed Filter Photo',
-    maintenance: 'Changed Filter Photo',
-    relocation: 'New Installed RO Photo',
-    repair: 'Repaired Photo'
-  };
-  const jtLabel = (typeof jobTypeOf === 'function') ? jobTypeOf(proofBooking || {}).label : 'JOB';
-  const subEl = document.getElementById('proof-sub');
-  const photoLbl = document.getElementById('photo-label');
-  const photoWrap = document.getElementById('photo-upload-wrap');
-  const qrWrap = document.getElementById('qr-upload-wrap');
-  if (subEl) subEl.textContent = isInstall
-    ? 'Upload two photos to finish this job: the completed installation and the QR sticker on the unit. The customer activates each warranty by scanning that QR.'
-    : `${jtLabel} — upload a photo of the completed work to finish this job.`;
-  if (photoLbl) photoLbl.textContent = PHOTO_LABEL_BY_TYPE[jt] || 'Completed Work Photo';
-  if (qrWrap) qrWrap.style.display = isInstall ? '' : 'none';
-  if (photoWrap) photoWrap.style.gridColumn = isInstall ? '' : '1 / -1';
-  if (serialCount > 0) {
-    note.style.display = 'block';
-    note.innerHTML = `🛡️ This install covers <strong>${serialCount} RO unit${serialCount>1?'s':''}</strong>. A pending warranty will be created for each — the customer activates it by scanning that unit's QR sticker.`;
-  } else {
-    note.style.display = 'block';
-    note.style.background = '#E0E7FF';
-    note.innerHTML = '💧 Dispenser-only install — no warranty units.';
-  }
-
-  // Location section: require an on-site pin when the office created the booking
-  // (address may be approximate) and always for a relocation (address has changed).
-  const isRelocation = (proofBooking?.booking_type === 'relocation');
-  const isAdminBooking = proofBooking?.created_by === 'admin' || isRelocation;
-  const locSec = document.getElementById('location-section');
-  const locNote = document.getElementById('location-note');
-  const locStatus = document.getElementById('location-status');
-  const locCheck = document.getElementById('loc-confirm-check');
-  locSec.style.display = 'block';
-  locStatus.textContent = '';
-  locCheck.checked = false;
-  capturedLocation = null;
-  const ovWrap = document.getElementById('loc-override-wrap');
-  const ovChk = document.getElementById('loc-override-check');
-  if (ovWrap) ovWrap.style.display = 'none';
-  if (ovChk) ovChk.checked = false;
-  const capBtn = document.getElementById('capture-loc-btn');
-  if (capBtn) { capBtn.disabled = false; capBtn.textContent = 'Use my current location'; }
-  // Start trying immediately — by the time the photos are attached the fix is
-  // usually ready, and any failure surfaces the override early instead of at submit.
-  setTimeout(() => { try { captureLocation(); } catch (e) {} }, 400);
-  if (isAdminBooking) {
-    locNote.innerHTML = isRelocation
-      ? '🚚 Relocation — the unit is moving to a new address. Please capture the NEW location on-site and confirm the pin.'
-      : '⚠️ This booking was created by the office — the address may be approximate. Please capture the real location on-site and confirm the pin.';
-    document.getElementById('loc-confirm-check').closest('label').style.display = 'flex';
-  } else {
-    locNote.textContent = 'We\u2019ll record where the unit was installed. Tap below to capture your current location (optional).';
-    document.getElementById('loc-confirm-check').closest('label').style.display = 'none';
-  }
-
-  document.getElementById('proof-modal').style.display = 'flex';
-}
-
-// Capture the installer's current GPS position.
-// Robust: tries high accuracy first, then falls back to a coarser/cached fix so a
-// slow or indoor GPS doesn't leave the installer unable to finish the job.
-function captureLocation() {
-  const status = document.getElementById('location-status');
-  const btn = document.getElementById('capture-loc-btn');
-  if (!navigator.geolocation) {
-    status.style.color = '#B71C1C';
-    status.textContent = 'Location is not available on this device/browser.';
-    revealLocationOverride();
-    return;
-  }
-  status.style.color = 'var(--muted)';
-  status.textContent = 'Getting your location… (keep this screen open)';
-  btn.disabled = true;
-
-  // Some Android/in-app browsers never fire either callback. This watchdog makes
-  // sure the installer is never left waiting with no way forward.
-  let settled = false;
-  const watchdog = setTimeout(() => {
-    if (settled) return;
-    settled = true;
-    btn.disabled = false;
-    status.style.color = '#B71C1C';
-    status.textContent = 'Location is taking too long on this device. You can tick the box below and continue.';
-    revealLocationOverride();
-  }, 40000);
-
-  const onOk = (pos) => {
-    if (settled) return;
-    settled = true; clearTimeout(watchdog);
-    capturedLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-    status.style.color = '#166534';
-    status.innerHTML = `✓ Location captured (±${Math.round(pos.coords.accuracy)}m). <a href="https://maps.google.com/?q=${capturedLocation.lat},${capturedLocation.lng}" target="_blank" style="color:#1565C0;">preview</a>`;
-    btn.disabled = false; btn.textContent = 'Re-capture location';
-  };
-
-  const onFail = (err) => {
-    if (settled) return;
-    settled = true; clearTimeout(watchdog);
-    btn.disabled = false;
-    status.style.color = '#B71C1C';
-    let hint = err && err.code === 1
-      ? 'Permission denied — enable Location for this site in your browser settings, then tap again.'
-      : (err && err.code === 3 ? 'Timed out — move near a window or outdoors and tap again.' : 'Could not get a fix.');
-    status.textContent = hint + ' You can also tick the box below and continue.';
-    revealLocationOverride();
-  };
-
-  // Pass 1: high accuracy, generous timeout.
-  navigator.geolocation.getCurrentPosition(onOk, () => {
-    // Pass 2: coarse fix, accept a recently cached position.
-    status.textContent = 'Still trying (using a coarser fix)…';
-    navigator.geolocation.getCurrentPosition(onOk, onFail,
-      { enableHighAccuracy: false, timeout: 30000, maximumAge: 120000 });
-  }, { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 });
-}
-
-// If GPS genuinely cannot be obtained, let the installer proceed rather than being
-// stuck on site — but make it explicit and record that no pin was captured.
-function revealLocationOverride() {
-  const box = document.getElementById('loc-override-wrap');
-  if (box) box.style.display = 'block';
-}
-
-function showProofError(msg) {
-  const el = document.getElementById('proof-error');
-  el.style.display = 'block'; el.textContent = msg;
-}
-
-function requireReportFirst(bookingId) {
-  const rep = reportsByBooking[bookingId];
-  const msg = rep && rep.status === 'draft'
-    ? 'Your inspection report is still a draft. Please finish and submit it before marking the job complete.'
-    : 'Please fill and submit the inspection report before marking the job complete.';
-  if (confirm(msg + '\n\nOpen the inspection report now?')) {
-    openInspectionReport(bookingId);
-  }
-}
-
-function closeProofModal() {
-  document.getElementById('proof-modal').style.display = 'none';
-  pendingCompleteId = null;
-  proofBooking = null;
-  capturedLocation = null;
-}
-
-function previewPhoto(input) {
-  if (input.files && input.files[0]) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = document.getElementById('photo-preview');
-      img.src = e.target.result; img.style.display = 'block';
-      document.getElementById('photo-upload-box').classList.add('has-file');
-    };
-    reader.readAsDataURL(input.files[0]);
-  }
-}
-
-function previewQRPhoto(input) {
-  if (input.files && input.files[0]) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = document.getElementById('qr-preview');
-      img.src = e.target.result; img.style.display = 'block';
-      document.getElementById('qr-upload-box').classList.add('has-file');
-    };
-    reader.readAsDataURL(input.files[0]);
-  }
-}
-
-// Shrink a camera photo before upload. Android phones produce 8-12MB images that
-// frequently time out on mobile data; ~1600px JPEG is plenty for proof and uploads
-// in a second or two. Falls back to the original file if anything goes wrong.
-async function compressImage(file, maxDim = 1600, quality = 0.82) {
-  try {
-    if (!file || !/^image\//.test(file.type)) return file;
-    if (file.size < 600 * 1024) return file;           // already small enough
-    const bitmap = await new Promise((res, rej) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => { URL.revokeObjectURL(url); res(img); };
-      img.onerror = (e) => { URL.revokeObjectURL(url); rej(e); };
-      img.src = url;
-    });
-    let { width: w, height: h } = bitmap;
-    const scale = Math.min(1, maxDim / Math.max(w, h));
-    if (scale >= 1 && file.size < 3 * 1024 * 1024) return file;
-    w = Math.round(w * scale); h = Math.round(h * scale);
-    const canvas = document.createElement('canvas');
-    canvas.width = w; canvas.height = h;
-    canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
-    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
-    if (!blob || blob.size >= file.size) return file;
-    return new File([blob], (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
-  } catch (e) {
-    console.warn('compress failed, using original', e);
-    return file;
-  }
-}
-
-async function uploadFile(file, path) {
-  const { data, error } = await db.storage.from('installation-proofs').upload(path, file, { upsert: true });
-  if (error) {
-    // Surface the real reason — a silent null used to make this look like "nothing happened".
-    console.error('Photo upload failed:', error);
-    window.__lastUploadError = error.message || String(error);
-    return null;
-  }
-  const { data: urlData } = db.storage.from('installation-proofs').getPublicUrl(path);
-  return urlData.publicUrl;
-}
-
-async function submitProof() {
-  if (!(await ensureSession())) return;
-  const photoFile = document.getElementById('photo-input').files[0];
-  const qrFile = document.getElementById('qr-input').files[0];
-  const errEl = document.getElementById('proof-error');
-
-  // A repair / filter change / annual service fits no new unit, so there is no new
-  // QR sticker to photograph — only installations require the second photo.
-  const isInstall = (proofBooking?.booking_type || 'installation') === 'installation';
-
-  if (!photoFile) { errEl.style.display = 'block'; errEl.textContent = 'Please upload the ' + (isInstall ? 'installation' : 'completed work') + ' photo.'; return; }
-  if (isInstall && !qrFile) { errEl.style.display = 'block'; errEl.textContent = 'Please upload a photo of the QR sticker on the unit.'; return; }
-
-  // Admin-created bookings: require the installer to confirm the pin matches.
-  // If GPS genuinely failed, an explicit override lets them finish the job on site.
-  const isAdminBooking = proofBooking?.created_by === 'admin' || proofBooking?.booking_type === 'relocation';
-  const locOverride = document.getElementById('loc-override-check')?.checked;
-  if (isAdminBooking && !locOverride) {
-    const confirmed = document.getElementById('loc-confirm-check').checked;
-    if (!capturedLocation) {
-      // Show the escape hatch at the moment we block — otherwise the message tells
-      // the installer to tick a box that isn't on screen yet, and he's stuck.
-      revealLocationOverride();
-      errEl.style.display = 'block';
-      errEl.innerHTML = 'No location pin captured yet. Tap <strong>“Use my current location”</strong> above — or, if GPS will not work here, tick <strong>“GPS isn’t working here”</strong> (now shown below the location box) and submit again.';
-      const ow = document.getElementById('loc-override-wrap');
-      if (ow && ow.scrollIntoView) ow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return;
-    }
-    if (!confirmed) { errEl.style.display = 'block'; errEl.textContent = 'Please tick the box to confirm the captured pin matches the install location.'; return; }
-  }
-
-  errEl.style.display = 'none';
-  const btn = document.getElementById('btn-submit-proof');
-  btn.disabled = true; btn.textContent = 'Uploading...';
-
-  const { data: booking } = await db.from('bookings').select('id, installer_id, status').eq('id', pendingCompleteId).maybeSingle();
-  if (!booking || booking.installer_id !== installerId) {
-    errEl.style.display = 'block'; errEl.textContent = 'Unauthorized: this booking is not assigned to you.';
-    btn.disabled = false; btn.textContent = 'Submit & Complete ✓'; return;
-  }
-  if (booking.status === 'completed' || booking.status === 'installed') {
-    errEl.style.display = 'block'; errEl.textContent = 'This booking is already marked as installed.';
-    btn.disabled = false; btn.textContent = 'Submit & Complete ✓'; return;
-  }
-
-  // Final gate — inspection report must be submitted (re-check for races).
-  const { data: repCheck } = await db.from('inspection_reports')
-    .select('id, status').eq('booking_id', pendingCompleteId).eq('status', 'submitted').maybeSingle();
-  if (!repCheck) {
-    errEl.style.display = 'block';
-    errEl.textContent = 'The inspection report for this booking is not submitted. Please submit it first.';
-    btn.disabled = false; btn.textContent = 'Submit & Complete ✓';
-    return;
-  }
-
-  const ts = Date.now();
-  btn.textContent = 'Preparing photos…';
-  const photoSmall = await compressImage(photoFile);
-  const qrSmall = qrFile ? await compressImage(qrFile) : null;
-  btn.textContent = 'Uploading…';
-  const photoUrl = await uploadFile(photoSmall, `${pendingCompleteId}/photo_${ts}.jpg`);
-  if (!photoUrl) { errEl.style.display = 'block'; errEl.textContent = 'Installation photo upload failed' + (window.__lastUploadError ? ': ' + window.__lastUploadError : '') + '. Check your connection and try again.'; btn.disabled = false; btn.textContent = 'Submit & Complete ✓'; return; }
-  // QR photo is optional on service/repair visits (no new sticker to shoot).
-  let qrUrl = null;
-  if (qrFile) {
-    qrUrl = await uploadFile(qrSmall, `${pendingCompleteId}/qr_${ts}.jpg`);
-    if (!qrUrl) { errEl.style.display = 'block'; errEl.textContent = 'QR photo upload failed' + (window.__lastUploadError ? ': ' + window.__lastUploadError : '') + '. Check your connection and try again.'; btn.disabled = false; btn.textContent = 'Submit & Complete ✓'; return; }
-  }
-
-  const nowIso = new Date().toISOString();
-  const patch = {
-    status: 'installed',
-    proof_photo_url: photoUrl,
-    completed_by: 'installer',
-    installed_at: nowIso
-  };
-  if (qrUrl) patch.proof_qr_url = qrUrl;
-  // If the installer captured GPS on-site, record it as the precise location.
-  if (capturedLocation) {
-    patch.latitude = capturedLocation.lat;
-    patch.longitude = capturedLocation.lng;
-    patch.location_updated_by = 'installer';
-    patch.location_updated_at = nowIso;
-  }
-  await db.from('bookings').update(patch).eq('id', pendingCompleteId).eq('installer_id', installerId);
-
-  // Create ONE PENDING warranty per serialized RO unit. The customer activates
-  // each by scanning its QR sticker. Dispensers get none. Never blocks completion.
-  try {
-    if ((proofBooking?.booking_type || 'installation') === 'installation') await createPendingWarranties(pendingCompleteId);
-  } catch (e) { console.warn('pending warranty creation failed', e); }
-
-  btn.disabled = false; btn.textContent = 'Submit & Complete ✓';
-  closeProofModal();
-  await loadAll();
-}
-
-// Create pending warranties (no serial yet) — one per serialized unit on the booking.
-async function createPendingWarranties(bookingId) {
-  const { data: b } = await db.from('bookings')
-    .select('id, customer_name, customer_phone, product_model, product_qty').eq('id', bookingId).maybeSingle();
-  if (!b) return;
-
-  // Build the unit list from booking_items (serialized only), else fall back to summary.
-  let units = [];
-  const { data: items } = await db.from('booking_items')
-    .select('product_model, qty, is_serialized').eq('booking_id', bookingId);
-  if (items && items.length) {
-    items.filter(it => it.is_serialized).forEach(it => {
-      for (let i = 0; i < (it.qty || 1); i++) units.push(it.product_model);
-    });
-  } else if (b.product_model && !b.product_model.toLowerCase().includes('dispenser')) {
-    for (let i = 0; i < Math.max(1, b.product_qty || 1); i++) units.push(b.product_model);
-  }
-  if (!units.length) return;   // dispenser-only → no warranties
-
-  // Ensure a customer row exists (with name from the booking).
-  let cid = null;
-  const { data: cust } = await db.from('customers').select('id, name').eq('phone', b.customer_phone).maybeSingle();
-  if (cust) {
-    cid = cust.id;
-    if ((!cust.name || !cust.name.trim()) && b.customer_name && b.customer_name.trim()) {
-      await db.from('customers').update({ name: b.customer_name.trim() }).eq('id', cid);
-    }
-  } else {
-    const { data: ins } = await db.from('customers').insert({ phone: b.customer_phone, name: b.customer_name }).select('id').maybeSingle();
-    cid = ins?.id;
-  }
-  if (!cid) return;
-
-  // How many pending warranties already exist for this booking? (avoid dupes on re-submit)
-  const { data: existing } = await db.from('warranties').select('id').eq('booking_id', bookingId);
-  if (existing && existing.length >= units.length) return;   // already created
-  const toCreate = units.slice((existing || []).length);
-
-  // Filter (+90d) and Service (+365d) countdowns start at INSTALL completion.
-  // Warranty (+730d) is intentionally left null here — it only starts when the
-  // customer scans & activates. registration_date = install date.
-  const installDate = new Date();
-  const iso = (days) => { const x = new Date(installDate); x.setDate(x.getDate() + days); return x.toISOString(); };
-  const regDate = installDate.toISOString().slice(0,10);
-
-  for (const model of toCreate) {
-    await db.from('warranties').insert({
-      customer_id: cid,
-      qr_code: null,                       // set when the customer scans
-      product_type: model,
-      quantity: 1,
-      booking_id: bookingId,
-      status: 'pending',
-      registration_date: regDate,          // install date
-      filter_expiry: iso(90),              // starts at install
-      service_expiry: iso(365),            // starts at install
-      warranty_expiry: null,               // starts only when customer activates
-      activated_by: null,
-      activated_at: null
-    });
-  }
-}
-
 function formatDateLocal(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
   const dd = String(d.getDate()).padStart(2,'0');
@@ -1137,19 +651,15 @@ function openInspectionReport(bookingId) {
   const nameEl = document.getElementById('installer-name');
   // Pull the QR serial already scanned for this booking (if any) so it prefills Serial No.
   const bk = myBookings.find(x => x.id === bookingId);
+  // The report form now handles the completion photos/GPS/warranty-creation
+  // itself as part of one submit — see js/inspection-report.js. Just reload
+  // the list afterward so the booking's new status/badges show up.
   window.SADA.InspectionReport.openForm(bookingId, {
     installerId: installerId,
     installerName: nameEl ? nameEl.textContent : '',
     installerPhone: installerPhone,
     scannedSerial: bk ? (bk.proof_qr_code || '') : '',
-    stepLabel: 'STEP 1 OF 2 · INSPECTION REPORT',
-    onSaved: async (saved) => {
-      await loadAll();
-      // One continuous flow: once the report is actually submitted (not just
-      // saved as a draft), roll straight into the photos/GPS step instead of
-      // leaving the installer to find and tap "Mark Complete" separately.
-      if (saved && saved.status === 'submitted') openProofModal(bookingId);
-    }
+    onSaved: () => loadAll()
   });
 }
 async function logout() {

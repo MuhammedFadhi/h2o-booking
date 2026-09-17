@@ -113,6 +113,23 @@
 .sada-ir__field textarea { min-height: 68px; resize: vertical; }
 .sada-ir__col-span-2 { grid-column: span 2; }
 
+/* ---------- Completion photo uploads ---------- */
+.sada-ir__uploads { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sada-ir__upload {
+  position: relative; overflow: hidden; min-height: 110px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; text-align: center; cursor: pointer;
+  border: 2px dashed var(--ir-line); border-radius: 10px; padding: 18px 10px;
+  background: #fff;
+}
+.sada-ir__upload:hover { border-color: var(--ir-green-accent); }
+.sada-ir__upload.has-file { border-style: solid; border-color: var(--ir-green); }
+.sada-ir__upload-icon { font-size: 26px; }
+.sada-ir__upload-label { font-size: 12px; font-weight: 700; color: var(--ir-text); }
+.sada-ir__upload-sub { font-size: 10.5px; color: var(--ir-muted); }
+.sada-ir__upload-preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+@media (max-width: 480px) { .sada-ir__uploads { grid-template-columns: 1fr; } }
+
 /* ---------- Water analysis ---------- */
 .sada-ir__water {
   display: grid; grid-template-columns: 1fr 1fr 1fr;
