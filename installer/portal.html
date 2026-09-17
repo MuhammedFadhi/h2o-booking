@@ -176,6 +176,7 @@
 <div class="modal-overlay" id="proof-modal" style="display:none;">
   <div class="modal" style="max-width:480px;">
     <div class="modal-icon">📸</div>
+    <div style="text-align:center;font-size:12px;font-weight:700;letter-spacing:.4px;color:#0D3B6E;background:#EFF6FF;border-radius:20px;padding:5px 14px;margin:0 auto 10px;width:fit-content;">STEP 2 OF 2 &middot; PHOTOS &amp; LOCATION</div>
     <div class="modal-title">Upload Proof of Installation</div>
     <div class="modal-sub" id="proof-sub">Upload two photos to finish this job: the completed installation and the QR sticker on the unit. The customer activates each warranty by scanning that QR.</div>
     <div class="proof-uploads">
@@ -1141,7 +1142,14 @@ function openInspectionReport(bookingId) {
     installerName: nameEl ? nameEl.textContent : '',
     installerPhone: installerPhone,
     scannedSerial: bk ? (bk.proof_qr_code || '') : '',
-    onSaved: () => loadAll()
+    stepLabel: 'STEP 1 OF 2 · INSPECTION REPORT',
+    onSaved: async (saved) => {
+      await loadAll();
+      // One continuous flow: once the report is actually submitted (not just
+      // saved as a draft), roll straight into the photos/GPS step instead of
+      // leaving the installer to find and tap "Mark Complete" separately.
+      if (saved && saved.status === 'submitted') openProofModal(bookingId);
+    }
   });
 }
 async function logout() {

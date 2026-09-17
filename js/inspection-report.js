@@ -317,6 +317,7 @@ SADA.InspectionReport = (function () {
       <div class="sada-ir">
         <button class="sada-ir__close" aria-label="Close" data-action="close">×</button>
         ${brandHead()}
+        ${ctx.stepLabel ? `<div style="text-align:center;font-size:12px;font-weight:700;letter-spacing:.4px;color:#0D3B6E;background:#EFF6FF;border-radius:20px;padding:5px 14px;margin:-6px auto 10px;width:fit-content;">${esc(ctx.stepLabel)}</div>` : ''}
         <div class="sada-ir__body">
 
           <div class="sada-ir__section">
@@ -371,7 +372,7 @@ SADA.InspectionReport = (function () {
 
         <div class="sada-ir__actions">
           <button class="sada-ir__btn sada-ir__btn--ghost" data-action="save-draft">Save Draft</button>
-          <button class="sada-ir__btn" data-action="submit">Submit Report</button>
+          <button class="sada-ir__btn" data-action="submit">${ctx.stepLabel ? 'Next: Photos →' : 'Submit Report'}</button>
         </div>
       </div>`;
   }
@@ -622,6 +623,7 @@ SADA.InspectionReport = (function () {
       scannedSerial: opts.scannedSerial || '',
       existing,
       onSaved: opts.onSaved,
+      stepLabel: opts.stepLabel || '',
     };
     const root = openModal(tplForm(booking, existing, ctx));
     const el = root.firstElementChild;
