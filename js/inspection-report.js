@@ -508,6 +508,26 @@ SADA.InspectionReport = (function () {
         </div>
       </div>`;
 
+    // Completion photos + GPS pin live on the BOOKING row (set when the
+    // installer submitted this report — see wireForm's submit handler), not
+    // on the report itself, so they're read from `b`, not `r`.
+    const photosSection = (b.proof_photo_url || b.proof_qr_url) ? `
+      <div class="sada-ir__section">
+        <div class="sada-ir__section-head"><span>Completion Photos</span><span dir="rtl">صور الإنجاز</span></div>
+        <div class="sada-ir__photos">
+          ${b.proof_photo_url ? `<div><div class="sada-ir__photos-label">Installation / Work Photo</div><a href="${esc(b.proof_photo_url)}" target="_blank"><img src="${esc(b.proof_photo_url)}"></a></div>` : ''}
+          ${b.proof_qr_url ? `<div><div class="sada-ir__photos-label">QR Sticker Photo</div><a href="${esc(b.proof_qr_url)}" target="_blank"><img src="${esc(b.proof_qr_url)}"></a></div>` : ''}
+        </div>
+      </div>` : '';
+
+    const locationSection = (b.latitude != null && b.longitude != null) ? `
+      <div class="sada-ir__section">
+        <div class="sada-ir__section-head"><span>📍 Installation Location</span><span dir="rtl">موقع التركيب</span></div>
+        <div class="sada-ir__field" style="border-radius:0 0 8px 8px;">
+          <a href="https://maps.google.com/?q=${b.latitude},${b.longitude}" target="_blank" style="color:#1565C0;font-size:13px;">${b.latitude}, ${b.longitude} — open in Google Maps</a>
+        </div>
+      </div>` : '';
+
     return `
       <div class="sada-ir sada-ir--view">
         <button class="sada-ir__close" aria-label="Close" data-action="close">×</button>
@@ -521,6 +541,8 @@ SADA.InspectionReport = (function () {
           <div class="sada-ir__section"><div class="sada-ir__section-head sada-ir__section-head--navy"><span>Signatures</span><span dir="rtl">التوقيعات</span></div>${sigs}</div>
           ${r.remarks ? `<div class="sada-ir__section"><div class="sada-ir__section-head"><span>Remarks</span><span dir="rtl">ملاحظات</span></div>
             <div class="sada-ir__field" style="border-radius:0 0 8px 8px;"><textarea readonly rows="2">${esc(r.remarks)}</textarea></div></div>` : ''}
+          ${photosSection}
+          ${locationSection}
         </div>
         ${brandFoot()}
         <div class="sada-ir__actions">
