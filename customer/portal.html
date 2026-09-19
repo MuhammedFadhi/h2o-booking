@@ -140,6 +140,7 @@
     .status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;}
     .status-upcoming{background:#EFF6FF;color:#1D4ED8;}
     .status-in_progress{background:#FEF3C7;color:#92400E;}
+    .status-installed{background:#CCFBF1;color:#0F766E;}
     .status-completed{background:#F0FDF4;color:#166534;}
     .status-cancelled{background:#FEF2F2;color:#991B1B;}
     @media(max-width:480px){
@@ -451,12 +452,15 @@ function renderBookingCard(b) {
   const steps = ['upcoming','in_progress','completed'];
   const stepLabels = ['Scheduled','In Progress','Completed'];
   const stepIcons = ['📅','⚙️','✅'];
-  const currentIdx = steps.indexOf(b.status);
+  // 'installed' sits between in_progress and fully completed/invoiced — from
+  // the customer's side their unit IS in, so treat it as reaching the final step.
+  const currentIdx = steps.indexOf(b.status === 'installed' ? 'completed' : b.status);
   const d = new Date(b.slot_date + 'T00:00:00');
   const now = new Date();
   const slotTime = new Date(b.slot_date + 'T' + String(b.slot_hour).padStart(2,'0') + ':00:00');
   const hoursUntil = (slotTime - now) / 3600000;
   const isCancelled = b.status === 'cancelled';
+  const isDone = b.status === 'completed' || b.status === 'installed';
 
   const progressHTML = isCancelled ? '' : `
     <div class="progress-track">
@@ -470,7 +474,7 @@ function renderBookingCard(b) {
     </div>`;
 
   let actionsHTML = '';
-  if (!isCancelled && b.status !== 'completed') {
+  if (!isCancelled && !isDone) {
     if (hoursUntil > 6) {
       actionsHTML = `
         <button class="btn-outline" onclick="openRescheduleModal('${b.id}','${b.slot_id}')">📅 Reschedule</button>
@@ -531,6 +535,7 @@ async function cancelBooking(bookingId, slotId) {
   const { data: booking } = await db.from('bookings').select('customer_phone, status').eq('id', bookingId).maybeSingle();
   if (!booking || booking.customer_phone !== customer.phone) { showToast('Unauthorized action.'); return; }
   if (booking.status === 'cancelled') { showToast('Already cancelled.'); return; }
+  if (booking.status === 'completed' || booking.status === 'installed') { showToast('This job is already done — contact us if you need help.'); return; }
   await db.from('bookings').update({ status: 'cancelled' }).eq('id', bookingId).eq('customer_phone', customer.phone);
   if (slotId) await db.from('availability_slots').update({ is_booked: false }).eq('id', slotId);
   showToast('Booking cancelled.');
@@ -599,7 +604,7 @@ async function confirmCustomerReschedule() {
   // Verify ownership
   const { data: booking } = await db.from('bookings').select('customer_phone, status').eq('id', activeRescheduleId).maybeSingle();
   if (!booking || booking.customer_phone !== customer.phone) { errEl.style.display = 'block'; errEl.textContent = 'Unauthorized action.'; return; }
-  if (booking.status === 'completed' || booking.status === 'cancelled') { errEl.style.display = 'block'; errEl.textContent = 'Cannot reschedule this booking.'; return; }
+  if (booking.status === 'completed' || booking.status === 'installed' || booking.status === 'cancelled') { errEl.style.display = 'block'; errEl.textContent = 'Cannot reschedule this booking.'; return; }
 
   // Atomic slot reservation on the NEW slot
   const { data: reserved, error: reserveErr } = await db.from('availability_slots')
@@ -1037,7 +1042,7 @@ function getBookLocation() {
 
 // ── HELPERS ──
 // formatHour is provided by shared/supabase.js
-function getStatusLabel(s) { return {upcoming:'Scheduled',in_progress:'In Progress',completed:'Completed',cancelled:'Cancelled'}[s] || s; }
+function getStatusLabel(s) { return {upcoming:'Scheduled',in_progress:'In Progress',installed:'Installed',completed:'Completed',cancelled:'Cancelled'}[s] || s; }
 </script>
 </body>
 </html>
