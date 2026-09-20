@@ -1,6 +1,7 @@
 // /api/admin/user-ops — server-side proxy for auth.admin operations
 // Actions: create-installer, delete-installer, reset-installer-password,
-//          create-admin, grant-admin, edit-admin, list-admins, delete-admin
+//          create-admin, grant-admin, edit-admin, list-admins, delete-admin,
+//          create-sales, list-sales, edit-sales, set-sales-active, delete-sales
 // Auth: caller must present a Bearer token whose email is in admin_emails.
 const { requireAdmin, SUPABASE_URL, SERVICE_KEY } = require('./_auth');
 
@@ -112,6 +113,56 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'You cannot remove your own admin access.' });
       }
       await admin('DELETE', `/rest/v1/admin_emails?email=eq.${encodeURIComponent(email)}`, null);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── Sales team (role: add bookings + see only their own) ───────────────
+    // sales_users is service-role-only (see migration v51), which is why this
+    // endpoint — not the browser — manages it.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (action === 'create-sales') {
+      if (!email || !password || !name) return res.status(400).json({ error: 'name, email and password required' });
+      if (String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+      const authUser = await admin('POST', '/auth/v1/admin/users', { email, password, email_confirm: true });
+      if (!authUser?.id) return res.status(500).json({ error: 'Auth user creation failed' });
+      try {
+        await admin('POST', '/rest/v1/sales_users', { id: authUser.id, name, email, phone: phone || null });
+      } catch (e) {
+        // Don't leave a working login with no sales profile behind.
+        await admin('DELETE', `/auth/v1/admin/users/${authUser.id}`, null).catch(() => {});
+        throw e;
+      }
+      return res.status(201).json({ id: authUser.id });
+    }
+
+    if (action === 'list-sales') {
+      const rows = await admin('GET', '/rest/v1/sales_users?select=id,name,email,phone,is_active,created_at&order=name.asc', null);
+      const owned = await admin('GET', '/rest/v1/bookings?select=created_by_user&created_by_user=not.is.null&limit=10000', null);
+      const counts = {};
+      (owned || []).forEach((b) => { counts[b.created_by_user] = (counts[b.created_by_user] || 0) + 1; });
+      return res.status(200).json({ sales: (rows || []).map((r) => ({ ...r, bookings: counts[r.id] || 0 })) });
+    }
+
+    if (action === 'edit-sales') {
+      if (!UUID_RE.test(String(userId || ''))) return res.status(400).json({ error: 'userId required' });
+      if (!name) return res.status(400).json({ error: 'name required' });
+      if (password && String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+      await admin('PATCH', `/rest/v1/sales_users?id=eq.${userId}`, { name, phone: phone || null });
+      if (password) await admin('PUT', `/auth/v1/admin/users/${userId}`, { password });
+      return res.status(200).json({ ok: true });
+    }
+
+    if (action === 'set-sales-active') {
+      if (!UUID_RE.test(String(userId || ''))) return res.status(400).json({ error: 'userId required' });
+      await admin('PATCH', `/rest/v1/sales_users?id=eq.${userId}`, { is_active: req.body.isActive === true });
+      return res.status(200).json({ ok: true });
+    }
+
+    if (action === 'delete-sales') {
+      if (!UUID_RE.test(String(userId || ''))) return res.status(400).json({ error: 'userId required' });
+      await admin('DELETE', `/auth/v1/admin/users/${userId}`, null).catch((e) => { if (e.status !== 404) throw e; });
+      await admin('DELETE', `/rest/v1/sales_users?id=eq.${userId}`, null);
       return res.status(200).json({ ok: true });
     }
 

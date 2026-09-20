@@ -990,6 +990,17 @@
           <div class="loading"><div class="spinner"></div></div>
         </div>
       </div>
+
+      <div class="card" style="margin-top:20px;">
+        <div class="card-header">
+          <span class="card-title">Sales Team</span>
+          <button class="btn btn-primary" onclick="openSalesModal()">+ Add Sales User</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin:-4px 0 12px;">Sales users sign in on the same login page as admins, but can only add bookings and see the bookings they created.</div>
+        <div id="sales-table">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
     </div>
 
     <!-- PASSWORDS PANEL -->
@@ -1675,6 +1686,34 @@
   </div>
 </div>
 
+<!-- ADD/EDIT SALES USER MODAL -->
+<div class="modal-overlay" id="sales-modal">
+  <div class="modal">
+    <h2 class="modal-title" id="sales-modal-title">Add Sales User</h2>
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" class="form-input" id="sales-name-input" placeholder="Salesperson's full name">
+    </div>
+    <div class="form-group">
+      <label>Email Address (their login)</label>
+      <input type="email" class="form-input" id="sales-email-input" placeholder="name@sadawater.com" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
+    </div>
+    <div class="form-group">
+      <label>Phone <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+      <input type="tel" class="form-input" id="sales-phone-input" placeholder="05XXXXXXXX" autocomplete="off" data-lpignore="true" data-1p-ignore>
+    </div>
+    <div class="form-group">
+      <label id="sales-password-label">Login Password</label>
+      <input type="password" class="form-input" id="sales-password-input" placeholder="At least 8 characters" autocomplete="new-password" data-lpignore="true" data-1p-ignore>
+    </div>
+    <div id="sales-error" style="display:none; background:#FEF2F2; border:1px solid #FECACA; color:#B71C1C; padding:12px; border-radius:10px; font-size:13px; margin-top:8px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('sales-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSalesUser()">Save Sales User</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADD/EDIT ADMIN MODAL -->
 <div class="modal-overlay" id="admin-modal">
   <div class="modal">
@@ -1752,11 +1791,24 @@ window.addEventListener('DOMContentLoaded', async () => {
   // land here directly. Installers share the same auth.users pool, so a valid
   // session alone doesn't mean admin access — re-check against admin_emails.
   const { data: isAdmin } = await db.rpc('is_admin');
-  if (!isAdmin) { await db.auth.signOut(); window.location.href = 'login.html'; return; }
+  if (!isAdmin) {
+    // Sales users sign in through the same page but have their own portal.
+    // Ask the server (sales_users is service-role-only) instead of guessing.
+    try {
+      const r = await fetch('/api/sales/ops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+        body: JSON.stringify({ action: 'me' })
+      });
+      if (r.ok) { window.location.href = '../sales/portal.html'; return; }
+    } catch (e) { /* not a sales user */ }
+    await db.auth.signOut(); window.location.href = 'login.html'; return;
+  }
   document.getElementById('admin-email').textContent = session.user.email;
   await loadCities();
   await loadInstallers();
   await loadAdmins();       // needed for the Sales Agent dropdowns (bookings table + booking modals)
+  await loadSales();        // sales users also appear in those dropdowns
   await loadOverview();     // Overview is the landing panel
   await loadBookings();     // pre-load bookings data (its panel is one click away)
   setDefaultDate();
@@ -1802,7 +1854,7 @@ function showPanel(name, el) {
   if (name === 'analytics') loadAnalytics();
   if (name === 'bulksms') loadBulkSMS();
   if (name === 'slots') populateSlotCities();
-  if (name === 'installers') { loadInstallers().then(() => loadInstallerPerformance()).then(() => renderInstallersTable()); loadAdmins(); }
+  if (name === 'installers') { loadInstallers().then(() => loadInstallerPerformance()).then(() => renderInstallersTable()); loadAdmins(); loadSales(); }
   if (name === 'passwords') populatePasswordInstallers();
   if (name === 'bookings') loadBookings();
   if (name === 'sms-settings') loadSMSSettings();
@@ -1978,7 +2030,7 @@ async function loadBookings() {
       <td data-label="Sales Agent">
         <select class="assign-select" onchange="updateSalesAgent('${b.id}', this.value)">
           <option value="">—</option>
-          ${admins.map(a => { const n = a.name || a.email; return `<option value="${escB(n)}" ${b.sales_agent === n ? 'selected' : ''}>${escB(n)}</option>`; }).join('')}
+          ${salesAgentNames(b.sales_agent).map(n => `<option value="${escB(n)}" ${b.sales_agent === n ? 'selected' : ''}>${escB(n)}</option>`).join('')}
         </select>
       </td>
       <td data-label="Installer">
@@ -4686,10 +4738,19 @@ function currentAdminDisplayName() {
   return (mine && mine.name) || myEmail;
 }
 
+// Admins plus active sales users, by display name. `keep` is a name that must
+// stay selectable (e.g. a booking's current agent who has since been deactivated).
+function salesAgentNames(keep) {
+  const names = admins.map(a => a.name || a.email);
+  salesUsers.filter(s => s.is_active).forEach(s => names.push(s.name));
+  if (keep && !names.includes(keep)) names.push(keep);
+  return names;
+}
+
 function populateSalesAgentSelect(selectId, preselect) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
-  const names = admins.map(a => a.name || a.email);
+  const names = salesAgentNames(preselect);
   sel.innerHTML = names.map(n => `<option value="${escB(n)}">${escB(n)}</option>`).join('');
   sel.value = preselect || currentAdminDisplayName();
 }
@@ -4819,6 +4880,128 @@ async function deleteAdmin(email) {
 
   showToast('Admin access removed', 'success');
   await loadAdmins();
+}
+
+// ============================================================
+// SALES TEAM (role: add bookings + see only their own)
+// ============================================================
+let salesUsers = [];
+let editingSalesId = null; // null = add mode, otherwise the sales user's id
+
+async function salesOps(payload) {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) throw new Error('Session expired. Please sign in again.');
+  const res = await fetch('/api/admin/user-ops', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify(payload)
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || res.statusText || 'Request failed');
+  return body;
+}
+
+async function loadSales() {
+  try { salesUsers = (await salesOps({ action: 'list-sales' })).sales || []; }
+  catch (e) { salesUsers = []; console.warn('list-sales failed:', e.message); }
+  renderSalesTable();
+}
+
+function renderSalesTable() {
+  const container = document.getElementById('sales-table');
+  if (!container) return;
+  if (!salesUsers.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💼</div><div>No sales users yet.</div></div>';
+    return;
+  }
+  const rows = salesUsers.map(s => `
+    <tr>
+      <td><div style="font-weight:600;">${escB(s.name)}</div><div style="font-size:11px;color:var(--muted);">${escB(s.email)}${s.phone ? ' · ' + escB(s.phone) : ''}</div></td>
+      <td>${s.bookings}</td>
+      <td><span class="status-badge ${s.is_active ? 'status-completed' : 'status-cancelled'}">${s.is_active ? 'Active' : 'Inactive'}</span></td>
+      <td>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn btn-sm btn-ghost" onclick="openEditSalesModal('${s.id}')">Edit</button>
+          <button class="btn btn-sm btn-ghost" onclick="toggleSalesActive('${s.id}')">${s.is_active ? 'Deactivate' : 'Activate'}</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteSalesUser('${s.id}')">Remove</button>
+        </div>
+      </td>
+    </tr>`).join('');
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>Sales user</th><th>Bookings</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function openSalesModal() {
+  editingSalesId = null;
+  document.getElementById('sales-modal-title').textContent = 'Add Sales User';
+  ['name', 'email', 'phone', 'password'].forEach(k => { document.getElementById('sales-' + k + '-input').value = ''; });
+  document.getElementById('sales-email-input').disabled = false;
+  document.getElementById('sales-password-label').textContent = 'Login Password';
+  document.getElementById('sales-password-input').placeholder = 'At least 8 characters';
+  document.getElementById('sales-error').style.display = 'none';
+  document.getElementById('sales-modal').style.display = 'flex';
+}
+
+function openEditSalesModal(id) {
+  const s = salesUsers.find(x => x.id === id);
+  if (!s) return;
+  editingSalesId = id;
+  document.getElementById('sales-modal-title').textContent = 'Edit Sales User';
+  document.getElementById('sales-name-input').value = s.name;
+  document.getElementById('sales-email-input').value = s.email;
+  document.getElementById('sales-email-input').disabled = true;
+  document.getElementById('sales-phone-input').value = s.phone || '';
+  document.getElementById('sales-password-input').value = '';
+  document.getElementById('sales-password-label').textContent = 'New Password (optional)';
+  document.getElementById('sales-password-input').placeholder = 'Leave blank to keep the current password';
+  document.getElementById('sales-error').style.display = 'none';
+  document.getElementById('sales-modal').style.display = 'flex';
+}
+
+async function saveSalesUser() {
+  const name = document.getElementById('sales-name-input').value.trim();
+  const email = document.getElementById('sales-email-input').value.trim();
+  const phone = document.getElementById('sales-phone-input').value.trim();
+  const password = document.getElementById('sales-password-input').value;
+  const errEl = document.getElementById('sales-error');
+  const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
+
+  if (!name) return fail('Name is required.');
+  if (!editingSalesId && !email) return fail('Email is required.');
+  if (!editingSalesId && !password) return fail('Set a password for the new login.');
+  if (password && password.length < 8) return fail('Password must be at least 8 characters.');
+
+  const wasEdit = !!editingSalesId;
+  try {
+    if (wasEdit) await salesOps({ action: 'edit-sales', userId: editingSalesId, name, phone: phone || undefined, password: password || undefined });
+    else await salesOps({ action: 'create-sales', name, email, phone: phone || undefined, password });
+  } catch (e) { return fail(e.message); }
+
+  closeModal('sales-modal');
+  showToast(wasEdit ? 'Sales user updated' : 'Sales user added', 'success');
+  await loadSales();
+}
+
+async function toggleSalesActive(id) {
+  const s = salesUsers.find(x => x.id === id);
+  if (!s) return;
+  try { await salesOps({ action: 'set-sales-active', userId: id, isActive: !s.is_active }); }
+  catch (e) { showToast('Failed: ' + e.message, 'error'); return; }
+  showToast(`Sales user ${s.is_active ? 'deactivated' : 'activated'}`, 'success');
+  await loadSales();
+}
+
+async function deleteSalesUser(id) {
+  const s = salesUsers.find(x => x.id === id);
+  if (!s) return;
+  if (!confirm(`Remove ${s.name}? Their login is deleted and they can no longer sign in.\n\nTheir ${s.bookings} existing booking(s) are kept.`)) return;
+  try { await salesOps({ action: 'delete-sales', userId: id }); }
+  catch (e) { showToast('Failed to remove: ' + e.message, 'error'); return; }
+  showToast('Sales user removed', 'success');
+  await loadSales();
 }
 
 // ============================================================

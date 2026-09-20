@@ -21,7 +21,8 @@ const ROUTE_LOADERS = {
   '/api/admin/bookings': () => require('../api/admin/bookings.js'),
   '/api/admin/slots': () => require('../api/admin/slots.js'),
   '/api/admin/installers': () => require('../api/admin/installers.js'),
-  '/api/admin/user-ops': () => require('../api/admin/user-ops.js')
+  '/api/admin/user-ops': () => require('../api/admin/user-ops.js'),
+  '/api/sales/ops': () => require('../api/sales/ops.js')
 };
 
 // auth-sms-hook verifies an HMAC over the exact raw bytes Supabase sent, so it

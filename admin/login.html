@@ -115,7 +115,7 @@
   <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O" class="logo">
   <span class="badge">Admin Console</span>
   <h1>Welcome back</h1>
-  <p class="subtitle">Sign in to manage bookings, slots and installers</p>
+  <p class="subtitle">Sign in to manage bookings, slots and installers — or to add your bookings if you are on the sales team</p>
 
   <div class="form-group">
     <label for="email">Email</label>
@@ -140,9 +140,29 @@
 
 <script src="../shared/supabase.js"></script>
 <script>
-  // Already signed in? Skip to dashboard.
-  db.auth.getSession().then(({ data: { session } }) => {
-    if (session) window.location.href = 'dashboard.html';
+  // Admins and sales users share this sign-in. Returns the page to open, or
+  // null when the account is neither (e.g. an installer).
+  async function homeFor(session) {
+    const { data: isAdmin } = await db.rpc('is_admin');
+    if (isAdmin) return 'dashboard.html';
+    try {
+      const r = await fetch('/api/sales/ops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+        body: JSON.stringify({ action: 'me' })
+      });
+      if (r.ok) return '../sales/portal.html';
+      const body = await r.json().catch(() => ({}));
+      if (r.status === 403 && /deactivated/i.test(body.error || '')) return { error: body.error };
+    } catch (e) { /* fall through to no access */ }
+    return null;
+  }
+
+  // Already signed in? Skip to the right home page.
+  db.auth.getSession().then(async ({ data: { session } }) => {
+    if (!session) return;
+    const home = await homeFor(session);
+    if (typeof home === 'string') window.location.href = home;
   });
 
   const emailEl = document.getElementById('email');
@@ -185,19 +205,20 @@
     }
 
     // A valid password only proves this is a real login — installers share the
-    // same auth.users pool. Admin console access also requires the email to be
-    // in admin_emails, so re-check here rather than trusting any signed-in user.
-    const { data: isAdmin } = await db.rpc('is_admin');
-    if (!isAdmin) {
+    // same auth.users pool. Access requires an admin_emails row (admin console)
+    // or an active sales_users row (sales portal); anything else is signed out.
+    const { data: { session } } = await db.auth.getSession();
+    const home = await homeFor(session);
+    if (typeof home !== 'string') {
       await db.auth.signOut();
-      errEl.textContent = 'This account does not have admin access.';
+      errEl.textContent = (home && home.error) || 'This account does not have admin or sales access.';
       errEl.style.display = 'block';
       btn.disabled = false;
       btn.textContent = 'Sign in';
       return;
     }
 
-    window.location.href = 'dashboard.html';
+    window.location.href = home;
   }
 </script>
 </body>

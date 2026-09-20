@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Sales Portal · SA'DA H2O</title>
+  <meta name="theme-color" content="#0A1628">
+  <meta name="robots" content="noindex">
+
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SA'DA Sales">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy: #0A1628; --blue: #1565C0; --blue-dark: #0D3B6E;
+      --ink: #1A2B47; --muted: #607D8B; --line: #E2E8F0; --bg: #F1F5F9;
+      --danger: #B71C1C; --ok: #0d7a63;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); min-height: 100dvh; }
+    button { font-family: inherit; }
+
+    .topbar {
+      background: linear-gradient(160deg, var(--navy) 0%, var(--blue-dark) 70%, var(--blue) 100%);
+      color: #fff; padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .topbar img { height: 34px; filter: brightness(0) invert(1); }
+    .topbar .who { margin-left: auto; text-align: right; font-size: 12px; line-height: 1.3; opacity: .9; min-width: 0; }
+    .topbar .who b { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .signout { background: rgba(255,255,255,.14); color: #fff; border: 0; border-radius: 8px; padding: 8px 12px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .signout:hover { background: rgba(255,255,255,.24); }
+
+    .tabs { display: flex; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+    .tab { flex: 1; padding: 14px 8px; border: 0; background: none; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; }
+    .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+    .wrap { max-width: 760px; margin: 0 auto; padding: 16px 16px calc(40px + env(safe-area-inset-bottom)); }
+    .card { background: #fff; border-radius: 16px; padding: 18px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(10,22,40,.08); }
+    .card h2 { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--navy); margin-bottom: 14px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 520px) { .row { grid-template-columns: 1fr; } .row.keep { grid-template-columns: 1fr 1fr; } }
+    .field { margin-bottom: 12px; }
+    label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; letter-spacing: .3px; }
+    label .opt { color: var(--muted); font-weight: 400; }
+    input, select, textarea {
+      width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px;
+      font-family: inherit; font-size: 15px; background: #fff; color: var(--ink); outline: none;
+    }
+    textarea { resize: vertical; min-height: 70px; }
+    input:focus, select:focus, textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(21,101,192,.15); }
+
+    .btn { border: 0; border-radius: 12px; padding: 13px 18px; font-size: 15px; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: linear-gradient(135deg, var(--blue-dark), var(--blue)); color: #fff; width: 100%; }
+    .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
+    .btn-ghost { background: #fff; color: var(--ink); border: 1.5px solid var(--line); }
+    .btn-sm { padding: 9px 14px; font-size: 13px; border-radius: 10px; }
+
+    .add-row { display: flex; gap: 8px; }
+    .add-row select { flex: 1; }
+    .line { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+    .line .nm { flex: 1 1 160px; min-width: 0; font-size: 14px; font-weight: 600; }
+    .line .nm small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+    .line select { width: auto; padding: 8px 10px; font-size: 13px; }
+    .qty { display: inline-flex; align-items: center; gap: 4px; }
+    .qty button { width: 32px; height: 32px; border-radius: 8px; border: 1.5px solid var(--line); background: #fff; font-size: 16px; cursor: pointer; }
+    .qty span { min-width: 24px; text-align: center; font-weight: 600; }
+    .line .amt { min-width: 84px; text-align: right; font-size: 14px; font-weight: 600; }
+    .rm { border: 0; background: none; color: var(--danger); font-size: 18px; cursor: pointer; padding: 4px 8px; }
+    .total { display: flex; justify-content: space-between; padding-top: 12px; font-weight: 700; font-size: 16px; }
+    .hint { font-size: 13px; color: var(--muted); }
+
+    .slots { display: flex; flex-wrap: wrap; gap: 8px; }
+    .slot { min-width: 108px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--ink); }
+    .slot:hover:not(:disabled) { border-color: var(--blue); }
+    .slot.sel { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .slot.booked, .slot:disabled { text-decoration: line-through; color: #94A3B8; background: #F8FAFC; cursor: not-allowed; }
+
+    .err { background: #FEF2F2; border: 1px solid #FECACA; color: var(--danger); padding: 12px 14px; border-radius: 10px; font-size: 13px; margin: 12px 0; display: none; }
+    .done { text-align: center; padding: 26px 18px; }
+    .done .tick { width: 56px; height: 56px; border-radius: 50%; background: #E6F6F1; color: var(--ok); font-size: 30px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+    .done .ref { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--navy); margin: 6px 0 14px; }
+    .done dl { text-align: left; max-width: 340px; margin: 0 auto 18px; font-size: 14px; }
+    .done dt { color: var(--muted); font-size: 12px; margin-top: 8px; }
+    .done .btns { display: flex; gap: 10px; flex-direction: column; max-width: 340px; margin: 0 auto; }
+
+    .bk-head { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .bk-head input { flex: 1; }
+    .count { font-size: 12px; color: var(--muted); margin: 0 4px 10px; }
+    .bk { background: #fff; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(10,22,40,.08); }
+    .bk-top { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+    .bk-top .nm { font-size: 16px; font-weight: 700; }
+    .bk-top a { color: var(--blue); text-decoration: none; font-weight: 600; font-size: 14px; }
+    .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #fff; white-space: nowrap; }
+    .bk-meta { margin-top: 8px; font-size: 13px; color: #334155; line-height: 1.55; }
+    .bk-meta .k { color: var(--muted); }
+    .empty { text-align: center; padding: 40px 16px; color: var(--muted); font-size: 14px; }
+    .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--navy); color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 14px; z-index: 50; display: none; max-width: 90vw; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header class="topbar">
+  <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O">
+  <div class="who"><b id="who-name">…</b><span>Sales</span></div>
+  <button class="signout" id="signout-btn" type="button">Sign out</button>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button class="tab active" id="tab-new" type="button" role="tab" data-tab="new">New Booking</button>
+  <button class="tab" id="tab-mine" type="button" role="tab" data-tab="mine">My Bookings</button>
+</nav>
+
+<main class="wrap">
+  <!-- ═════════ NEW BOOKING ═════════ -->
+  <section id="pane-new">
+    <div id="form-area">
+      <div class="card">
+        <h2>Customer</h2>
+        <div class="row">
+          <div class="field"><label for="f-name">Full name</label><input id="f-name" autocomplete="off" maxlength="80"></div>
+          <div class="field"><label for="f-phone">Mobile number</label><input id="f-phone" type="tel" inputmode="numeric" placeholder="05XXXXXXXX" autocomplete="off" maxlength="16"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Installation address</h2>
+        <div class="row">
+          <div class="field"><label for="f-region">Region</label><select id="f-region"></select></div>
+          <div class="field"><label for="f-city">City</label><select id="f-city"></select></div>
+        </div>
+        <div class="field"><label for="f-address">Address</label><textarea id="f-address" maxlength="300" placeholder="District, street, building, landmark"></textarea></div>
+        <div class="row keep">
+          <div class="field"><label for="f-floor">Floor no <span class="opt">(optional)</span></label><input id="f-floor" maxlength="20"></div>
+          <div class="field"><label for="f-flat">Flat no <span class="opt">(optional)</span></label><input id="f-flat" maxlength="20"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Choose your product</h2>
+        <div class="add-row">
+          <select id="f-product"></select>
+          <button class="btn btn-ghost btn-sm" id="add-product" type="button">Add</button>
+        </div>
+        <div id="basket"></div>
+      </div>
+
+      <div class="card">
+        <h2>Choose a time slot</h2>
+        <div class="field"><label for="f-date">Date</label><select id="f-date"></select></div>
+        <div class="slots" id="slots"><span class="hint">Pick a date to see the times.</span></div>
+      </div>
+
+      <div class="card">
+        <div class="field" style="margin-bottom:0"><label for="f-source">How did the customer hear about us?</label>
+          <select id="f-source"></select></div>
+      </div>
+
+      <div class="err" id="form-err" role="alert"></div>
+      <button class="btn btn-primary" id="submit-btn" type="button">Confirm booking</button>
+    </div>
+
+    <div class="card done" id="done-area" hidden>
+      <div class="tick">✓</div>
+      <div>Booking confirmed</div>
+      <div class="ref" id="done-ref"></div>
+      <dl id="done-details"></dl>
+      <div class="btns">
+        <button class="btn btn-primary" id="another-btn" type="button">Add another booking</button>
+        <button class="btn btn-ghost" id="view-mine-btn" type="button">View my bookings</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════ MY BOOKINGS ═════════ -->
+  <section id="pane-mine" hidden>
+    <div class="bk-head">
+      <input id="search" type="search" placeholder="Search name, phone, reference…" autocomplete="off">
+      <button class="btn btn-ghost btn-sm" id="refresh-btn" type="button">Refresh</button>
+    </div>
+    <div class="count" id="count"></div>
+    <div id="bk-list"></div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="../shared/supabase.js"></script>
+<script>
+  // Sales users only ever talk to /api/sales/ops (server-scoped to their own
+  // bookings). The only direct reads below are public reference data — regions,
+  // cities, the product catalogue and open slots — which the customer booking
+  // page reads too.
+  const SOURCES = ['Phone Call', 'WhatsApp', 'Instagram', 'Snapchat', 'TikTok', 'Google Search',
+    'Friend / Family', 'Existing Customer', 'Dammam Showroom', 'Khobar Showroom',
+    'Exhibition / Event', 'Flyer / Billboard', 'Other'];
+  const COLORS = ['Black', 'White'];
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const isDispenser = (n) => String(n).toLowerCase().includes('dispenser');
+  const money = (n) => 'SAR ' + Number(n || 0).toLocaleString('en-US');
+
+  let catalogue = [], basket = [], selectedSlot = null, myBookings = null, submitting = false;
+
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.style.display = 'block';
+    clearTimeout(toast._t); toast._t = setTimeout(() => { t.style.display = 'none'; }, 3500);
+  }
+
+  // ── session / API ──────────────────────────────────────────────────────────
+  async function api(action, extra) {
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) { window.location.href = '../admin/login.html'; throw new Error('Please sign in.'); }
+    const r = await fetch('/api/sales/ops', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ action, ...(extra || {}) })
+    });
+    const body = await r.json().catch(() => ({}));
+    if (r.status === 401) { await db.auth.signOut(); window.location.href = '../admin/login.html'; throw new Error(body.error || 'Please sign in.'); }
+    if (!r.ok) { const e = new Error(body.error || 'Something went wrong. Please try again.'); e.status = r.status; throw e; }
+    return body;
+  }
+
+  async function guard() {
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) { window.location.href = '../admin/login.html'; return null; }
+    try { return await api('me'); }
+    catch (e) {
+      if (e.status === 403) {
+        // Admins wandering in here go back to their console; anyone else is signed out.
+        const { data: isAdmin } = await db.rpc('is_admin');
+        if (isAdmin) { window.location.href = '../admin/dashboard.html'; return null; }
+        await db.auth.signOut();
+        window.location.href = '../admin/login.html';
+      }
+      return null;
+    }
+  }
+
+  // ── tabs ───────────────────────────────────────────────────────────────────
+  function showTab(name) {
+    $('pane-new').hidden = name !== 'new';
+    $('pane-mine').hidden = name !== 'mine';
+    $('tab-new').classList.toggle('active', name === 'new');
+    $('tab-mine').classList.toggle('active', name === 'mine');
+    if (name === 'mine') loadMine();
+    window.scrollTo(0, 0);
+  }
+
+  // ── reference data ─────────────────────────────────────────────────────────
+  async function loadRegions() {
+    const { data } = await db.from('service_regions').select('id, name').order('sort_order');
+    $('f-region').innerHTML = (data || []).map((r) => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')
+      || '<option value="">— no regions —</option>';
+    await onRegionChange();
+  }
+
+  async function onRegionChange() {
+    const regionId = $('f-region').value;
+    const { data } = await db.from('cities').select('id, name').eq('region_id', regionId).order('name');
+    $('f-city').innerHTML = (data || []).map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('')
+      || '<option value="">— no cities —</option>';
+    await loadDates();
+  }
+
+  async function loadCatalogue() {
+    const { data } = await db.from('product_models')
+      .select('model_name, price_sar, in_stock, is_catalogue, sort_order')
+      .eq('is_catalogue', true).order('sort_order', { ascending: true });
+    catalogue = (data || []).filter((p) => p.in_stock !== false);
+    $('f-product').innerHTML = '<option value="">Select a product…</option>' + catalogue.map((p) =>
+      `<option value="${esc(p.model_name)}">${esc(p.model_name)}${p.price_sar ? ' — ' + money(p.price_sar) : ''}</option>`).join('');
+  }
+
+  // ── basket ─────────────────────────────────────────────────────────────────
+  function renderBasket() {
+    const host = $('basket');
+    if (!basket.length) { host.innerHTML = '<p class="hint" style="margin-top:12px">No product added yet.</p>'; return; }
+    let total = 0;
+    host.innerHTML = basket.map((l, i) => {
+      const p = catalogue.find((x) => x.model_name === l.model);
+      const unit = p && p.price_sar ? Number(p.price_sar) : 0;
+      total += unit * l.qty;
+      const colour = isDispenser(l.model)
+        ? `<select data-color="${i}" aria-label="Colour">${COLORS.map((c) => `<option${c === l.color ? ' selected' : ''}>${c}</option>`).join('')}</select>` : '';
+      return `<div class="line">
+        <div class="nm">${esc(l.model)}<small>${money(unit)} each</small></div>
+        ${colour}
+        <div class="qty"><button type="button" data-dec="${i}" aria-label="Less">−</button><span>${l.qty}</span><button type="button" data-inc="${i}" aria-label="More">+</button></div>
+        <div class="amt">${money(unit * l.qty)}</div>
+        <button class="rm" type="button" data-rm="${i}" aria-label="Remove">✕</button>
+      </div>`;
+    }).join('') + `<div class="total"><span>Total</span><span>${money(total)}</span></div>`;
+  }
+
+  function addProduct() {
+    const name = $('f-product').value;
+    if (!name) return;
+    const existing = basket.find((l) => l.model === name);
+    if (existing) existing.qty = Math.min(20, existing.qty + 1);
+    else basket.push({ model: name, qty: 1, color: isDispenser(name) ? 'Black' : null });
+    $('f-product').value = '';
+    renderBasket();
+  }
+
+  $('basket').addEventListener('click', (e) => {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.inc != null) { const l = basket[t.dataset.inc]; l.qty = Math.min(20, l.qty + 1); }
+    else if (t.dataset.dec != null) { const l = basket[t.dataset.dec]; l.qty = Math.max(1, l.qty - 1); }
+    else if (t.dataset.rm != null) basket.splice(Number(t.dataset.rm), 1);
+    else return;
+    renderBasket();
+  });
+  $('basket').addEventListener('change', (e) => {
+    if (e.target.dataset.color != null) basket[e.target.dataset.color].color = e.target.value;
+  });
+
+  // ── dates + slots (Saudi time; booked slots struck through, started hours hidden) ──
+  async function loadDates() {
+    selectedSlot = null;
+    const regionId = $('f-region').value;
+    const today = ksaNow().dateISO;
+    const { data } = await db.from('availability_slots')
+      .select('slot_date, slot_hour').eq('service_region_id', regionId)
+      .eq('is_available', true).eq('is_booked', false).gte('slot_date', today)
+      .order('slot_date').limit(2000);
+    const dates = [...new Set((data || []).filter((s) => slotIsBookable(s.slot_date, s.slot_hour)).map((s) => s.slot_date))];
+    $('f-date').innerHTML = dates.length
+      ? '<option value="">Select a date…</option>' + dates.map((d) => `<option value="${d}">${esc(formatDateFull(d))}</option>`).join('')
+      : '<option value="">No open slots in this region</option>';
+    $('slots').innerHTML = '<span class="hint">Pick a date to see the times.</span>';
+  }
+
+  async function loadSlots() {
+    selectedSlot = null;
+    const date = $('f-date').value;
+    const host = $('slots');
+    if (!date) { host.innerHTML = '<span class="hint">Pick a date to see the times.</span>'; return; }
+    const { data } = await db.from('availability_slots')
+      .select('id, slot_hour, is_booked').eq('service_region_id', $('f-region').value)
+      .eq('slot_date', date).eq('is_available', true).order('slot_hour');
+    const slots = (data || []).filter((s) => slotIsBookable(date, s.slot_hour));
+    if (!slots.length) { host.innerHTML = '<span class="hint">No time slots on this date.</span>'; return; }
+    host.innerHTML = slots.map((s) => s.is_booked
+      ? `<button type="button" class="slot booked" disabled title="Already booked">${esc(formatHour(s.slot_hour))}</button>`
+      : `<button type="button" class="slot" data-slot="${esc(s.id)}">${esc(formatHour(s.slot_hour))}</button>`).join('')
+      + (slots.some((s) => !s.is_booked) ? '' : '<div class="hint" style="flex-basis:100%">All times on this date are booked.</div>');
+  }
+
+  $('slots').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-slot]'); if (!b) return;
+    selectedSlot = b.dataset.slot;
+    document.querySelectorAll('#slots .slot').forEach((x) => x.classList.remove('sel'));
+    b.classList.add('sel');
+  });
+
+  // ── submit ─────────────────────────────────────────────────────────────────
+  function formError(msg) { const el = $('form-err'); el.textContent = msg; el.style.display = msg ? 'block' : 'none'; if (msg) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+
+  async function submit() {
+    if (submitting) return;
+    formError('');
+    const name = $('f-name').value.trim(), phone = $('f-phone').value.trim(), address = $('f-address').value.trim();
+    if (!name) return formError('Enter the customer name.');
+    if (!phone) return formError('Enter the customer mobile number.');
+    if (!$('f-region').value || !$('f-city').value) return formError('Choose a region and city.');
+    if (!address) return formError('Enter the address the customer gave.');
+    if (!basket.length) return formError('Add at least one product.');
+    if (!selectedSlot) return formError('Pick a date and time slot.');
+
+    submitting = true;
+    const btn = $('submit-btn'); btn.disabled = true; btn.textContent = 'Booking…';
+    try {
+      const res = await api('create-booking', {
+        name, phone, address,
+        regionId: $('f-region').value, cityName: $('f-city').value,
+        floorNo: $('f-floor').value.trim(), flatNo: $('f-flat').value.trim(),
+        source: $('f-source').value, slotId: selectedSlot,
+        items: basket.map((l) => ({ model: l.model, qty: l.qty, color: l.color }))
+      });
+      myBookings = null;
+      showDone(res.booking);
+      sendConfirmationSMS(res.booking);
+    } catch (e) {
+      formError(e.message);
+      if (e.status === 409) loadSlots();   // that slot is gone — refresh so it shows struck through
+    } finally {
+      submitting = false; btn.disabled = false; btn.textContent = 'Confirm booking';
+    }
+  }
+
+  function showDone(b) {
+    $('form-area').hidden = true; $('done-area').hidden = false;
+    $('done-ref').textContent = b.reference || '';
+    $('done-details').innerHTML =
+      `<dt>Customer</dt><dd>${esc(b.customer_name)} · ${esc(b.customer_phone)}</dd>` +
+      `<dt>When</dt><dd>${esc(formatDateFull(b.slot_date))}<br>${esc(formatHour(b.slot_hour))}</dd>` +
+      `<dt>City</dt><dd>${esc(b.city_name)}</dd>` +
+      `<dt>Total</dt><dd>${money(b.total)}</dd>`;
+    window.scrollTo(0, 0);
+  }
+
+  function resetForm() {
+    ['f-name', 'f-phone', 'f-address', 'f-floor', 'f-flat'].forEach((id) => { $(id).value = ''; });
+    $('f-source').selectedIndex = 0;
+    basket = []; selectedSlot = null; formError('');
+    renderBasket(); loadDates();
+    $('done-area').hidden = true; $('form-area').hidden = false;
+    window.scrollTo(0, 0);
+  }
+
+  // Same confirmation text and on/off switch as the office-created bookings.
+  // Fire-and-forget: a slow SMS relay must never hold up the salesperson.
+  async function sendConfirmationSMS(b) {
+    try {
+      const { data } = await db.from('sms_settings').select('enabled').eq('key', 'confirmation').maybeSingle();
+      if (data && data.enabled === false) return;
+      const d = new Date(b.slot_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const h = Number(b.slot_hour), t = `${h % 12 === 0 ? 12 : h % 12}:00 ${h < 12 ? 'AM' : 'PM'}`;
+      const body = `SA'DA H2O - Booking Confirmed!\n\nDear ${b.customer_name},\nRef: ${b.reference}\nDate: ${d}\nTime: ${t}\nCity: ${b.city_name}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
+      const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 20000);
+      await fetch('/api/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Secret-Key': 'sada-h2o-relay-2026-secure' },
+        body: JSON.stringify({ to: b.customer_phone, body }), signal: ctrl.signal
+      });
+    } catch (e) { console.warn('SMS failed', e); }
+  }
+
+  // ── my bookings (read-only) ────────────────────────────────────────────────
+  async function loadMine(force) {
+    if (myBookings && !force) return renderMine();
+    $('bk-list').innerHTML = '<div class="empty">Loading…</div>'; $('count').textContent = '';
+    try { myBookings = (await api('my-bookings')).bookings || []; renderMine(); }
+    catch (e) { $('bk-list').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  }
+
+  function renderMine() {
+    const q = $('search').value.trim().toLowerCase();
+    const rows = (myBookings || []).filter((b) => !q ||
+      [b.customer_name, b.customer_phone, b.booking_reference, b.city_name].some((v) => String(v || '').toLowerCase().includes(q)));
+    $('count').textContent = `${rows.length} booking${rows.length === 1 ? '' : 's'}`;
+    if (!rows.length) { $('bk-list').innerHTML = `<div class="empty">${myBookings && myBookings.length ? 'No bookings match your search.' : 'You have not added any bookings yet.'}</div>`; return; }
+    $('bk-list').innerHTML = rows.map((b) => {
+      const items = (b.booking_items && b.booking_items.length)
+        ? b.booking_items.map((i) => `${esc(i.product_model)} × ${i.qty}`).join('<br>')
+        : esc(b.product_model || '—');
+      const place = [b.location_address, [b.floor_no && 'Floor ' + b.floor_no, b.flat_no && 'Flat ' + b.flat_no].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+      return `<div class="bk">
+        <div class="bk-top">
+          <div><div class="nm">${esc(b.customer_name)}</div><a href="tel:${esc(b.customer_phone)}">${esc(b.customer_phone)}</a></div>
+          <span class="pill" style="background:${getStatusColor(b.status)}">${esc(getStatusLabel(b.status))}</span>
+        </div>
+        <div class="bk-meta">
+          <div><span class="k">Ref</span> ${esc(b.booking_reference)}${b.referral_source ? ' · ' + esc(b.referral_source) : ''}</div>
+          <div><span class="k">When</span> ${esc(formatDateFull(b.slot_date))}, ${esc(formatHour(b.slot_hour))}</div>
+          <div><span class="k">Where</span> ${esc(b.city_name || '')}${place ? ' — ' + esc(place) : ''}</div>
+          <div><span class="k">Products</span><br>${items}</div>
+          <div><span class="k">Total</span> ${money(b.order_total)}${b.installers && b.installers.name ? ' · <span class="k">Installer</span> ' + esc(b.installers.name) : ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── boot ───────────────────────────────────────────────────────────────────
+  document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+  $('f-region').addEventListener('change', onRegionChange);
+  $('f-date').addEventListener('change', loadSlots);
+  $('add-product').addEventListener('click', addProduct);
+  $('submit-btn').addEventListener('click', submit);
+  $('another-btn').addEventListener('click', resetForm);
+  $('view-mine-btn').addEventListener('click', () => { resetForm(); showTab('mine'); });
+  $('search').addEventListener('input', () => { if (myBookings) renderMine(); });
+  $('refresh-btn').addEventListener('click', () => loadMine(true));
+  $('signout-btn').addEventListener('click', async () => { await db.auth.signOut(); window.location.href = '../admin/login.html'; });
+  $('f-source').innerHTML = '<option value="">— Select —</option>' + SOURCES.map((s) => `<option>${esc(s)}</option>`).join('');
+
+  (async function init() {
+    const me = await guard();
+    if (!me) return;
+    $('who-name').textContent = me.name;
+    renderBasket();
+    await Promise.all([loadCatalogue(), loadRegions()]);
+  })();
+</script>
+</body>
+</html>
