@@ -248,6 +248,8 @@
     .btn-primary:hover { background: var(--ocean); }
     .btn-sm { padding: 6px 12px; font-size: 12px; }
     .btn-ghost { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    /* Booked time slot in the booking pickers: visible, but struck through and unclickable (matches the customer page). */
+    .btn.slot-booked, .btn.slot-booked:hover { background: #F3F4F6; color: #9CA3AF; border-color: #E5E7EB; text-decoration: line-through; cursor: not-allowed; opacity: 1; box-shadow: none; transform: none; }
     .btn-ghost:hover { background: var(--border); }
     .btn-danger { background: #FEF2F2; color: var(--danger); border: 1px solid #FECACA; }
     .btn-danger:hover { background: #FEE2E2; }
@@ -2459,6 +2461,16 @@ async function sbLoadDates() {
   document.getElementById('sb-slots').innerHTML = '<span style="font-size:13px;color:var(--muted);">Pick a date to see available times.</span>';
 }
 
+// Time-slot buttons for the booking pickers. Open slots are clickable; booked
+// ones stay on screen but struck through and disabled, so staff can see the
+// whole day at a glance instead of wondering where a time went.
+function slotButtonsHTML(slots, pickFn, cls) {
+  return slots.map(s => s.is_booked
+    ? `<button type="button" class="btn btn-ghost btn-sm ${cls} slot-booked" disabled title="Already booked" style="min-width:78px;">${formatHour(s.slot_hour)}</button>`
+    : `<button type="button" class="btn btn-ghost btn-sm ${cls}" data-slot="${s.id}" onclick="${pickFn}('${s.id}', this)" style="min-width:78px;">${formatHour(s.slot_hour)}</button>`
+  ).join('');
+}
+
 async function sbLoadSlots() {
   sbSelectedSlotId = null;
   const regionId = document.getElementById('sb-region').value;
@@ -2468,10 +2480,10 @@ async function sbLoadSlots() {
   const { data } = await dbAdmin.from('availability_slots')
     .select('id, slot_hour, is_booked').eq('service_region_id', regionId)
     .eq('slot_date', date).eq('is_available', true).order('slot_hour');
-  const open = (data||[]).filter(s => !s.is_booked);
-  host.innerHTML = open.length
-    ? open.map(s => `<button type="button" class="btn btn-ghost btn-sm sb-slot" onclick="sbPickSlot('${s.id}', this)" style="min-width:78px;">${formatHour(s.slot_hour)}</button>`).join('')
-    : '<span style="font-size:13px;color:var(--muted);">No open times on this date.</span>';
+  const slots = data || [];
+  if (!slots.length) { host.innerHTML = '<span style="font-size:13px;color:var(--muted);">No time slots on this date.</span>'; return; }
+  host.innerHTML = slotButtonsHTML(slots, 'sbPickSlot', 'sb-slot')
+    + (slots.some(s => !s.is_booked) ? '' : '<div style="flex-basis:100%;font-size:13px;color:var(--muted);margin-top:4px;">All times on this date are booked.</div>');
 }
 
 function sbPickSlot(slotId, el) {
@@ -2659,10 +2671,10 @@ async function abLoadSlots() {
   const { data } = await dbAdmin.from('availability_slots')
     .select('id, slot_hour, is_booked').eq('service_region_id', regionId)
     .eq('slot_date', date).eq('is_available', true).order('slot_hour');
-  const open = (data||[]).filter(s => !s.is_booked);
-  host.innerHTML = open.length
-    ? open.map(s => `<button type="button" class="btn btn-ghost btn-sm ab-slot" data-slot="${s.id}" onclick="abPickSlot('${s.id}', this)" style="min-width:78px;">${formatHour(s.slot_hour)}</button>`).join('')
-    : '<span style="font-size:12px;color:var(--muted);">No open times on this date.</span>';
+  const slots = data || [];
+  if (!slots.length) { host.innerHTML = '<span style="font-size:12px;color:var(--muted);">No time slots on this date.</span>'; return; }
+  host.innerHTML = slotButtonsHTML(slots, 'abPickSlot', 'ab-slot')
+    + (slots.some(s => !s.is_booked) ? '' : '<div style="flex-basis:100%;font-size:12px;color:var(--muted);margin-top:4px;">All times on this date are booked.</div>');
 }
 
 function abPickSlot(slotId, el) {
