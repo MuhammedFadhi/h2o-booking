@@ -823,16 +823,16 @@ async function loadBookDates() {
   const grid = document.getElementById('book-date-grid');
   if (!bookRegionId) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">Select a region to see available slots.</p>'; return; }
   grid.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  const today = new Date(); today.setHours(0,0,0,0);
-  const start = new Date(today); start.setDate(start.getDate() + 2);
-  const end = new Date(start); end.setDate(end.getDate() + 60);
-  const toIso = d => window.localDateISO(d);
+  // Any slot that hasn't started yet (Saudi time), from today for the next 60 days.
+  const startIso = window.ksaNow().dateISO;
+  const endD = new Date(startIso + 'T00:00:00Z'); endD.setUTCDate(endD.getUTCDate() + 60);
+  const endIso = endD.toISOString().slice(0, 10);
   const { data } = await db.from('availability_slots')
-    .select('slot_date')
+    .select('slot_date, slot_hour')
     .eq('service_region_id', bookRegionId)
     .eq('is_available', true).eq('is_booked', false)
-    .gte('slot_date', toIso(start)).lte('slot_date', toIso(end));
-  const availableDates = [...new Set((data || []).map(d => d.slot_date))].sort();
+    .gte('slot_date', startIso).lte('slot_date', endIso);
+  const availableDates = [...new Set((data || []).filter(s => window.slotIsBookable(s.slot_date, s.slot_hour)).map(s => s.slot_date))].sort();
   grid.innerHTML = '';
   if (!availableDates.length) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">No available slots for this region in the next 2 months.</p>'; return; }
   availableDates.forEach(dateStr => {
@@ -855,8 +855,10 @@ async function loadBookSlots(dateStr) {
   const section = document.getElementById('book-time-section');
   const grid = document.getElementById('book-time-grid');
   section.style.display = 'block'; grid.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  const { data } = await db.from('availability_slots').select('*').eq('service_region_id', bookRegionId).eq('slot_date', dateStr).eq('is_available', true).order('slot_hour');
-  if (!data || !data.length) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;">No slots available.</p>'; return; }
+  const { data: allSlots } = await db.from('availability_slots').select('*').eq('service_region_id', bookRegionId).eq('slot_date', dateStr).eq('is_available', true).order('slot_hour');
+  // Today: hide hours that have already started.
+  const data = (allSlots || []).filter(s => window.slotIsBookable(dateStr, s.slot_hour));
+  if (!data.length) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;">No slots available.</p>'; return; }
   grid.innerHTML = '';
   data.forEach(slot => {
     const box = document.createElement('div');
@@ -873,6 +875,12 @@ async function submitNewBooking() {
   const errEl = document.getElementById('book-error');
   if (!bookRegionId || !cityName) { errEl.style.display = 'block'; errEl.textContent = 'Please pick a region and city.'; return; }
   if (!bookDate || bookHour === null) { errEl.style.display = 'block'; errEl.textContent = 'Please select a date and time slot.'; return; }
+  // The page may have been open a while: the chosen slot could have started since.
+  if (!window.slotIsBookable(bookDate, bookHour)) {
+    errEl.style.display = 'block'; errEl.textContent = 'That time has just passed. Please choose a later slot.';
+    bookHour = null; bookSlotId = null; loadBookDates(); loadBookSlots(bookDate);
+    return;
+  }
   if (selectedType === 'installation' && !bookBasketLines().length) { errEl.style.display = 'block'; errEl.textContent = 'Please add at least one product.'; return; }
   errEl.style.display = 'none';
 

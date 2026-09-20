@@ -661,17 +661,17 @@ function getLocation() {
 async function loadAvailableDates() {
   const grid=document.getElementById('date-grid');
   grid.innerHTML='<div class="loading"><div class="spinner"></div> Loading...</div>';
-  // 2-day lead time; window is 60 days after that.
-  const today=new Date(); today.setHours(0,0,0,0);
-  const start=new Date(today); start.setDate(start.getDate()+2);
-  const end=new Date(start); end.setDate(end.getDate()+60);
-  const toIso=d=>window.localDateISO(d);
+  // Any slot that hasn't started yet (Saudi time), from today for the next 60 days.
+  // A date only shows if at least one of its slots is still ahead of us.
+  const startIso=window.ksaNow().dateISO;
+  const endD=new Date(startIso+'T00:00:00Z'); endD.setUTCDate(endD.getUTCDate()+60);
+  const endIso=endD.toISOString().slice(0,10);
   const{data}=await db.from('availability_slots')
-    .select('slot_date')
+    .select('slot_date, slot_hour')
     .eq('service_region_id', state.regionId)
     .eq('is_available',true).eq('is_booked',false)
-    .gte('slot_date',toIso(start)).lte('slot_date',toIso(end));
-  const availableDates=[...new Set((data||[]).map(d=>d.slot_date))].sort();
+    .gte('slot_date',startIso).lte('slot_date',endIso);
+  const availableDates=[...new Set((data||[]).filter(s=>window.slotIsBookable(s.slot_date,s.slot_hour)).map(s=>s.slot_date))].sort();
   grid.innerHTML='';
   if(!availableDates.length){grid.innerHTML='<p style="color:var(--muted);font-size:13px;padding:24px;text-align:center;">No available slots in this region for the next 2 months. Please contact SA\'DA H2O directly.</p>';return;}
   availableDates.forEach(dateStr=>{
@@ -694,8 +694,10 @@ function selectDate(dateStr,el) {
 async function loadTimeSlots(dateStr) {
   const section=document.getElementById('time-section'); const grid=document.getElementById('time-grid');
   section.style.display='block'; grid.innerHTML='<div class="loading"><div class="spinner"></div></div>';
-  const{data}=await db.from('availability_slots').select('*').eq('service_region_id', state.regionId).eq('slot_date',dateStr).eq('is_available',true).order('slot_hour');
-  if(!data||!data.length){grid.innerHTML='<div class="empty-msg">😔 No slots available for this date.</div>';return;}
+  const{data:allSlots}=await db.from('availability_slots').select('*').eq('service_region_id', state.regionId).eq('slot_date',dateStr).eq('is_available',true).order('slot_hour');
+  // Today: hide hours that have already started.
+  const data=(allSlots||[]).filter(s=>window.slotIsBookable(dateStr,s.slot_hour));
+  if(!data.length){grid.innerHTML='<div class="empty-msg">😔 No slots available for this date.</div>';return;}
   grid.innerHTML='';
   data.forEach(slot=>{
     const box=document.createElement('div');
@@ -838,6 +840,13 @@ function goToStep4() {
   if(!state.selectedDate||state.selectedHour===null){
     const errEl=document.getElementById('step3-error');errEl.style.display='block';errEl.textContent='Please select a date and time slot.';return;
   }
+  // The page may have been open a while: the chosen slot could have started since.
+  if(!window.slotIsBookable(state.selectedDate,state.selectedHour)){
+    const errEl=document.getElementById('step3-error');errEl.style.display='block';errEl.textContent='That time has just passed. Please choose a later slot.';
+    state.selectedHour=null; state.selectedSlotId=null; document.getElementById('btn-step3').disabled=true;
+    loadAvailableDates(); loadTimeSlots(state.selectedDate);
+    return;
+  }
   document.getElementById('step3-error').style.display='none';
   document.getElementById('conf-name').textContent=state.name;
   document.getElementById('conf-phone').textContent=displayPhone(state.phone);
@@ -916,6 +925,12 @@ async function applyPromo() {
 
 async function submitBooking() {
   const btn=document.getElementById('btn-submit');
+  // The confirm screen can sit open for minutes — re-check the slot hasn't started.
+  if(!window.slotIsBookable(state.selectedDate,state.selectedHour)){
+    const e=document.getElementById('step4-error');e.style.display='block';
+    e.textContent='Sorry, that time slot has just passed. Please go back and choose a later slot.';
+    return;
+  }
   btn.disabled=true; btn.textContent='Processing...';
 
   // Atomic booking via server-side RPC: reserves the slot AND creates the booking

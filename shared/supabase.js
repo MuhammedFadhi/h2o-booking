@@ -60,6 +60,30 @@
     return window.localDateISO(t);
   };
 
+  // ── Customer slot availability ─────────────────────────────────────────────
+  // Slots are Saudi wall-clock times (slot_hour 14 = 2:00–3:00 PM in Riyadh), so
+  // "has it started yet?" must be answered in Saudi time — not the visitor's
+  // device timezone, which would hide/show the wrong slots for anyone abroad.
+  window.ksaNow = function (now) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(now || new Date());
+    const g = (t) => parts.find((p) => p.type === t).value;
+    return { dateISO: `${g('year')}-${g('month')}-${g('day')}`, minutes: Number(g('hour')) * 60 + Number(g('minute')) };
+  };
+
+  // Customers may book any slot that has not started yet. Raise this to require
+  // notice (e.g. 60 = the slot must start at least an hour from now).
+  window.SLOT_MIN_LEAD_MINUTES = 0;
+
+  window.slotIsBookable = function (slotDate, slotHour, now) {
+    const k = window.ksaNow(now);
+    if (slotDate > k.dateISO) return true;
+    if (slotDate < k.dateISO) return false;
+    return Number(slotHour) * 60 > k.minutes + window.SLOT_MIN_LEAD_MINUTES;
+  };
+
   window.formatDateFull = function (dateStr) {
     // dd/mm/yyyy + weekday for at-a-glance context
     const d = new Date(dateStr + 'T00:00:00');
