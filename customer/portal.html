@@ -238,6 +238,16 @@
       <div id="book-map" aria-label="Draggable map pin"></div>
       <div class="map-caption" id="book-map-caption" style="display:none;">Drag the pin to your exact door.</div>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label>Floor No. <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+        <input type="text" id="book-floor" placeholder="e.g. 3" maxlength="20" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Flat No. <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+        <input type="text" id="book-flat" placeholder="e.g. 12" maxlength="20" autocomplete="off">
+      </div>
+    </div>
     <div class="form-group">
       <label>Available Dates</label>
       <div class="date-grid" id="book-date-grid"><div class="loading"><div class="spinner"></div></div></div>
@@ -436,6 +446,15 @@ async function loadMyBookings() {
   if (!data || !data.length) {
     list.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px;">No bookings yet</p><p>Your installations will appear here after booking.</p></div>`;
     return;
+  }
+  // Book Again: pre-fill floor / flat from the most recent booking that has them
+  // (data is newest-first), same as the address is pre-filled. Never overwrite
+  // something the customer has already typed.
+  const lastFlat = data.find(b => b.floor_no || b.flat_no);
+  if (lastFlat) {
+    const fi = document.getElementById('book-floor'), fl = document.getElementById('book-flat');
+    if (fi && !fi.value) fi.value = lastFlat.floor_no || '';
+    if (fl && !fl.value) fl.value = lastFlat.flat_no || '';
   }
   // Fetch submitted reports for this customer once, index by booking_id
   window._sadaReportsByBooking = {};
@@ -922,6 +941,14 @@ async function submitNewBooking() {
     // Roll back
     await db.from('availability_slots').update({ is_booked: false }).eq('id', bookSlotId);
     errEl.style.display = 'block'; errEl.textContent = 'Booking failed. Please try again.'; resetBtn(); return;
+  }
+  // Floor / flat get their own update so a problem there can never fail the
+  // booking insert above.
+  const floorNo = document.getElementById('book-floor').value.trim();
+  const flatNo = document.getElementById('book-flat').value.trim();
+  if (floorNo || flatNo) {
+    const fl = await db.from('bookings').update({ floor_no: floorNo || null, flat_no: flatNo || null }).eq('id', booking.id);
+    if (fl.error) console.warn('Floor/flat not saved:', fl.error.message);
   }
   if (lines.length) {
     await db.from('booking_items').insert(lines.map(l => ({
