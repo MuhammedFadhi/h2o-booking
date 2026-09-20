@@ -188,7 +188,7 @@
           <select id="customer-region" onchange="onRegionChange()">
             <option value="">Loading regions…</option>
           </select>
-          <div style="font-size:12px;color:var(--muted);margin-top:6px;" id="region-hint">Pick the area you want the installation in.</div>
+          <div style="display:none;font-size:12px;color:var(--muted);margin-top:6px;" id="region-hint"></div>
         </div>
         <div class="form-group"><label>City</label>
           <select id="customer-city" disabled>
@@ -202,6 +202,16 @@
           <input type="text" id="customer-address" placeholder="Enter your address" style="margin-top:12px;">
           <div id="location-map" aria-label="Draggable map pin"></div>
           <div class="map-caption" id="map-caption" style="display:none;">Drag the pin to your exact door.</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label>Floor No. <span style="color:var(--muted,#94a3b8);font-weight:400;">(optional)</span></label>
+            <input type="text" id="customer-floor" placeholder="e.g. 3" maxlength="20" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Flat No. <span style="color:var(--muted,#94a3b8);font-weight:400;">(optional)</span></label>
+            <input type="text" id="customer-flat" placeholder="e.g. 12" maxlength="20" autocomplete="off">
+          </div>
         </div>
         <div class="form-group">
           <label>Where did you hear about us? <span style="color:var(--muted,#94a3b8);font-weight:400;">(optional)</span></label>
@@ -330,7 +340,7 @@ async function loadRegionsAndCities() {
   if (r.error || c.error || !r.data?.length) {
     sel.innerHTML = '<option value="">Regions unavailable</option>';
     const hint = document.getElementById('region-hint');
-    if (hint) { hint.textContent = 'Cannot load regions right now. Please contact SA\'DA H2O on WhatsApp: +966 54 798 9055'; hint.style.color = '#B71C1C'; }
+    if (hint) { hint.textContent = 'Cannot load regions right now. Please contact SA\'DA H2O on WhatsApp: +966 54 798 9055'; hint.style.color = '#B71C1C'; hint.style.display = 'block'; }
     return;
   }
   regionsCache = r.data;
@@ -537,6 +547,8 @@ function goToStep(step) {
     const cityCanon = (window.SADACity ? (SADACity.canonicalCity(city) || city) : city);
     state.name=name; state.regionId=region; state.cityName=cityCanon; state.address=address;
     state.source=document.getElementById('customer-source').value || null;
+    state.floorNo=document.getElementById('customer-floor').value.trim() || null;
+    state.flatNo=document.getElementById('customer-flat').value.trim() || null;
     loadProducts();
     loadAvailableDates();
   }
@@ -830,7 +842,8 @@ function goToStep4() {
   document.getElementById('conf-name').textContent=state.name;
   document.getElementById('conf-phone').textContent=displayPhone(state.phone);
   document.getElementById('conf-city').textContent=state.cityName;
-  document.getElementById('conf-address').textContent=state.address;
+  const flatParts=[state.floorNo?`Floor ${state.floorNo}`:'', state.flatNo?`Flat ${state.flatNo}`:''].filter(Boolean);
+  document.getElementById('conf-address').textContent=state.address+(flatParts.length?` — ${flatParts.join(', ')}`:'');
   // product summary — list every line
   const lines = basketLines();
   const prodEl=document.getElementById('conf-product'), qtyEl=document.getElementById('conf-qty');
@@ -967,6 +980,12 @@ async function submitBooking() {
           referral_source: state.source || null
         })
         .eq('id', bkId);
+      // Floor / flat get their own update so a missing column (migration not run
+      // yet) can never take down the product/price save above.
+      if (state.floorNo || state.flatNo) {
+        const fl = await db.from('bookings').update({ floor_no: state.floorNo || null, flat_no: state.flatNo || null }).eq('id', bkId);
+        if (fl.error) console.warn('Floor/flat not saved:', fl.error.message);
+      }
       await db.from('booking_items').insert(lines.map(l => ({
         booking_id: bkId, product_model: modelWithColor(l), qty: l.qty,
         unit_price: l.price, is_serialized: l.is_serialized

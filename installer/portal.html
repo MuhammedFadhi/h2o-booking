@@ -583,6 +583,7 @@ function renderAppointments() {
                 <div class="contact-item"><span>📞</span><a href="tel:${b.customer_phone}" class="contact-link">${b.customer_phone}</a></div>
               </div>
               ${b.location_address ? `<div class="appt-address"><span>🏠</span> ${b.location_address}</div>` : ''}
+              ${flatLine(b) ? `<div class="appt-address"><span>🏢</span> <strong>${flatLine(b)}</strong></div>` : ''}
             </div>
             ${equipmentPanel(b)}
           </div>
@@ -631,6 +632,14 @@ async function claimJob(bookingId) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab')[1]?.classList.add('active');
   renderAppointments();
+}
+
+// Customer-typed text (floor/flat) goes into innerHTML, so escape it.
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+function flatLine(b) {
+  return [b.floor_no ? 'Floor ' + escHtml(b.floor_no) : '', b.flat_no ? 'Flat ' + escHtml(b.flat_no) : ''].filter(Boolean).join(' · ');
 }
 
 function formatDateLocal(dateStr) {

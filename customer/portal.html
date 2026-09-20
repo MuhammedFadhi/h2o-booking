@@ -516,6 +516,7 @@ function renderBookingCard(b) {
         <div class="info-grid">
           <div class="info-item"><label>City</label><span>${b.city_name || '—'}</span></div>
           <div class="info-item"><label>Address</label><span>${b.location_address || '—'}</span></div>
+          ${flatLine(b) ? `<div class="info-item"><label>Floor / Flat</label><span>${flatLine(b)}</span></div>` : ''}
           ${b.installers?.name ? `<div class="info-item"><label>Installer</label><span>👷 ${b.installers.name}</span></div>` : ''}
           ${b.rescheduled_at ? `<div class="info-item"><label>Rescheduled</label><span>${formatDate(b.rescheduled_at.split('T')[0])}</span></div>` : ''}
         </div>
@@ -1042,6 +1043,13 @@ function getBookLocation() {
 
 // ── HELPERS ──
 // formatHour is provided by shared/supabase.js
+// Customer-typed text (floor/flat) goes into innerHTML, so escape it.
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+function flatLine(b) {
+  return [b.floor_no ? 'Floor ' + escHtml(b.floor_no) : '', b.flat_no ? 'Flat ' + escHtml(b.flat_no) : ''].filter(Boolean).join(' · ');
+}
 function getStatusLabel(s) { return {upcoming:'Scheduled',in_progress:'In Progress',installed:'Installed',completed:'Completed',cancelled:'Cancelled'}[s] || s; }
 </script>
 </body>

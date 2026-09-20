@@ -3167,6 +3167,7 @@ async function viewBooking(bookingId) {
           <div><span style="color:var(--muted);">Address: </span><strong>${b.location_address || '—'}</strong>
             ${b.location_updated_by === 'installer' ? ` <span style="font-size:11px;color:#166534;background:#DCFCE7;padding:1px 7px;border-radius:20px;">📍 GPS corrected on-site</span>` : ''}
           </div>
+          ${(b.floor_no || b.flat_no) ? `<div><span style="color:var(--muted);">Floor / Flat: </span><strong>${[b.floor_no ? 'Floor ' + W.esc(b.floor_no) : '', b.flat_no ? 'Flat ' + W.esc(b.flat_no) : ''].filter(Boolean).join(' · ')}</strong></div>` : ''}
           ${b.created_by === 'admin' ? `<div><span style="font-size:11px;color:#4338CA;background:#EEF2FF;padding:2px 9px;border-radius:20px;font-weight:700;">🏢 Booked by office</span></div>` : ''}
         </div>
       </div>
