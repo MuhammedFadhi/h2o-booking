@@ -1298,6 +1298,10 @@
         <div class="form-group" style="flex:1;"><label>City</label><select class="form-input" id="ab-city"></select></div>
       </div>
       <div class="form-group"><label>Address <span style="color:var(--muted);font-weight:400;">(as told by customer)</span></label><input class="form-input" id="ab-address" placeholder="Area, street, building…"></div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;"><label>Floor No. <span style="color:var(--muted);font-weight:400;">(optional)</span></label><input class="form-input" id="ab-floor" placeholder="e.g. 3" maxlength="20" autocomplete="off"></div>
+        <div class="form-group" style="flex:1;"><label>Flat No. <span style="color:var(--muted);font-weight:400;">(optional)</span></label><input class="form-input" id="ab-flat" placeholder="e.g. 12" maxlength="20" autocomplete="off"></div>
+      </div>
       <div class="form-group">
         <label>Products</label>
         <div id="ab-basket-lines" style="margin-bottom:8px;"></div>
@@ -2608,7 +2612,7 @@ async function openAdminBookingModal() {
   document.getElementById('ab-add-select').innerHTML = (sellable.length?sellable:cat).map(p =>
     `<option value="${escB(p.model_name)}">${escB(p.model_name)}${p.price_sar?` — SAR ${Number(p.price_sar).toLocaleString('en-US')}`:''}${p.in_stock===false?' (Out of Stock)':''}</option>`).join('');
   abRenderBasket();
-  ['ab-name','ab-phone','ab-address'].forEach(id=>document.getElementById(id).value='');
+  ['ab-name','ab-phone','ab-address','ab-floor','ab-flat'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ab-status').value = 'upcoming';
   document.getElementById('ab-source').value = '';
   document.getElementById('ab-error').style.display = 'none';
@@ -2828,6 +2832,14 @@ async function submitAdminBooking() {
     };
     if (startStatus === 'installed') { patch.status = 'installed'; patch.installed_at = nowIso; patch.completed_by = 'admin'; }
     await dbAdmin.from('bookings').update(patch).eq('id', bkId);
+    // Floor / flat get their own update so a problem there can never take down
+    // the sales-agent / source / product save above.
+    const floorNo = document.getElementById('ab-floor').value.trim();
+    const flatNo = document.getElementById('ab-flat').value.trim();
+    if (floorNo || flatNo) {
+      const fl = await dbAdmin.from('bookings').update({ floor_no: floorNo || null, flat_no: flatNo || null }).eq('id', bkId);
+      if (fl.error) { console.warn('Floor/flat not saved:', fl.error.message); showToast('Booking created, but floor/flat could not be saved', 'error'); }
+    }
     // Promo usage is counted at completion (see submitPayment), not at booking creation.
 
     // Upsert the customer profile (the RPC does NOT create a customers row — the
