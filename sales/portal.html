@@ -151,6 +151,14 @@
           <button class="btn btn-ghost btn-sm" id="add-product" type="button">Add</button>
         </div>
         <div id="basket"></div>
+        <div class="field" style="margin:14px 0 0">
+          <label for="f-promo">Promo code <span class="opt">(optional)</span></label>
+          <div class="add-row">
+            <input id="f-promo" autocomplete="off" maxlength="40" style="text-transform:uppercase" placeholder="Enter code">
+            <button class="btn btn-ghost btn-sm" id="promo-btn" type="button">Apply</button>
+          </div>
+          <div id="promo-msg" class="hint" style="margin-top:6px" hidden></div>
+        </div>
       </div>
 
       <div class="card">
@@ -207,7 +215,7 @@
   const isDispenser = (n) => String(n).toLowerCase().includes('dispenser');
   const money = (n) => 'SAR ' + Number(n || 0).toLocaleString('en-US');
 
-  let catalogue = [], basket = [], selectedSlot = null, myBookings = null, submitting = false;
+  let catalogue = [], basket = [], promo = null, selectedSlot = null, myBookings = null, submitting = false;
 
   function toast(msg) {
     const t = $('toast'); t.textContent = msg; t.style.display = 'block';
@@ -281,6 +289,14 @@
   }
 
   // ── basket ─────────────────────────────────────────────────────────────────
+  // Percent or fixed-amount discount, capped at the subtotal — same maths the server applies.
+  function discountFor(subtotal) {
+    if (!promo) return 0;
+    let d = promo.discount_type === 'percent' ? subtotal * (promo.discount_value / 100) : promo.discount_value;
+    d = Math.round(d * 100) / 100;
+    return Math.min(Math.max(0, d), subtotal);
+  }
+
   function renderBasket() {
     const host = $('basket');
     if (!basket.length) { host.innerHTML = '<p class="hint" style="margin-top:12px">No product added yet.</p>'; return; }
@@ -298,7 +314,29 @@
         <div class="amt">${money(unit * l.qty)}</div>
         <button class="rm" type="button" data-rm="${i}" aria-label="Remove">✕</button>
       </div>`;
-    }).join('') + `<div class="total"><span>Total</span><span>${money(total)}</span></div>`;
+    }).join('');
+    const disc = discountFor(total);
+    host.innerHTML += disc > 0
+      ? `<div class="total" style="font-weight:500;font-size:14px"><span>Subtotal</span><span>${money(total)}</span></div>
+         <div class="total" style="font-weight:500;font-size:14px;color:var(--ok);padding-top:4px"><span>Discount (${esc(promo.code)})</span><span>− ${money(disc)}</span></div>
+         <div class="total"><span>Total</span><span>${money(total - disc)}</span></div>`
+      : `<div class="total"><span>Total</span><span>${money(total)}</span></div>`;
+  }
+
+  function promoMsg(text, ok) {
+    const el = $('promo-msg'); el.hidden = !text; el.textContent = text || ''; el.style.color = ok ? 'var(--ok)' : 'var(--danger)';
+  }
+
+  async function applyPromo() {
+    const code = $('f-promo').value.trim();
+    if (!code) { promo = null; promoMsg(''); renderBasket(); return; }
+    const btn = $('promo-btn'); btn.disabled = true;
+    try {
+      promo = await api('check-promo', { code });
+      $('f-promo').value = promo.code;
+      promoMsg('✓ Code applied — ' + (promo.discount_type === 'percent' ? promo.discount_value + '% off' : money(promo.discount_value) + ' off'), true);
+    } catch (e) { promo = null; promoMsg(e.message, false); }
+    finally { btn.disabled = false; renderBasket(); }
   }
 
   function addProduct() {
@@ -375,6 +413,7 @@
     if (!address) return formError('Enter the address the customer gave.');
     if (!basket.length) return formError('Add at least one product.');
     if (!selectedSlot) return formError('Pick a date and time slot.');
+    if ($('f-promo').value.trim() && !promo) return formError('Press Apply on the promo code, or clear it.');
 
     submitting = true;
     const btn = $('submit-btn'); btn.disabled = true; btn.textContent = 'Booking…';
@@ -383,7 +422,7 @@
         name, phone, address,
         regionId: $('f-region').value, cityName: $('f-city').value,
         floorNo: $('f-floor').value.trim(), flatNo: $('f-flat').value.trim(),
-        source: $('f-source').value, slotId: selectedSlot,
+        source: $('f-source').value, slotId: selectedSlot, promoCode: promo ? promo.code : '',
         items: basket.map((l) => ({ model: l.model, qty: l.qty, color: l.color }))
       });
       myBookings = null;
@@ -404,6 +443,7 @@
       `<dt>Customer</dt><dd>${esc(b.customer_name)} · ${esc(b.customer_phone)}</dd>` +
       `<dt>When</dt><dd>${esc(formatDateFull(b.slot_date))}<br>${esc(formatHour(b.slot_hour))}</dd>` +
       `<dt>City</dt><dd>${esc(b.city_name)}</dd>` +
+      (b.discount > 0 ? `<dt>Promo</dt><dd>${esc(b.promo_code)} (− ${money(b.discount)})</dd>` : '') +
       `<dt>Total</dt><dd>${money(b.total)}</dd>`;
     window.scrollTo(0, 0);
   }
@@ -411,7 +451,7 @@
   function resetForm() {
     ['f-name', 'f-phone', 'f-address', 'f-floor', 'f-flat'].forEach((id) => { $(id).value = ''; });
     $('f-source').selectedIndex = 0;
-    basket = []; selectedSlot = null; formError('');
+    basket = []; promo = null; promoMsg(''); $('f-promo').value = ''; selectedSlot = null; formError('');
     renderBasket(); loadDates();
     $('done-area').hidden = true; $('form-area').hidden = false;
     window.scrollTo(0, 0);
@@ -464,7 +504,7 @@
           <div><span class="k">When</span> ${esc(formatDateFull(b.slot_date))}, ${esc(formatHour(b.slot_hour))}</div>
           <div><span class="k">Where</span> ${esc(b.city_name || '')}${place ? ' — ' + esc(place) : ''}</div>
           <div><span class="k">Products</span><br>${items}</div>
-          <div><span class="k">Total</span> ${money(b.order_total)}${b.installers && b.installers.name ? ' · <span class="k">Installer</span> ' + esc(b.installers.name) : ''}</div>
+          <div><span class="k">Total</span> ${money(b.order_total - (b.discount_amount || 0))}${b.promo_code ? ` <span class="k">(${esc(b.promo_code)}: − ${money(b.discount_amount)})</span>` : ''}${b.installers && b.installers.name ? ' · <span class="k">Installer</span> ' + esc(b.installers.name) : ''}</div>
         </div>
       </div>`;
     }).join('');
@@ -475,6 +515,10 @@
   $('f-region').addEventListener('change', onRegionChange);
   $('f-date').addEventListener('change', loadSlots);
   $('add-product').addEventListener('click', addProduct);
+  $('promo-btn').addEventListener('click', applyPromo);
+  $('f-promo').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyPromo(); } });
+  // Editing the code after applying it un-applies it, so a stale discount can't ride along.
+  $('f-promo').addEventListener('input', () => { if (promo && $('f-promo').value.trim().toLowerCase() !== promo.code.toLowerCase()) { promo = null; promoMsg(''); renderBasket(); } });
   $('submit-btn').addEventListener('click', submit);
   $('another-btn').addEventListener('click', resetForm);
   $('view-mine-btn').addEventListener('click', () => { resetForm(); showTab('mine'); });

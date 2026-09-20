@@ -1,5 +1,5 @@
 // /api/sales/ops — the ONLY way a sales user reads or writes data.
-// Actions: me | my-bookings | create-booking
+// Actions: me | my-bookings | check-promo | create-booking
 // Auth: caller must present a Bearer token for an ACTIVE row in sales_users.
 //
 // All database access here uses the service key but is scoped to the caller:
@@ -32,18 +32,45 @@ function normalizePhone(raw) {
   return /^\+9665\d{8}$/.test(p) ? p : null;
 }
 
-// Slots are Saudi wall-clock times; "already started?" must be judged in Riyadh time.
-function slotHasStarted(slotDate, slotHour) {
+// Slots and promo validity are Saudi wall-clock concepts, so "now" is Riyadh time.
+function riyadhNow() {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
   }).formatToParts(new Date());
   const g = (t) => parts.find((p) => p.type === t).value;
-  const today = `${g('year')}-${g('month')}-${g('day')}`;
-  const minutes = Number(g('hour')) * 60 + Number(g('minute'));
+  return { today: `${g('year')}-${g('month')}-${g('day')}`, minutes: Number(g('hour')) * 60 + Number(g('minute')) };
+}
+
+function slotHasStarted(slotDate, slotHour) {
+  const { today, minutes } = riyadhNow();
   if (slotDate > today) return false;
   if (slotDate < today) return true;
   return Number(slotHour) * 60 <= minutes;
+}
+
+// ── promo codes ────────────────────────────────────────────────────────────
+// Same rules as the admin/customer booking flows: active + inside its validity
+// window. Looked up server-side so a browser can't invent a discount.
+async function lookupPromo(rawCode) {
+  const code = clean(rawCode, 40);
+  if (!/^[A-Za-z0-9_-]{1,40}$/.test(code)) throw bad(400, 'That code isn\u2019t valid.');
+  // ilike treats "_" as a wildcard, so confirm the exact (case-insensitive) match ourselves.
+  const rows = await sb('GET', `/rest/v1/promo_codes?code=ilike.${encodeURIComponent(code)}&select=*`);
+  const promo = (rows || []).find((r) => String(r.code).toLowerCase() === code.toLowerCase());
+  if (!promo) throw bad(400, 'That code isn\u2019t valid.');
+  if (!promo.is_active) throw bad(400, 'This code is no longer active.');
+  const { today } = riyadhNow();
+  if (promo.valid_from && today < promo.valid_from) throw bad(400, 'This code isn\u2019t active yet.');
+  if (promo.valid_until && today > promo.valid_until) throw bad(400, 'This code has expired.');
+  return promo;
+}
+
+// SAR discount for a subtotal (percent or fixed amount), capped at the subtotal.
+function promoDiscount(subtotal, promo) {
+  let d = promo.discount_type === 'percent' ? subtotal * (Number(promo.discount_value) / 100) : Number(promo.discount_value);
+  d = Math.round(d * 100) / 100;
+  return Math.min(Math.max(0, d), subtotal);
 }
 
 // ── my-bookings ────────────────────────────────────────────────────────────
@@ -51,7 +78,7 @@ async function myBookings(user) {
   const cols = [
     'id', 'booking_reference', 'status', 'booking_type', 'customer_name', 'customer_phone',
     'city_name', 'location_address', 'floor_no', 'flat_no', 'slot_date', 'slot_hour',
-    'product_model', 'product_qty', 'order_total', 'referral_source', 'created_at',
+    'product_model', 'product_qty', 'order_total', 'promo_code', 'discount_amount', 'referral_source', 'created_at',
     'installers(name)', 'booking_items(product_model,qty,unit_price)'
   ].join(',');
   const rows = await sb('GET',
@@ -72,6 +99,7 @@ async function createBooking(user, body) {
   const regionId = String(body.regionId || '');
   const slotId = String(body.slotId || '');
   const items = Array.isArray(body.items) ? body.items : [];
+  const promoCode = clean(body.promoCode, 40);
 
   if (!name) throw bad(400, 'Enter the customer name.');
   if (!phone) throw bad(400, 'That mobile number doesn\'t look right. Use a 10-digit Saudi mobile, e.g. 0558233001.');
@@ -102,6 +130,9 @@ async function createBooking(user, body) {
   });
   const subtotal = lines.reduce((s, l) => s + l.unit_price * l.qty, 0);
   const primary = lines.slice().sort((a, b) => (b.unit_price * b.qty) - (a.unit_price * a.qty))[0];
+  // A code the salesperson entered but that isn't valid stops the booking (never silently dropped).
+  const promo = promoCode ? await lookupPromo(promoCode) : null;
+  const discount = promo ? promoDiscount(subtotal, promo) : 0;
 
   // ── validate the slot before reserving it ──
   const slots = await sb('GET',
@@ -142,6 +173,8 @@ async function createBooking(user, body) {
       product_model: primary.label,
       product_qty: primary.qty,
       order_total: subtotal,
+      promo_code: promo ? promo.code : null,
+      discount_amount: discount || null,
       floor_no: floorNo,
       flat_no: flatNo
     });
@@ -171,7 +204,8 @@ async function createBooking(user, body) {
     booking: {
       id: bookingId, reference: created.booking_reference,
       slot_date: created.slot_date, slot_hour: created.slot_hour,
-      customer_name: name, customer_phone: phone, city_name: cityName, total: subtotal
+      customer_name: name, customer_phone: phone, city_name: cityName,
+      subtotal, discount, promo_code: promo ? promo.code : null, total: Math.max(0, subtotal - discount)
     },
     warnings
   };
@@ -189,6 +223,10 @@ module.exports = async function handler(req, res) {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     switch (body.action) {
       case 'me': return res.status(200).json({ name: user.name, email: user.email });
+      case 'check-promo': {
+        const p = await lookupPromo(body.code);
+        return res.status(200).json({ code: p.code, discount_type: p.discount_type, discount_value: Number(p.discount_value) });
+      }
       case 'my-bookings': return res.status(200).json(await myBookings(user));
       case 'create-booking': return res.status(201).json(await createBooking(user, body));
       default: return res.status(400).json({ error: 'Unknown action' });
