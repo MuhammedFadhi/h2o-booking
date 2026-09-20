@@ -223,18 +223,18 @@
       <div id="book-promo-msg" style="font-size:12px;margin-top:6px;display:none;"></div>
     </div>
     <div class="form-group">
-      <label>Service Area</label>
-      <select id="book-region" onchange="onBookRegionChange()"><option value="">Loading service areas…</option></select>
+      <label>Region</label>
+      <select id="book-region" onchange="onBookRegionChange()"><option value="">Loading regions…</option></select>
     </div>
     <div class="form-group">
       <label>City</label>
-      <select id="book-city" disabled><option value="">Choose service area first</option></select>
+      <select id="book-city" disabled><option value="">Choose region first</option></select>
     </div>
     <div class="form-group">
       <label>Address</label>
-      <input type="text" id="book-address" placeholder="Confirm or update your address">
-      <button type="button" class="location-btn" id="book-location-btn" onclick="getBookLocation()"><span>📍</span> <span id="book-location-btn-label">Use my current location</span></button>
+      <button type="button" class="location-btn" id="book-location-btn" onclick="getBookLocation()" style="margin-top:0;"><span>📍</span> <span id="book-location-btn-label">Use my current location</span></button>
       <div class="location-hint" id="book-location-hint">Tap to fill your address from GPS. Drag the pin on the map to refine.</div>
+      <input type="text" id="book-address" placeholder="Confirm or update your address" style="margin-top:12px;">
       <div id="book-map" aria-label="Draggable map pin"></div>
       <div class="map-caption" id="book-map-caption" style="display:none;">Drag the pin to your exact door.</div>
     </div>
@@ -320,13 +320,13 @@ async function loadBookRegionsAndCities() {
   ]);
   const sel = document.getElementById('book-region');
   if (r.error || c.error || !r.data?.length) {
-    sel.innerHTML = '<option value="">Service areas unavailable</option>';
-    document.getElementById('book-date-grid').innerHTML = '<p style="color:#B71C1C;font-size:13px;padding:20px;text-align:center;">Cannot load service areas right now. Contact SA\'DA H2O.</p>';
+    sel.innerHTML = '<option value="">Regions unavailable</option>';
+    document.getElementById('book-date-grid').innerHTML = '<p style="color:#B71C1C;font-size:13px;padding:20px;text-align:center;">Cannot load regions right now. Contact SA\'DA H2O.</p>';
     return;
   }
   regionsCache = r.data;
   citiesCache = c.data || [];
-  sel.innerHTML = '<option value="">Select service area…</option>' +
+  sel.innerHTML = '<option value="">Select region…</option>' +
     regionsCache.map(rr => `<option value="${rr.id}">${rr.name}</option>`).join('');
   // Preselect region if stored
   if (customer.regionId && regionsCache.some(rr => rr.id === customer.regionId)) {
@@ -343,8 +343,8 @@ function onBookRegionChange() {
   const citySel = document.getElementById('book-city');
   if (!rid) {
     citySel.disabled = true;
-    citySel.innerHTML = '<option value="">Choose service area first</option>';
-    document.getElementById('book-date-grid').innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">Select a service area to see available slots.</p>';
+    citySel.innerHTML = '<option value="">Choose region first</option>';
+    document.getElementById('book-date-grid').innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">Select a region to see available slots.</p>';
     return;
   }
   const cities = citiesCache.filter(c => c.region_id === rid);
@@ -801,7 +801,7 @@ async function applyBookPromo() {
 
 async function loadBookDates() {
   const grid = document.getElementById('book-date-grid');
-  if (!bookRegionId) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">Select a service area to see available slots.</p>'; return; }
+  if (!bookRegionId) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">Select a region to see available slots.</p>'; return; }
   grid.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   const today = new Date(); today.setHours(0,0,0,0);
   const start = new Date(today); start.setDate(start.getDate() + 2);
@@ -814,7 +814,7 @@ async function loadBookDates() {
     .gte('slot_date', toIso(start)).lte('slot_date', toIso(end));
   const availableDates = [...new Set((data || []).map(d => d.slot_date))].sort();
   grid.innerHTML = '';
-  if (!availableDates.length) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">No available slots for this service area in the next 2 months.</p>'; return; }
+  if (!availableDates.length) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">No available slots for this region in the next 2 months.</p>'; return; }
   availableDates.forEach(dateStr => {
     const d = new Date(dateStr + 'T00:00:00');
     const box = document.createElement('div');
@@ -851,7 +851,7 @@ async function submitNewBooking() {
   const address = document.getElementById('book-address').value.trim();
   const cityName = document.getElementById('book-city').value;
   const errEl = document.getElementById('book-error');
-  if (!bookRegionId || !cityName) { errEl.style.display = 'block'; errEl.textContent = 'Please pick a service area and city.'; return; }
+  if (!bookRegionId || !cityName) { errEl.style.display = 'block'; errEl.textContent = 'Please pick a region and city.'; return; }
   if (!bookDate || bookHour === null) { errEl.style.display = 'block'; errEl.textContent = 'Please select a date and time slot.'; return; }
   if (selectedType === 'installation' && !bookBasketLines().length) { errEl.style.display = 'block'; errEl.textContent = 'Please add at least one product.'; return; }
   errEl.style.display = 'none';
@@ -890,7 +890,7 @@ async function submitNewBooking() {
   if (reserved[0].service_region_id && bookRegionId && reserved[0].service_region_id !== bookRegionId) {
     await db.from('availability_slots').update({ is_booked: false }).eq('id', bookSlotId);
     errEl.style.display = 'block';
-    errEl.textContent = 'This slot doesn\'t match your service area. Please pick a slot again.';
+    errEl.textContent = 'This slot doesn\'t match your region. Please pick a slot again.';
     bookDate = null; bookHour = null; bookSlotId = null;
     loadBookDates();
     resetBtn();

@@ -184,22 +184,22 @@
         <p class="section-subtitle">Tell us a bit about yourself so we can serve you better.</p>
         <div class="form-group"><label>Full Name</label><input type="text" id="customer-name" placeholder="Enter your full name"></div>
         <div class="form-group">
-          <label>Service Area</label>
+          <label>Region</label>
           <select id="customer-region" onchange="onRegionChange()">
-            <option value="">Loading service areas…</option>
+            <option value="">Loading regions…</option>
           </select>
           <div style="font-size:12px;color:var(--muted);margin-top:6px;" id="region-hint">Pick the area you want the installation in.</div>
         </div>
         <div class="form-group"><label>City</label>
           <select id="customer-city" disabled>
-            <option value="">Choose service area first</option>
+            <option value="">Choose region first</option>
           </select>
         </div>
         <div class="form-group">
           <label>Installation Address</label>
-          <input type="text" id="customer-address" placeholder="Enter your address">
-          <button type="button" class="location-btn" id="location-btn" onclick="getLocation()"><span>📍</span> <span id="location-btn-label">Use My Current Location</span></button>
+          <button type="button" class="location-btn" id="location-btn" onclick="getLocation()" style="margin-top:0;"><span>📍</span> <span id="location-btn-label">Use My Current Location</span></button>
           <div class="location-hint" id="location-hint">Tap to fill your address from GPS. You can drag the pin on the map to fine-tune.</div>
+          <input type="text" id="customer-address" placeholder="Enter your address" style="margin-top:12px;">
           <div id="location-map" aria-label="Draggable map pin"></div>
           <div class="map-caption" id="map-caption" style="display:none;">Drag the pin to your exact door.</div>
         </div>
@@ -328,14 +328,14 @@ async function loadRegionsAndCities() {
   ]);
   const sel = document.getElementById('customer-region');
   if (r.error || c.error || !r.data?.length) {
-    sel.innerHTML = '<option value="">Service areas unavailable</option>';
+    sel.innerHTML = '<option value="">Regions unavailable</option>';
     const hint = document.getElementById('region-hint');
-    if (hint) { hint.textContent = 'Cannot load service areas right now. Please contact SA\'DA H2O on WhatsApp: +966 54 798 9055'; hint.style.color = '#B71C1C'; }
+    if (hint) { hint.textContent = 'Cannot load regions right now. Please contact SA\'DA H2O on WhatsApp: +966 54 798 9055'; hint.style.color = '#B71C1C'; }
     return;
   }
   regionsCache = r.data;
   citiesCache = c.data || [];
-  sel.innerHTML = '<option value="">Select service area…</option>' +
+  sel.innerHTML = '<option value="">Select region…</option>' +
     regionsCache.map(rr => `<option value="${rr.id}">${rr.name}</option>`).join('');
 }
 
@@ -345,7 +345,7 @@ function onRegionChange() {
   const citySel = document.getElementById('customer-city');
   if (!rid) {
     citySel.disabled = true;
-    citySel.innerHTML = '<option value="">Choose service area first</option>';
+    citySel.innerHTML = '<option value="">Choose region first</option>';
     return;
   }
   const cities = citiesCache.filter(c => c.region_id === rid);
@@ -661,7 +661,7 @@ async function loadAvailableDates() {
     .gte('slot_date',toIso(start)).lte('slot_date',toIso(end));
   const availableDates=[...new Set((data||[]).map(d=>d.slot_date))].sort();
   grid.innerHTML='';
-  if(!availableDates.length){grid.innerHTML='<p style="color:var(--muted);font-size:13px;padding:24px;text-align:center;">No available slots in this service area for the next 2 months. Please contact SA\'DA H2O directly.</p>';return;}
+  if(!availableDates.length){grid.innerHTML='<p style="color:var(--muted);font-size:13px;padding:24px;text-align:center;">No available slots in this region for the next 2 months. Please contact SA\'DA H2O directly.</p>';return;}
   availableDates.forEach(dateStr=>{
     const d=new Date(dateStr+'T00:00:00');
     const box=document.createElement('div');
@@ -927,7 +927,7 @@ async function submitBooking() {
     if (/already_booked/.test(msg)) {
       text = 'Sorry, this slot was just booked by someone else. Please go back and choose another.';
     } else if (/region_mismatch/.test(msg)) {
-      text = 'Sorry, the slot you picked doesn\'t match your service area. Please go back and choose a slot again.';
+      text = 'Sorry, the slot you picked doesn\'t match your region. Please go back and choose a slot again.';
       state.selectedDate=null; state.selectedHour=null; state.selectedSlotId=null;
     } else if (/slot_not_found|not_available/.test(msg)) {
       text = 'That slot is no longer available. Please go back and choose another.';

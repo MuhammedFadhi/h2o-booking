@@ -1344,6 +1344,25 @@
         </select>
       </div>
       <div class="form-group">
+        <label>Source <span style="color:var(--muted);font-weight:400;">(where the customer heard about us)</span></label>
+        <select class="form-input" id="ab-source">
+          <option value="">Select…</option>
+          <option value="Phone Call">Phone call</option>
+          <option value="WhatsApp">WhatsApp</option>
+          <option value="Instagram">Instagram</option>
+          <option value="Snapchat">Snapchat</option>
+          <option value="TikTok">TikTok</option>
+          <option value="Google Search">Google Search</option>
+          <option value="Friend / Family">Friend or family referral</option>
+          <option value="Existing Customer">Existing customer</option>
+          <option value="Dammam Showroom">Dammam Showroom</option>
+          <option value="Khobar Showroom">Khobar Showroom</option>
+          <option value="Exhibition / Event">Exhibition or event</option>
+          <option value="Flyer / Billboard">Flyer or billboard</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label>Sales Agent</label>
         <select class="form-input" id="ab-sales-agent"></select>
         <div style="font-size:11px;color:var(--muted);margin-top:4px;">Defaults to you — change it if you're booking on behalf of a colleague.</div>
@@ -2591,6 +2610,7 @@ async function openAdminBookingModal() {
   abRenderBasket();
   ['ab-name','ab-phone','ab-address'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ab-status').value = 'upcoming';
+  document.getElementById('ab-source').value = '';
   document.getElementById('ab-error').style.display = 'none';
   populateSalesAgentSelect('ab-sales-agent');
   await abLoadDates();
@@ -2803,7 +2823,8 @@ async function submitAdminBooking() {
       booking_type: (document.getElementById('ab-jobtype')?.value || 'installation'),
       created_by: 'admin',
       created_by_name: currentAdminDisplayName(),
-      sales_agent: document.getElementById('ab-sales-agent').value || null
+      sales_agent: document.getElementById('ab-sales-agent').value || null,
+      referral_source: document.getElementById('ab-source').value || null
     };
     if (startStatus === 'installed') { patch.status = 'installed'; patch.installed_at = nowIso; patch.completed_by = 'admin'; }
     await dbAdmin.from('bookings').update(patch).eq('id', bkId);
@@ -5205,15 +5226,15 @@ async function openAddCustomerModal() {
       <p style="font-size:14px;color:var(--muted);">Add a customer manually to the database.</p>
       <div class="form-group"><label>Full Name</label><input type="text" class="form-input" id="add-cust-name" placeholder="Customer name"></div>
       <div class="form-group"><label>Phone Number</label><input type="tel" class="form-input" id="add-cust-phone" placeholder="+966 5X XXX XXXX"></div>
-      <div class="form-group"><label>Service Area</label>
+      <div class="form-group"><label>Region</label>
         <select class="form-input" id="add-cust-region" onchange="addCustLoadCities()">
-          <option value="">Select service area…</option>
+          <option value="">Select region…</option>
           ${(regions || []).map(r => `<option value="${r.id}">${escB(r.name)}</option>`).join('')}
         </select>
       </div>
       <div class="form-group"><label>City</label>
         <select class="form-input" id="add-cust-city" disabled>
-          <option value="">Choose service area first</option>
+          <option value="">Choose region first</option>
         </select>
       </div>
       <div class="form-group"><label>Address</label><input type="text" class="form-input" id="add-cust-address" placeholder="Address"></div>
@@ -5231,7 +5252,7 @@ async function addCustLoadCities() {
   const csel = document.getElementById('add-cust-city');
   if (!regionId) {
     csel.disabled = true;
-    csel.innerHTML = '<option value="">Choose service area first</option>';
+    csel.innerHTML = '<option value="">Choose region first</option>';
     return;
   }
   const { data: cities } = await dbAdmin.from('cities').select('id, name, region_id').eq('region_id', regionId).order('name');
