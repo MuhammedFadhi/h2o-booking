@@ -515,6 +515,10 @@
     myBookings.forEach((b) => { if (!b.created_at) return; const d = riyadhDateISO(b.created_at); if (d === today) day++; if (d.slice(0, 7) === month) mon++; });
     $('stat-today').textContent = day;
     $('stat-month').textContent = mon;
+    // Tab labels get the same day count (bookings added today) and the total
+    // list size, so the counts stay in one place instead of drifting apart.
+    $('tab-new').textContent = `New Booking (${day})`;
+    $('tab-mine').textContent = `My Bookings (${myBookings.length})`;
   }
 
   function renderMine() {
