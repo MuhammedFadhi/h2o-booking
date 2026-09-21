@@ -12,7 +12,7 @@ const { requireSales, sb } = require('./_auth');
 
 const ALLOWED_SOURCES = new Set([
   'Phone Call', 'WhatsApp', 'Instagram', 'Snapchat', 'TikTok', 'Google Search',
-  'Friend / Family', 'Existing Customer', 'Dammam Showroom', 'Khobar Showroom',
+  'Friend / Family', 'Existing Customer', 'Direct Sales', 'Dammam Showroom', 'Khobar Showroom',
   'Exhibition / Event', 'Flyer / Billboard', 'Other'
 ]);
 const DISPENSER_COLORS = ['Black', 'White'];
