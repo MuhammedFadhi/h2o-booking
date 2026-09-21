@@ -91,6 +91,11 @@
     .done dt { color: var(--muted); font-size: 12px; margin-top: 8px; }
     .done .btns { display: flex; gap: 10px; flex-direction: column; max-width: 340px; margin: 0 auto; }
 
+    .stats-row { display: flex; gap: 10px; margin: 14px 16px 0; }
+    .stat-tile { flex: 1; background: #fff; border-radius: 14px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(10,22,40,.08); text-align: center; }
+    .stat-num { display: block; font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 700; color: var(--navy); line-height: 1.15; }
+    .stat-label { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: .3px; text-transform: uppercase; }
+
     .bk-head { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
     .bk-head input { flex: 1; }
     .count { font-size: 12px; color: var(--muted); margin: 0 4px 10px; }
@@ -118,6 +123,11 @@
   <button class="tab active" id="tab-new" type="button" role="tab" data-tab="new">New Booking</button>
   <button class="tab" id="tab-mine" type="button" role="tab" data-tab="mine">My Bookings</button>
 </nav>
+
+<div class="stats-row" aria-label="Your booking totals">
+  <div class="stat-tile"><span class="stat-num" id="stat-today">–</span><span class="stat-label">Booked Today</span></div>
+  <div class="stat-tile"><span class="stat-num" id="stat-month">–</span><span class="stat-label">Booked This Month</span></div>
+</div>
 
 <main class="wrap">
   <!-- ═════════ NEW BOOKING ═════════ -->
@@ -425,7 +435,7 @@
         source: $('f-source').value, slotId: selectedSlot, promoCode: promo ? promo.code : '',
         items: basket.map((l) => ({ model: l.model, qty: l.qty, color: l.color }))
       });
-      myBookings = null;
+      fetchMine(true).catch(() => {});   // refresh in the background so the totals above pick up this booking
       showDone(res.booking);
       sendConfirmationSMS(res.booking);
     } catch (e) {
@@ -476,11 +486,35 @@
   }
 
   // ── my bookings (read-only) ────────────────────────────────────────────────
+  async function fetchMine(force) {
+    if (myBookings && !force) return myBookings;
+    myBookings = (await api('my-bookings')).bookings || [];
+    renderStats();
+    return myBookings;
+  }
+
   async function loadMine(force) {
-    if (myBookings && !force) return renderMine();
     $('bk-list').innerHTML = '<div class="empty">Loading…</div>'; $('count').textContent = '';
-    try { myBookings = (await api('my-bookings')).bookings || []; renderMine(); }
+    try { await fetchMine(force); renderMine(); }
     catch (e) { $('bk-list').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  }
+
+  // Booking totals for today and this month, in Saudi time (matches every other
+  // date boundary in the app) and counted by when the booking was ADDED, not the
+  // customer's appointment date — this is a sales-activity count, not a schedule.
+  function riyadhDateISO(ts) {
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(ts));
+    const g = (t) => parts.find((p) => p.type === t).value;
+    return `${g('year')}-${g('month')}-${g('day')}`;
+  }
+
+  function renderStats() {
+    if (!myBookings) return;
+    const today = ksaNow().dateISO, month = today.slice(0, 7);
+    let day = 0, mon = 0;
+    myBookings.forEach((b) => { if (!b.created_at) return; const d = riyadhDateISO(b.created_at); if (d === today) day++; if (d.slice(0, 7) === month) mon++; });
+    $('stat-today').textContent = day;
+    $('stat-month').textContent = mon;
   }
 
   function renderMine() {
@@ -532,7 +566,7 @@
     if (!me) return;
     $('who-name').textContent = me.name;
     renderBasket();
-    await Promise.all([loadCatalogue(), loadRegions()]);
+    await Promise.all([loadCatalogue(), loadRegions(), fetchMine()]);
   })();
 </script>
 </body>
