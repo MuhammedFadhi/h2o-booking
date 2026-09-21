@@ -100,6 +100,9 @@ async function createBooking(user, body) {
   const slotId = String(body.slotId || '');
   const items = Array.isArray(body.items) ? body.items : [];
   const promoCode = clean(body.promoCode, 40);
+  const toCoord = (v, min, max) => { const n = Number(v); return Number.isFinite(n) && n >= min && n <= max ? n : null; };
+  const latitude = toCoord(body.latitude, -90, 90);
+  const longitude = toCoord(body.longitude, -180, 180);
 
   if (!name) throw bad(400, 'Enter the customer name.');
   if (!phone) throw bad(400, 'That mobile number doesn\'t look right. Use a 10-digit Saudi mobile, e.g. 0558233001.');
@@ -148,7 +151,7 @@ async function createBooking(user, body) {
   try {
     const rpc = await sb('POST', '/rest/v1/rpc/create_booking', {
       p_slot_id: slotId, p_name: name, p_phone: phone, p_city_name: cityName,
-      p_region_id: regionId, p_address: address, p_latitude: null, p_longitude: null
+      p_region_id: regionId, p_address: address, p_latitude: latitude, p_longitude: longitude
     });
     created = Array.isArray(rpc) ? rpc[0] : rpc;
   } catch (e) {

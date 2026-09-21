@@ -14,6 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="SA'DA Sales">
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -76,6 +77,19 @@
     .rm { border: 0; background: none; color: var(--danger); font-size: 18px; cursor: pointer; padding: 4px 8px; }
     .total { display: flex; justify-content: space-between; padding-top: 12px; font-weight: 700; font-size: 16px; }
     .hint { font-size: 13px; color: var(--muted); }
+
+    .location-btn { width: 100%; padding: 14px; background: #EAF2FB; border: 2px dashed var(--blue); border-radius: 12px; color: var(--blue); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: background .15s, border-color .15s, color .15s; }
+    .location-btn:hover:not(:disabled) { background: #DBEAFE; }
+    .location-btn:disabled { opacity: .75; cursor: progress; }
+    .location-btn.got-location { background: #ECFDF5; border: 2px solid #16A34A; border-style: solid; color: #15803D; }
+    .location-btn.got-location:hover { background: #DCFCE7; }
+    .location-btn.error-location { background: #FEF2F2; border: 2px solid var(--danger); border-style: solid; color: var(--danger); }
+    .location-btn.error-location:hover { background: #FEE2E2; }
+    .location-hint { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+    .location-hint.error { color: var(--danger); }
+    #location-map { display: none; margin-top: 12px; height: 220px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+    #location-map.visible { display: block; }
+    .map-caption { font-size: 12px; color: var(--muted); margin-top: 8px; text-align: center; }
 
     .slots { display: flex; flex-wrap: wrap; gap: 8px; }
     .slot { min-width: 108px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--ink); }
@@ -147,7 +161,14 @@
           <div class="field"><label for="f-region">Region</label><select id="f-region"></select></div>
           <div class="field"><label for="f-city">City</label><select id="f-city"></select></div>
         </div>
-        <div class="field"><label for="f-address">Address</label><textarea id="f-address" maxlength="300" placeholder="District, street, building, landmark"></textarea></div>
+        <div class="field">
+          <label for="f-address">Address</label>
+          <button type="button" class="location-btn" id="location-btn"><span>📍</span> <span id="location-btn-label">Use My Current Location</span></button>
+          <div class="location-hint" id="location-hint">Tap to fill the address from GPS. You can drag the pin on the map to fine-tune.</div>
+          <textarea id="f-address" maxlength="300" placeholder="District, street, building, landmark" style="margin-top:10px"></textarea>
+          <div id="location-map" aria-label="Draggable map pin"></div>
+          <div class="map-caption" id="map-caption" style="display:none;">Drag the pin to the customer's exact door.</div>
+        </div>
         <div class="row keep">
           <div class="field"><label for="f-floor">Floor no <span class="opt">(optional)</span></label><input id="f-floor" maxlength="20"></div>
           <div class="field"><label for="f-flat">Flat no <span class="opt">(optional)</span></label><input id="f-flat" maxlength="20"></div>
@@ -211,6 +232,7 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script src="../shared/supabase.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
   // Sales users only ever talk to /api/sales/ops (server-scoped to their own
   // bookings). The only direct reads below are public reference data — regions,
@@ -226,6 +248,7 @@
   const money = (n) => 'SAR ' + Number(n || 0).toLocaleString('en-US');
 
   let catalogue = [], basket = [], promo = null, selectedSlot = null, myBookings = null, submitting = false;
+  let gpsLat = null, gpsLon = null, leafletMap = null, leafletMarker = null;
 
   function toast(msg) {
     const t = $('toast'); t.textContent = msg; t.style.display = 'block';
@@ -410,6 +433,86 @@
     b.classList.add('sel');
   });
 
+  // ── GPS location (same flow as the customer booking page) ────────────────────
+  function setLocationBtn(state, labelText, hintText, hintIsError) {
+    const btn = $('location-btn');
+    btn.classList.remove('got-location', 'error-location');
+    if (state === 'got') btn.classList.add('got-location');
+    if (state === 'err') btn.classList.add('error-location');
+    $('location-btn-label').textContent = labelText;
+    const hint = $('location-hint');
+    hint.textContent = hintText;
+    hint.classList.toggle('error', !!hintIsError);
+  }
+
+  async function reverseGeocode(lat, lon) {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, { headers: { 'Accept-Language': 'en' } });
+      if (!res.ok) throw new Error('geocode ' + res.status);
+      const data = await res.json();
+      return data.display_name || null;
+    } catch (e) { console.warn('reverse geocode failed:', e); return null; }
+  }
+
+  function ensureMap(lat, lon) {
+    const el = $('location-map');
+    el.classList.add('visible');
+    $('map-caption').style.display = 'block';
+    if (!leafletMap) {
+      leafletMap = L.map(el, { zoomControl: true, attributionControl: true }).setView([lat, lon], 17);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(leafletMap);
+      leafletMarker = L.marker([lat, lon], { draggable: true }).addTo(leafletMap);
+      leafletMarker.on('dragend', async () => {
+        const ll = leafletMarker.getLatLng();
+        gpsLat = ll.lat; gpsLon = ll.lng;
+        const addr = await reverseGeocode(ll.lat, ll.lng);
+        if (addr) $('f-address').value = addr;
+      });
+      setTimeout(() => leafletMap.invalidateSize(), 100);   // fixes sizing inside an initially-hidden container
+    } else {
+      leafletMap.setView([lat, lon], 17);
+      leafletMarker.setLatLng([lat, lon]);
+      setTimeout(() => leafletMap.invalidateSize(), 50);
+    }
+  }
+
+  function getLocation() {
+    if (!navigator.geolocation) { setLocationBtn('err', '❌ GPS not supported', 'This browser does not support location. Please enter the address manually.', true); return; }
+    const btn = $('location-btn');
+    btn.disabled = true;
+    setLocationBtn('', '⏳ Getting location…', 'Please allow location access when prompted.', false);
+
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      gpsLat = pos.coords.latitude; gpsLon = pos.coords.longitude;
+      const accuracy = Math.round(pos.coords.accuracy);
+      const addr = await reverseGeocode(gpsLat, gpsLon);
+      if (addr) {
+        $('f-address').value = addr;
+        setLocationBtn('got', '✓ Location captured', `Accurate to ±${accuracy}m. Drag the pin on the map to refine.`, false);
+      } else {
+        $('f-address').value = `${gpsLat.toFixed(6)}, ${gpsLon.toFixed(6)}`;
+        setLocationBtn('got', '✓ GPS captured (address lookup failed)', 'The street name couldn’t be looked up. Replace the coordinates with the address, or drag the pin.', false);
+      }
+      ensureMap(gpsLat, gpsLon);
+      btn.disabled = false;
+    }, (err) => {
+      btn.disabled = false;
+      let msg;
+      if (err.code === 1) msg = 'Location permission was denied. Enter the address manually, or enable location in the browser settings.';
+      else if (err.code === 2) msg = 'The device could not determine its location. Please enter the address manually.';
+      else if (err.code === 3) msg = 'Location request timed out. Please try again or enter the address manually.';
+      else msg = 'Could not get location. Please enter the address manually.';
+      setLocationBtn('err', '⚠️ Location unavailable', msg, true);
+    }, { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 });
+  }
+
+  function resetLocation() {
+    gpsLat = null; gpsLon = null;
+    $('location-map').classList.remove('visible');
+    $('map-caption').style.display = 'none';
+    setLocationBtn('', 'Use My Current Location', 'Tap to fill the address from GPS. You can drag the pin on the map to fine-tune.', false);
+  }
+
   // ── submit ─────────────────────────────────────────────────────────────────
   function formError(msg) { const el = $('form-err'); el.textContent = msg; el.style.display = msg ? 'block' : 'none'; if (msg) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
 
@@ -433,6 +536,7 @@
         regionId: $('f-region').value, cityName: $('f-city').value,
         floorNo: $('f-floor').value.trim(), flatNo: $('f-flat').value.trim(),
         source: $('f-source').value, slotId: selectedSlot, promoCode: promo ? promo.code : '',
+        latitude: gpsLat, longitude: gpsLon,
         items: basket.map((l) => ({ model: l.model, qty: l.qty, color: l.color }))
       });
       fetchMine(true).catch(() => {});   // refresh in the background so the totals above pick up this booking
@@ -462,6 +566,7 @@
     ['f-name', 'f-phone', 'f-address', 'f-floor', 'f-flat'].forEach((id) => { $(id).value = ''; });
     $('f-source').selectedIndex = 0;
     basket = []; promo = null; promoMsg(''); $('f-promo').value = ''; selectedSlot = null; formError('');
+    resetLocation();
     renderBasket(); loadDates();
     $('done-area').hidden = true; $('form-area').hidden = false;
     window.scrollTo(0, 0);
@@ -553,6 +658,7 @@
   $('f-region').addEventListener('change', onRegionChange);
   $('f-date').addEventListener('change', loadSlots);
   $('add-product').addEventListener('click', addProduct);
+  $('location-btn').addEventListener('click', getLocation);
   $('promo-btn').addEventListener('click', applyPromo);
   $('f-promo').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyPromo(); } });
   // Editing the code after applying it un-applies it, so a stale discount can't ride along.
