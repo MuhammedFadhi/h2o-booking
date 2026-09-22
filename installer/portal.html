@@ -547,7 +547,10 @@ function renderAppointments() {
     const dd = String(d.getDate()).padStart(2,'0');
     const mm = String(d.getMonth()+1).padStart(2,'0');
     const mapsUrl = destinationUrl(b);
-    const proofSection = b.status === 'completed' && b.proof_photo_url ? `
+    // Not gated on status === 'completed' — a job sits at 'installed' until the
+    // office separately records payment/invoice, but the installer's own proof
+    // photos exist as soon as they submit the report and should show right away.
+    const proofSection = b.proof_photo_url ? `
       <div class="proof-section">
         <div class="proof-title">📸 Installation Proof</div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;">
