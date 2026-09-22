@@ -326,21 +326,29 @@ SADA.InspectionReport = (function () {
     };
     const photos = `
       <div class="sada-ir__uploads">
-        <label class="sada-ir__upload" for="ir-photo-input" id="ir-photo-box">
-          <div class="sada-ir__upload-icon">📷</div>
-          <div class="sada-ir__upload-label">${esc(PHOTO_LABEL_BY_TYPE[jt] || 'Completed Work Photo')}</div>
-          <div class="sada-ir__upload-sub">Tap to take a photo</div>
-          <img id="ir-photo-preview" class="sada-ir__upload-preview" style="display:none;">
-        </label>
-        <input type="file" id="ir-photo-input" accept="image/*" capture="environment" style="display:none;">
+        <div class="sada-ir__upload-group">
+          <label class="sada-ir__upload" for="ir-photo-input" id="ir-photo-box">
+            <div class="sada-ir__upload-icon">📷</div>
+            <div class="sada-ir__upload-label">${esc(PHOTO_LABEL_BY_TYPE[jt] || 'Completed Work Photo')}</div>
+            <div class="sada-ir__upload-sub">Tap to take a photo</div>
+            <img id="ir-photo-preview" class="sada-ir__upload-preview" style="display:none;">
+          </label>
+          <input type="file" id="ir-photo-input" accept="image/*" capture="environment" style="display:none;">
+          <label class="sada-ir__gallery-link" for="ir-photo-gallery-input">🖼️ Or choose from gallery</label>
+          <input type="file" id="ir-photo-gallery-input" accept="image/*" style="display:none;">
+        </div>
         ${isInstall ? `
-        <label class="sada-ir__upload" for="ir-qr-input" id="ir-qr-box">
-          <div class="sada-ir__upload-icon">🏷️</div>
-          <div class="sada-ir__upload-label">QR Sticker Photo</div>
-          <div class="sada-ir__upload-sub">Tap to take a photo</div>
-          <img id="ir-qr-preview" class="sada-ir__upload-preview" style="display:none;">
-        </label>
-        <input type="file" id="ir-qr-input" accept="image/*" capture="environment" style="display:none;">` : ''}
+        <div class="sada-ir__upload-group">
+          <label class="sada-ir__upload" for="ir-qr-input" id="ir-qr-box">
+            <div class="sada-ir__upload-icon">🏷️</div>
+            <div class="sada-ir__upload-label">QR Sticker Photo</div>
+            <div class="sada-ir__upload-sub">Tap to take a photo</div>
+            <img id="ir-qr-preview" class="sada-ir__upload-preview" style="display:none;">
+          </label>
+          <input type="file" id="ir-qr-input" accept="image/*" capture="environment" style="display:none;">
+          <label class="sada-ir__gallery-link" for="ir-qr-gallery-input">🖼️ Or choose from gallery</label>
+          <input type="file" id="ir-qr-gallery-input" accept="image/*" style="display:none;">
+        </div>` : ''}
       </div>
       <div id="ir-unit-note" style="display:none;font-size:12.5px;color:#3730A3;background:#E0E7FF;border-radius:8px;padding:10px 12px;margin-top:10px;"></div>`;
 
@@ -779,32 +787,38 @@ SADA.InspectionReport = (function () {
     // submit — which is what was crashing low-RAM installer phones with
     // "Unable to complete previous operation due to low memory". Now there's
     // one decode total, and the preview + the upload share the same small file.
-    const wirePreview = (inputId, previewId, boxId) => {
-      const input = $(`#${inputId}`, root);
-      input?.addEventListener('change', async () => {
+    // A "slot" holds whichever file was picked most recently, whether it came
+    // from the camera input or the gallery input — both feed the same preview
+    // box and the same object, so submit only ever has one place to read from.
+    const photoSlot = { file: null, compressed: null };
+    const qrSlot = { file: null, compressed: null };
+
+    const wirePreview = (slot, cameraInputId, galleryInputId, previewId, boxId) => {
+      const img = $(`#${previewId}`, root);
+      const box = $(`#${boxId}`, root);
+      const subEl = box?.querySelector('.sada-ir__upload-sub');
+      const attached = (f, label) => {
+        slot.file = f; slot.compressed = f;
+        if (img.dataset.blobUrl) { URL.revokeObjectURL(img.dataset.blobUrl); delete img.dataset.blobUrl; }
+        img.removeAttribute('src'); img.style.display = 'none';
+        box?.classList.add('has-file');
+        if (subEl) subEl.textContent = label;
+      };
+
+      const handle = async (input) => {
         const f = input.files && input.files[0];
         if (!f) return;
-        input._compressed = null;
-        const img = $(`#${previewId}`, root);
-        const box = $(`#${boxId}`, root);
-        const subEl = box?.querySelector('.sada-ir__upload-sub');
-        const attached = (label) => {
-          input._compressed = f;
-          if (img.dataset.blobUrl) { URL.revokeObjectURL(img.dataset.blobUrl); delete img.dataset.blobUrl; }
-          img.removeAttribute('src'); img.style.display = 'none';
-          box?.classList.add('has-file');
-          if (subEl) subEl.textContent = label;
-        };
+        slot.file = f; slot.compressed = null;
 
         // Large photos skip ALL in-page decoding — no <img> preview either,
         // since simply displaying it still makes the browser decode/paint the
         // full image, the exact thing that was crashing low-memory phones.
-        // They upload exactly as the camera produced them.
-        if (f.size > LARGE_PHOTO_BYTES) { attached(`✓ Photo attached (${(f.size / (1024 * 1024)).toFixed(1)} MB) — no preview for large photos`); return; }
+        // They upload exactly as the camera (or gallery) produced them.
+        if (f.size > LARGE_PHOTO_BYTES) { attached(f, `✓ Photo attached (${(f.size / (1024 * 1024)).toFixed(1)} MB) — no preview for large photos`); return; }
 
         try {
           const small = await compressImage(f);
-          input._compressed = small;
+          slot.compressed = small;
           if (img.dataset.blobUrl) URL.revokeObjectURL(img.dataset.blobUrl);
           const url = URL.createObjectURL(small);
           img.dataset.blobUrl = url;
@@ -814,12 +828,17 @@ SADA.InspectionReport = (function () {
           // Decoding failed even for a moderate-size photo — still safe to
           // upload the original file untouched, just without a preview.
           console.warn('[IR] preview failed:', e);
-          attached('✓ Photo attached (preview unavailable)');
+          attached(f, '✓ Photo attached (preview unavailable)');
         }
+      };
+
+      [cameraInputId, galleryInputId].forEach((id) => {
+        const input = $(`#${id}`, root);
+        input?.addEventListener('change', () => handle(input));
       });
     };
-    wirePreview('ir-photo-input', 'ir-photo-preview', 'ir-photo-box');
-    wirePreview('ir-qr-input', 'ir-qr-preview', 'ir-qr-box');
+    wirePreview(photoSlot, 'ir-photo-input', 'ir-photo-gallery-input', 'ir-photo-preview', 'ir-photo-box');
+    wirePreview(qrSlot, 'ir-qr-input', 'ir-qr-gallery-input', 'ir-qr-preview', 'ir-qr-box');
 
     // Serialized-unit note — how many pending warranties this install will create.
     (async () => {
@@ -913,10 +932,8 @@ SADA.InspectionReport = (function () {
         const jt = (ctx.booking?.booking_type || 'installation');
         const isInstall = jt === 'installation';
         const isAdminBooking = ctx.booking?.created_by === 'admin' || jt === 'relocation';
-        const photoInput = $('#ir-photo-input', root);
-        const qrInput = $('#ir-qr-input', root);
-        const photoFile = photoInput?.files?.[0];
-        const qrFile = qrInput?.files?.[0];
+        const photoFile = photoSlot.file;
+        const qrFile = qrSlot.file;
 
         if (isSubmit) {
           if (!ctx.pads?.tech || ctx.pads.tech.isEmpty()) { alert('Technician signature is required.'); return; }
@@ -954,11 +971,11 @@ SADA.InspectionReport = (function () {
             const ts = Date.now();
             // Reuse the file already compressed when it was picked (see wirePreview) —
             // only falls back to compressing here if that somehow didn't happen.
-            const photoSmall = photoInput._compressed || await compressImage(photoFile);
+            const photoSmall = photoSlot.compressed || await compressImage(photoFile);
             photoUrl = await uploadProofFile(photoSmall, `${ctx.bookingId}/photo_${ts}.jpg`);
             if (!photoUrl) throw new Error('Installation photo upload failed. Check your connection and try again.');
             if (qrFile) {
-              const qrSmall = qrInput._compressed || await compressImage(qrFile);
+              const qrSmall = qrSlot.compressed || await compressImage(qrFile);
               qrUrl = await uploadProofFile(qrSmall, `${ctx.bookingId}/qr_${ts}.jpg`);
               if (!qrUrl) throw new Error('QR photo upload failed. Check your connection and try again.');
             }

@@ -143,6 +143,12 @@
 .sada-ir__upload-label { font-size: 12px; font-weight: 700; color: var(--ir-text); }
 .sada-ir__upload-sub { font-size: 10.5px; color: var(--ir-muted); }
 .sada-ir__upload-preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sada-ir__upload-group { display: flex; flex-direction: column; gap: 6px; }
+.sada-ir__gallery-link {
+  display: block; text-align: center; font-size: 11px; font-weight: 600;
+  color: var(--ir-green-accent); cursor: pointer; padding: 2px;
+}
+.sada-ir__gallery-link:hover { text-decoration: underline; }
 @media (max-width: 480px) { .sada-ir__uploads { grid-template-columns: 1fr; } }
 
 /* ---------- Water analysis ---------- */
