@@ -80,6 +80,7 @@
     .when-badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;margin-left:8px;}
     .when-today{background:#FEF3C7;color:#92400E;}
     .when-tomorrow{background:#DBEAFE;color:#1D4ED8;}
+    .when-overdue{background:#FEE2E2;color:#B91C1C;}
     .btn-map{padding:10px 16px;background:white;color:var(--text);border:1px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;}
     .btn-map:hover{background:var(--bg);border-color:var(--muted);}
     .proof-section{padding:16px 22px;border-top:1px solid var(--border);background:#FAFDF9;}
@@ -278,12 +279,16 @@ document.addEventListener('visibilitychange', () => {
 });
 
 async function loadAll() {
-  const todayIso = localDateISO(new Date());
+  // Available also reaches back 3 days: a slot that passed with nobody claiming it
+  // shouldn't just vanish — it still needs doing, so it stays visible (flagged
+  // "Overdue" by whenBadge) for a few days before it's assumed to need office follow-up.
+  const availSince = new Date(); availSince.setDate(availSince.getDate() - 3);
+  const availSinceIso = localDateISO(availSince);
   const [mine, avail] = await Promise.all([
     db.from('bookings').select('*').eq('installer_id', installerId)
       .order('slot_date', { ascending: true }).order('slot_hour', { ascending: true }),
     db.from('bookings').select('*').is('installer_id', null).eq('status', 'upcoming')
-      .gte('slot_date', todayIso)
+      .gte('slot_date', availSinceIso)
       .order('slot_date', { ascending: true }).order('slot_hour', { ascending: true })
   ]);
   myBookings = mine.data || [];
@@ -383,6 +388,7 @@ function whenBadge(slotDate) {
   const d = new Date(slotDate + 'T00:00:00');
   if (d.getTime() === today.getTime()) return '<span class="when-badge when-today">Today</span>';
   if (d.getTime() === tomorrow.getTime()) return '<span class="when-badge when-tomorrow">Tomorrow</span>';
+  if (d.getTime() < today.getTime()) return '<span class="when-badge when-overdue">Overdue</span>';
   return '';
 }
 
