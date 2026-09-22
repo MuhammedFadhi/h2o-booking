@@ -329,18 +329,18 @@ SADA.InspectionReport = (function () {
         <label class="sada-ir__upload" for="ir-photo-input" id="ir-photo-box">
           <div class="sada-ir__upload-icon">📷</div>
           <div class="sada-ir__upload-label">${esc(PHOTO_LABEL_BY_TYPE[jt] || 'Completed Work Photo')}</div>
-          <div class="sada-ir__upload-sub">Tap to take a photo or choose one</div>
+          <div class="sada-ir__upload-sub">Tap to take a photo</div>
           <img id="ir-photo-preview" class="sada-ir__upload-preview" style="display:none;">
         </label>
-        <input type="file" id="ir-photo-input" accept="image/*" style="display:none;">
+        <input type="file" id="ir-photo-input" accept="image/*" capture="environment" style="display:none;">
         ${isInstall ? `
         <label class="sada-ir__upload" for="ir-qr-input" id="ir-qr-box">
           <div class="sada-ir__upload-icon">🏷️</div>
           <div class="sada-ir__upload-label">QR Sticker Photo</div>
-          <div class="sada-ir__upload-sub">Tap to take a photo or choose one</div>
+          <div class="sada-ir__upload-sub">Tap to take a photo</div>
           <img id="ir-qr-preview" class="sada-ir__upload-preview" style="display:none;">
         </label>
-        <input type="file" id="ir-qr-input" accept="image/*" style="display:none;">` : ''}
+        <input type="file" id="ir-qr-input" accept="image/*" capture="environment" style="display:none;">` : ''}
       </div>
       <div id="ir-unit-note" style="display:none;font-size:12.5px;color:#3730A3;background:#E0E7FF;border-radius:8px;padding:10px 12px;margin-top:10px;"></div>`;
 
