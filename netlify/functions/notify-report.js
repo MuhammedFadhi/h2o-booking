@@ -3,7 +3,7 @@ const https = require('https');
 const RELAY_HOST = '206.189.42.165', RELAY_PORT = 443, RELAY_TIMEOUT_MS = 30_000;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ykgtrloptgazeqjgxney.supabase.co';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const PORTAL_URL = 'https://sada-water-booking.vercel.app/customer/portal.html';
+const PORTAL_URL = 'https://booking.sadawater.com/customer/portal';
 
 async function sb(method, path) {
   if (!SERVICE_KEY) throw new Error('SUPABASE_SERVICE_ROLE_KEY env missing');
