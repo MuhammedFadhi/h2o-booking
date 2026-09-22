@@ -326,29 +326,21 @@ SADA.InspectionReport = (function () {
     };
     const photos = `
       <div class="sada-ir__uploads">
-        <div class="sada-ir__upload-group">
-          <label class="sada-ir__upload" for="ir-photo-input" id="ir-photo-box">
-            <div class="sada-ir__upload-icon">📷</div>
-            <div class="sada-ir__upload-label">${esc(PHOTO_LABEL_BY_TYPE[jt] || 'Completed Work Photo')}</div>
-            <div class="sada-ir__upload-sub">Tap to take a photo</div>
-            <img id="ir-photo-preview" class="sada-ir__upload-preview" style="display:none;">
-          </label>
-          <input type="file" id="ir-photo-input" accept="image/*" capture="environment" style="display:none;">
-          <label class="sada-ir__gallery-link" for="ir-photo-gallery-input">🖼️ Or choose from gallery</label>
-          <input type="file" id="ir-photo-gallery-input" accept="image/*" style="display:none;">
-        </div>
+        <label class="sada-ir__upload" for="ir-photo-input" id="ir-photo-box">
+          <div class="sada-ir__upload-icon">🖼️</div>
+          <div class="sada-ir__upload-label">${esc(PHOTO_LABEL_BY_TYPE[jt] || 'Completed Work Photo')}</div>
+          <div class="sada-ir__upload-sub">Tap to choose a photo</div>
+          <img id="ir-photo-preview" class="sada-ir__upload-preview" style="display:none;">
+        </label>
+        <input type="file" id="ir-photo-input" accept="image/*" style="display:none;">
         ${isInstall ? `
-        <div class="sada-ir__upload-group">
-          <label class="sada-ir__upload" for="ir-qr-input" id="ir-qr-box">
-            <div class="sada-ir__upload-icon">🏷️</div>
-            <div class="sada-ir__upload-label">QR Sticker Photo</div>
-            <div class="sada-ir__upload-sub">Tap to take a photo</div>
-            <img id="ir-qr-preview" class="sada-ir__upload-preview" style="display:none;">
-          </label>
-          <input type="file" id="ir-qr-input" accept="image/*" capture="environment" style="display:none;">
-          <label class="sada-ir__gallery-link" for="ir-qr-gallery-input">🖼️ Or choose from gallery</label>
-          <input type="file" id="ir-qr-gallery-input" accept="image/*" style="display:none;">
-        </div>` : ''}
+        <label class="sada-ir__upload" for="ir-qr-input" id="ir-qr-box">
+          <div class="sada-ir__upload-icon">🖼️</div>
+          <div class="sada-ir__upload-label">QR Sticker Photo</div>
+          <div class="sada-ir__upload-sub">Tap to choose a photo</div>
+          <img id="ir-qr-preview" class="sada-ir__upload-preview" style="display:none;">
+        </label>
+        <input type="file" id="ir-qr-input" accept="image/*" style="display:none;">` : ''}
       </div>
       <div id="ir-unit-note" style="display:none;font-size:12.5px;color:#3730A3;background:#E0E7FF;border-radius:8px;padding:10px 12px;margin-top:10px;"></div>`;
 
@@ -787,13 +779,14 @@ SADA.InspectionReport = (function () {
     // submit — which is what was crashing low-RAM installer phones with
     // "Unable to complete previous operation due to low memory". Now there's
     // one decode total, and the preview + the upload share the same small file.
-    // A "slot" holds whichever file was picked most recently, whether it came
-    // from the camera input or the gallery input — both feed the same preview
-    // box and the same object, so submit only ever has one place to read from.
+    // No `capture` attribute on the input — tapping the box opens the normal
+    // photo picker (gallery-first on most phones) rather than forcing the
+    // camera open directly.
     const photoSlot = { file: null, compressed: null };
     const qrSlot = { file: null, compressed: null };
 
-    const wirePreview = (slot, cameraInputId, galleryInputId, previewId, boxId) => {
+    const wirePreview = (slot, inputId, previewId, boxId) => {
+      const input = $(`#${inputId}`, root);
       const img = $(`#${previewId}`, root);
       const box = $(`#${boxId}`, root);
       const subEl = box?.querySelector('.sada-ir__upload-sub');
@@ -805,7 +798,7 @@ SADA.InspectionReport = (function () {
         if (subEl) subEl.textContent = label;
       };
 
-      const handle = async (input) => {
+      input?.addEventListener('change', async () => {
         const f = input.files && input.files[0];
         if (!f) return;
         slot.file = f; slot.compressed = null;
@@ -813,7 +806,7 @@ SADA.InspectionReport = (function () {
         // Large photos skip ALL in-page decoding — no <img> preview either,
         // since simply displaying it still makes the browser decode/paint the
         // full image, the exact thing that was crashing low-memory phones.
-        // They upload exactly as the camera (or gallery) produced them.
+        // They upload exactly as picked.
         if (f.size > LARGE_PHOTO_BYTES) { attached(f, `✓ Photo attached (${(f.size / (1024 * 1024)).toFixed(1)} MB) — no preview for large photos`); return; }
 
         try {
@@ -830,15 +823,10 @@ SADA.InspectionReport = (function () {
           console.warn('[IR] preview failed:', e);
           attached(f, '✓ Photo attached (preview unavailable)');
         }
-      };
-
-      [cameraInputId, galleryInputId].forEach((id) => {
-        const input = $(`#${id}`, root);
-        input?.addEventListener('change', () => handle(input));
       });
     };
-    wirePreview(photoSlot, 'ir-photo-input', 'ir-photo-gallery-input', 'ir-photo-preview', 'ir-photo-box');
-    wirePreview(qrSlot, 'ir-qr-input', 'ir-qr-gallery-input', 'ir-qr-preview', 'ir-qr-box');
+    wirePreview(photoSlot, 'ir-photo-input', 'ir-photo-preview', 'ir-photo-box');
+    wirePreview(qrSlot, 'ir-qr-input', 'ir-qr-preview', 'ir-qr-box');
 
     // Serialized-unit note — how many pending warranties this install will create.
     (async () => {
