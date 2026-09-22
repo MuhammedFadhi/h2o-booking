@@ -3136,7 +3136,7 @@ async function deleteBookingPermanently(bookingId, customerName, bookingRef) {
   if (pwd !== BOOKING_DELETE_PASSWORD) { alert('Wrong password. Aborted.'); return; }
 
   // FK-safe cleanup: free the slot, then remove children, then the booking itself.
-  const { data: bk } = await dbAdmin.from('bookings').select('slot_id').eq('id', bookingId).maybeSingle();
+  const { data: bk } = await dbAdmin.from('bookings').select('slot_id, customer_phone').eq('id', bookingId).maybeSingle();
   await dbAdmin.from('warranties').delete().eq('booking_id', bookingId);
   await dbAdmin.from('booking_items').delete().eq('booking_id', bookingId);
   const { error } = await dbAdmin.from('bookings').delete().eq('id', bookingId);
@@ -3144,7 +3144,26 @@ async function deleteBookingPermanently(bookingId, customerName, bookingRef) {
   if (bk?.slot_id) await dbAdmin.from('availability_slots').update({ is_booked: false }).eq('id', bk.slot_id);
 
   logActivity('booking.delete', `Permanently deleted booking ${bookingRef || ''} (+ warranties, items; slot freed)`, 'booking', bookingId);
-  showToast(`Booking ${bookingRef || ''} deleted; slot freed`, 'success');
+
+  // A booking and a customer profile are separate records — deleting one never
+  // silently deletes the other. But if this booking was the customer's LAST
+  // one, offer to remove their profile too in the same action instead of
+  // making the admin do a second delete in the Customers tab. Never offered
+  // (or acted on) if they still have other bookings, so their history for
+  // those is never put at risk.
+  let toast = `Booking ${bookingRef || ''} deleted; slot freed`;
+  if (bk?.customer_phone) {
+    const { count } = await dbAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('customer_phone', bk.customer_phone);
+    if (!count) {
+      const { data: cust } = await dbAdmin.from('customers').select('id').eq('phone', bk.customer_phone).maybeSingle();
+      if (cust && confirm(`That was ${customerName || 'this customer'}'s last booking.\n\nAlso remove their customer profile?`)) {
+        const { error: custErr } = await dbAdmin.from('customers').delete().eq('id', cust.id);
+        if (custErr) toast += ' (customer profile removal failed: ' + custErr.message + ')';
+        else { toast += '; customer profile removed'; logActivity('customer.delete', `Removed customer profile for ${customerName || bk.customer_phone} (no bookings left)`, 'customer', cust.id); }
+      }
+    }
+  }
+  showToast(toast, 'success');
   const modal = document.getElementById('booking-modal');
   if (modal && modal.style.display === 'flex') closeModal('booking-modal');
   loadBookings();
