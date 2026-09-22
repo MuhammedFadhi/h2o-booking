@@ -316,6 +316,15 @@ window.addEventListener('DOMContentLoaded', async () => {
   const stored = localStorage.getItem('sada_customer');
   if (!stored) { window.location.href = 'book.html'; return; }
   customer = JSON.parse(stored);
+
+  // The browser remembers this login independent of the database — if an
+  // admin deletes this customer's record, nothing here tells the browser
+  // that. Without this check, a deleted customer stays "signed in" showing
+  // stale cached details forever. Confirm the record still exists before
+  // trusting it; if not, treat it the same as signing out.
+  const { data: stillExists } = await db.from('customers').select('id').eq('phone', customer.phone).maybeSingle();
+  if (!stillExists) { logout(); return; }
+
   document.getElementById('user-name-header').textContent = customer.name || customer.phone;
   loadProfile();
   loadMyBookings();
