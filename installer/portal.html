@@ -294,6 +294,16 @@ async function loadAll() {
   myBookings = mine.data || [];
   availableBookings = avail.data || [];
 
+  // Today's open jobs go first regardless of date order, so the installer sees
+  // what's actionable right now before overdue/future jobs further down.
+  const todayIso = localDateISO(new Date());
+  availableBookings.sort((a, b) => {
+    const aToday = a.slot_date === todayIso ? 0 : 1;
+    const bToday = b.slot_date === todayIso ? 0 : 1;
+    if (aToday !== bToday) return aToday - bToday;
+    return a.slot_date === b.slot_date ? a.slot_hour - b.slot_hour : a.slot_date.localeCompare(b.slot_date);
+  });
+
   // Load the product lines for every visible job so each card can tell the
   // installer exactly what to load in the van before leaving.
   itemsByBooking = {};
