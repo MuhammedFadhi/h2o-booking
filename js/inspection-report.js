@@ -628,12 +628,22 @@ SADA.InspectionReport = (function () {
   // window.db directly) rather than depending on portal.html globals, since
   // this module is also loaded read-only by the admin and customer portals.
 
+  // Above this size we never attempt to decode the photo in-page at all (no
+  // preview, no compression) — some installer phones don't have enough free
+  // memory/storage left to decode a camera-resolution photo, and that kind
+  // of failure is a native OS-level crash ("Unable to complete previous
+  // operation due to low memory") that happens INSIDE the decode, before any
+  // of our try/catch gets a chance to run. Below this size, decoding is safe
+  // in practice and still gets the nicer preview + smaller upload.
+  const LARGE_PHOTO_BYTES = 4 * 1024 * 1024;
+
   // Shrink a camera photo before upload — phones produce 8-12MB images that
   // frequently time out on mobile data; ~1600px JPEG is plenty for proof.
   async function compressImage(file, maxDim = 1600, quality = 0.82) {
     try {
       if (!file || !/^image\//.test(file.type)) return file;
       if (file.size < 600 * 1024) return file;
+      if (file.size > LARGE_PHOTO_BYTES) return file;   // too risky to decode — upload as-is
 
       // Cheap dimension check via <img> — browsers read this from the JPEG
       // header without decoding full pixel data, so this alone doesn't cause
@@ -777,6 +787,21 @@ SADA.InspectionReport = (function () {
         input._compressed = null;
         const img = $(`#${previewId}`, root);
         const box = $(`#${boxId}`, root);
+        const subEl = box?.querySelector('.sada-ir__upload-sub');
+        const attached = (label) => {
+          input._compressed = f;
+          if (img.dataset.blobUrl) { URL.revokeObjectURL(img.dataset.blobUrl); delete img.dataset.blobUrl; }
+          img.removeAttribute('src'); img.style.display = 'none';
+          box?.classList.add('has-file');
+          if (subEl) subEl.textContent = label;
+        };
+
+        // Large photos skip ALL in-page decoding — no <img> preview either,
+        // since simply displaying it still makes the browser decode/paint the
+        // full image, the exact thing that was crashing low-memory phones.
+        // They upload exactly as the camera produced them.
+        if (f.size > LARGE_PHOTO_BYTES) { attached(`✓ Photo attached (${(f.size / (1024 * 1024)).toFixed(1)} MB) — no preview for large photos`); return; }
+
         try {
           const small = await compressImage(f);
           input._compressed = small;
@@ -786,7 +811,10 @@ SADA.InspectionReport = (function () {
           img.src = url; img.style.display = 'block';
           box?.classList.add('has-file');
         } catch (e) {
+          // Decoding failed even for a moderate-size photo — still safe to
+          // upload the original file untouched, just without a preview.
           console.warn('[IR] preview failed:', e);
+          attached('✓ Photo attached (preview unavailable)');
         }
       });
     };
