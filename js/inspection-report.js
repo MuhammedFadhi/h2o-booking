@@ -634,20 +634,41 @@ SADA.InspectionReport = (function () {
     try {
       if (!file || !/^image\//.test(file.type)) return file;
       if (file.size < 600 * 1024) return file;
-      const bitmap = await new Promise((res, rej) => {
+
+      // Cheap dimension check via <img> — browsers read this from the JPEG
+      // header without decoding full pixel data, so this alone doesn't cause
+      // the memory spike we're avoiding below.
+      const probe = await new Promise((res, rej) => {
         const img = new Image();
         const url = URL.createObjectURL(file);
         img.onload = () => { URL.revokeObjectURL(url); res(img); };
         img.onerror = (e) => { URL.revokeObjectURL(url); rej(e); };
         img.src = url;
       });
-      let { width: w, height: h } = bitmap;
-      const scale = Math.min(1, maxDim / Math.max(w, h));
+      const { naturalWidth: w0, naturalHeight: h0 } = probe;
+      const scale = Math.min(1, maxDim / Math.max(w0, h0));
       if (scale >= 1 && file.size < 3 * 1024 * 1024) return file;
-      w = Math.round(w * scale); h = Math.round(h * scale);
+      const w = Math.round(w0 * scale), h = Math.round(h0 * scale);
+
+      // A modern phone camera photo can be 4000x3000+ — decoding that at full
+      // resolution just to immediately shrink it (the old approach: draw the
+      // full-size <img> onto a small canvas) can allocate 40-50MB+ for one
+      // photo, which is what crashed low-RAM installer phones with "Unable to
+      // complete previous operation due to low memory". createImageBitmap's
+      // resize options let Chromium decode directly at the target size
+      // instead, so peak memory stays close to the OUTPUT size, not the
+      // camera's native resolution. Falls back to the <img>-based resize
+      // (the old path) wherever that API or its resize options aren't there.
+      let bitmap = null;
+      if (typeof createImageBitmap === 'function') {
+        try {
+          bitmap = await createImageBitmap(file, { resizeWidth: w, resizeHeight: h, resizeQuality: 'medium' });
+        } catch (e) { bitmap = null; }
+      }
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+      canvas.getContext('2d').drawImage(bitmap || probe, 0, 0, w, h);
+      bitmap?.close?.();
       const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
       if (!blob || blob.size >= file.size) return file;
       return new File([blob], (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
@@ -742,18 +763,31 @@ SADA.InspectionReport = (function () {
     visitEl?.addEventListener('change', () => { if (intervalEl) recompute(); });
 
     // ---- Completion photo previews ----
+    // Compress on selection, not just at submit. A phone camera photo (often
+    // 8-15MB, 40MB+ once decoded to a raw bitmap) used to get decoded TWICE —
+    // once here for the FileReader preview, again by compressImage() at
+    // submit — which is what was crashing low-RAM installer phones with
+    // "Unable to complete previous operation due to low memory". Now there's
+    // one decode total, and the preview + the upload share the same small file.
     const wirePreview = (inputId, previewId, boxId) => {
       const input = $(`#${inputId}`, root);
-      input?.addEventListener('change', () => {
+      input?.addEventListener('change', async () => {
         const f = input.files && input.files[0];
         if (!f) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const img = $(`#${previewId}`, root);
-          img.src = ev.target.result; img.style.display = 'block';
-          $(`#${boxId}`, root)?.classList.add('has-file');
-        };
-        reader.readAsDataURL(f);
+        input._compressed = null;
+        const img = $(`#${previewId}`, root);
+        const box = $(`#${boxId}`, root);
+        try {
+          const small = await compressImage(f);
+          input._compressed = small;
+          if (img.dataset.blobUrl) URL.revokeObjectURL(img.dataset.blobUrl);
+          const url = URL.createObjectURL(small);
+          img.dataset.blobUrl = url;
+          img.src = url; img.style.display = 'block';
+          box?.classList.add('has-file');
+        } catch (e) {
+          console.warn('[IR] preview failed:', e);
+        }
       });
     };
     wirePreview('ir-photo-input', 'ir-photo-preview', 'ir-photo-box');
@@ -851,8 +885,10 @@ SADA.InspectionReport = (function () {
         const jt = (ctx.booking?.booking_type || 'installation');
         const isInstall = jt === 'installation';
         const isAdminBooking = ctx.booking?.created_by === 'admin' || jt === 'relocation';
-        const photoFile = $('#ir-photo-input', root)?.files?.[0];
-        const qrFile = $('#ir-qr-input', root)?.files?.[0];
+        const photoInput = $('#ir-photo-input', root);
+        const qrInput = $('#ir-qr-input', root);
+        const photoFile = photoInput?.files?.[0];
+        const qrFile = qrInput?.files?.[0];
 
         if (isSubmit) {
           if (!ctx.pads?.tech || ctx.pads.tech.isEmpty()) { alert('Technician signature is required.'); return; }
@@ -888,11 +924,13 @@ SADA.InspectionReport = (function () {
 
             e.target.textContent = 'Uploading photos…';
             const ts = Date.now();
-            const photoSmall = await compressImage(photoFile);
+            // Reuse the file already compressed when it was picked (see wirePreview) —
+            // only falls back to compressing here if that somehow didn't happen.
+            const photoSmall = photoInput._compressed || await compressImage(photoFile);
             photoUrl = await uploadProofFile(photoSmall, `${ctx.bookingId}/photo_${ts}.jpg`);
             if (!photoUrl) throw new Error('Installation photo upload failed. Check your connection and try again.');
             if (qrFile) {
-              const qrSmall = await compressImage(qrFile);
+              const qrSmall = qrInput._compressed || await compressImage(qrFile);
               qrUrl = await uploadProofFile(qrSmall, `${ctx.bookingId}/qr_${ts}.jpg`);
               if (!qrUrl) throw new Error('QR photo upload failed. Check your connection and try again.');
             }
