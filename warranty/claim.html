@@ -383,9 +383,10 @@ async function claim() {
     };
   }
   // Offer a link to view their full profile (which will require OTP on a fresh visit).
+  // Download-certificate button hidden for now — kept in downloadCert()/SADACert
+  // so it's a one-line change to bring back.
   const dLead = document.getElementById('done-summary');
   if (dLead) dLead.innerHTML += '<div style="margin-top:14px;text-align:center;display:flex;flex-direction:column;gap:8px;">'
-    + '<button class="btn btn-primary" onclick="downloadCert()" style="font-size:13px;">📄 Download Warranty Certificate</button>'
     + '<button class="btn btn-ghost" onclick="viewProfile()" style="font-size:13px;">View all my warranties →</button></div>';
   show('step-done');
 }
