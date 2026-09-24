@@ -782,7 +782,7 @@
         productInterest: $('l-product').value, source: $('l-source').value, notes: $('l-notes').value.trim()
       });
       ['l-name', 'l-phone', 'l-notes'].forEach((id) => { $(id).value = ''; });
-      $('l-region').value = ''; onLeadRegionChange(); $('l-product').value = ''; $('l-source').selectedIndex = 0;
+      $('l-region').value = ''; onLeadRegionChange(); $('l-product').value = ''; $('l-source').value = 'Lulu Kiosk';
       toast('Lead added');
       await fetchLeads(true);
       leadFilter = 'open'; document.querySelectorAll('.lead-filter button').forEach((b) => b.classList.toggle('active', b.dataset.lf === 'open'));
@@ -848,7 +848,10 @@
   $('refresh-btn').addEventListener('click', () => loadMine(true));
   $('signout-btn').addEventListener('click', async () => { await db.auth.signOut(); window.location.href = '../admin/login.html'; });
   $('f-source').innerHTML = '<option value="">— Select —</option>' + SOURCES.map((s) => `<option>${esc(s)}</option>`).join('');
+  // Most leads for this role come from the Lulu Kiosk, so it's the default —
+  // still just a plain option the sales user can change, not enforced anywhere.
   $('l-source').innerHTML = '<option value="">— Not sure yet —</option>' + SOURCES.map((s) => `<option>${esc(s)}</option>`).join('');
+  $('l-source').value = 'Lulu Kiosk';
   $('l-region').addEventListener('change', onLeadRegionChange);
   $('lead-submit-btn').addEventListener('click', submitLead);
 
