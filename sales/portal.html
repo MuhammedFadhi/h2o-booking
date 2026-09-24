@@ -144,7 +144,7 @@
   <button class="tab" id="tab-mine" type="button" role="tab" data-tab="mine">My Bookings</button>
 </nav>
 
-<div class="stats-row" aria-label="Your booking totals">
+<div class="stats-row" id="stats-row" aria-label="Your booking totals">
   <div class="stat-tile"><span class="stat-num" id="stat-today">–</span><span class="stat-label">Booked Today</span></div>
   <div class="stat-tile"><span class="stat-num" id="stat-month">–</span><span class="stat-label">Booked This Month</span></div>
 </div>
@@ -331,6 +331,7 @@
     $('tab-new').classList.toggle('active', name === 'new');
     $('tab-leads').classList.toggle('active', name === 'leads');
     $('tab-mine').classList.toggle('active', name === 'mine');
+    $('stats-row').hidden = name === 'leads';   // booking totals don't apply to a list of leads
     if (name === 'mine') loadMine();
     if (name === 'leads') loadLeads();
     window.scrollTo(0, 0);
