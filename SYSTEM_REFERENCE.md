@@ -91,10 +91,10 @@ their normalized `+9665XXXXXXXX` phone. `formatSaudiPhone()` / `isValidSaudiPhon
 | Model | Price (SAR) | Serialized (QR + warranty)? |
 |---|---|---|
 | RO Water Dispenser (Hot/Cold) | 499 | **No** |
-| 7-Stage RO Purifier | 699 | Yes |
-| 7-Stage RO Purifier + UV | 999 | Yes |
-| 6-Stage Smart RO | 1,199 | Yes |
-| 7-Stage Smart RO | 1,299 | Yes |
+| 7 stage RO - A100 | 699 | Yes |
+| 7 stage RO - A1UV | 999 | Yes |
+| Smart RO (6 stage) - SRO6 | 1,199 | Yes |
+| Smart RO (7 stage) - SRO7 | 1,299 | Yes |
 
 ---
 
