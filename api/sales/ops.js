@@ -17,7 +17,7 @@ const { requireSales, sb } = require('./_auth');
 const ALLOWED_SOURCES = new Set([
   'Phone Call', 'WhatsApp', 'Instagram', 'Snapchat', 'TikTok', 'Google Search',
   'Friend / Family', 'Existing Customer', 'Direct Sales', 'Dammam Showroom', 'Khobar Showroom',
-  'Exhibition / Event', 'Flyer / Billboard', 'Other'
+  'Lulu Kiosk', 'Exhibition / Event', 'Flyer / Billboard', 'Other'
 ]);
 const DISPENSER_COLORS = ['Black', 'White'];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
