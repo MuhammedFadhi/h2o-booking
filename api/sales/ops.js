@@ -1,11 +1,15 @@
 // /api/sales/ops — the ONLY way a sales user reads or writes data.
-// Actions: me | my-bookings | check-promo | create-booking
+// Actions: me | my-bookings | check-promo | create-booking |
+//          my-leads | create-lead | mark-lead-lost
 // Auth: caller must present a Bearer token for an ACTIVE row in sales_users.
 //
 // All database access here uses the service key but is scoped to the caller:
-//   - my-bookings only returns rows where bookings.created_by_user = caller.
+//   - my-bookings/my-leads only return rows where created_by_user = caller.
 //   - create-booking stamps created_by_user = caller, validates the slot, and
 //     re-prices the basket from product_models (the browser's prices are ignored).
+//   - create-lead stamps created_by_user = caller. mark-lead-lost and
+//     create-booking's optional leadId conversion both re-check the lead
+//     belongs to the caller and is still 'open' before touching it.
 // Sales users therefore need no database permissions of their own.
 
 const { requireSales, sb } = require('./_auth');
@@ -100,6 +104,7 @@ async function createBooking(user, body) {
   const slotId = String(body.slotId || '');
   const items = Array.isArray(body.items) ? body.items : [];
   const promoCode = clean(body.promoCode, 40);
+  const leadId = clean(body.leadId, 40);
   const toCoord = (v, min, max) => { const n = Number(v); return Number.isFinite(n) && n >= min && n <= max ? n : null; };
   const latitude = toCoord(body.latitude, -90, 90);
   const longitude = toCoord(body.longitude, -180, 180);
@@ -112,6 +117,18 @@ async function createBooking(user, body) {
   if (!UUID_RE.test(slotId)) throw bad(400, 'Pick an available date and time slot.');
   if (source && !ALLOWED_SOURCES.has(source)) throw bad(400, 'Unknown source.');
   if (!items.length || items.length > 12) throw bad(400, 'Add at least one product.');
+
+  // Booking from a lead ("Convert to Booking") — confirm it's really theirs and
+  // still open BEFORE reserving a slot, so a stale/bogus leadId fails cleanly
+  // instead of creating a booking that then silently can't be linked.
+  let lead = null;
+  if (leadId) {
+    if (!UUID_RE.test(leadId)) throw bad(400, 'Unknown lead.');
+    const rows = await sb('GET', `/rest/v1/leads?id=eq.${leadId}&select=id,created_by_user,status`);
+    lead = rows && rows[0];
+    if (!lead || lead.created_by_user !== user.userId) throw bad(404, 'Lead not found.');
+    if (lead.status !== 'open') throw bad(400, 'This lead has already been converted or marked lost.');
+  }
 
   // ── price the basket from the catalogue (never trust browser prices) ──
   const catalogue = await sb('GET', '/rest/v1/product_models?select=model_name,price_sar,is_catalogue,is_serialized,in_stock');
@@ -201,6 +218,11 @@ async function createBooking(user, body) {
     summary: `Sales (${user.name}) booked for ${name} (${phone}) — ${lines.length} product line(s), ${lines.reduce((s, l) => s + l.qty, 0)} unit(s)`,
     entity_type: 'booking', entity_id: String(bookingId)
   }).catch((e) => warnings.push('log: ' + e.message));
+  if (lead) {
+    await sb('PATCH', `/rest/v1/leads?id=eq.${leadId}`, {
+      status: 'converted', converted_booking_id: bookingId, converted_at: new Date().toISOString(), updated_at: new Date().toISOString()
+    }).catch((e) => warnings.push('lead: ' + e.message));
+  }
 
   return {
     ok: true,
@@ -212,6 +234,66 @@ async function createBooking(user, body) {
     },
     warnings
   };
+}
+
+// ── my-leads ───────────────────────────────────────────────────────────────
+async function myLeads(user) {
+  const rows = await sb('GET',
+    `/rest/v1/leads?created_by_user=eq.${user.userId}&select=*&order=created_at.desc&limit=500`);
+  return { leads: rows || [] };
+}
+
+// ── create-lead ────────────────────────────────────────────────────────────
+async function createLead(user, body) {
+  const name = clean(body.name, 80);
+  const phone = normalizePhone(body.phone);
+  const regionId = clean(body.regionId, 40);
+  const cityName = clean(body.cityName, 80) || null;
+  const source = clean(body.source, 40) || null;
+  const productInterest = clean(body.productInterest, 80) || null;
+  const notes = clean(body.notes, 500) || null;
+
+  if (!name) throw bad(400, 'Enter the lead\'s name.');
+  if (!phone) throw bad(400, 'That mobile number doesn\'t look right. Use a 10-digit Saudi mobile, e.g. 0558233001.');
+  if (regionId && !UUID_RE.test(regionId)) throw bad(400, 'Choose a valid region.');
+  if (source && !ALLOWED_SOURCES.has(source)) throw bad(400, 'Unknown source.');
+  if (productInterest) {
+    const catalogue = await sb('GET', '/rest/v1/product_models?select=model_name');
+    if (!(catalogue || []).some((p) => p.model_name === productInterest)) throw bad(400, `Unknown product: ${productInterest}`);
+  }
+
+  const rows = await sb('POST', '/rest/v1/leads', {
+    name, phone, region_id: regionId || null, city_name: cityName,
+    source, product_interest: productInterest, notes,
+    status: 'open', created_by_user: user.userId, created_by_name: user.name
+  }, null, { Prefer: 'return=representation' });
+  const row = rows && rows[0];
+  if (!row) throw bad(500, 'Could not save the lead.');
+
+  await sb('POST', '/rest/v1/activity_log', {
+    actor: user.email, action: 'lead.create',
+    summary: `Sales (${user.name}) added a lead: ${name} (${phone})`,
+    entity_type: 'lead', entity_id: String(row.id)
+  }).catch(() => {});
+
+  return { ok: true, lead: row };
+}
+
+// ── mark-lead-lost ─────────────────────────────────────────────────────────
+async function markLeadLost(user, body) {
+  const leadId = clean(body.leadId, 40);
+  const reason = clean(body.reason, 300) || null;
+  if (!UUID_RE.test(leadId)) throw bad(400, 'Unknown lead.');
+
+  const rows = await sb('GET', `/rest/v1/leads?id=eq.${leadId}&select=id,created_by_user,status`);
+  const lead = rows && rows[0];
+  if (!lead || lead.created_by_user !== user.userId) throw bad(404, 'Lead not found.');
+  if (lead.status !== 'open') throw bad(400, 'This lead is no longer open.');
+
+  await sb('PATCH', `/rest/v1/leads?id=eq.${leadId}`, {
+    status: 'lost', lost_reason: reason, updated_at: new Date().toISOString()
+  });
+  return { ok: true };
 }
 
 module.exports = async function handler(req, res) {
@@ -231,6 +313,9 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({ code: p.code, discount_type: p.discount_type, discount_value: Number(p.discount_value) });
       }
       case 'my-bookings': return res.status(200).json(await myBookings(user));
+      case 'my-leads': return res.status(200).json(await myLeads(user));
+      case 'create-lead': return res.status(201).json(await createLead(user, body));
+      case 'mark-lead-lost': return res.status(200).json(await markLeadLost(user, body));
       case 'create-booking': return res.status(201).json(await createBooking(user, body));
       default: return res.status(400).json({ error: 'Unknown action' });
     }

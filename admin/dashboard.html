@@ -674,6 +674,9 @@
     <div class="nav-item" onclick="showPanel('bookings', this)">
       <span class="nav-icon">📋</span> All Bookings
     </div>
+    <div class="nav-item" onclick="showPanel('leads', this)">
+      <span class="nav-icon">🧲</span> Leads
+    </div>
     <div class="nav-item" onclick="showPanel('slots', this)">
       <span class="nav-icon">🗓️</span> Availability Slots
     </div>
@@ -845,6 +848,27 @@
         <div id="bookings-table">
           <div class="loading"><div class="spinner"></div> Loading bookings...</div>
         </div>
+      </div>
+    </div>
+
+    <!-- LEADS PANEL -->
+    <div class="panel" id="panel-leads">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Leads</span>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <input type="text" class="form-input" id="lead-search" placeholder="🔍 Search by name or phone..." oninput="renderLeadsAdminTable()" style="min-width:220px;" autocomplete="off">
+            <select id="lead-status-filter" class="form-input" onchange="renderLeadsAdminTable()">
+              <option value="open">Open</option>
+              <option value="converted">Converted</option>
+              <option value="lost">Lost</option>
+              <option value="">All statuses</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin:-4px 0 12px;">Added by the sales team — an open lead becomes a booking (and drops off this list) when a sales user converts it.</div>
+        <div id="leads-table-count" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
+        <div id="leads-table"><div class="loading"><div class="spinner"></div> Loading leads...</div></div>
       </div>
     </div>
 
@@ -1826,6 +1850,7 @@ const panelTitles = {
   overview: ['Overview', 'Everything that needs your attention today'],
   analytics: ['Analytics', 'Business performance at a glance'],
   bookings: ['All Bookings', 'Manage and assign installation appointments'],
+  leads: ['Leads', 'Contacts sales has added, before they become a booking'],
   slots: ['Availability Slots', 'Control which time slots customers can book'],
   installers: ['User Management', 'Add, remove and manage installers and admin users'],
   passwords: ['Manage Access', 'Create and reset installer login passwords'],
@@ -1857,6 +1882,7 @@ function showPanel(name, el) {
   if (name === 'installers') { loadInstallers().then(() => loadInstallerPerformance()).then(() => renderInstallersTable()); loadAdmins(); loadSales(); }
   if (name === 'passwords') populatePasswordInstallers();
   if (name === 'bookings') loadBookings();
+  if (name === 'leads') loadLeadsAdmin();
   if (name === 'sms-settings') loadSMSSettings();
   if (name === 'customers') loadCustomers();
   if (name === 'reports') loadInspectionReports();
@@ -5344,6 +5370,55 @@ async function isSMSEnabled(key) {
 // CUSTOMERS
 // ============================================================
 let allCustomers = [];
+
+// ============================================================
+// LEADS — added by the sales team; read-only here. Sales users convert a
+// lead to a booking or mark it lost from their own portal (api/sales/ops.js);
+// admin RLS (is_admin()) gives full read access directly, same as bookings.
+// ============================================================
+let allLeads = [];
+
+async function loadLeadsAdmin() {
+  const container = document.getElementById('leads-table');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+  const { data, error } = await dbAdmin.from('leads').select('*').order('created_at', { ascending: false }).limit(1000);
+  if (error) { container.innerHTML = `<div class="empty-state">⚠️ Failed to load leads: ${escB(error.message)}</div>`; return; }
+  allLeads = data || [];
+  renderLeadsAdminTable();
+}
+
+function renderLeadsAdminTable() {
+  const container = document.getElementById('leads-table');
+  const countEl = document.getElementById('leads-table-count');
+  const q = (document.getElementById('lead-search')?.value || '').trim().toLowerCase();
+  const status = document.getElementById('lead-status-filter')?.value || '';
+  let rows = allLeads;
+  if (status) rows = rows.filter(l => l.status === status);
+  if (q) rows = rows.filter(l => (l.name || '').toLowerCase().includes(q) || (l.phone || '').toLowerCase().includes(q));
+  countEl.textContent = `${rows.length} lead${rows.length === 1 ? '' : 's'}`;
+  if (!rows.length) { container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🧲</div><div>No leads found.</div></div>'; return; }
+
+  const statusPill = (s) => {
+    const map = { open: ['Open', '#2563EB'], converted: ['Converted', '#16A34A'], lost: ['Lost', '#94A3B8'] };
+    const [label, color] = map[s] || [s, '#6B7280'];
+    return `<span class="status-badge" style="background:${color}22;color:${color};">${label}</span>`;
+  };
+
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>Lead</th><th>Where</th><th>Interest / Source</th><th>Notes</th><th>Added by</th><th>Added</th><th>Status</th></tr></thead>
+      <tbody>${rows.map(l => `
+        <tr>
+          <td><div style="font-weight:600;">${escB(l.name)}</div><div style="font-size:11px;color:var(--muted);">${escB(l.phone)}</div></td>
+          <td>${escB(l.city_name || '—')}</td>
+          <td>${[l.product_interest, l.source].filter(Boolean).map(escB).join(' · ') || '—'}</td>
+          <td style="max-width:220px;font-size:12px;color:var(--muted);">${escB(l.notes || '—')}${l.status === 'lost' && l.lost_reason ? `<br><em>Lost: ${escB(l.lost_reason)}</em>` : ''}</td>
+          <td>${escB(l.created_by_name || '—')}</td>
+          <td style="font-size:12px;color:var(--muted);">${new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+          <td>${statusPill(l.status)}</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+}
 
 async function loadCustomers() {
   const container = document.getElementById('customers-table');

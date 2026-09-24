@@ -110,6 +110,11 @@
     .stat-num { display: block; font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 700; color: var(--navy); line-height: 1.15; }
     .stat-label { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: .3px; text-transform: uppercase; }
 
+    .lead-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .lead-filter { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .lead-filter button { border: 1.5px solid var(--line); background: #fff; color: var(--muted); font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 999px; cursor: pointer; }
+    .lead-filter button.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+
     .bk-head { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
     .bk-head input { flex: 1; }
     .count { font-size: 12px; color: var(--muted); margin: 0 4px 10px; }
@@ -135,6 +140,7 @@
 
 <nav class="tabs" role="tablist">
   <button class="tab active" id="tab-new" type="button" role="tab" data-tab="new">New Booking</button>
+  <button class="tab" id="tab-leads" type="button" role="tab" data-tab="leads">Leads</button>
   <button class="tab" id="tab-mine" type="button" role="tab" data-tab="mine">My Bookings</button>
 </nav>
 
@@ -219,6 +225,37 @@
     </div>
   </section>
 
+  <!-- ═════════ LEADS ═════════ -->
+  <section id="pane-leads" hidden>
+    <div class="card">
+      <h2>Add a lead</h2>
+      <div class="row">
+        <div class="field"><label for="l-name">Full name</label><input id="l-name" autocomplete="off" maxlength="80"></div>
+        <div class="field"><label for="l-phone">Mobile number</label><input id="l-phone" type="tel" inputmode="numeric" placeholder="05XXXXXXXX" autocomplete="off" maxlength="16"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="l-region">Region <span class="opt">(optional)</span></label><select id="l-region"><option value="">— Not sure yet —</option></select></div>
+        <div class="field"><label for="l-city">City <span class="opt">(optional)</span></label><select id="l-city"><option value="">— Not sure yet —</option></select></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="l-product">Interested in <span class="opt">(optional)</span></label><select id="l-product"><option value="">— Not sure yet —</option></select></div>
+        <div class="field"><label for="l-source">How did they hear about us? <span class="opt">(optional)</span></label><select id="l-source"></select></div>
+      </div>
+      <div class="field" style="margin-bottom:0"><label for="l-notes">Notes <span class="opt">(optional)</span></label><textarea id="l-notes" maxlength="500" placeholder="Anything worth remembering for the follow-up"></textarea></div>
+      <div class="err" id="lead-err" role="alert" style="margin-bottom:0"></div>
+      <button class="btn btn-primary" id="lead-submit-btn" type="button" style="margin-top:14px">Add lead</button>
+    </div>
+
+    <div class="lead-filter" role="tablist" aria-label="Filter leads">
+      <button type="button" class="active" data-lf="open">Open</button>
+      <button type="button" data-lf="converted">Converted</button>
+      <button type="button" data-lf="lost">Lost</button>
+      <button type="button" data-lf="all">All</button>
+    </div>
+    <div class="count" id="lead-count"></div>
+    <div id="lead-list"></div>
+  </section>
+
   <!-- ═════════ MY BOOKINGS ═════════ -->
   <section id="pane-mine" hidden>
     <div class="bk-head">
@@ -289,18 +326,24 @@
   // ── tabs ───────────────────────────────────────────────────────────────────
   function showTab(name) {
     $('pane-new').hidden = name !== 'new';
+    $('pane-leads').hidden = name !== 'leads';
     $('pane-mine').hidden = name !== 'mine';
     $('tab-new').classList.toggle('active', name === 'new');
+    $('tab-leads').classList.toggle('active', name === 'leads');
     $('tab-mine').classList.toggle('active', name === 'mine');
     if (name === 'mine') loadMine();
+    if (name === 'leads') loadLeads();
     window.scrollTo(0, 0);
   }
 
   // ── reference data ─────────────────────────────────────────────────────────
+  let regionsCache = [];
   async function loadRegions() {
     const { data } = await db.from('service_regions').select('id, name').order('sort_order');
-    $('f-region').innerHTML = (data || []).map((r) => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')
-      || '<option value="">— no regions —</option>';
+    regionsCache = data || [];
+    const opts = regionsCache.map((r) => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('') || '<option value="">— no regions —</option>';
+    $('f-region').innerHTML = opts;
+    $('l-region').innerHTML = '<option value="">— Not sure yet —</option>' + opts;
     await onRegionChange();
   }
 
@@ -312,6 +355,16 @@
     await loadDates();
   }
 
+  // Independent of the booking form's region/city (no slot/date side effects —
+  // a lead isn't tied to an appointment yet).
+  async function onLeadRegionChange() {
+    const regionId = $('l-region').value;
+    const citySel = $('l-city');
+    if (!regionId) { citySel.innerHTML = '<option value="">— Not sure yet —</option>'; return; }
+    const { data } = await db.from('cities').select('id, name').eq('region_id', regionId).order('name');
+    citySel.innerHTML = '<option value="">— Not sure yet —</option>' + (data || []).map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+  }
+
   async function loadCatalogue() {
     const { data } = await db.from('product_models')
       .select('model_name, price_sar, in_stock, is_catalogue, sort_order')
@@ -319,6 +372,8 @@
     catalogue = (data || []).filter((p) => p.in_stock !== false);
     $('f-product').innerHTML = '<option value="">Select a product…</option>' + catalogue.map((p) =>
       `<option value="${esc(p.model_name)}">${esc(p.model_name)}${p.price_sar ? ' — ' + money(p.price_sar) : ''}</option>`).join('');
+    $('l-product').innerHTML = '<option value="">— Not sure yet —</option>' + catalogue.map((p) =>
+      `<option value="${esc(p.model_name)}">${esc(p.model_name)}</option>`).join('');
   }
 
   // ── basket ─────────────────────────────────────────────────────────────────
@@ -536,10 +591,12 @@
         regionId: $('f-region').value, cityName: $('f-city').value,
         floorNo: $('f-floor').value.trim(), flatNo: $('f-flat').value.trim(),
         source: $('f-source').value, slotId: selectedSlot, promoCode: promo ? promo.code : '',
-        latitude: gpsLat, longitude: gpsLon,
+        latitude: gpsLat, longitude: gpsLon, leadId: pendingLeadId || undefined,
         items: basket.map((l) => ({ model: l.model, qty: l.qty, color: l.color }))
       });
+      pendingLeadId = null;
       fetchMine(true).catch(() => {});   // refresh in the background so the totals above pick up this booking
+      fetchLeads(true).catch(() => {});  // ...and so a converted lead's status/badge picks up too
       showDone(res.booking);
       sendConfirmationSMS(res.booking);
     } catch (e) {
@@ -565,7 +622,7 @@
   function resetForm() {
     ['f-name', 'f-phone', 'f-address', 'f-floor', 'f-flat'].forEach((id) => { $(id).value = ''; });
     $('f-source').selectedIndex = 0;
-    basket = []; promo = null; promoMsg(''); $('f-promo').value = ''; selectedSlot = null; formError('');
+    basket = []; promo = null; promoMsg(''); $('f-promo').value = ''; selectedSlot = null; formError(''); pendingLeadId = null;
     resetLocation();
     renderBasket(); loadDates();
     $('done-area').hidden = true; $('form-area').hidden = false;
@@ -653,6 +710,127 @@
     }).join('');
   }
 
+  // ── leads ──────────────────────────────────────────────────────────────────
+  let leads = null, leadFilter = 'open', pendingLeadId = null;
+  const LEAD_STATUS = {
+    open: { label: 'Open', color: '#2563EB' },
+    converted: { label: 'Converted', color: '#16A34A' },
+    lost: { label: 'Lost', color: '#94A3B8' }
+  };
+
+  async function fetchLeads(force) {
+    if (leads && !force) return leads;
+    leads = (await api('my-leads')).leads || [];
+    const openCount = leads.filter((l) => l.status === 'open').length;
+    $('tab-leads').textContent = `Leads (${openCount})`;
+    return leads;
+  }
+
+  async function loadLeads(force) {
+    $('lead-list').innerHTML = '<div class="empty">Loading…</div>'; $('lead-count').textContent = '';
+    try { await fetchLeads(force); renderLeads(); }
+    catch (e) { $('lead-list').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  }
+
+  function renderLeads() {
+    const rows = leadFilter === 'all' ? (leads || []) : (leads || []).filter((l) => l.status === leadFilter);
+    $('lead-count').textContent = `${rows.length} lead${rows.length === 1 ? '' : 's'}`;
+    if (!rows.length) {
+      $('lead-list').innerHTML = `<div class="empty">${leads && leads.length ? 'No leads in this view.' : 'No leads added yet.'}</div>`;
+      return;
+    }
+    $('lead-list').innerHTML = rows.map((l) => {
+      const st = LEAD_STATUS[l.status] || LEAD_STATUS.open;
+      const when = new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      const meta = [l.city_name, l.source, l.product_interest].filter(Boolean);
+      return `<div class="bk">
+        <div class="bk-top">
+          <div><div class="nm">${esc(l.name)}</div><a href="tel:${esc(l.phone)}">${esc(l.phone)}</a></div>
+          <span class="pill" style="background:${st.color}">${esc(st.label)}</span>
+        </div>
+        <div class="bk-meta">
+          <div><span class="k">Added</span> ${when}${meta.length ? ' · ' + meta.map(esc).join(' · ') : ''}</div>
+          ${l.notes ? `<div><span class="k">Notes</span> ${esc(l.notes)}</div>` : ''}
+          ${l.status === 'lost' && l.lost_reason ? `<div><span class="k">Lost reason</span> ${esc(l.lost_reason)}</div>` : ''}
+        </div>
+        ${l.status === 'open' ? `<div class="lead-actions">
+          <button class="btn btn-primary btn-sm" data-convert="${esc(l.id)}">Convert to Booking</button>
+          <button class="btn btn-ghost btn-sm" data-lost="${esc(l.id)}">Mark Lost</button>
+        </div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  $('lead-list').addEventListener('click', (e) => {
+    const c = e.target.closest('button[data-convert]');
+    if (c) return convertLead(c.dataset.convert);
+    const l = e.target.closest('button[data-lost]');
+    if (l) return markLeadLost(l.dataset.lost);
+  });
+
+  function leadError(msg) { const el = $('lead-err'); el.textContent = msg; el.style.display = msg ? 'block' : 'none'; if (msg) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+
+  async function submitLead() {
+    leadError('');
+    const name = $('l-name').value.trim(), phone = $('l-phone').value.trim();
+    if (!name) return leadError('Enter the lead’s name.');
+    if (!phone) return leadError('Enter a mobile number.');
+    const btn = $('lead-submit-btn'); btn.disabled = true; btn.textContent = 'Adding…';
+    try {
+      await api('create-lead', {
+        name, phone, regionId: $('l-region').value, cityName: $('l-city').value,
+        productInterest: $('l-product').value, source: $('l-source').value, notes: $('l-notes').value.trim()
+      });
+      ['l-name', 'l-phone', 'l-notes'].forEach((id) => { $(id).value = ''; });
+      $('l-region').value = ''; onLeadRegionChange(); $('l-product').value = ''; $('l-source').selectedIndex = 0;
+      toast('Lead added');
+      await fetchLeads(true);
+      leadFilter = 'open'; document.querySelectorAll('.lead-filter button').forEach((b) => b.classList.toggle('active', b.dataset.lf === 'open'));
+      renderLeads();
+    } catch (e) { leadError(e.message); }
+    finally { btn.disabled = false; btn.textContent = 'Add lead'; }
+  }
+
+  document.querySelectorAll('.lead-filter button').forEach((b) => b.addEventListener('click', () => {
+    leadFilter = b.dataset.lf;
+    document.querySelectorAll('.lead-filter button').forEach((x) => x.classList.toggle('active', x === b));
+    renderLeads();
+  }));
+
+  // "Convert to Booking" pre-fills the New Booking form from the lead and
+  // remembers its id — submit() below sends it along so the server can mark
+  // the lead converted once the booking is actually confirmed. Nothing about
+  // the lead changes until that booking succeeds.
+  function convertLead(id) {
+    const l = (leads || []).find((x) => x.id === id);
+    if (!l) return;
+    resetForm();
+    pendingLeadId = id;
+    $('f-name').value = l.name;
+    $('f-phone').value = l.phone.replace(/^\+966/, '0');
+    if (l.region_id && regionsCache.some((r) => r.id === l.region_id)) {
+      $('f-region').value = l.region_id;
+      onRegionChange().then(() => { if (l.city_name) $('f-city').value = l.city_name; });
+    }
+    if (l.source) $('f-source').value = l.source;
+    if (l.product_interest) { $('f-product').value = l.product_interest; addProduct(); }
+    showTab('new');
+    toast(`Converting lead: ${l.name} — fill in the address and slot, then confirm`);
+  }
+
+  async function markLeadLost(id) {
+    const l = (leads || []).find((x) => x.id === id);
+    if (!l) return;
+    const reason = prompt(`Mark ${l.name} as lost. Reason (optional):`);
+    if (reason === null) return;
+    try {
+      await api('mark-lead-lost', { leadId: id, reason: reason.trim() || undefined });
+      toast('Lead marked lost');
+      await fetchLeads(true);
+      renderLeads();
+    } catch (e) { toast(e.message); }
+  }
+
   // ── boot ───────────────────────────────────────────────────────────────────
   document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
   $('f-region').addEventListener('change', onRegionChange);
@@ -670,13 +848,16 @@
   $('refresh-btn').addEventListener('click', () => loadMine(true));
   $('signout-btn').addEventListener('click', async () => { await db.auth.signOut(); window.location.href = '../admin/login.html'; });
   $('f-source').innerHTML = '<option value="">— Select —</option>' + SOURCES.map((s) => `<option>${esc(s)}</option>`).join('');
+  $('l-source').innerHTML = '<option value="">— Not sure yet —</option>' + SOURCES.map((s) => `<option>${esc(s)}</option>`).join('');
+  $('l-region').addEventListener('change', onLeadRegionChange);
+  $('lead-submit-btn').addEventListener('click', submitLead);
 
   (async function init() {
     const me = await guard();
     if (!me) return;
     $('who-name').textContent = me.name;
     renderBasket();
-    await Promise.all([loadCatalogue(), loadRegions(), fetchMine()]);
+    await Promise.all([loadCatalogue(), loadRegions(), fetchMine(), fetchLeads()]);
   })();
 </script>
 </body>
