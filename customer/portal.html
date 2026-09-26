@@ -785,13 +785,19 @@ function bookBasketQty(encName, delta) {
 function bookBasketLines() { return Object.values(bookItems); }
 function bookBasketTotal() { return bookBasketLines().reduce((s, l) => s + l.price * l.qty, 0); }
 
-// Compute SAR discount for a subtotal under a promo (percent or fixed amount), capped at subtotal.
-function bookPromoDiscountFor(subtotal, promo) {
-  let d = promo.discount_type === 'percent'
-    ? subtotal * (Number(promo.discount_value) / 100)
-    : Number(promo.discount_value);
-  d = Math.round(d * 100) / 100;
-  return Math.min(Math.max(0, d), subtotal);
+// SAR discount, computed PER PRODUCT LINE (not once on the order total) — a
+// fixed-amount code multiplies by that line's quantity; a percent code is
+// naturally proportional to quantity already, since it's a % of that line's
+// own subtotal. Each line's discount is capped at that line's own value.
+function bookPromoDiscountFor(lines, promo) {
+  return lines.reduce((sum, l) => {
+    const lineSubtotal = l.price * l.qty;
+    let d = promo.discount_type === 'percent'
+      ? lineSubtotal * (Number(promo.discount_value) / 100)
+      : Number(promo.discount_value) * l.qty;
+    d = Math.round(d * 100) / 100;
+    return sum + Math.min(Math.max(0, d), lineSubtotal);
+  }, 0);
 }
 
 function updateBookBasketTotal() {
@@ -799,7 +805,7 @@ function updateBookBasketTotal() {
   const subtotal = bookBasketTotal();
   if (!subtotal) { el.style.display = 'none'; return; }
   el.style.display = '';
-  const discount = bookPromo ? bookPromoDiscountFor(subtotal, bookPromo) : 0;
+  const discount = bookPromo ? bookPromoDiscountFor(bookBasketLines(), bookPromo) : 0;
   el.innerHTML = discount > 0
     ? `Subtotal: SAR ${subtotal.toLocaleString('en-US')}<br>`
       + `<span style="color:#0d7a63;">Discount (${bookPromo.code}): − SAR ${discount.toLocaleString('en-US')}</span><br>`
@@ -938,7 +944,7 @@ async function submitNewBooking() {
   const lines = selectedType === 'installation' ? bookBasketLines() : [];
   const nameWithColor = (l) => l.color ? `${l.model} — ${l.color}` : l.model;
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
-  const discount = (lines.length && bookPromo) ? bookPromoDiscountFor(subtotal, bookPromo) : 0;
+  const discount = (lines.length && bookPromo) ? bookPromoDiscountFor(lines, bookPromo) : 0;
   const primary = lines.length ? lines.slice().sort((a, b) => (b.price*b.qty) - (a.price*a.qty))[0] : null;
 
   const { data: booking, error } = await db.from('bookings').insert({

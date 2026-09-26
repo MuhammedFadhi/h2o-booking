@@ -70,11 +70,19 @@ async function lookupPromo(rawCode) {
   return promo;
 }
 
-// SAR discount for a subtotal (percent or fixed amount), capped at the subtotal.
-function promoDiscount(subtotal, promo) {
-  let d = promo.discount_type === 'percent' ? subtotal * (Number(promo.discount_value) / 100) : Number(promo.discount_value);
-  d = Math.round(d * 100) / 100;
-  return Math.min(Math.max(0, d), subtotal);
+// SAR discount, computed PER PRODUCT LINE (not once on the order total) — a
+// fixed-amount code multiplies by that line's quantity (SADA96 on qty 3 of
+// one product = 288 off that line); a percent code is naturally proportional
+// to quantity already, since it's a % of that line's own subtotal. Each
+// line's discount is capped at that line's own value, so no line can go
+// negative.
+function promoDiscount(lines, promo) {
+  return lines.reduce((sum, l) => {
+    const lineSubtotal = l.unit_price * l.qty;
+    let d = promo.discount_type === 'percent' ? lineSubtotal * (Number(promo.discount_value) / 100) : Number(promo.discount_value) * l.qty;
+    d = Math.round(d * 100) / 100;
+    return sum + Math.min(Math.max(0, d), lineSubtotal);
+  }, 0);
 }
 
 // ── my-bookings ────────────────────────────────────────────────────────────
@@ -152,7 +160,7 @@ async function createBooking(user, body) {
   const primary = lines.slice().sort((a, b) => (b.unit_price * b.qty) - (a.unit_price * a.qty))[0];
   // A code the salesperson entered but that isn't valid stops the booking (never silently dropped).
   const promo = promoCode ? await lookupPromo(promoCode) : null;
-  const discount = promo ? promoDiscount(subtotal, promo) : 0;
+  const discount = promo ? promoDiscount(lines, promo) : 0;
 
   // ── validate the slot before reserving it ──
   const slots = await sb('GET',

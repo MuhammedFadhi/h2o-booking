@@ -2794,7 +2794,7 @@ function abRenderBasket() {
   }).join('');
   const total = abBasket.reduce((s,l)=>s+(l.unit_price||0)*l.qty,0);
   const units = abBasket.reduce((s,l)=>s+l.qty,0);
-  const discount = abPromo ? abPromoDiscountFor(total, abPromo) : 0;
+  const discount = abPromo ? abPromoDiscountFor(abBasket, abPromo) : 0;
   document.getElementById('ab-basket-total').innerHTML = discount > 0
     ? `Subtotal: SAR ${total.toLocaleString('en-US')} (${units} unit${units!==1?'s':''})<br>`
       + `<span style="color:#0d7a63;">Discount (${escB(abPromo.code)}): − SAR ${discount.toLocaleString('en-US')}</span><br>`
@@ -2802,15 +2802,21 @@ function abRenderBasket() {
     : `Total: SAR ${total.toLocaleString('en-US')} (${units} unit${units!==1?'s':''})`;
 }
 
-// Compute SAR discount for a subtotal under a promo (percent or fixed amount), capped at subtotal.
+// SAR discount, computed PER PRODUCT LINE (not once on the order total) — a
+// fixed-amount code multiplies by that line's quantity; a percent code is
+// naturally proportional to quantity already, since it's a % of that line's
+// own subtotal. Each line's discount is capped at that line's own value.
 // Mirrors promoDiscountFor() in customer/book.html — kept as a separate copy since these
 // are independent static pages with no shared JS module.
-function abPromoDiscountFor(subtotal, promo) {
-  let d = promo.discount_type === 'percent'
-    ? subtotal * (Number(promo.discount_value) / 100)
-    : Number(promo.discount_value);
-  d = Math.round(d * 100) / 100;
-  return Math.min(Math.max(0, d), subtotal);
+function abPromoDiscountFor(lines, promo) {
+  return lines.reduce((sum, l) => {
+    const lineSubtotal = (l.unit_price || 0) * l.qty;
+    let d = promo.discount_type === 'percent'
+      ? lineSubtotal * (Number(promo.discount_value) / 100)
+      : Number(promo.discount_value) * l.qty;
+    d = Math.round(d * 100) / 100;
+    return sum + Math.min(Math.max(0, d), lineSubtotal);
+  }, 0);
 }
 
 // Validate a typed promo code against the DB (active + within validity window).
@@ -2912,7 +2918,7 @@ async function submitAdminBooking() {
 
     // Patch admin fields + summary = highest-value line.
     const nowIso = new Date().toISOString();
-    const discount = abPromo ? abPromoDiscountFor(subtotal, abPromo) : 0;
+    const discount = abPromo ? abPromoDiscountFor(abBasket, abPromo) : 0;
     const patch = {
       product_model: nameWithColor(primary), product_qty: primary.qty,
       order_total: subtotal,
@@ -3508,13 +3514,19 @@ let basketEditState = { bookingId: null, lines: [], promo: null };
 // lines: [{ id|null, model, qty, unit_price, is_serialized, color|null }]
 // promo: the applied promo_codes row, or null
 
-// Compute SAR discount for a subtotal under a promo (percent or fixed amount), capped at subtotal.
-function basketPromoDiscountFor(subtotal, promo) {
-  let d = promo.discount_type === 'percent'
-    ? subtotal * (Number(promo.discount_value) / 100)
-    : Number(promo.discount_value);
-  d = Math.round(d * 100) / 100;
-  return Math.min(Math.max(0, d), subtotal);
+// SAR discount, computed PER PRODUCT LINE (not once on the order total) — a
+// fixed-amount code multiplies by that line's quantity; a percent code is
+// naturally proportional to quantity already, since it's a % of that line's
+// own subtotal. Each line's discount is capped at that line's own value.
+function basketPromoDiscountFor(lines, promo) {
+  return lines.reduce((sum, l) => {
+    const lineSubtotal = (l.unit_price || 0) * l.qty;
+    let d = promo.discount_type === 'percent'
+      ? lineSubtotal * (Number(promo.discount_value) / 100)
+      : Number(promo.discount_value) * l.qty;
+    d = Math.round(d * 100) / 100;
+    return sum + Math.min(Math.max(0, d), lineSubtotal);
+  }, 0);
 }
 
 async function applyBasketPromo() {
@@ -3631,7 +3643,7 @@ function renderBasketLines() {
   const total = basketEditState.lines.reduce((s, l) => s + (l.unit_price || 0) * l.qty, 0);
   const units = basketEditState.lines.reduce((s, l) => s + l.qty, 0);
   const promo = basketEditState.promo;
-  const discount = promo ? basketPromoDiscountFor(total, promo) : 0;
+  const discount = promo ? basketPromoDiscountFor(basketEditState.lines, promo) : 0;
   document.getElementById('basket-total-row').innerHTML = discount > 0
     ? `Subtotal: SAR ${total.toLocaleString('en-US')} (${units} unit${units !== 1 ? 's' : ''})<br>`
       + `<span style="color:#0d7a63;">Discount (${escB(promo.code)}): − SAR ${discount.toLocaleString('en-US')}</span><br>`
@@ -3716,7 +3728,7 @@ async function saveBasket() {
     const primary = lines.slice().sort((a, b) => ((b.unit_price||0)*b.qty) - ((a.unit_price||0)*a.qty))[0];
     const subtotal = lines.reduce((s, l) => s + (l.unit_price || 0) * l.qty, 0);
     const promo = basketEditState.promo;
-    const discount = promo ? basketPromoDiscountFor(subtotal, promo) : 0;
+    const discount = promo ? basketPromoDiscountFor(lines, promo) : 0;
     const { error: sErr } = await dbAdmin.from('bookings')
       .update({
         product_model: nameWithColor(primary), product_qty: primary.qty,

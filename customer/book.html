@@ -884,7 +884,7 @@ function renderConfirmTotals() {
   const totEl = document.getElementById('conf-total');
   let discount = 0;
   if (state.promo) {
-    discount = promoDiscountFor(subtotal, state.promo);
+    discount = promoDiscountFor(basketLines(), state.promo);
     discRow.style.display = '';
     lblEl.textContent = `(${state.promo.code}${state.promo.discount_type==='percent' ? ` · ${state.promo.discount_value}%` : ''})`;
     discEl.textContent = '− SAR ' + discount.toLocaleString('en-US');
@@ -894,13 +894,19 @@ function renderConfirmTotals() {
   totEl.textContent = 'SAR ' + Math.max(0, subtotal - discount).toLocaleString('en-US');
 }
 
-// Compute SAR discount for a subtotal under a promo (percent or fixed amount), capped at subtotal.
-function promoDiscountFor(subtotal, promo) {
-  let d = promo.discount_type === 'percent'
-    ? subtotal * (Number(promo.discount_value) / 100)
-    : Number(promo.discount_value);
-  d = Math.round(d * 100) / 100;              // 2dp
-  return Math.min(Math.max(0, d), subtotal);  // never below 0 or above subtotal
+// SAR discount, computed PER PRODUCT LINE (not once on the order total) — a
+// fixed-amount code multiplies by that line's quantity; a percent code is
+// naturally proportional to quantity already, since it's a % of that line's
+// own subtotal. Each line's discount is capped at that line's own value.
+function promoDiscountFor(lines, promo) {
+  return lines.reduce((sum, l) => {
+    const lineSubtotal = l.price * l.qty;
+    let d = promo.discount_type === 'percent'
+      ? lineSubtotal * (Number(promo.discount_value) / 100)
+      : Number(promo.discount_value) * l.qty;
+    d = Math.round(d * 100) / 100;              // 2dp
+    return sum + Math.min(Math.max(0, d), lineSubtotal);  // never below 0 or above that line's value
+  }, 0);
 }
 
 // Validate a typed promo code against the DB (active + within validity window).
@@ -986,7 +992,7 @@ async function submitBooking() {
     if (bkId) {
       // Money: subtotal, promo, discount.
       const subtotal = basketTotal();
-      const discount = state.promo ? promoDiscountFor(subtotal, state.promo) : 0;
+      const discount = state.promo ? promoDiscountFor(lines, state.promo) : 0;
       await db.from('bookings')
         .update({
           product_model: modelWithColor(primary), product_qty: primary.qty,

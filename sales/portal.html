@@ -437,22 +437,32 @@
   }
 
   // ── basket ─────────────────────────────────────────────────────────────────
-  // Percent or fixed-amount discount, capped at the subtotal — same maths the server applies.
-  function discountFor(subtotal) {
+  // Per PRODUCT LINE (not once on the order total): a fixed-amount code
+  // multiplies by that line's quantity (SADA96 on qty 3 of one product = 288
+  // off that line); a percent code is naturally proportional to quantity
+  // already. Each line's discount is capped at that line's own value, so no
+  // line can go negative. Mirrors the server's promoDiscount() in
+  // api/sales/ops.js — this copy is display-only, the server re-prices for real.
+  function discountFor(lines) {
     if (!promo) return 0;
-    let d = promo.discount_type === 'percent' ? subtotal * (promo.discount_value / 100) : promo.discount_value;
-    d = Math.round(d * 100) / 100;
-    return Math.min(Math.max(0, d), subtotal);
+    return lines.reduce((sum, l) => {
+      const lineSubtotal = l.unit * l.qty;
+      let d = promo.discount_type === 'percent' ? lineSubtotal * (promo.discount_value / 100) : promo.discount_value * l.qty;
+      d = Math.round(d * 100) / 100;
+      return sum + Math.min(Math.max(0, d), lineSubtotal);
+    }, 0);
   }
 
   function renderBasket() {
     const host = $('basket');
     if (!basket.length) { host.innerHTML = '<p class="hint" style="margin-top:12px">No product added yet.</p>'; return; }
     let total = 0;
+    const lineData = [];
     host.innerHTML = basket.map((l, i) => {
       const p = catalogue.find((x) => x.model_name === l.model);
       const unit = p && p.price_sar ? Number(p.price_sar) : 0;
       total += unit * l.qty;
+      lineData.push({ unit, qty: l.qty });
       const colour = isDispenser(l.model)
         ? `<select data-color="${i}" aria-label="Colour">${COLORS.map((c) => `<option${c === l.color ? ' selected' : ''}>${c}</option>`).join('')}</select>` : '';
       return `<div class="line">
@@ -463,7 +473,7 @@
         <button class="rm" type="button" data-rm="${i}" aria-label="Remove">✕</button>
       </div>`;
     }).join('');
-    const disc = discountFor(total);
+    const disc = discountFor(lineData);
     host.innerHTML += disc > 0
       ? `<div class="total" style="font-weight:500;font-size:14px"><span>Subtotal</span><span>${money(total)}</span></div>
          <div class="total" style="font-weight:500;font-size:14px;color:var(--ok);padding-top:4px"><span>Discount (${esc(promo.code)})</span><span>− ${money(disc)}</span></div>
