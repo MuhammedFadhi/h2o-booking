@@ -293,6 +293,9 @@
 
   <!-- ═════════ MY LEAD ═════════ -->
   <section id="pane-lead-mine" hidden>
+    <div class="bk-head">
+      <input id="lead-search" type="search" placeholder="Search name or phone…" autocomplete="off">
+    </div>
     <div class="lead-filter" role="tablist" aria-label="Filter leads">
       <button type="button" class="active" data-lf="open">Open</button>
       <button type="button" data-lf="converted">Converted</button>
@@ -790,10 +793,12 @@
   }
 
   function renderLeads() {
-    const rows = leadFilter === 'all' ? (leads || []) : (leads || []).filter((l) => l.status === leadFilter);
+    const q = $('lead-search').value.trim().toLowerCase();
+    let rows = leadFilter === 'all' ? (leads || []) : (leads || []).filter((l) => l.status === leadFilter);
+    if (q) rows = rows.filter((l) => [l.name, l.phone].some((v) => String(v || '').toLowerCase().includes(q)));
     $('lead-count').textContent = `${rows.length} lead${rows.length === 1 ? '' : 's'}`;
     if (!rows.length) {
-      $('lead-list').innerHTML = `<div class="empty">${leads && leads.length ? 'No leads in this view.' : 'No leads added yet.'}</div>`;
+      $('lead-list').innerHTML = `<div class="empty">${leads && leads.length ? (q ? 'No leads match your search.' : 'No leads in this view.') : 'No leads added yet.'}</div>`;
       return;
     }
     $('lead-list').innerHTML = rows.map((l) => {
@@ -905,6 +910,7 @@
   $('another-btn').addEventListener('click', resetForm);
   $('view-mine-btn').addEventListener('click', () => { resetForm(); showView('mine'); });
   $('search').addEventListener('input', () => { if (myBookings) renderMine(); });
+  $('lead-search').addEventListener('input', () => { if (leads) renderLeads(); });
   $('refresh-btn').addEventListener('click', () => loadMine(true));
   $('signout-btn').addEventListener('click', async () => { await db.auth.signOut(); window.location.href = '../admin/login.html'; });
   $('f-source').innerHTML = '<option value="">— Select —</option>' + SOURCES.map((s) => `<option>${esc(s)}</option>`).join('');
