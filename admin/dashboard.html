@@ -677,6 +677,9 @@
     <div class="nav-item" onclick="showPanel('leads', this)">
       <span class="nav-icon">🧲</span> Leads
     </div>
+    <div class="nav-item" onclick="showPanel('salesreport', this)">
+      <span class="nav-icon">📈</span> Sales Report
+    </div>
     <div class="nav-item" onclick="showPanel('slots', this)">
       <span class="nav-icon">🗓️</span> Availability Slots
     </div>
@@ -870,6 +873,27 @@
         <div id="leads-table-count" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
         <div id="leads-table"><div class="loading"><div class="spinner"></div> Loading leads...</div></div>
       </div>
+    </div>
+
+    <!-- SALES REPORT PANEL -->
+    <div class="panel" id="panel-salesreport">
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+          <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">From</label><input type="date" id="sr-from" class="form-input" onchange="renderSalesReport()"></div>
+          <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">To</label><input type="date" id="sr-to" class="form-input" onchange="renderSalesReport()"></div>
+          <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Sales agent</label><select id="sr-agent" class="form-input" onchange="renderSalesReport()"><option value="">All agents</option></select></div>
+          <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Status</label>
+            <select id="sr-status" class="form-input" onchange="renderSalesReport()">
+              <option value="">All statuses</option>
+              <option value="open">Open</option>
+              <option value="converted">Converted</option>
+              <option value="lost">Lost</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="downloadSalesReportPDF()" style="margin-left:auto;">⬇ Download PDF</button>
+        </div>
+      </div>
+      <div id="salesreport-body"><div class="loading"><div class="spinner"></div> Loading...</div></div>
     </div>
 
     <!-- SLOTS PANEL -->
@@ -1852,6 +1876,7 @@ const panelTitles = {
   analytics: ['Analytics', 'Business performance at a glance'],
   bookings: ['All Bookings', 'Manage and assign installation appointments'],
   leads: ['Leads', 'Contacts sales has added, before they become a booking'],
+  salesreport: ['Sales Report', 'New leads by day — filter and export'],
   slots: ['Availability Slots', 'Control which time slots customers can book'],
   installers: ['User Management', 'Add, remove and manage installers and admin users'],
   passwords: ['Manage Access', 'Create and reset installer login passwords'],
@@ -1884,6 +1909,7 @@ function showPanel(name, el) {
   if (name === 'passwords') populatePasswordInstallers();
   if (name === 'bookings') loadBookings();
   if (name === 'leads') loadLeadsAdmin();
+  if (name === 'salesreport') loadSalesReport();
   if (name === 'sms-settings') loadSMSSettings();
   if (name === 'customers') loadCustomers();
   if (name === 'reports') loadInspectionReports();
@@ -5431,6 +5457,197 @@ function renderLeadsAdminTable() {
           <td>${statusPill(l.status)}</td>
         </tr>`).join('')}</tbody>
     </table>`;
+}
+
+// ============================================================
+// SALES REPORT — new leads by day, filterable by date range / agent / status,
+// with a PDF export (browser print, same technique as warranty certificates —
+// no PDF library). Reuses the `leads` table already loaded for the Leads panel.
+// ============================================================
+async function loadSalesReport() {
+  const host = document.getElementById('salesreport-body');
+  host.innerHTML = '<div class="loading"><div class="spinner"></div> Loading leads...</div>';
+  await dbAdmin.auth.getSession();
+  const { data, error } = await dbAdmin.from('leads').select('*').order('created_at', { ascending: false }).limit(2000);
+  if (error) { host.innerHTML = `<div class="empty-state">⚠️ Failed to load leads: ${escB(error.message)}</div>`; return; }
+  allLeads = data || [];
+
+  const fromEl = document.getElementById('sr-from'), toEl = document.getElementById('sr-to');
+  if (!fromEl.value && !toEl.value) {
+    const today = new Date(), from = new Date(today);
+    from.setDate(from.getDate() - 29);
+    toEl.value = localDateISO(today);
+    fromEl.value = localDateISO(from);
+  }
+
+  const agentSel = document.getElementById('sr-agent');
+  const keepAgent = agentSel.value;
+  const names = [...new Set(allLeads.map(l => l.created_by_name).filter(Boolean))].sort();
+  agentSel.innerHTML = '<option value="">All agents</option>' + names.map(n => `<option value="${escB(n)}">${escB(n)}</option>`).join('');
+  if (keepAgent && names.includes(keepAgent)) agentSel.value = keepAgent;
+
+  renderSalesReport();
+}
+
+function salesReportFmtDate(s) {
+  return new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function filteredSalesReportLeads() {
+  const from = document.getElementById('sr-from').value;
+  const to = document.getElementById('sr-to').value;
+  const agent = document.getElementById('sr-agent').value;
+  const status = document.getElementById('sr-status').value;
+  return allLeads.filter(l => {
+    const d = localDateISO(new Date(l.created_at));
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    if (agent && l.created_by_name !== agent) return false;
+    if (status && l.status !== status) return false;
+    return true;
+  });
+}
+
+// One row per calendar day in [from, to], zero-filled where a day has no leads.
+function salesReportDayRows(rows) {
+  const from = document.getElementById('sr-from').value;
+  const to = document.getElementById('sr-to').value;
+  const byDay = {};
+  rows.forEach(l => {
+    const d = localDateISO(new Date(l.created_at));
+    if (!byDay[d]) byDay[d] = { date: d, total: 0, open: 0, converted: 0, lost: 0 };
+    byDay[d].total++;
+    byDay[d][l.status] = (byDay[d][l.status] || 0) + 1;
+  });
+  const days = [];
+  if (from && to) {
+    const end = new Date(to + 'T00:00:00');
+    for (let d = new Date(from + 'T00:00:00'); d <= end; d.setDate(d.getDate() + 1)) {
+      const key = localDateISO(d);
+      days.push(byDay[key] || { date: key, total: 0, open: 0, converted: 0, lost: 0 });
+    }
+  } else {
+    Object.values(byDay).sort((a, b) => a.date < b.date ? -1 : 1).forEach(x => days.push(x));
+  }
+  return days;
+}
+
+function salesReportKPIs(rows) {
+  const total = rows.length;
+  const open = rows.filter(l => l.status === 'open').length;
+  const converted = rows.filter(l => l.status === 'converted').length;
+  const lost = rows.filter(l => l.status === 'lost').length;
+  return { total, open, converted, lost, convRate: total ? Math.round(converted / total * 100) : 0 };
+}
+
+function salesReportChartSVG(days) {
+  const maxCount = Math.max(1, ...days.map(d => d.total));
+  const barW = 28, gap = 14, chartH = 140, padL = 8;
+  const bars = days.map((d, i) => {
+    const h = d.total ? Math.max(2, Math.round((d.total / maxCount) * chartH)) : 0;
+    const x = padL + i * (barW + gap);
+    return `<g>
+      <rect x="${x}" y="${chartH - h + 20}" width="${barW}" height="${h}" rx="5" fill="url(#srBarGrad)"></rect>
+      ${d.total ? `<text x="${x + barW / 2}" y="${chartH - h + 14}" text-anchor="middle" font-size="11" font-weight="700" fill="#0D3B6E">${d.total}</text>` : ''}
+      <text x="${x + barW / 2}" y="${chartH + 38}" text-anchor="middle" font-size="10" fill="#607D8B">${new Date(d.date + 'T00:00:00').getDate()}</text>
+    </g>`;
+  }).join('');
+  const chartW = padL * 2 + Math.max(days.length, 1) * (barW + gap);
+  return { svg: `<svg width="${chartW}" height="${chartH + 60}" style="min-width:${chartW}px;">
+      <defs><linearGradient id="srBarGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1E88E5"/><stop offset="100%" stop-color="#0D3B6E"/></linearGradient></defs>
+      ${bars || '<text x="10" y="20" font-size="13" fill="#607D8B">No leads in range</text>'}
+    </svg>`, chartW };
+}
+
+function salesReportTableHTML(days) {
+  return `<table>
+    <thead><tr><th>Date</th><th>New Leads</th><th>Open</th><th>Converted</th><th>Lost</th></tr></thead>
+    <tbody>${days.length ? days.map(d => `<tr>
+      <td>${salesReportFmtDate(d.date)}</td><td>${d.total}</td><td>${d.open || 0}</td><td>${d.converted || 0}</td><td>${d.lost || 0}</td>
+    </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);">No data</td></tr>'}</tbody>
+  </table>`;
+}
+
+function renderSalesReport() {
+  const host = document.getElementById('salesreport-body');
+  const rows = filteredSalesReportLeads();
+  const days = salesReportDayRows(rows);
+  const { total, open, converted, lost, convRate } = salesReportKPIs(rows);
+  const { svg } = salesReportChartSVG(days);
+
+  const kpi = (label, value, color) => `
+    <div class="stat-card" style="border-top:3px solid ${color};">
+      <div class="stat-value" style="color:${color};">${value}</div>
+      <div class="stat-label">${label}</div>
+    </div>`;
+
+  host.innerHTML = `
+    <div class="stat-grid" style="margin-bottom:20px;">
+      ${kpi('New Leads', total, '#1565C0')}
+      ${kpi('Open', open, '#2563EB')}
+      ${kpi('Converted', converted, '#16A34A')}
+      ${kpi('Lost', lost, '#94A3B8')}
+      ${kpi('Conversion Rate', convRate + '%', '#7C3AED')}
+    </div>
+    <div class="card" style="padding:20px;margin-bottom:20px;">
+      <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;">New leads by day</div>
+      <div style="overflow-x:auto;">${svg}</div>
+    </div>
+    <div class="card" style="padding:20px;">
+      <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Day-by-day breakdown</div>
+      ${salesReportTableHTML(days)}
+    </div>`;
+}
+
+function downloadSalesReportPDF() {
+  const rows = filteredSalesReportLeads();
+  const days = salesReportDayRows(rows);
+  const { total, open, converted, lost, convRate } = salesReportKPIs(rows);
+  const { svg } = salesReportChartSVG(days);
+  const from = document.getElementById('sr-from').value, to = document.getElementById('sr-to').value;
+  const agent = document.getElementById('sr-agent').value || 'All agents';
+  const status = document.getElementById('sr-status').selectedOptions[0].textContent;
+  const rangeLabel = (from && to) ? `${salesReportFmtDate(from)} – ${salesReportFmtDate(to)}` : 'All time';
+
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Please allow pop-ups to download the PDF', 'error'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>SA'DA H2O — Sales Report</title>
+<style>
+  body{font-family:Arial,sans-serif;color:#0A1628;margin:0;padding:32px;}
+  h1{font-size:22px;color:#0D3B6E;margin:0 0 4px;}
+  .sub{font-size:13px;color:#607D8B;margin-bottom:20px;}
+  .kpis{display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;}
+  .kpi{border:1px solid #E2E8F0;border-radius:10px;padding:12px 16px;min-width:120px;}
+  .kpi .v{font-size:20px;font-weight:800;color:#0D3B6E;}
+  .kpi .l{font-size:11px;color:#607D8B;text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+  th,td{border-bottom:1px solid #E2E8F0;padding:6px 8px;text-align:left;}
+  th{color:#607D8B;text-transform:uppercase;font-size:10px;letter-spacing:.4px;}
+  .section-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:24px 0 12px;}
+  .print-bar{position:fixed;top:0;left:0;right:0;background:#0D3B6E;color:#fff;padding:12px;text-align:center;z-index:99;}
+  .print-bar button{background:#C9A84C;color:#0A1628;border:none;padding:9px 22px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;margin:0 6px;}
+  .print-bar button.ghost{background:rgba(255,255,255,.15);color:#fff;}
+  .body{margin-top:56px;}
+  @media print{.print-bar{display:none;}.body{margin-top:0;}}
+</style></head><body>
+  <div class="print-bar">Report ready. <button onclick="window.print()">⬇ Save as PDF / Print</button><button class="ghost" onclick="window.close()">Close</button></div>
+  <div class="body">
+    <h1>SA'DA H2O — Sales Report</h1>
+    <div class="sub">${escB(rangeLabel)} · Agent: ${escB(agent)} · Status: ${escB(status)} · Generated ${new Date().toLocaleString('en-GB')}</div>
+    <div class="kpis">
+      <div class="kpi"><div class="v">${total}</div><div class="l">New Leads</div></div>
+      <div class="kpi"><div class="v">${open}</div><div class="l">Open</div></div>
+      <div class="kpi"><div class="v">${converted}</div><div class="l">Converted</div></div>
+      <div class="kpi"><div class="v">${lost}</div><div class="l">Lost</div></div>
+      <div class="kpi"><div class="v">${convRate}%</div><div class="l">Conversion Rate</div></div>
+    </div>
+    <div class="section-title">New leads by day</div>
+    ${svg}
+    <div class="section-title">Day-by-day breakdown</div>
+    ${salesReportTableHTML(days)}
+  </div>
+</body></html>`);
+  w.document.close();
 }
 
 async function loadCustomers() {

@@ -176,6 +176,8 @@
   <div class="side-group-title"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2Z"/><path d="M3 10h18"/><path d="M8 2.5V5"/><path d="M16 2.5V5"/><path d="m9 15.5 2 2 4 -4"/></g></svg> Booking</div>
   <button class="side-link" id="side-new" type="button" data-view="new">Add Booking <span class="side-badge" id="side-count-new"></span></button>
   <button class="side-link" id="side-mine" type="button" data-view="mine">My Booking <span class="side-badge" id="side-count-mine"></span></button>
+  <div class="side-group-title"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-6M22 20H2"/></g></svg> Report</div>
+  <button class="side-link" id="side-report" type="button" data-view="report">My Report</button>
 </aside>
 <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
@@ -315,6 +317,34 @@
     <div class="count" id="count"></div>
     <div id="bk-list"></div>
   </section>
+
+  <!-- ═════════ MY REPORT ═════════ -->
+  <section id="pane-report" hidden>
+    <div class="card">
+      <h2>My Report</h2>
+      <div class="row">
+        <div class="field"><label for="rp-from">From</label><input id="rp-from" type="date"></div>
+        <div class="field"><label for="rp-to">To</label><input id="rp-to" type="date"></div>
+      </div>
+      <div class="field">
+        <label for="rp-status">Status</label>
+        <select id="rp-status">
+          <option value="">All statuses</option>
+          <option value="open">Open</option>
+          <option value="converted">Converted</option>
+          <option value="lost">Lost</option>
+        </select>
+      </div>
+      <button class="btn btn-ghost" id="rp-pdf-btn" type="button">⬇ Download PDF</button>
+    </div>
+    <div class="stats-row" style="margin:14px 0 0;">
+      <div class="stat-tile"><span class="stat-num" id="rp-total">–</span><span class="stat-label">New Leads</span></div>
+      <div class="stat-tile"><span class="stat-num" id="rp-converted">–</span><span class="stat-label">Converted</span></div>
+      <div class="stat-tile"><span class="stat-num" id="rp-rate">–</span><span class="stat-label">Conv. Rate</span></div>
+    </div>
+    <div class="count" style="margin-top:16px;">Day-by-day</div>
+    <div id="rp-days"></div>
+  </section>
 </main>
 </div>
 <div class="toast" id="toast" role="status"></div>
@@ -375,20 +405,23 @@
   }
 
   // ── tabs ───────────────────────────────────────────────────────────────────
-  const VIEWS = ['new', 'mine', 'lead-add', 'lead-mine'];
+  const VIEWS = ['new', 'mine', 'lead-add', 'lead-mine', 'report'];
   function showView(name) {
     if (!VIEWS.includes(name)) name = 'new';
     $('pane-new').hidden = name !== 'new';
     $('pane-mine').hidden = name !== 'mine';
     $('pane-lead-add').hidden = name !== 'lead-add';
     $('pane-lead-mine').hidden = name !== 'lead-mine';
+    $('pane-report').hidden = name !== 'report';
     $('side-new').classList.toggle('active', name === 'new');
     $('side-mine').classList.toggle('active', name === 'mine');
     $('side-lead-add').classList.toggle('active', name === 'lead-add');
     $('side-lead-mine').classList.toggle('active', name === 'lead-mine');
-    $('stats-row').hidden = name === 'lead-add' || name === 'lead-mine';   // booking totals don't apply to leads
+    $('side-report').classList.toggle('active', name === 'report');
+    $('stats-row').hidden = name === 'lead-add' || name === 'lead-mine' || name === 'report';   // booking totals don't apply here
     if (name === 'mine') loadMine();
     if (name === 'lead-mine') loadLeads();
+    if (name === 'report') loadReportView();
     closeSidebar();
     window.scrollTo(0, 0);
   }
@@ -833,6 +866,119 @@
     }).join('');
   }
 
+  // ── my report — new leads by day, own data only (server already scopes
+  // my-leads to the caller); download is a print-friendly window (Save as PDF),
+  // same technique the warranty certificate uses — no PDF library. ──
+  async function loadReportView() {
+    $('rp-days').innerHTML = '<div class="empty">Loading…</div>';
+    try { await fetchLeads(); }
+    catch (e) { $('rp-days').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+    if (!$('rp-from').value && !$('rp-to').value) {
+      const today = new Date(), from = new Date(today);
+      from.setDate(from.getDate() - 29);
+      $('rp-to').value = riyadhDateISO(today);
+      $('rp-from').value = riyadhDateISO(from);
+    }
+    renderReport();
+  }
+
+  function filteredReportLeads() {
+    const from = $('rp-from').value, to = $('rp-to').value, status = $('rp-status').value;
+    return (leads || []).filter((l) => {
+      const d = riyadhDateISO(l.created_at);
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      if (status && l.status !== status) return false;
+      return true;
+    });
+  }
+
+  function reportDayRows(rows) {
+    const from = $('rp-from').value, to = $('rp-to').value;
+    const byDay = {};
+    rows.forEach((l) => {
+      const d = riyadhDateISO(l.created_at);
+      if (!byDay[d]) byDay[d] = { date: d, total: 0, open: 0, converted: 0, lost: 0 };
+      byDay[d].total++;
+      byDay[d][l.status] = (byDay[d][l.status] || 0) + 1;
+    });
+    const days = [];
+    if (from && to) {
+      const end = new Date(to + 'T00:00:00');
+      for (let d = new Date(from + 'T00:00:00'); d <= end; d.setDate(d.getDate() + 1)) {
+        const key = riyadhDateISO(d);
+        days.push(byDay[key] || { date: key, total: 0, open: 0, converted: 0, lost: 0 });
+      }
+    } else {
+      Object.values(byDay).sort((a, b) => (a.date < b.date ? -1 : 1)).forEach((x) => days.push(x));
+    }
+    return days;
+  }
+
+  function reportFmtDate(s) { return new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
+
+  function renderReport() {
+    const rows = filteredReportLeads();
+    const days = reportDayRows(rows);
+    const converted = rows.filter((l) => l.status === 'converted').length;
+    $('rp-total').textContent = rows.length;
+    $('rp-converted').textContent = converted;
+    $('rp-rate').textContent = (rows.length ? Math.round(converted / rows.length * 100) : 0) + '%';
+    $('rp-days').innerHTML = days.length ? days.map((d) => `
+      <div class="bk">
+        <div class="bk-top"><div class="nm">${reportFmtDate(d.date)}</div><span class="pill" style="background:${d.total ? '#1565C0' : '#94A3B8'}">${d.total} lead${d.total === 1 ? '' : 's'}</span></div>
+        ${d.total ? `<div class="bk-meta">Open ${d.open || 0} · Converted ${d.converted || 0} · Lost ${d.lost || 0}</div>` : ''}
+      </div>`).join('') : '<div class="empty">No leads in this range.</div>';
+  }
+
+  function downloadReportPDF() {
+    const rows = filteredReportLeads();
+    const days = reportDayRows(rows);
+    const converted = rows.filter((l) => l.status === 'converted').length;
+    const rate = rows.length ? Math.round(converted / rows.length * 100) : 0;
+    const from = $('rp-from').value, to = $('rp-to').value;
+    const status = $('rp-status').selectedOptions[0].textContent;
+    const rangeLabel = (from && to) ? `${reportFmtDate(from)} – ${reportFmtDate(to)}` : 'All time';
+    const myName = $('who-name').textContent;
+
+    const w = window.open('', '_blank');
+    if (!w) { toast('Please allow pop-ups to download the PDF'); return; }
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>SA'DA H2O — My Sales Report</title>
+<style>
+  body{font-family:Arial,sans-serif;color:#0A1628;margin:0;padding:32px;}
+  h1{font-size:22px;color:#0D3B6E;margin:0 0 4px;}
+  .sub{font-size:13px;color:#607D8B;margin-bottom:20px;}
+  .kpis{display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;}
+  .kpi{border:1px solid #E2E8F0;border-radius:10px;padding:12px 16px;min-width:120px;}
+  .kpi .v{font-size:20px;font-weight:800;color:#0D3B6E;}
+  .kpi .l{font-size:11px;color:#607D8B;text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+  th,td{border-bottom:1px solid #E2E8F0;padding:6px 8px;text-align:left;}
+  th{color:#607D8B;text-transform:uppercase;font-size:10px;letter-spacing:.4px;}
+  .print-bar{position:fixed;top:0;left:0;right:0;background:#0D3B6E;color:#fff;padding:12px;text-align:center;z-index:99;}
+  .print-bar button{background:#C9A84C;color:#0A1628;border:none;padding:9px 22px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;margin:0 6px;}
+  .print-bar button.ghost{background:rgba(255,255,255,.15);color:#fff;}
+  .body{margin-top:56px;}
+  @media print{.print-bar{display:none;}.body{margin-top:0;}}
+</style></head><body>
+  <div class="print-bar">Report ready. <button onclick="window.print()">⬇ Save as PDF / Print</button><button class="ghost" onclick="window.close()">Close</button></div>
+  <div class="body">
+    <h1>SA'DA H2O — My Sales Report</h1>
+    <div class="sub">${esc(myName)} · ${esc(rangeLabel)} · Status: ${esc(status)} · Generated ${new Date().toLocaleString('en-GB')}</div>
+    <div class="kpis">
+      <div class="kpi"><div class="v">${rows.length}</div><div class="l">New Leads</div></div>
+      <div class="kpi"><div class="v">${converted}</div><div class="l">Converted</div></div>
+      <div class="kpi"><div class="v">${rate}%</div><div class="l">Conversion Rate</div></div>
+    </div>
+    <table>
+      <thead><tr><th>Date</th><th>New Leads</th><th>Open</th><th>Converted</th><th>Lost</th></tr></thead>
+      <tbody>${days.map((d) => `<tr><td>${reportFmtDate(d.date)}</td><td>${d.total}</td><td>${d.open || 0}</td><td>${d.converted || 0}</td><td>${d.lost || 0}</td></tr>`).join('')}</tbody>
+    </table>
+  </div>
+</body></html>`);
+    w.document.close();
+  }
+
   $('lead-list').addEventListener('click', (e) => {
     const c = e.target.closest('button[data-convert]');
     if (c) return convertLead(c.dataset.convert);
@@ -930,6 +1076,10 @@
   $('l-source').value = 'Lulu Kiosk';
   $('l-region').addEventListener('change', onLeadRegionChange);
   $('lead-submit-btn').addEventListener('click', submitLead);
+  $('rp-from').addEventListener('change', () => { if (leads) renderReport(); });
+  $('rp-to').addEventListener('change', () => { if (leads) renderReport(); });
+  $('rp-status').addEventListener('change', () => { if (leads) renderReport(); });
+  $('rp-pdf-btn').addEventListener('click', downloadReportPDF);
 
   (async function init() {
     const me = await guard();
