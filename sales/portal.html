@@ -987,23 +987,34 @@
 
     const w = window.open('', '_blank');
     if (!w) { toast('Please allow pop-ups to download the PDF'); return; }
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>SA'DA H2O — ${esc(myName)} — Sales Report</title>
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SA'DA H2O — ${esc(myName)} — Sales Report</title>
 <style>
+  *{box-sizing:border-box;}
   body{font-family:Arial,sans-serif;color:#0A1628;margin:0;padding:32px;}
   h1{font-size:22px;color:#0D3B6E;margin:0 0 4px;}
   .sub{font-size:13px;color:#607D8B;margin-bottom:20px;}
   .kpis{display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;}
-  .kpi{border:1px solid #E2E8F0;border-radius:10px;padding:12px 16px;min-width:120px;}
+  .kpi{border:1px solid #E2E8F0;border-radius:10px;padding:12px 16px;flex:1 1 110px;min-width:0;}
   .kpi .v{font-size:20px;font-weight:800;color:#0D3B6E;}
   .kpi .l{font-size:11px;color:#607D8B;text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
-  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
-  th,td{border-bottom:1px solid #E2E8F0;padding:6px 8px;text-align:left;}
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;min-width:560px;}
+  th,td{border-bottom:1px solid #E2E8F0;padding:6px 8px;text-align:left;white-space:nowrap;}
   th{color:#607D8B;text-transform:uppercase;font-size:10px;letter-spacing:.4px;}
-  .print-bar{position:fixed;top:0;left:0;right:0;background:#0D3B6E;color:#fff;padding:12px;text-align:center;z-index:99;}
-  .print-bar button{background:#C9A84C;color:#0A1628;border:none;padding:9px 22px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;margin:0 6px;}
+  .print-bar{position:fixed;top:0;left:0;right:0;background:#0D3B6E;color:#fff;padding:12px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;z-index:99;}
+  .print-bar button{background:#C9A84C;color:#0A1628;border:none;padding:9px 22px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;}
   .print-bar button.ghost{background:rgba(255,255,255,.15);color:#fff;}
-  .body{margin-top:56px;}
+  .body{margin-top:64px;}
   @media print{.print-bar{display:none;}.body{margin-top:0;}}
+  @media (max-width:640px){
+    body{padding:16px;}
+    h1{font-size:18px;}
+    .kpis{gap:10px;}
+    .kpi{padding:10px 12px;flex:1 1 45%;}
+    .kpi .v{font-size:17px;}
+    .print-bar{padding:10px;font-size:13px;}
+    .print-bar button{padding:8px 16px;font-size:13px;}
+  }
 </style></head><body>
   <div class="print-bar">Report ready. <button onclick="window.print()">⬇ Save as PDF / Print</button><button class="ghost" onclick="window.close()">Close</button></div>
   <div class="body">
@@ -1014,10 +1025,12 @@
       <div class="kpi"><div class="v">${booked}</div><div class="l">Booked</div></div>
       <div class="kpi"><div class="v">${installed}</div><div class="l">Installed</div></div>
     </div>
-    <table>
-      <thead><tr><th>Name</th><th>Number</th><th>Added</th><th>Region</th><th>Product</th><th>Status</th></tr></thead>
-      <tbody>${rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${reportFmtTimestamp(r.createdAt)}</td><td>${esc(r.region)}</td><td>${esc(r.product)}</td><td>${esc(REPORT_STATUS[r.statusKey].label)}</td></tr>`).join('')}</tbody>
-    </table>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Number</th><th>Added</th><th>Region</th><th>Product</th><th>Status</th></tr></thead>
+        <tbody>${rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${reportFmtTimestamp(r.createdAt)}</td><td>${esc(r.region)}</td><td>${esc(r.product)}</td><td>${esc(REPORT_STATUS[r.statusKey].label)}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
   </div>
 </body></html>`);
     w.document.close();
