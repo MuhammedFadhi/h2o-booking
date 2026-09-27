@@ -52,3 +52,4 @@ $$ LANGUAGE plpgsql;
 
 -- Trigger itself is unchanged (still BEFORE INSERT, still calls this function) —
 -- CREATE OR REPLACE above is enough, no need to touch the trigger definition.
+
