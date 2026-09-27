@@ -917,15 +917,19 @@
   // through the lead step first — e.g. admin's "Book for Customer" credited to
   // this agent). Without this, directly-booked jobs (Upcoming/Installed) never
   // showed up, since the report used to read only the leads array.
+  function reportRegionName(id) { const r = regionsCache.find((x) => x.id === id); return r ? r.name : '—'; }
+
   function reportRows() {
     const linkedIds = new Set((leads || []).map((l) => l.converted_booking_id).filter(Boolean));
     const leadRows = (leads || []).map((l) => ({
-      name: l.name, phone: l.phone, createdAt: l.created_at, statusKey: reportStatusKey(l)
+      name: l.name, phone: l.phone, createdAt: l.created_at, statusKey: reportStatusKey(l),
+      region: reportRegionName(l.region_id), product: l.product_interest || '—'
     }));
     const directRows = (myBookings || [])
       .filter((b) => !linkedIds.has(b.id))
       .map((b) => ({
-        name: b.customer_name, phone: b.customer_phone, createdAt: b.created_at, statusKey: reportBookingOnlyStatus(b.status)
+        name: b.customer_name, phone: b.customer_phone, createdAt: b.created_at, statusKey: reportBookingOnlyStatus(b.status),
+        region: reportRegionName(b.service_region_id), product: b.product_model || '—'
       }));
     return [...leadRows, ...directRows];
   }
@@ -953,7 +957,10 @@
           <div><div class="nm">${esc(r.name)}</div><a href="tel:${esc(r.phone)}">${esc(r.phone)}</a></div>
           <span class="pill" style="background:${st.color}">${esc(st.label)}</span>
         </div>
-        <div class="bk-meta"><span class="k">Added</span> ${reportFmtTimestamp(r.createdAt)}</div>
+        <div class="bk-meta">
+          <div><span class="k">Added</span> ${reportFmtTimestamp(r.createdAt)}</div>
+          <div><span class="k">Region</span> ${esc(r.region)} · <span class="k">Product</span> ${esc(r.product)}</div>
+        </div>
       </div>`;
     }).join('');
   }
@@ -1008,8 +1015,8 @@
       <div class="kpi"><div class="v">${installed}</div><div class="l">Installed</div></div>
     </div>
     <table>
-      <thead><tr><th>Name</th><th>Number</th><th>Added</th><th>Status</th></tr></thead>
-      <tbody>${rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${reportFmtTimestamp(r.createdAt)}</td><td>${esc(REPORT_STATUS[r.statusKey].label)}</td></tr>`).join('')}</tbody>
+      <thead><tr><th>Name</th><th>Number</th><th>Added</th><th>Region</th><th>Product</th><th>Status</th></tr></thead>
+      <tbody>${rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${reportFmtTimestamp(r.createdAt)}</td><td>${esc(r.region)}</td><td>${esc(r.product)}</td><td>${esc(REPORT_STATUS[r.statusKey].label)}</td></tr>`).join('')}</tbody>
     </table>
   </div>
 </body></html>`);

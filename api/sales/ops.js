@@ -89,7 +89,7 @@ function promoDiscount(lines, promo) {
 async function myBookings(user) {
   const cols = [
     'id', 'booking_reference', 'status', 'booking_type', 'customer_name', 'customer_phone',
-    'city_name', 'location_address', 'floor_no', 'flat_no', 'slot_date', 'slot_hour',
+    'city_name', 'service_region_id', 'location_address', 'floor_no', 'flat_no', 'slot_date', 'slot_hour',
     'product_model', 'product_qty', 'order_total', 'promo_code', 'discount_amount', 'referral_source', 'created_at',
     'installers(name)', 'booking_items(product_model,qty,unit_price)'
   ].join(',');

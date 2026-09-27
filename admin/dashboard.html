@@ -5470,20 +5470,24 @@ let salesReportBookings = []; // full booking rows — a lead's linked booking, 
                                // with no lead at all (created directly, e.g. admin's "Book for
                                // Customer" credited to a sales agent via sales_agent)
 let salesReportBookingStatus = {}; // booking id -> status, for the leads->bookings lifecycle below
+let salesReportRegionName = {}; // service_regions id -> name
 
 async function loadSalesReport() {
   const host = document.getElementById('salesreport-body');
   host.innerHTML = '<div class="loading"><div class="spinner"></div> Loading leads...</div>';
   await dbAdmin.auth.getSession();
-  const [{ data, error }, { data: bks, error: bErr }] = await Promise.all([
+  const [{ data, error }, { data: bks, error: bErr }, { data: regions }] = await Promise.all([
     dbAdmin.from('leads').select('*').order('created_at', { ascending: false }).limit(2000),
-    dbAdmin.from('bookings').select('id, status, customer_name, customer_phone, created_at, created_by_name, sales_agent')
+    dbAdmin.from('bookings').select('id, status, customer_name, customer_phone, created_at, created_by_name, sales_agent, service_region_id, product_model'),
+    dbAdmin.from('service_regions').select('id, name')
   ]);
   if (error) { host.innerHTML = `<div class="empty-state">⚠️ Failed to load leads: ${escB(error.message)}</div>`; return; }
   allLeads = data || [];
   salesReportBookings = bks || [];
   salesReportBookingStatus = {};
   salesReportBookings.forEach(b => { salesReportBookingStatus[b.id] = b.status; });
+  salesReportRegionName = {};
+  (regions || []).forEach(r => { salesReportRegionName[r.id] = r.name; });
   if (bErr) console.warn('Failed to load bookings for the sales report:', bErr.message);
 
   const fromEl = document.getElementById('sr-from'), toEl = document.getElementById('sr-to');
@@ -5545,12 +5549,14 @@ function salesReportRows() {
   const linkedIds = new Set(allLeads.map(l => l.converted_booking_id).filter(Boolean));
   const leadRows = allLeads.map(l => ({
     name: l.name, phone: l.phone, createdAt: l.created_at, agent: l.created_by_name,
+    region: salesReportRegionName[l.region_id] || '—', product: l.product_interest || '—',
     statusKey: salesReportStatusKey(l)
   }));
   const directRows = salesReportBookings
     .filter(b => !linkedIds.has(b.id))
     .map(b => ({
       name: b.customer_name, phone: b.customer_phone, createdAt: b.created_at, agent: b.sales_agent || b.created_by_name,
+      region: salesReportRegionName[b.service_region_id] || '—', product: b.product_model || '—',
       statusKey: salesReportBookingOnlyStatus(b.status)
     }));
   return [...leadRows, ...directRows];
@@ -5634,10 +5640,10 @@ function salesReportDetailHTML(rows, escFn) {
   // access to dashboard.html's stylesheet.
   const pill = (key) => { const s = SALES_REPORT_STATUS[key]; return `<span style="display:inline-flex;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${s.color}22;color:${s.color};">${s.label}</span>`; };
   return `<table>
-    <thead><tr><th>Name</th><th>Number</th><th>Added</th><th>Agent</th><th>Status</th></tr></thead>
+    <thead><tr><th>Name</th><th>Number</th><th>Added</th><th>Agent</th><th>Region</th><th>Product</th><th>Status</th></tr></thead>
     <tbody>${sorted.length ? sorted.map(r => `<tr>
-      <td>${escFn(r.name)}</td><td>${escFn(r.phone)}</td><td>${salesReportFmtTimestamp(r.createdAt)}</td><td>${escFn(r.agent || '—')}</td><td>${pill(r.statusKey)}</td>
-    </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);">No leads in range</td></tr>'}</tbody>
+      <td>${escFn(r.name)}</td><td>${escFn(r.phone)}</td><td>${salesReportFmtTimestamp(r.createdAt)}</td><td>${escFn(r.agent || '—')}</td><td>${escFn(r.region)}</td><td>${escFn(r.product)}</td><td>${pill(r.statusKey)}</td>
+    </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);">No leads in range</td></tr>'}</tbody>
   </table>`;
 }
 
