@@ -70,7 +70,11 @@ their normalized `+9665XXXXXXXX` phone. `formatSaudiPhone()` / `isValidSaudiPhon
 - **`bookings`** — one installation appointment. Holds a *summary* product
   (`product_model` / `product_qty`) plus the full basket in `booking_items`. Links to a
   slot (`slot_id`), an installer (`installer_id`), and a representative warranty
-  (`warranty_id`). `booking_reference` (e.g. `SW-20260726-5AEB61`) is set by a trigger.
+  (`warranty_id`). `booking_reference` is set by a trigger, prefixed by service type —
+  `NB-XXXXXX` installation, `RP-XXXXXX` repair, `FR-XXXXXX` quarterly_service/maintenance,
+  `RL-XXXXXX` relocation, `SW-XXXXXX` anything else — with a random 6-char code, no date
+  (migrations/v53_booking_reference_by_type.sql). Older bookings keep their original
+  `SW-YYYYMMDD-XXXXXX` reference; only new ones use the new format.
 - **`booking_items`** — the product basket: one row per product line
   (`product_model`, `qty`, `unit_price`, `is_serialized`). ROs are serialized (need a QR),
   dispensers are not.
