@@ -1878,7 +1878,7 @@ const panelTitles = {
   analytics: ['Analytics', 'Business performance at a glance'],
   bookings: ['All Bookings', 'Manage and assign installation appointments'],
   leads: ['Leads', 'Contacts sales has added, before they become a booking'],
-  salesreport: ['Sales Report', 'New leads by day — filter and export'],
+  salesreport: ['Sales Report', 'Leads and bookings by sales agent — filter and export'],
   slots: ['Availability Slots', 'Control which time slots customers can book'],
   installers: ['User Management', 'Add, remove and manage installers and admin users'],
   passwords: ['Manage Access', 'Create and reset installer login passwords'],
@@ -5466,6 +5466,9 @@ function renderLeadsAdminTable() {
 // with a PDF export (browser print, same technique as warranty certificates —
 // no PDF library). Reuses the `leads` table already loaded for the Leads panel.
 // ============================================================
+let salesReportBookings = []; // full booking rows — a lead's linked booking, PLUS any booking
+                               // with no lead at all (created directly, e.g. admin's "Book for
+                               // Customer" credited to a sales agent via sales_agent)
 let salesReportBookingStatus = {}; // booking id -> status, for the leads->bookings lifecycle below
 
 async function loadSalesReport() {
@@ -5474,13 +5477,14 @@ async function loadSalesReport() {
   await dbAdmin.auth.getSession();
   const [{ data, error }, { data: bks, error: bErr }] = await Promise.all([
     dbAdmin.from('leads').select('*').order('created_at', { ascending: false }).limit(2000),
-    dbAdmin.from('bookings').select('id, status')
+    dbAdmin.from('bookings').select('id, status, customer_name, customer_phone, created_at, created_by_name, sales_agent')
   ]);
   if (error) { host.innerHTML = `<div class="empty-state">⚠️ Failed to load leads: ${escB(error.message)}</div>`; return; }
   allLeads = data || [];
+  salesReportBookings = bks || [];
   salesReportBookingStatus = {};
-  (bks || []).forEach(b => { salesReportBookingStatus[b.id] = b.status; });
-  if (bErr) console.warn('Failed to load booking statuses for the sales report:', bErr.message);
+  salesReportBookings.forEach(b => { salesReportBookingStatus[b.id] = b.status; });
+  if (bErr) console.warn('Failed to load bookings for the sales report:', bErr.message);
 
   const fromEl = document.getElementById('sr-from'), toEl = document.getElementById('sr-to');
   if (!fromEl.value && !toEl.value) {
@@ -5492,7 +5496,10 @@ async function loadSalesReport() {
 
   const agentSel = document.getElementById('sr-agent');
   const keepAgent = agentSel.value;
-  const names = [...new Set(allLeads.map(l => l.created_by_name).filter(Boolean))].sort();
+  const names = [...new Set([
+    ...allLeads.map(l => l.created_by_name),
+    ...salesReportBookings.map(b => b.sales_agent || b.created_by_name)
+  ].filter(Boolean))].sort();
   agentSel.innerHTML = '<option value="">All agents</option>' + names.map(n => `<option value="${escB(n)}">${escB(n)}</option>`).join('');
   if (keepAgent && names.includes(keepAgent)) agentSel.value = keepAgent;
 
@@ -5511,63 +5518,87 @@ const SALES_REPORT_STATUS = {
   lost:      { label: 'Lost',      color: '#94A3B8' }
 };
 
-// A lead's lifecycle stage: 'lead'/'lost' come straight from leads.status; once
-// converted, whether it's 'booked' or 'installed' depends on the linked
-// booking's own status (upcoming/in_progress vs completed).
-function salesReportStatusKey(l) {
-  if (l.status === 'lost') return 'lost';
-  if (l.status === 'open') return 'lead';
-  const bs = salesReportBookingStatus[l.converted_booking_id];
-  if (bs === 'completed') return 'installed';
+// A booking's own status -> lifecycle stage. Bookings use 'installed' when the
+// job type is an installation and 'completed' for other visit types (see
+// getStatusLabel's comment above) — both mean the same "done" stage here.
+function salesReportBookingOnlyStatus(bs) {
+  if (bs === 'installed' || bs === 'completed') return 'installed';
   if (bs === 'cancelled') return 'cancelled';
   return 'booked';
 }
 
-function filteredSalesReportLeads() {
+// A lead's lifecycle stage: 'lead'/'lost' come straight from leads.status; once
+// converted, whether it's 'booked' or 'installed' depends on the linked
+// booking's own status.
+function salesReportStatusKey(l) {
+  if (l.status === 'lost') return 'lost';
+  if (l.status === 'open') return 'lead';
+  return salesReportBookingOnlyStatus(salesReportBookingStatus[l.converted_booking_id]);
+}
+
+// Unified report rows: every lead, PLUS every booking that isn't linked from
+// any lead (i.e. it was booked directly, never went through the lead step —
+// common for admin-created bookings credited to a sales agent). Without this,
+// a sales agent's directly-booked jobs (Upcoming/Installed) never show up,
+// since the report used to read only the leads table.
+function salesReportRows() {
+  const linkedIds = new Set(allLeads.map(l => l.converted_booking_id).filter(Boolean));
+  const leadRows = allLeads.map(l => ({
+    name: l.name, phone: l.phone, createdAt: l.created_at, agent: l.created_by_name,
+    statusKey: salesReportStatusKey(l)
+  }));
+  const directRows = salesReportBookings
+    .filter(b => !linkedIds.has(b.id))
+    .map(b => ({
+      name: b.customer_name, phone: b.customer_phone, createdAt: b.created_at, agent: b.sales_agent || b.created_by_name,
+      statusKey: salesReportBookingOnlyStatus(b.status)
+    }));
+  return [...leadRows, ...directRows];
+}
+
+function filteredSalesReportRows() {
   const from = document.getElementById('sr-from').value;
   const to = document.getElementById('sr-to').value;
   const agent = document.getElementById('sr-agent').value;
   const status = document.getElementById('sr-status').value;
-  return allLeads.filter(l => {
-    const d = localDateISO(new Date(l.created_at));
+  return salesReportRows().filter(r => {
+    const d = localDateISO(new Date(r.createdAt));
     if (from && d < from) return false;
     if (to && d > to) return false;
-    if (agent && l.created_by_name !== agent) return false;
-    if (status && salesReportStatusKey(l) !== status) return false;
+    if (agent && r.agent !== agent) return false;
+    if (status && r.statusKey !== status) return false;
     return true;
   });
 }
 
-// One row per calendar day in [from, to], zero-filled where a day has no leads.
+// One row per calendar day in [from, to], zero-filled where a day has no activity.
 function salesReportDayRows(rows) {
   const from = document.getElementById('sr-from').value;
   const to = document.getElementById('sr-to').value;
   const byDay = {};
-  rows.forEach(l => {
-    const d = localDateISO(new Date(l.created_at));
-    if (!byDay[d]) byDay[d] = { date: d, total: 0, open: 0, converted: 0, lost: 0 };
-    byDay[d].total++;
-    byDay[d][l.status] = (byDay[d][l.status] || 0) + 1;
+  rows.forEach(r => {
+    const d = localDateISO(new Date(r.createdAt));
+    byDay[d] = (byDay[d] || 0) + 1;
   });
   const days = [];
   if (from && to) {
     const end = new Date(to + 'T00:00:00');
     for (let d = new Date(from + 'T00:00:00'); d <= end; d.setDate(d.getDate() + 1)) {
       const key = localDateISO(d);
-      days.push(byDay[key] || { date: key, total: 0, open: 0, converted: 0, lost: 0 });
+      days.push({ date: key, total: byDay[key] || 0 });
     }
   } else {
-    Object.values(byDay).sort((a, b) => a.date < b.date ? -1 : 1).forEach(x => days.push(x));
+    Object.keys(byDay).sort().forEach(key => days.push({ date: key, total: byDay[key] }));
   }
   return days;
 }
 
 function salesReportKPIs(rows) {
   const total = rows.length;
-  const lead = rows.filter(l => salesReportStatusKey(l) === 'lead').length;
-  const booked = rows.filter(l => salesReportStatusKey(l) === 'booked').length;
-  const installed = rows.filter(l => salesReportStatusKey(l) === 'installed').length;
-  const lost = rows.filter(l => salesReportStatusKey(l) === 'lost').length;
+  const lead = rows.filter(r => r.statusKey === 'lead').length;
+  const booked = rows.filter(r => r.statusKey === 'booked').length;
+  const installed = rows.filter(r => r.statusKey === 'installed').length;
+  const lost = rows.filter(r => r.statusKey === 'lost').length;
   return { total, lead, booked, installed, lost };
 }
 
@@ -5597,22 +5628,22 @@ function salesReportFmtTimestamp(s) {
 // Detail table: one row per lead — name, number, added timestamp, and its
 // lifecycle status (Lead / Booked / Installed / Lost / Cancelled).
 function salesReportDetailHTML(rows, escFn) {
-  const sorted = rows.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const sorted = rows.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   // Inline styles (not the .status-badge class) so this renders identically in
   // the live dashboard and in the standalone PDF print window, which has no
   // access to dashboard.html's stylesheet.
   const pill = (key) => { const s = SALES_REPORT_STATUS[key]; return `<span style="display:inline-flex;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${s.color}22;color:${s.color};">${s.label}</span>`; };
   return `<table>
     <thead><tr><th>Name</th><th>Number</th><th>Added</th><th>Agent</th><th>Status</th></tr></thead>
-    <tbody>${sorted.length ? sorted.map(l => `<tr>
-      <td>${escFn(l.name)}</td><td>${escFn(l.phone)}</td><td>${salesReportFmtTimestamp(l.created_at)}</td><td>${escFn(l.created_by_name || '—')}</td><td>${pill(salesReportStatusKey(l))}</td>
+    <tbody>${sorted.length ? sorted.map(r => `<tr>
+      <td>${escFn(r.name)}</td><td>${escFn(r.phone)}</td><td>${salesReportFmtTimestamp(r.createdAt)}</td><td>${escFn(r.agent || '—')}</td><td>${pill(r.statusKey)}</td>
     </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);">No leads in range</td></tr>'}</tbody>
   </table>`;
 }
 
 function renderSalesReport() {
   const host = document.getElementById('salesreport-body');
-  const rows = filteredSalesReportLeads();
+  const rows = filteredSalesReportRows();
   const days = salesReportDayRows(rows);
   const { total, lead, booked, installed, lost } = salesReportKPIs(rows);
   const { svg } = salesReportChartSVG(days);
@@ -5625,24 +5656,24 @@ function renderSalesReport() {
 
   host.innerHTML = `
     <div class="stat-grid" style="margin-bottom:20px;">
-      ${kpi('New Leads', total, '#1565C0')}
+      ${kpi('Total', total, '#1565C0')}
       ${kpi('Lead', lead, '#2563EB')}
       ${kpi('Booked', booked, '#D97706')}
       ${kpi('Installed', installed, '#16A34A')}
       ${kpi('Lost', lost, '#94A3B8')}
     </div>
     <div class="card" style="padding:20px;margin-bottom:20px;">
-      <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;">New leads by day</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;">Activity by day</div>
       <div style="overflow-x:auto;">${svg}</div>
     </div>
     <div class="card" style="padding:20px;">
-      <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Lead details</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Lead &amp; booking details</div>
       ${salesReportDetailHTML(rows, escB)}
     </div>`;
 }
 
 function downloadSalesReportPDF() {
-  const rows = filteredSalesReportLeads();
+  const rows = filteredSalesReportRows();
   const days = salesReportDayRows(rows);
   const { total, lead, booked, installed, lost } = salesReportKPIs(rows);
   const { svg } = salesReportChartSVG(days);
@@ -5677,15 +5708,15 @@ function downloadSalesReportPDF() {
     <h1>SA'DA H2O — Sales Report</h1>
     <div class="sub">${escB(rangeLabel)} · Agent: ${escB(agent)} · Status: ${escB(status)} · Generated ${new Date().toLocaleString('en-GB')}</div>
     <div class="kpis">
-      <div class="kpi"><div class="v">${total}</div><div class="l">New Leads</div></div>
+      <div class="kpi"><div class="v">${total}</div><div class="l">Total</div></div>
       <div class="kpi"><div class="v">${lead}</div><div class="l">Lead</div></div>
       <div class="kpi"><div class="v">${booked}</div><div class="l">Booked</div></div>
       <div class="kpi"><div class="v">${installed}</div><div class="l">Installed</div></div>
       <div class="kpi"><div class="v">${lost}</div><div class="l">Lost</div></div>
     </div>
-    <div class="section-title">New leads by day</div>
+    <div class="section-title">Activity by day</div>
     ${svg}
-    <div class="section-title">Lead details</div>
+    <div class="section-title">Lead &amp; booking details</div>
     ${salesReportDetailHTML(rows, escB)}
   </div>
 </body></html>`);

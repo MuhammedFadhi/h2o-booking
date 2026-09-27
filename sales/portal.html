@@ -340,7 +340,7 @@
       <button class="btn btn-ghost" id="rp-pdf-btn" type="button">⬇ Download PDF</button>
     </div>
     <div class="stats-row" style="margin:14px 0 0;">
-      <div class="stat-tile"><span class="stat-num" id="rp-total">–</span><span class="stat-label">New Leads</span></div>
+      <div class="stat-tile"><span class="stat-num" id="rp-total">–</span><span class="stat-label">Total</span></div>
       <div class="stat-tile"><span class="stat-num" id="rp-booked">–</span><span class="stat-label">Booked</span></div>
       <div class="stat-tile"><span class="stat-num" id="rp-installed">–</span><span class="stat-label">Installed</span></div>
     </div>
@@ -893,27 +893,50 @@
     renderReport();
   }
 
+  // A booking's own status -> lifecycle stage. Bookings use 'installed' when
+  // the job type is an installation and 'completed' for other visit types —
+  // both mean the same "done" stage here.
+  function reportBookingOnlyStatus(bs) {
+    if (bs === 'installed' || bs === 'completed') return 'installed';
+    if (bs === 'cancelled') return 'cancelled';
+    return 'booked';
+  }
+
   // A lead's lifecycle stage: 'lead'/'lost' come straight from leads.status;
   // once converted, whether it's 'booked' or 'installed' depends on the linked
-  // booking's own status (upcoming/in_progress vs completed) — read from
-  // myBookings, which is already loaded for the My Booking tab.
+  // booking's own status — read from myBookings, already loaded for My Booking.
   function reportStatusKey(l) {
     if (l.status === 'lost') return 'lost';
     if (l.status === 'open') return 'lead';
     const b = (myBookings || []).find((x) => x.id === l.converted_booking_id);
-    if (!b) return 'booked';
-    if (b.status === 'completed') return 'installed';
-    if (b.status === 'cancelled') return 'cancelled';
-    return 'booked';
+    return reportBookingOnlyStatus(b ? b.status : null);
   }
 
-  function filteredReportLeads() {
+  // Unified report rows: every lead, PLUS every one of the sales user's own
+  // bookings that isn't linked from any lead (booked directly, without going
+  // through the lead step first — e.g. admin's "Book for Customer" credited to
+  // this agent). Without this, directly-booked jobs (Upcoming/Installed) never
+  // showed up, since the report used to read only the leads array.
+  function reportRows() {
+    const linkedIds = new Set((leads || []).map((l) => l.converted_booking_id).filter(Boolean));
+    const leadRows = (leads || []).map((l) => ({
+      name: l.name, phone: l.phone, createdAt: l.created_at, statusKey: reportStatusKey(l)
+    }));
+    const directRows = (myBookings || [])
+      .filter((b) => !linkedIds.has(b.id))
+      .map((b) => ({
+        name: b.customer_name, phone: b.customer_phone, createdAt: b.created_at, statusKey: reportBookingOnlyStatus(b.status)
+      }));
+    return [...leadRows, ...directRows];
+  }
+
+  function filteredReportRows() {
     const from = $('rp-from').value, to = $('rp-to').value, status = $('rp-status').value;
-    return (leads || []).filter((l) => {
-      const d = riyadhDateISO(l.created_at);
+    return reportRows().filter((r) => {
+      const d = riyadhDateISO(r.createdAt);
       if (from && d < from) return false;
       if (to && d > to) return false;
-      if (status && reportStatusKey(l) !== status) return false;
+      if (status && r.statusKey !== status) return false;
       return true;
     });
   }
@@ -922,34 +945,34 @@
   function reportFmtTimestamp(s) { return new Date(s).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 
   function reportListHTML(rows) {
-    if (!rows.length) return '<div class="empty">No leads in this range.</div>';
-    return rows.map((l) => {
-      const st = REPORT_STATUS[reportStatusKey(l)];
+    if (!rows.length) return '<div class="empty">No leads or bookings in this range.</div>';
+    return rows.map((r) => {
+      const st = REPORT_STATUS[r.statusKey];
       return `<div class="bk">
         <div class="bk-top">
-          <div><div class="nm">${esc(l.name)}</div><a href="tel:${esc(l.phone)}">${esc(l.phone)}</a></div>
+          <div><div class="nm">${esc(r.name)}</div><a href="tel:${esc(r.phone)}">${esc(r.phone)}</a></div>
           <span class="pill" style="background:${st.color}">${esc(st.label)}</span>
         </div>
-        <div class="bk-meta"><span class="k">Added</span> ${reportFmtTimestamp(l.created_at)}</div>
+        <div class="bk-meta"><span class="k">Added</span> ${reportFmtTimestamp(r.createdAt)}</div>
       </div>`;
     }).join('');
   }
 
   function renderReport() {
-    const rows = filteredReportLeads().slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-    const booked = rows.filter((l) => reportStatusKey(l) === 'booked').length;
-    const installed = rows.filter((l) => reportStatusKey(l) === 'installed').length;
+    const rows = filteredReportRows().slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    const booked = rows.filter((r) => r.statusKey === 'booked').length;
+    const installed = rows.filter((r) => r.statusKey === 'installed').length;
     $('rp-total').textContent = rows.length;
     $('rp-booked').textContent = booked;
     $('rp-installed').textContent = installed;
-    $('rp-count').textContent = `${rows.length} lead${rows.length === 1 ? '' : 's'}`;
+    $('rp-count').textContent = `${rows.length} ${rows.length === 1 ? 'entry' : 'entries'}`;
     $('rp-list').innerHTML = reportListHTML(rows);
   }
 
   function downloadReportPDF() {
-    const rows = filteredReportLeads().slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-    const booked = rows.filter((l) => reportStatusKey(l) === 'booked').length;
-    const installed = rows.filter((l) => reportStatusKey(l) === 'installed').length;
+    const rows = filteredReportRows().slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    const booked = rows.filter((r) => r.statusKey === 'booked').length;
+    const installed = rows.filter((r) => r.statusKey === 'installed').length;
     const from = $('rp-from').value, to = $('rp-to').value;
     const status = $('rp-status').selectedOptions[0].textContent;
     const rangeLabel = (from && to) ? `${reportFmtDate(from)} – ${reportFmtDate(to)}` : 'All time';
@@ -980,13 +1003,13 @@
     <h1>SA'DA H2O — My Sales Report</h1>
     <div class="sub">${esc(myName)} · ${esc(rangeLabel)} · Status: ${esc(status)} · Generated ${new Date().toLocaleString('en-GB')}</div>
     <div class="kpis">
-      <div class="kpi"><div class="v">${rows.length}</div><div class="l">New Leads</div></div>
+      <div class="kpi"><div class="v">${rows.length}</div><div class="l">Total</div></div>
       <div class="kpi"><div class="v">${booked}</div><div class="l">Booked</div></div>
       <div class="kpi"><div class="v">${installed}</div><div class="l">Installed</div></div>
     </div>
     <table>
       <thead><tr><th>Name</th><th>Number</th><th>Added</th><th>Status</th></tr></thead>
-      <tbody>${rows.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(l.phone)}</td><td>${reportFmtTimestamp(l.created_at)}</td><td>${esc(REPORT_STATUS[reportStatusKey(l)].label)}</td></tr>`).join('')}</tbody>
+      <tbody>${rows.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${reportFmtTimestamp(r.createdAt)}</td><td>${esc(REPORT_STATUS[r.statusKey].label)}</td></tr>`).join('')}</tbody>
     </table>
   </div>
 </body></html>`);
