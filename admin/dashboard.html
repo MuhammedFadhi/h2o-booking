@@ -885,8 +885,10 @@
           <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Status</label>
             <select id="sr-status" class="form-input" onchange="renderSalesReport()">
               <option value="">All statuses</option>
-              <option value="open">Open</option>
-              <option value="converted">Converted</option>
+              <option value="lead">Lead</option>
+              <option value="booked">Booked</option>
+              <option value="installed">Installed</option>
+              <option value="cancelled">Cancelled</option>
               <option value="lost">Lost</option>
             </select>
           </div>
@@ -5464,13 +5466,21 @@ function renderLeadsAdminTable() {
 // with a PDF export (browser print, same technique as warranty certificates —
 // no PDF library). Reuses the `leads` table already loaded for the Leads panel.
 // ============================================================
+let salesReportBookingStatus = {}; // booking id -> status, for the leads->bookings lifecycle below
+
 async function loadSalesReport() {
   const host = document.getElementById('salesreport-body');
   host.innerHTML = '<div class="loading"><div class="spinner"></div> Loading leads...</div>';
   await dbAdmin.auth.getSession();
-  const { data, error } = await dbAdmin.from('leads').select('*').order('created_at', { ascending: false }).limit(2000);
+  const [{ data, error }, { data: bks, error: bErr }] = await Promise.all([
+    dbAdmin.from('leads').select('*').order('created_at', { ascending: false }).limit(2000),
+    dbAdmin.from('bookings').select('id, status')
+  ]);
   if (error) { host.innerHTML = `<div class="empty-state">⚠️ Failed to load leads: ${escB(error.message)}</div>`; return; }
   allLeads = data || [];
+  salesReportBookingStatus = {};
+  (bks || []).forEach(b => { salesReportBookingStatus[b.id] = b.status; });
+  if (bErr) console.warn('Failed to load booking statuses for the sales report:', bErr.message);
 
   const fromEl = document.getElementById('sr-from'), toEl = document.getElementById('sr-to');
   if (!fromEl.value && !toEl.value) {
@@ -5493,6 +5503,26 @@ function salesReportFmtDate(s) {
   return new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+const SALES_REPORT_STATUS = {
+  lead:      { label: 'Lead',      color: '#2563EB' },
+  booked:    { label: 'Booked',    color: '#D97706' },
+  installed: { label: 'Installed', color: '#16A34A' },
+  cancelled: { label: 'Cancelled', color: '#DC2626' },
+  lost:      { label: 'Lost',      color: '#94A3B8' }
+};
+
+// A lead's lifecycle stage: 'lead'/'lost' come straight from leads.status; once
+// converted, whether it's 'booked' or 'installed' depends on the linked
+// booking's own status (upcoming/in_progress vs completed).
+function salesReportStatusKey(l) {
+  if (l.status === 'lost') return 'lost';
+  if (l.status === 'open') return 'lead';
+  const bs = salesReportBookingStatus[l.converted_booking_id];
+  if (bs === 'completed') return 'installed';
+  if (bs === 'cancelled') return 'cancelled';
+  return 'booked';
+}
+
 function filteredSalesReportLeads() {
   const from = document.getElementById('sr-from').value;
   const to = document.getElementById('sr-to').value;
@@ -5503,7 +5533,7 @@ function filteredSalesReportLeads() {
     if (from && d < from) return false;
     if (to && d > to) return false;
     if (agent && l.created_by_name !== agent) return false;
-    if (status && l.status !== status) return false;
+    if (status && salesReportStatusKey(l) !== status) return false;
     return true;
   });
 }
@@ -5534,10 +5564,11 @@ function salesReportDayRows(rows) {
 
 function salesReportKPIs(rows) {
   const total = rows.length;
-  const open = rows.filter(l => l.status === 'open').length;
-  const converted = rows.filter(l => l.status === 'converted').length;
-  const lost = rows.filter(l => l.status === 'lost').length;
-  return { total, open, converted, lost, convRate: total ? Math.round(converted / total * 100) : 0 };
+  const lead = rows.filter(l => salesReportStatusKey(l) === 'lead').length;
+  const booked = rows.filter(l => salesReportStatusKey(l) === 'booked').length;
+  const installed = rows.filter(l => salesReportStatusKey(l) === 'installed').length;
+  const lost = rows.filter(l => salesReportStatusKey(l) === 'lost').length;
+  return { total, lead, booked, installed, lost };
 }
 
 function salesReportChartSVG(days) {
@@ -5559,12 +5590,23 @@ function salesReportChartSVG(days) {
     </svg>`, chartW };
 }
 
-function salesReportTableHTML(days) {
+function salesReportFmtTimestamp(s) {
+  return new Date(s).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// Detail table: one row per lead — name, number, added timestamp, and its
+// lifecycle status (Lead / Booked / Installed / Lost / Cancelled).
+function salesReportDetailHTML(rows, escFn) {
+  const sorted = rows.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  // Inline styles (not the .status-badge class) so this renders identically in
+  // the live dashboard and in the standalone PDF print window, which has no
+  // access to dashboard.html's stylesheet.
+  const pill = (key) => { const s = SALES_REPORT_STATUS[key]; return `<span style="display:inline-flex;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${s.color}22;color:${s.color};">${s.label}</span>`; };
   return `<table>
-    <thead><tr><th>Date</th><th>New Leads</th><th>Open</th><th>Converted</th><th>Lost</th></tr></thead>
-    <tbody>${days.length ? days.map(d => `<tr>
-      <td>${salesReportFmtDate(d.date)}</td><td>${d.total}</td><td>${d.open || 0}</td><td>${d.converted || 0}</td><td>${d.lost || 0}</td>
-    </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);">No data</td></tr>'}</tbody>
+    <thead><tr><th>Name</th><th>Number</th><th>Added</th><th>Agent</th><th>Status</th></tr></thead>
+    <tbody>${sorted.length ? sorted.map(l => `<tr>
+      <td>${escFn(l.name)}</td><td>${escFn(l.phone)}</td><td>${salesReportFmtTimestamp(l.created_at)}</td><td>${escFn(l.created_by_name || '—')}</td><td>${pill(salesReportStatusKey(l))}</td>
+    </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);">No leads in range</td></tr>'}</tbody>
   </table>`;
 }
 
@@ -5572,7 +5614,7 @@ function renderSalesReport() {
   const host = document.getElementById('salesreport-body');
   const rows = filteredSalesReportLeads();
   const days = salesReportDayRows(rows);
-  const { total, open, converted, lost, convRate } = salesReportKPIs(rows);
+  const { total, lead, booked, installed, lost } = salesReportKPIs(rows);
   const { svg } = salesReportChartSVG(days);
 
   const kpi = (label, value, color) => `
@@ -5584,25 +5626,25 @@ function renderSalesReport() {
   host.innerHTML = `
     <div class="stat-grid" style="margin-bottom:20px;">
       ${kpi('New Leads', total, '#1565C0')}
-      ${kpi('Open', open, '#2563EB')}
-      ${kpi('Converted', converted, '#16A34A')}
+      ${kpi('Lead', lead, '#2563EB')}
+      ${kpi('Booked', booked, '#D97706')}
+      ${kpi('Installed', installed, '#16A34A')}
       ${kpi('Lost', lost, '#94A3B8')}
-      ${kpi('Conversion Rate', convRate + '%', '#7C3AED')}
     </div>
     <div class="card" style="padding:20px;margin-bottom:20px;">
       <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;">New leads by day</div>
       <div style="overflow-x:auto;">${svg}</div>
     </div>
     <div class="card" style="padding:20px;">
-      <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Day-by-day breakdown</div>
-      ${salesReportTableHTML(days)}
+      <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Lead details</div>
+      ${salesReportDetailHTML(rows, escB)}
     </div>`;
 }
 
 function downloadSalesReportPDF() {
   const rows = filteredSalesReportLeads();
   const days = salesReportDayRows(rows);
-  const { total, open, converted, lost, convRate } = salesReportKPIs(rows);
+  const { total, lead, booked, installed, lost } = salesReportKPIs(rows);
   const { svg } = salesReportChartSVG(days);
   const from = document.getElementById('sr-from').value, to = document.getElementById('sr-to').value;
   const agent = document.getElementById('sr-agent').value || 'All agents';
@@ -5636,15 +5678,15 @@ function downloadSalesReportPDF() {
     <div class="sub">${escB(rangeLabel)} · Agent: ${escB(agent)} · Status: ${escB(status)} · Generated ${new Date().toLocaleString('en-GB')}</div>
     <div class="kpis">
       <div class="kpi"><div class="v">${total}</div><div class="l">New Leads</div></div>
-      <div class="kpi"><div class="v">${open}</div><div class="l">Open</div></div>
-      <div class="kpi"><div class="v">${converted}</div><div class="l">Converted</div></div>
+      <div class="kpi"><div class="v">${lead}</div><div class="l">Lead</div></div>
+      <div class="kpi"><div class="v">${booked}</div><div class="l">Booked</div></div>
+      <div class="kpi"><div class="v">${installed}</div><div class="l">Installed</div></div>
       <div class="kpi"><div class="v">${lost}</div><div class="l">Lost</div></div>
-      <div class="kpi"><div class="v">${convRate}%</div><div class="l">Conversion Rate</div></div>
     </div>
     <div class="section-title">New leads by day</div>
     ${svg}
-    <div class="section-title">Day-by-day breakdown</div>
-    ${salesReportTableHTML(days)}
+    <div class="section-title">Lead details</div>
+    ${salesReportDetailHTML(rows, escB)}
   </div>
 </body></html>`);
   w.document.close();

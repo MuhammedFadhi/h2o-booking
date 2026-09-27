@@ -330,8 +330,10 @@
         <label for="rp-status">Status</label>
         <select id="rp-status">
           <option value="">All statuses</option>
-          <option value="open">Open</option>
-          <option value="converted">Converted</option>
+          <option value="lead">Lead</option>
+          <option value="booked">Booked</option>
+          <option value="installed">Installed</option>
+          <option value="cancelled">Cancelled</option>
           <option value="lost">Lost</option>
         </select>
       </div>
@@ -339,11 +341,11 @@
     </div>
     <div class="stats-row" style="margin:14px 0 0;">
       <div class="stat-tile"><span class="stat-num" id="rp-total">–</span><span class="stat-label">New Leads</span></div>
-      <div class="stat-tile"><span class="stat-num" id="rp-converted">–</span><span class="stat-label">Converted</span></div>
-      <div class="stat-tile"><span class="stat-num" id="rp-rate">–</span><span class="stat-label">Conv. Rate</span></div>
+      <div class="stat-tile"><span class="stat-num" id="rp-booked">–</span><span class="stat-label">Booked</span></div>
+      <div class="stat-tile"><span class="stat-num" id="rp-installed">–</span><span class="stat-label">Installed</span></div>
     </div>
-    <div class="count" style="margin-top:16px;">Day-by-day</div>
-    <div id="rp-days"></div>
+    <div class="count" style="margin-top:16px;" id="rp-count"></div>
+    <div id="rp-list"></div>
   </section>
 </main>
 </div>
@@ -866,13 +868,22 @@
     }).join('');
   }
 
-  // ── my report — new leads by day, own data only (server already scopes
-  // my-leads to the caller); download is a print-friendly window (Save as PDF),
-  // same technique the warranty certificate uses — no PDF library. ──
+  // ── my report — a detailed list of own leads (name, number, timestamp,
+  // lifecycle status), own data only (server already scopes my-leads/my-bookings
+  // to the caller); download is a print-friendly window (Save as PDF), same
+  // technique the warranty certificate uses — no PDF library. ──
+  const REPORT_STATUS = {
+    lead:      { label: 'Lead',      color: '#2563EB' },
+    booked:    { label: 'Booked',    color: '#D97706' },
+    installed: { label: 'Installed', color: '#16A34A' },
+    cancelled: { label: 'Cancelled', color: '#DC2626' },
+    lost:      { label: 'Lost',      color: '#94A3B8' }
+  };
+
   async function loadReportView() {
-    $('rp-days').innerHTML = '<div class="empty">Loading…</div>';
-    try { await fetchLeads(); }
-    catch (e) { $('rp-days').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+    $('rp-list').innerHTML = '<div class="empty">Loading…</div>';
+    try { await Promise.all([fetchLeads(), fetchMine()]); }
+    catch (e) { $('rp-list').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
     if (!$('rp-from').value && !$('rp-to').value) {
       const today = new Date(), from = new Date(today);
       from.setDate(from.getDate() - 29);
@@ -882,60 +893,63 @@
     renderReport();
   }
 
+  // A lead's lifecycle stage: 'lead'/'lost' come straight from leads.status;
+  // once converted, whether it's 'booked' or 'installed' depends on the linked
+  // booking's own status (upcoming/in_progress vs completed) — read from
+  // myBookings, which is already loaded for the My Booking tab.
+  function reportStatusKey(l) {
+    if (l.status === 'lost') return 'lost';
+    if (l.status === 'open') return 'lead';
+    const b = (myBookings || []).find((x) => x.id === l.converted_booking_id);
+    if (!b) return 'booked';
+    if (b.status === 'completed') return 'installed';
+    if (b.status === 'cancelled') return 'cancelled';
+    return 'booked';
+  }
+
   function filteredReportLeads() {
     const from = $('rp-from').value, to = $('rp-to').value, status = $('rp-status').value;
     return (leads || []).filter((l) => {
       const d = riyadhDateISO(l.created_at);
       if (from && d < from) return false;
       if (to && d > to) return false;
-      if (status && l.status !== status) return false;
+      if (status && reportStatusKey(l) !== status) return false;
       return true;
     });
   }
 
-  function reportDayRows(rows) {
-    const from = $('rp-from').value, to = $('rp-to').value;
-    const byDay = {};
-    rows.forEach((l) => {
-      const d = riyadhDateISO(l.created_at);
-      if (!byDay[d]) byDay[d] = { date: d, total: 0, open: 0, converted: 0, lost: 0 };
-      byDay[d].total++;
-      byDay[d][l.status] = (byDay[d][l.status] || 0) + 1;
-    });
-    const days = [];
-    if (from && to) {
-      const end = new Date(to + 'T00:00:00');
-      for (let d = new Date(from + 'T00:00:00'); d <= end; d.setDate(d.getDate() + 1)) {
-        const key = riyadhDateISO(d);
-        days.push(byDay[key] || { date: key, total: 0, open: 0, converted: 0, lost: 0 });
-      }
-    } else {
-      Object.values(byDay).sort((a, b) => (a.date < b.date ? -1 : 1)).forEach((x) => days.push(x));
-    }
-    return days;
+  function reportFmtDate(s) { return new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
+  function reportFmtTimestamp(s) { return new Date(s).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+
+  function reportListHTML(rows) {
+    if (!rows.length) return '<div class="empty">No leads in this range.</div>';
+    return rows.map((l) => {
+      const st = REPORT_STATUS[reportStatusKey(l)];
+      return `<div class="bk">
+        <div class="bk-top">
+          <div><div class="nm">${esc(l.name)}</div><a href="tel:${esc(l.phone)}">${esc(l.phone)}</a></div>
+          <span class="pill" style="background:${st.color}">${esc(st.label)}</span>
+        </div>
+        <div class="bk-meta"><span class="k">Added</span> ${reportFmtTimestamp(l.created_at)}</div>
+      </div>`;
+    }).join('');
   }
 
-  function reportFmtDate(s) { return new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
-
   function renderReport() {
-    const rows = filteredReportLeads();
-    const days = reportDayRows(rows);
-    const converted = rows.filter((l) => l.status === 'converted').length;
+    const rows = filteredReportLeads().slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    const booked = rows.filter((l) => reportStatusKey(l) === 'booked').length;
+    const installed = rows.filter((l) => reportStatusKey(l) === 'installed').length;
     $('rp-total').textContent = rows.length;
-    $('rp-converted').textContent = converted;
-    $('rp-rate').textContent = (rows.length ? Math.round(converted / rows.length * 100) : 0) + '%';
-    $('rp-days').innerHTML = days.length ? days.map((d) => `
-      <div class="bk">
-        <div class="bk-top"><div class="nm">${reportFmtDate(d.date)}</div><span class="pill" style="background:${d.total ? '#1565C0' : '#94A3B8'}">${d.total} lead${d.total === 1 ? '' : 's'}</span></div>
-        ${d.total ? `<div class="bk-meta">Open ${d.open || 0} · Converted ${d.converted || 0} · Lost ${d.lost || 0}</div>` : ''}
-      </div>`).join('') : '<div class="empty">No leads in this range.</div>';
+    $('rp-booked').textContent = booked;
+    $('rp-installed').textContent = installed;
+    $('rp-count').textContent = `${rows.length} lead${rows.length === 1 ? '' : 's'}`;
+    $('rp-list').innerHTML = reportListHTML(rows);
   }
 
   function downloadReportPDF() {
-    const rows = filteredReportLeads();
-    const days = reportDayRows(rows);
-    const converted = rows.filter((l) => l.status === 'converted').length;
-    const rate = rows.length ? Math.round(converted / rows.length * 100) : 0;
+    const rows = filteredReportLeads().slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    const booked = rows.filter((l) => reportStatusKey(l) === 'booked').length;
+    const installed = rows.filter((l) => reportStatusKey(l) === 'installed').length;
     const from = $('rp-from').value, to = $('rp-to').value;
     const status = $('rp-status').selectedOptions[0].textContent;
     const rangeLabel = (from && to) ? `${reportFmtDate(from)} – ${reportFmtDate(to)}` : 'All time';
@@ -967,12 +981,12 @@
     <div class="sub">${esc(myName)} · ${esc(rangeLabel)} · Status: ${esc(status)} · Generated ${new Date().toLocaleString('en-GB')}</div>
     <div class="kpis">
       <div class="kpi"><div class="v">${rows.length}</div><div class="l">New Leads</div></div>
-      <div class="kpi"><div class="v">${converted}</div><div class="l">Converted</div></div>
-      <div class="kpi"><div class="v">${rate}%</div><div class="l">Conversion Rate</div></div>
+      <div class="kpi"><div class="v">${booked}</div><div class="l">Booked</div></div>
+      <div class="kpi"><div class="v">${installed}</div><div class="l">Installed</div></div>
     </div>
     <table>
-      <thead><tr><th>Date</th><th>New Leads</th><th>Open</th><th>Converted</th><th>Lost</th></tr></thead>
-      <tbody>${days.map((d) => `<tr><td>${reportFmtDate(d.date)}</td><td>${d.total}</td><td>${d.open || 0}</td><td>${d.converted || 0}</td><td>${d.lost || 0}</td></tr>`).join('')}</tbody>
+      <thead><tr><th>Name</th><th>Number</th><th>Added</th><th>Status</th></tr></thead>
+      <tbody>${rows.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(l.phone)}</td><td>${reportFmtTimestamp(l.created_at)}</td><td>${esc(REPORT_STATUS[reportStatusKey(l)].label)}</td></tr>`).join('')}</tbody>
     </table>
   </div>
 </body></html>`);
