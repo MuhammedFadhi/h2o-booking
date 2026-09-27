@@ -5680,9 +5680,7 @@ function renderSalesReport() {
 
 function downloadSalesReportPDF() {
   const rows = filteredSalesReportRows();
-  const days = salesReportDayRows(rows);
   const { total, lead, booked, installed, lost } = salesReportKPIs(rows);
-  const { svg } = salesReportChartSVG(days);
   const from = document.getElementById('sr-from').value, to = document.getElementById('sr-to').value;
   const agent = document.getElementById('sr-agent').value || 'All agents';
   const status = document.getElementById('sr-status').selectedOptions[0].textContent;
@@ -5720,8 +5718,6 @@ function downloadSalesReportPDF() {
       <div class="kpi"><div class="v">${installed}</div><div class="l">Installed</div></div>
       <div class="kpi"><div class="v">${lost}</div><div class="l">Lost</div></div>
     </div>
-    <div class="section-title">Activity by day</div>
-    ${svg}
     <div class="section-title">Lead &amp; booking details</div>
     ${salesReportDetailHTML(rows, escB)}
   </div>

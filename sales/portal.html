@@ -987,7 +987,7 @@
 
     const w = window.open('', '_blank');
     if (!w) { toast('Please allow pop-ups to download the PDF'); return; }
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>SA'DA H2O — My Sales Report</title>
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>SA'DA H2O — ${esc(myName)} — Sales Report</title>
 <style>
   body{font-family:Arial,sans-serif;color:#0A1628;margin:0;padding:32px;}
   h1{font-size:22px;color:#0D3B6E;margin:0 0 4px;}
@@ -1007,8 +1007,8 @@
 </style></head><body>
   <div class="print-bar">Report ready. <button onclick="window.print()">⬇ Save as PDF / Print</button><button class="ghost" onclick="window.close()">Close</button></div>
   <div class="body">
-    <h1>SA'DA H2O — My Sales Report</h1>
-    <div class="sub">${esc(myName)} · ${esc(rangeLabel)} · Status: ${esc(status)} · Generated ${new Date().toLocaleString('en-GB')}</div>
+    <h1>SA'DA H2O — ${esc(myName)}</h1>
+    <div class="sub">Sales Report · ${esc(rangeLabel)} · Status: ${esc(status)} · Generated ${new Date().toLocaleString('en-GB')}</div>
     <div class="kpis">
       <div class="kpi"><div class="v">${rows.length}</div><div class="l">Total</div></div>
       <div class="kpi"><div class="v">${booked}</div><div class="l">Booked</div></div>
