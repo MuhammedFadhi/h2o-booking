@@ -17,9 +17,12 @@
 -- needed. admin/dashboard.html's submitServiceBooking() now passes
 -- p_booking_type: jobType and drops booking_type from its follow-up patch.
 --
--- Postgres allows adding a new trailing parameter with a DEFAULT via
--- CREATE OR REPLACE FUNCTION without dropping the old one first — same
--- function, existing grants still apply. Idempotent, safe to re-run.
+-- CORRECTION (see v56_fix_create_booking_overload.sql): adding this trailing
+-- parameter via CREATE OR REPLACE does NOT replace the original function as
+-- assumed below — Postgres creates a second, separate overload instead,
+-- which broke every create_booking() call once this ran. v56 drops the old
+-- 8-arg overload to fix it. Left this file's history as-is; see v56 for what
+-- actually happened.
 -- Does NOT retroactively fix booking_reference on already-created rows.
 
 CREATE OR REPLACE FUNCTION public.create_booking(
