@@ -5541,7 +5541,7 @@ function renderLeadsAdminTable() {
     // Note preview stays visible (not hover-only) so the urgency pill's "in 1
     // day"/"3 days overdue" signal is never traded away for it — truncated to
     // one line, with the full text still on hover via title.
-    const notePreview = f.note ? `<div title="${escB(f.note)}" style="font-size:11px;color:var(--muted);max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;">${escB(f.note)}</div>` : '';
+    const notePreview = f.note ? `<div title="${escB(f.note)}" style="display:inline-block;font-size:11px;color:var(--muted);max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;">${escB(f.note)}</div>` : '';
     return `<span style="background:${c.bg};color:${c.fg};font-size:11px;font-weight:700;padding:3px 9px;border-radius:9px;white-space:nowrap;display:inline-block;">
         ${W.fmtDate(f.followup_date)} · ${W.humanDays(f.followup_date)}</span>${notePreview}<br>${btn}`;
   };
