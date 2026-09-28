@@ -1860,12 +1860,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     await db.auth.signOut(); window.location.href = 'login.html'; return;
   }
   document.getElementById('admin-email').textContent = session.user.email;
-  await loadCities();
-  await loadInstallers();
-  await loadAdmins();       // needed for the Sales Agent dropdowns (bookings table + booking modals)
-  await loadSales();        // sales users also appear in those dropdowns
-  await loadOverview();     // Overview is the landing panel
-  await loadBookings();     // pre-load bookings data (its panel is one click away)
+  // These four are independent of each other — run them together instead of
+  // one after another. loadBookings() (below) renders a Sales Agent dropdown
+  // per row from admins/salesUsers and an Assign Installer dropdown from
+  // installers, so it still has to wait for all four to finish first.
+  await Promise.all([loadCities(), loadInstallers(), loadAdmins(), loadSales()]);
+  // Overview and Bookings don't depend on each other — load together.
+  await Promise.all([loadOverview(), loadBookings()]);
   setDefaultDate();
 });
 
