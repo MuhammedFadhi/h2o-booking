@@ -159,6 +159,11 @@
       gap: 20px;
       margin-bottom: 28px;
     }
+    /* Same card styling as .stat-grid, but for rows of 5 tiles (Sales Report) so
+       the last one doesn't wrap alone onto its own near-empty row. */
+    .stat-grid-5 {
+      grid-template-columns: repeat(5, 1fr);
+    }
     .stat-card {
       background: white;
       border-radius: 16px;
@@ -398,6 +403,7 @@
 
     @media (max-width: 1024px) {
       .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      .stat-grid-5 { grid-template-columns: repeat(3, 1fr); }
       .slot-grid { grid-template-columns: repeat(4, 1fr); }
     }
 
@@ -471,6 +477,7 @@
 
       /* Stats */
       .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+      .stat-grid-5 { grid-template-columns: repeat(2, 1fr); }
       .stat-card { padding: 16px; }
       .stat-value { font-size: 24px; }
       .stat-icon { width: 36px; height: 36px; font-size: 16px; margin-bottom: 10px; }
@@ -569,6 +576,7 @@
 
     @media (max-width: 400px) {
       .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      .stat-grid-5 { grid-template-columns: repeat(2, 1fr); }
       .slot-grid { grid-template-columns: repeat(3, 1fr); }
       .nav-item { min-width: 60px; padding: 8px 10px; font-size: 9px; }
     }
@@ -5681,7 +5689,7 @@ function renderSalesReport() {
     </div>`;
 
   host.innerHTML = `
-    <div class="stat-grid" style="margin-bottom:20px;">
+    <div class="stat-grid stat-grid-5" style="margin-bottom:20px;">
       ${kpi('Total', total, '#1565C0')}
       ${kpi('Lead', lead, '#2563EB')}
       ${kpi('Booked', booked, '#D97706')}
