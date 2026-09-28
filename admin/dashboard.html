@@ -1255,7 +1255,7 @@
           </div>
         </div>
         <div style="font-size:12px;color:var(--muted);padding:10px 20px 0;">
-          Shows both customer follow-ups and lead follow-ups (🧲 tagged) together. Add a lead follow-up from its row in the Leads panel.
+          Shows both customer follow-ups and lead follow-ups together — lead ones are marked with the lead icon and a purple "Lead" tag. Add a lead follow-up from its row in the Leads panel.
         </div>
 
         <!-- Calendar month navigator (hidden in list view) -->
@@ -5510,7 +5510,7 @@ function renderLeadsAdminTable() {
   if (status) rows = rows.filter(l => l.status === status);
   if (q) rows = rows.filter(l => (l.name || '').toLowerCase().includes(q) || (l.phone || '').toLowerCase().includes(q));
   countEl.textContent = `${rows.length} lead${rows.length === 1 ? '' : 's'}`;
-  if (!rows.length) { container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🧲</div><div>No leads found.</div></div>'; return; }
+  if (!rows.length) { container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${LEAD_ICON_SVG}</div><div>No leads found.</div></div>`; return; }
 
   const statusPill = (s) => {
     const map = { open: ['Open', '#2563EB'], converted: ['Converted', '#16A34A'], lost: ['Lost', '#94A3B8'] };
@@ -7438,6 +7438,10 @@ function renderFollowups() {
   return renderFollowupList();
 }
 
+// Same line-art icon as the Leads nav item / sales portal's "Lead" group —
+// used anywhere a lead follow-up needs a small inline marker.
+const LEAD_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><path d="M0 0h24v24H0z" fill="none"/><g fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m16.719 19.752l-.64-5.124A3 3 0 0 0 13.101 12h-2.204a3 3 0 0 0-2.976 2.628l-.641 5.124A2 2 0 0 0 9.266 22h5.468a2 2 0 0 0 1.985-2.248"/><circle cx="12" cy="5" r="3"/><circle cx="4" cy="9" r="2"/><circle cx="20" cy="9" r="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 14h-.306a2 2 0 0 0-1.973 1.671l-.333 2A2 2 0 0 0 3.361 20H7m13-6h.306a2 2 0 0 1 1.973 1.671l.333 2A2 2 0 0 1 20.639 20H17"/></g></svg>';
+
 /** Colour for a follow-up: done = grey, overdue = red, today/soon = amber, else green. */
 function followupColor(x) {
   const W = window.SADA.Warranty;
@@ -7481,7 +7485,7 @@ function renderFollowupCalendar() {
     const chips = items.slice(0, 3).map(x => {
       const c = followupColor(x);
       const done = x.status === 'done';
-      const tag = x.kind === 'lead' ? '🧲 ' : '';
+      const tag = x.kind === 'lead' ? LEAD_ICON_SVG + ' ' : '';
       return `<div onclick="event.stopPropagation();openFollowupChip('${x.kind}','${x.id}','${x.lead_id || ''}')"
         title="${x.kind === 'lead' ? 'Lead' : 'Customer'}: ${W.esc(x.name || '')} — ${W.esc(x.note)}"
         style="background:${c.bg};color:${c.fg};font-size:10px;font-weight:600;padding:2px 5px;border-radius:5px;margin-bottom:2px;
