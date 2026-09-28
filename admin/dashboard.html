@@ -5555,13 +5555,29 @@ let currentLeadFollowupLeadId = null;
 
 async function openLeadFollowupModal(leadId) {
   currentLeadFollowupLeadId = leadId;
-  const lead = allLeads.find(l => l.id === leadId);
-  if (!lead) return;
+  // Don't rely on allLeads being populated — it's only loaded once the Leads
+  // panel itself has been opened this session. Opening this modal from the
+  // Follow-ups calendar (or anywhere else) shouldn't silently do nothing.
+  let lead = allLeads.find(l => l.id === leadId);
+  if (!lead) {
+    const { data } = await dbAdmin.from('leads').select('*').eq('id', leadId).maybeSingle();
+    lead = data;
+    if (lead) allLeads.push(lead);
+  }
+  if (!lead) { showToast('Could not find that lead.', 'error'); return; }
+
   document.getElementById('lfup-lead-name').textContent = lead.name || '—';
   document.getElementById('lfup-lead-phone').textContent = lead.phone || '';
   document.getElementById('lfup-date').value = window.SADA.Warranty.localDateISO(new Date());
   document.getElementById('lfup-note').value = '';
   document.getElementById('lfup-error').style.display = 'none';
+
+  // Same reasoning: fetch this lead's follow-ups fresh rather than trusting
+  // allLeadFollowups, which has the same "only loaded via the Leads panel" gap.
+  const { data: fups, error: fErr } = await dbAdmin.from('lead_followups')
+    .select('*').eq('lead_id', leadId).order('followup_date', { ascending: true });
+  if (!fErr) allLeadFollowups = allLeadFollowups.filter(f => f.lead_id !== leadId).concat(fups || []);
+
   renderLeadFollowupModalList();
   document.getElementById('lead-followup-modal').style.display = 'flex';
 }
