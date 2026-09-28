@@ -5535,7 +5535,7 @@ function renderLeadsAdminTable() {
   const followupCell = (l) => {
     const W = window.SADA.Warranty;
     const f = nextLeadFollowup(l.id);
-    const btn = `<button class="btn btn-ghost btn-sm" onclick="openLeadFollowupModal('${l.id}')" style="margin-top:4px;">${FOLLOWUP_ICON_SVG} Follow-up</button>`;
+    const btn = `<button class="btn btn-ghost btn-sm" onclick="openLeadFollowupModal('${l.id}')" title="Follow-up" aria-label="Follow-up" style="margin-top:4px;padding:6px 9px;font-size:15px;line-height:1;">${FOLLOWUP_ICON_SVG}</button>`;
     if (!f) return btn;
     const c = followupColor(f);
     return `<span style="background:${c.bg};color:${c.fg};font-size:11px;font-weight:700;padding:3px 9px;border-radius:9px;white-space:nowrap;display:inline-block;">
