@@ -6348,14 +6348,20 @@ async function loadOverview() {
   const todayISO = W ? W.localDateISO(new Date()) : new Date().toISOString().slice(0,10);
 
   // Pull in parallel — each is independent.
-  const [bk, wr, fu] = await Promise.all([
+  const [bk, wr, fu, lfu] = await Promise.all([
     dbAdmin.from('bookings').select('id, customer_name, customer_phone, status, booking_type, slot_date, slot_hour, city_name, installer_id, slot_id, installers(name)'),
     dbAdmin.from('warranties').select('id, qr_code, product_type, filter_expiry, service_expiry, warranty_expiry, status, service_opted_out, customers(name, phone)'),
-    dbAdmin.from('customer_followups').select('id, followup_date, note, status, customers(name, phone)')
+    dbAdmin.from('customer_followups').select('id, followup_date, note, status, customers(name, phone)'),
+    dbAdmin.from('lead_followups').select('id, followup_date, note, status, lead_id, leads(name, phone)')
   ]);
   const bookings = bk.data || [];
   const warranties = wr.data || [];
-  const followups = fu.data || [];
+  // Unified with lead follow-ups (tagged kind:'lead') so "due today or overdue"
+  // counts and lists both, not just customer ones.
+  const followups = [
+    ...(fu.data || []).map(f => ({ ...f, kind: 'customer', name: f.customers?.name })),
+    ...(lfu.data || []).map(f => ({ ...f, kind: 'lead', name: f.leads?.name }))
+  ];
 
   const daysU = (d) => W ? W.daysUntil(d) : null;
 
@@ -6366,7 +6372,9 @@ async function loadOverview() {
   const warrAttention = warranties.filter(w => (w.status||'active')==='active' && !w.service_opted_out && (
     (daysU(w.filter_expiry)  !== null && daysU(w.filter_expiry)  <= DUE_SOON_DAYS) ||
     (daysU(w.service_expiry) !== null && daysU(w.service_expiry) <= DUE_SOON_DAYS)));
-  const overdueFups = followups.filter(f => f.status === 'pending' && daysU(f.followup_date) < 0);
+  // <= 0 so today's follow-ups count too, not just strictly-overdue ones —
+  // matches the sidebar Follow-ups badge's own convention (updateFollowupBadge()).
+  const overdueFups = followups.filter(f => f.status === 'pending' && daysU(f.followup_date) <= 0);
 
   const stat = (icon, iconBg, iconFg, val, label, panel, tone) => `
     <div class="stat-card" style="cursor:pointer;" onclick="showPanel('${panel}', [...document.querySelectorAll('.nav-item')].find(n=>(n.getAttribute('onclick')||'').includes(\"'${panel}'\")))">
@@ -6379,7 +6387,7 @@ async function loadOverview() {
     stat('📅', '#EFF6FF', '#1D4ED8', todayBookings.length, "Today's Bookings", 'bookings') +
     stat('⏳', '#FFF7ED', '#92400E', pendingInstalls.length, 'Pending Installs', 'bookings') +
     stat('🛡️', '#FEF3C7', '#B45309', warrAttention.length, 'Warranties Need Attention', 'warranties', warrAttention.length ? 'color:#B45309;' : '') +
-    stat('📞', '#FEE2E2', '#B91C1C', overdueFups.length, 'Overdue Follow-ups', 'followups', overdueFups.length ? 'color:#B91C1C;' : '');
+    stat('📞', '#FEE2E2', '#B91C1C', overdueFups.length, 'Follow-ups Due', 'followups', overdueFups.length ? 'color:#B91C1C;' : '');
 
   // ---- actionable lists ----
   const fmtWhen = (b) => `${W ? W.fmtDate(b.slot_date) : b.slot_date}${b.slot_hour!=null ? ' · ' + formatHour(b.slot_hour) : ''}`;
@@ -6406,9 +6414,9 @@ async function loadOverview() {
 
   const fupList = overdueFups.length ? overdueFups.slice(0,8).map(f => `
       <div style="display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-radius:9px;background:var(--bg);margin-bottom:6px;">
-        <div><strong>${esc(f.customers?.name||'—')}</strong><div style="font-size:11px;color:var(--muted);">${esc(f.note).slice(0,60)}</div></div>
+        <div>${f.kind === 'lead' ? LEAD_ICON_SVG + ' ' : ''}<strong>${esc(f.name||'—')}</strong><div style="font-size:11px;color:var(--muted);">${esc(f.note).slice(0,60)}</div></div>
         <div style="font-size:12px;color:#B91C1C;font-weight:600;white-space:nowrap;">${W.humanDays(f.followup_date)}</div>
-      </div>`).join('') : '<div style="color:var(--muted);font-size:13px;padding:8px;">Nothing overdue. 🎉</div>';
+      </div>`).join('') : '<div style="color:var(--muted);font-size:13px;padding:8px;">Nothing due. 🎉</div>';
 
   const card = (title, inner, action) => `
     <div class="card" style="margin-bottom:16px;">
@@ -6444,7 +6452,7 @@ async function loadOverview() {
       <div>${card("Today's Schedule", todayList)}</div>
       <div>
         ${card('Warranties Needing Attention', attentionList, digestAction)}
-        ${card('Overdue Follow-ups', fupList)}
+        ${card('Follow-ups Due', fupList)}
       </div>
     </div>`;
 
@@ -6479,7 +6487,7 @@ async function freeOrphanedSlots(silent) {
 
 function openNudgeDigest() {
   const d = window.__overviewDigest || {};
-  const msg = `SA'DA H2O daily: ${d.todayBookings||0} bookings today, ${d.warrAttention||0} warranties need attention, ${d.overdueFups||0} follow-ups overdue.`;
+  const msg = `SA'DA H2O daily: ${d.todayBookings||0} bookings today, ${d.warrAttention||0} warranties need attention, ${d.overdueFups||0} follow-ups due.`;
   const phone = prompt('Send this summary to which mobile number?\n\n"' + msg + '"', '');
   if (phone) sendNudgeDigest(phone.trim(), msg);
 }
