@@ -286,6 +286,13 @@
         <div class="field"><label for="l-product">Interested in <span class="opt">(optional)</span></label><select id="l-product"><option value="">— Not sure yet —</option></select></div>
         <div class="field"><label for="l-source">How did they hear about us? <span class="opt">(optional)</span></label><select id="l-source"></select></div>
       </div>
+      <div class="field"><label for="l-priority">Lead Priority</label>
+        <select id="l-priority">
+          <option value="hot">Hot</option>
+          <option value="warm" selected>Warm</option>
+          <option value="cold">Cold</option>
+        </select>
+      </div>
       <div class="field" style="margin-bottom:0"><label for="l-notes">Notes <span class="opt">(optional)</span></label><textarea id="l-notes" maxlength="500" placeholder="Anything worth remembering for the follow-up"></textarea></div>
       <div class="err" id="lead-err" role="alert" style="margin-bottom:0"></div>
       <button class="btn btn-primary" id="lead-submit-btn" type="button" style="margin-top:14px">Add lead</button>
@@ -822,6 +829,11 @@
     converted: { label: 'Converted', color: '#16A34A' },
     lost: { label: 'Lost', color: '#94A3B8' }
   };
+  const LEAD_PRIORITY = {
+    hot:  { label: 'Hot',  color: '#DC2626' },
+    warm: { label: 'Warm', color: '#D97706' },
+    cold: { label: 'Cold', color: '#2563EB' }
+  };
 
   async function fetchLeads(force) {
     if (leads && !force) return leads;
@@ -848,12 +860,16 @@
     }
     $('lead-list').innerHTML = rows.map((l) => {
       const st = LEAD_STATUS[l.status] || LEAD_STATUS.open;
+      const pr = LEAD_PRIORITY[l.priority] || LEAD_PRIORITY.warm;
       const when = new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
       const meta = [l.city_name, l.source, l.product_interest].filter(Boolean);
       return `<div class="bk">
         <div class="bk-top">
           <div><div class="nm">${esc(l.name)}</div><a href="tel:${esc(l.phone)}">${esc(l.phone)}</a></div>
-          <span class="pill" style="background:${st.color}">${esc(st.label)}</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+            <span class="pill" style="background:${pr.color}">${esc(pr.label)}</span>
+            <span class="pill" style="background:${st.color}">${esc(st.label)}</span>
+          </div>
         </div>
         <div class="bk-meta">
           <div><span class="k">Added</span> ${when}${meta.length ? ' · ' + meta.map(esc).join(' · ') : ''}</div>
@@ -1054,10 +1070,11 @@
     try {
       await api('create-lead', {
         name, phone, regionId: $('l-region').value, cityName: $('l-city').value,
-        productInterest: $('l-product').value, source: $('l-source').value, notes: $('l-notes').value.trim()
+        productInterest: $('l-product').value, source: $('l-source').value, notes: $('l-notes').value.trim(),
+        priority: $('l-priority').value
       });
       ['l-name', 'l-phone', 'l-notes'].forEach((id) => { $(id).value = ''; });
-      $('l-region').value = ''; onLeadRegionChange(); $('l-product').value = ''; $('l-source').value = 'Lulu Kiosk';
+      $('l-region').value = ''; onLeadRegionChange(); $('l-product').value = ''; $('l-source').value = 'Lulu Kiosk'; $('l-priority').value = 'warm';
       toast('Lead added');
       await fetchLeads(true);
       leadFilter = 'open'; document.querySelectorAll('.lead-filter button').forEach((b) => b.classList.toggle('active', b.dataset.lf === 'open'));

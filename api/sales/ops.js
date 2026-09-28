@@ -20,6 +20,7 @@ const ALLOWED_SOURCES = new Set([
   'Lulu Kiosk', 'Exhibition / Event', 'Flyer / Billboard', 'Other'
 ]);
 const DISPENSER_COLORS = ['Black', 'White'];
+const LEAD_PRIORITIES = new Set(['hot', 'warm', 'cold']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // expose=true marks a message written for the salesperson (safe to show as-is).
@@ -260,11 +261,13 @@ async function createLead(user, body) {
   const source = clean(body.source, 40) || null;
   const productInterest = clean(body.productInterest, 80) || null;
   const notes = clean(body.notes, 500) || null;
+  const priority = clean(body.priority, 10).toLowerCase() || 'warm';
 
   if (!name) throw bad(400, 'Enter the lead\'s name.');
   if (!phone) throw bad(400, 'That mobile number doesn\'t look right. Use a 10-digit Saudi mobile, e.g. 0558233001.');
   if (regionId && !UUID_RE.test(regionId)) throw bad(400, 'Choose a valid region.');
   if (source && !ALLOWED_SOURCES.has(source)) throw bad(400, 'Unknown source.');
+  if (!LEAD_PRIORITIES.has(priority)) throw bad(400, 'Unknown lead priority.');
   if (productInterest) {
     const catalogue = await sb('GET', '/rest/v1/product_models?select=model_name');
     if (!(catalogue || []).some((p) => p.model_name === productInterest)) throw bad(400, `Unknown product: ${productInterest}`);
@@ -272,7 +275,7 @@ async function createLead(user, body) {
 
   const rows = await sb('POST', '/rest/v1/leads', {
     name, phone, region_id: regionId || null, city_name: cityName,
-    source, product_interest: productInterest, notes,
+    source, product_interest: productInterest, notes, priority,
     status: 'open', created_by_user: user.userId, created_by_name: user.name
   }, null, { Prefer: 'return=representation' });
   const row = rows && rows[0];
