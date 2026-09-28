@@ -1361,6 +1361,33 @@
   </div>
 </div>
 
+<!-- LEAD FOLLOW-UPS (separate from customer_followups above — a lead isn't a
+     customer yet. Always opened for one specific lead, so no picker needed:
+     shows that lead's follow-up history + an add form, both in one view. -->
+<div class="modal-overlay" id="lead-followup-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Follow-ups — <span id="lfup-lead-name"></span></span>
+      <button class="modal-close" onclick="closeModal('lead-followup-modal')">&times;</button></div>
+    <div class="modal-body">
+      <div id="lfup-lead-phone" style="font-size:12px;color:var(--muted);margin:-8px 0 14px;"></div>
+      <div id="lfup-list" style="margin-bottom:16px;"></div>
+      <div style="border-top:1px solid var(--border);padding-top:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Add a follow-up</div>
+        <div class="form-group"><label>Follow-up date</label>
+          <input type="date" id="lfup-date" class="form-input"></div>
+        <div class="form-group"><label>Note</label>
+          <textarea id="lfup-note" class="form-input" rows="3" placeholder="What needs following up?" autocomplete="off" data-lpignore="true" data-1p-ignore></textarea>
+        </div>
+        <div id="lfup-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button class="btn btn-ghost" onclick="closeModal('lead-followup-modal')">Close</button>
+          <button class="btn btn-primary" id="lfup-save" onclick="saveLeadFollowup()">Add follow-up</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ADMIN "BOOK FOR CUSTOMER" MODAL (no OTP) -->
 <div class="modal-overlay" id="admin-booking-modal" style="display:none;">
   <div class="modal">
@@ -5450,14 +5477,25 @@ let allCustomers = [];
 // admin RLS (is_admin()) gives full read access directly, same as bookings.
 // ============================================================
 let allLeads = [];
+let allLeadFollowups = [];
 
 async function loadLeadsAdmin() {
   const container = document.getElementById('leads-table');
   container.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
-  const { data, error } = await dbAdmin.from('leads').select('*').order('created_at', { ascending: false }).limit(1000);
+  const [{ data, error }, { data: fups }] = await Promise.all([
+    dbAdmin.from('leads').select('*').order('created_at', { ascending: false }).limit(1000),
+    dbAdmin.from('lead_followups').select('*').order('followup_date', { ascending: true })
+  ]);
   if (error) { container.innerHTML = `<div class="empty-state">⚠️ Failed to load leads: ${escB(error.message)}</div>`; return; }
   allLeads = data || [];
+  allLeadFollowups = fups || [];
   renderLeadsAdminTable();
+}
+
+// Soonest PENDING follow-up for a lead (overdue ones sort first since the
+// list is date-ascending) — what the leads table shows per row.
+function nextLeadFollowup(leadId) {
+  return allLeadFollowups.find(f => f.lead_id === leadId && f.status === 'pending') || null;
 }
 
 function renderLeadsAdminTable() {
@@ -5477,9 +5515,19 @@ function renderLeadsAdminTable() {
     return `<span class="status-badge" style="background:${color}22;color:${color};">${label}</span>`;
   };
 
+  const followupCell = (l) => {
+    const W = window.SADA.Warranty;
+    const f = nextLeadFollowup(l.id);
+    const btn = `<button class="btn btn-ghost btn-sm" onclick="openLeadFollowupModal('${l.id}')" style="margin-top:4px;">📅 Follow-up</button>`;
+    if (!f) return btn;
+    const c = followupColor(f);
+    return `<span style="background:${c.bg};color:${c.fg};font-size:11px;font-weight:700;padding:3px 9px;border-radius:9px;white-space:nowrap;display:inline-block;">
+        ${W.fmtDate(f.followup_date)} · ${W.humanDays(f.followup_date)}</span><br>${btn}`;
+  };
+
   container.innerHTML = `
     <table>
-      <thead><tr><th>Lead</th><th>Where</th><th>Interest / Source</th><th>Notes</th><th>Added by</th><th>Added</th><th>Status</th></tr></thead>
+      <thead><tr><th>Lead</th><th>Where</th><th>Interest / Source</th><th>Notes</th><th>Added by</th><th>Added</th><th>Status</th><th>Follow-up</th></tr></thead>
       <tbody>${rows.map(l => `
         <tr>
           <td><div style="font-weight:600;">${escB(l.name)}</div><div style="font-size:11px;color:var(--muted);">${escB(l.phone)}</div></td>
@@ -5489,8 +5537,100 @@ function renderLeadsAdminTable() {
           <td>${escB(l.created_by_name || '—')}</td>
           <td style="font-size:12px;color:var(--muted);">${new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
           <td>${statusPill(l.status)}</td>
+          <td>${followupCell(l)}</td>
         </tr>`).join('')}</tbody>
     </table>`;
+}
+
+// ============================================================
+// LEAD FOLLOW-UPS — a lead isn't a customer yet, so this is deliberately
+// separate from customer_followups (see lead_followups migration v57).
+// Always scoped to one lead (opened from its row), so no customer/lead
+// picker is needed — unlike the generic customer follow-up modal.
+// ============================================================
+let currentLeadFollowupLeadId = null;
+
+async function openLeadFollowupModal(leadId) {
+  currentLeadFollowupLeadId = leadId;
+  const lead = allLeads.find(l => l.id === leadId);
+  if (!lead) return;
+  document.getElementById('lfup-lead-name').textContent = lead.name || '—';
+  document.getElementById('lfup-lead-phone').textContent = lead.phone || '';
+  document.getElementById('lfup-date').value = window.SADA.Warranty.localDateISO(new Date());
+  document.getElementById('lfup-note').value = '';
+  document.getElementById('lfup-error').style.display = 'none';
+  renderLeadFollowupModalList();
+  document.getElementById('lead-followup-modal').style.display = 'flex';
+}
+
+function renderLeadFollowupModalList() {
+  const W = window.SADA.Warranty;
+  const el = document.getElementById('lfup-list');
+  const rows = allLeadFollowups.filter(f => f.lead_id === currentLeadFollowupLeadId)
+    .slice().sort((a, b) => a.followup_date.localeCompare(b.followup_date));
+  if (!rows.length) { el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0;">No follow-ups yet.</div>'; return; }
+  el.innerHTML = rows.map(x => {
+    const c = followupColor(x);
+    return `
+      <div style="background:var(--bg);border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:3px solid ${c.bar};">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
+          <span style="background:${c.bg};color:${c.fg};font-size:11px;font-weight:700;padding:3px 9px;border-radius:9px;white-space:nowrap;">
+            ${W.fmtDate(x.followup_date)} · ${x.status === 'done' ? 'DONE' : W.humanDays(x.followup_date)}</span>
+        </div>
+        <div style="font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word;">${W.esc(x.note)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px;">${x.created_by ? 'By ' + W.esc(x.created_by) + ' · ' : ''}${W.fmtDate(x.created_at)}</div>
+        <div style="display:flex;gap:7px;margin-top:8px;flex-wrap:wrap;">
+          ${x.status === 'pending'
+            ? `<button class="btn btn-primary btn-sm" onclick="setLeadFollowupStatus('${x.id}','done')">✓ Mark Done</button>`
+            : `<button class="btn btn-ghost btn-sm" onclick="setLeadFollowupStatus('${x.id}','pending')">↩ Reopen</button>`}
+          <button class="btn btn-ghost btn-sm" onclick="deleteLeadFollowup('${x.id}')">🗑 Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function saveLeadFollowup() {
+  if (!(await ensureSession())) return;
+  const date = document.getElementById('lfup-date').value;
+  const note = document.getElementById('lfup-note').value.trim();
+  const errEl = document.getElementById('lfup-error');
+  const btn = document.getElementById('lfup-save');
+  const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
+  errEl.style.display = 'none';
+  if (!date || !note) return fail('Date and note are both required.');
+
+  btn.disabled = true; btn.textContent = 'Saving...';
+  const { data: { session } } = await dbAdmin.auth.getSession();
+  const { error } = await dbAdmin.from('lead_followups').insert({
+    lead_id: currentLeadFollowupLeadId, followup_date: date, note,
+    created_by: session?.user?.email || null, status: 'pending'
+  });
+  btn.disabled = false; btn.textContent = 'Add follow-up';
+  if (error) return fail(error.message);
+
+  logActivity('lead.followup_add', `Added follow-up for lead ${allLeads.find(l => l.id === currentLeadFollowupLeadId)?.name || ''} (${date})`, 'lead', currentLeadFollowupLeadId);
+  document.getElementById('lfup-note').value = '';
+  showToast('Follow-up added', 'success');
+  await loadLeadsAdmin();
+  renderLeadFollowupModalList();
+}
+
+async function setLeadFollowupStatus(id, status) {
+  if (!(await ensureSession())) return;
+  const { error } = await dbAdmin.from('lead_followups').update({ status }).eq('id', id);
+  if (error) { showToast(error.message, 'error'); return; }
+  await loadLeadsAdmin();
+  renderLeadFollowupModalList();
+}
+
+async function deleteLeadFollowup(id) {
+  if (!(await ensureSession())) return;
+  if (!confirm('Delete this follow-up? This cannot be undone.')) return;
+  const { error } = await dbAdmin.from('lead_followups').delete().eq('id', id);
+  if (error) { showToast(error.message, 'error'); return; }
+  showToast('Follow-up deleted', 'success');
+  await loadLeadsAdmin();
+  renderLeadFollowupModalList();
 }
 
 // ============================================================
