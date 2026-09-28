@@ -5717,43 +5717,69 @@ function downloadSalesReportPDF() {
   const agent = document.getElementById('sr-agent').value || 'All agents';
   const status = document.getElementById('sr-status').selectedOptions[0].textContent;
   const rangeLabel = (from && to) ? `${salesReportFmtDate(from)} – ${salesReportFmtDate(to)}` : 'All time';
+  const now = new Date();
+  const generatedLabel = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) +
+    ' • ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
   const w = window.open('', '_blank');
   if (!w) { showToast('Please allow pop-ups to download the PDF', 'error'); return; }
   w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SA'DA H2O — Sales Report</title>
 <style>
   *{box-sizing:border-box;}
-  body{font-family:Arial,sans-serif;color:#0A1628;margin:0;padding:32px;}
-  h1{font-size:22px;color:#0D3B6E;margin:0 0 4px;}
-  .sub{font-size:13px;color:#607D8B;margin-bottom:20px;}
+  body{font-family:Arial,sans-serif;color:#0A1628;margin:0;background:#fff;}
+  .topbar{position:fixed;top:0;left:0;right:0;background:#0D3B6E;color:#fff;padding:16px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;z-index:99;}
+  .topbar .brand{font-size:16px;}
+  .topbar .brand b{font-weight:800;}
+  .topbar .brand .sep{color:rgba(255,255,255,.35);margin:0 10px;}
+  .topbar .brand .page-name{color:rgba(255,255,255,.85);}
+  .topbar .actions{display:flex;gap:10px;flex-wrap:wrap;}
+  .btn-gold{background:#C9A84C;color:#0A1628;border:none;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;}
+  .btn-outline{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.5);padding:10px 18px;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;}
+  .page-body{margin-top:88px;padding:32px;}
+  .breadcrumb{font-size:11px;color:#607D8B;text-transform:uppercase;letter-spacing:.6px;font-weight:700;margin-bottom:8px;}
+  h1{font-size:28px;color:#0D3B6E;margin:0 0 20px;font-weight:800;}
+  .info-bar{background:#F0F6FC;border-radius:12px;padding:16px 24px;display:flex;gap:28px;flex-wrap:wrap;margin-bottom:24px;}
+  .info-item{display:flex;gap:10px;align-items:center;}
+  .info-icon{width:34px;height:34px;border-radius:9px;background:#DCEBFA;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+  .info-label{font-size:10px;color:#607D8B;text-transform:uppercase;letter-spacing:.4px;font-weight:700;}
+  .info-value{font-size:14px;color:#0A1628;font-weight:700;margin-top:2px;}
   .kpis{display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;}
-  .kpi{border:1px solid #E2E8F0;border-radius:10px;padding:12px 16px;flex:1 1 110px;min-width:0;}
-  .kpi .v{font-size:20px;font-weight:800;color:#0D3B6E;}
-  .kpi .l{font-size:11px;color:#607D8B;text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+  .kpi{border:1px solid #E2E8F0;border-radius:10px;padding:14px 18px;flex:1 1 110px;min-width:0;}
+  .kpi .v{font-size:22px;font-weight:800;color:#0D3B6E;}
+  .kpi .l{font-size:11px;color:#607D8B;text-transform:uppercase;letter-spacing:.4px;margin-top:2px;font-weight:700;}
   .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;}
-  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;min-width:640px;}
-  th,td{border-bottom:1px solid #E2E8F0;padding:6px 8px;text-align:left;white-space:nowrap;}
-  th{color:#607D8B;text-transform:uppercase;font-size:10px;letter-spacing:.4px;}
-  .section-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:24px 0 12px;}
-  .print-bar{position:fixed;top:0;left:0;right:0;background:#0D3B6E;color:#fff;padding:12px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;z-index:99;}
-  .print-bar button{background:#C9A84C;color:#0A1628;border:none;padding:9px 22px;border-radius:8px;font-weight:700;cursor:pointer;font-size:14px;}
-  .print-bar button.ghost{background:rgba(255,255,255,.15);color:#fff;}
-  .body{margin-top:64px;}
-  @media print{.print-bar{display:none;}.body{margin-top:0;}}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px;min-width:640px;}
+  th,td{border-bottom:1px solid #EEF2F6;padding:10px 8px;text-align:left;white-space:nowrap;}
+  th{color:#607D8B;text-transform:uppercase;font-size:10px;letter-spacing:.4px;font-weight:700;}
+  .section-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:8px 0 12px;}
+  @media print{.topbar{display:none;}.page-body{margin-top:0;}}
   @media (max-width:640px){
-    body{padding:16px;}
-    h1{font-size:18px;}
+    .topbar{padding:12px 16px;}
+    .page-body{padding:16px;margin-top:120px;}
+    h1{font-size:22px;}
+    .info-bar{gap:16px;padding:14px 16px;}
     .kpis{gap:10px;}
     .kpi{padding:10px 12px;flex:1 1 45%;}
-    .kpi .v{font-size:17px;}
-    .print-bar{padding:10px;font-size:13px;}
-    .print-bar button{padding:8px 16px;font-size:13px;}
+    .kpi .v{font-size:18px;}
+    .btn-gold, .btn-outline{padding:8px 14px;font-size:13px;}
   }
 </style></head><body>
-  <div class="print-bar">Report ready. <button onclick="window.print()">⬇ Save as PDF / Print</button><button class="ghost" onclick="window.close()">Close</button></div>
-  <div class="body">
-    <h1>SA'DA H2O — Sales Report</h1>
-    <div class="sub">${escB(rangeLabel)} · Agent: ${escB(agent)} · Status: ${escB(status)} · Generated ${new Date().toLocaleString('en-GB')}</div>
+  <div class="topbar">
+    <div class="brand"><b>SA'DA H2O</b><span class="sep">|</span><span class="page-name">Sales report</span></div>
+    <div class="actions">
+      <button class="btn-gold" onclick="window.print()">⬇ Save as PDF / Print</button>
+      <button class="btn-outline" onclick="window.close()">Close</button>
+    </div>
+  </div>
+  <div class="page-body">
+    <div class="breadcrumb">SA'DA H2O / Reports</div>
+    <h1>Sales Report</h1>
+    <div class="info-bar">
+      <div class="info-item"><span class="info-icon">📅</span><div><div class="info-label">Reporting period</div><div class="info-value">${escB(rangeLabel)}</div></div></div>
+      <div class="info-item"><span class="info-icon">👤</span><div><div class="info-label">Agent</div><div class="info-value">${escB(agent)}</div></div></div>
+      <div class="info-item"><span class="info-icon">🏷️</span><div><div class="info-label">Status</div><div class="info-value">${escB(status)}</div></div></div>
+      <div class="info-item"><span class="info-icon">🕐</span><div><div class="info-label">Generated on</div><div class="info-value">${escB(generatedLabel)}</div></div></div>
+    </div>
     <div class="kpis">
       <div class="kpi"><div class="v">${total}</div><div class="l">Total</div></div>
       <div class="kpi"><div class="v">${lead}</div><div class="l">Lead</div></div>
