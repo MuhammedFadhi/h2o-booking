@@ -2650,7 +2650,7 @@ async function submitServiceBooking() {
     const { data: rpcData, error: rpcErr } = await dbAdmin.rpc('create_booking', {
       p_slot_id: sbSelectedSlotId, p_name: sbCustomer.name || 'Customer', p_phone: sbCustomer.phone,
       p_city_name: cityName, p_region_id: regionId, p_address: address,
-      p_latitude: lat, p_longitude: lng
+      p_latitude: lat, p_longitude: lng, p_booking_type: jobType
     });
     const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
     if (rpcErr || !row) {
