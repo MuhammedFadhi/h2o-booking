@@ -1240,7 +1240,7 @@
     <div class="panel" id="panel-followups">
       <div class="card">
         <div class="card-header">
-          <span class="card-title">Customer Follow-ups</span>
+          <span class="card-title">Follow-ups</span>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <div style="display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;">
               <button id="fup-view-cal"  class="btn btn-sm" onclick="setFollowupView('calendar')" style="border:0;border-radius:0;">📅 Calendar</button>
@@ -1251,8 +1251,11 @@
               <option value="">All</option>
               <option value="done">Done</option>
             </select>
-            <button class="btn btn-primary btn-sm" onclick="openFollowupModal(null,null)">+ New Follow-up</button>
+            <button class="btn btn-primary btn-sm" onclick="openFollowupModal(null,null)">+ New Customer Follow-up</button>
           </div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);padding:10px 20px 0;">
+          Shows both customer follow-ups and lead follow-ups (🧲 tagged) together. Add a lead follow-up from its row in the Leads panel.
         </div>
 
         <!-- Calendar month navigator (hidden in list view) -->
@@ -1934,7 +1937,7 @@ const panelTitles = {
   warranties: ['Warranties', 'Registered units, coverage and service history'],
   promocodes: ['Promo Codes', 'Create and manage discount codes'],
   invoices: ['Invoices', 'VAT invoices linked to bookings'],
-  followups: ['Follow-ups', 'Scheduled customer callbacks — internal only'],
+  followups: ['Follow-ups', 'Scheduled customer and lead callbacks — internal only'],
   activity: ['Activity Log', 'Who did what, and when']
 };
 
@@ -5612,6 +5615,7 @@ async function saveLeadFollowup() {
   document.getElementById('lfup-note').value = '';
   showToast('Follow-up added', 'success');
   await loadLeadsAdmin();
+  loadFollowups();   // keeps the unified Follow-ups calendar/badge in sync too
   renderLeadFollowupModalList();
 }
 
@@ -5620,6 +5624,7 @@ async function setLeadFollowupStatus(id, status) {
   const { error } = await dbAdmin.from('lead_followups').update({ status }).eq('id', id);
   if (error) { showToast(error.message, 'error'); return; }
   await loadLeadsAdmin();
+  loadFollowups();
   renderLeadFollowupModalList();
 }
 
@@ -5630,6 +5635,7 @@ async function deleteLeadFollowup(id) {
   if (error) { showToast(error.message, 'error'); return; }
   showToast('Follow-up deleted', 'success');
   await loadLeadsAdmin();
+  loadFollowups();
   renderLeadFollowupModalList();
 }
 
@@ -7365,17 +7371,29 @@ async function toggleServiceOptOut(warrantyId, current) {
 async function loadFollowups() {
   const el = document.getElementById('followups-list');
   el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading follow-ups...</div>';
-  const { data, error } = await dbAdmin.from('customer_followups')
-    .select('*, customers(id, name, phone)')
-    .order('followup_date', { ascending: true });
+  const [{ data, error }, { data: leadData, error: leadError }] = await Promise.all([
+    dbAdmin.from('customer_followups').select('*, customers(id, name, phone)').order('followup_date', { ascending: true }),
+    dbAdmin.from('lead_followups').select('*, leads(id, name, phone)').order('followup_date', { ascending: true })
+  ]);
   if (error) {
     console.error(error);
     el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">Could not load follow-ups.</div>';
     return;
   }
-  allFollowups = data || [];
+  if (leadError) console.error(leadError);
+  // Unified list: every follow-up, customer or lead, tagged with .kind so the
+  // calendar/list can show both together and route clicks/actions correctly.
+  const customerRows = (data || []).map(r => ({ ...r, kind: 'customer', name: r.customers?.name, phone: r.customers?.phone }));
+  const leadRows = (leadData || []).map(r => ({ ...r, kind: 'lead', name: r.leads?.name, phone: r.leads?.phone }));
+  allFollowups = [...customerRows, ...leadRows].sort((a, b) => a.followup_date.localeCompare(b.followup_date));
   updateFollowupBadge();
   renderFollowups();
+}
+
+/** Calendar/list chip click: routes to the right modal for this follow-up's kind. */
+function openFollowupChip(kind, id, leadId) {
+  if (kind === 'lead') openLeadFollowupModal(leadId);
+  else openFollowupModal(null, id);
 }
 
 // Follow-up view state — calendar is the default.
@@ -7447,11 +7465,12 @@ function renderFollowupCalendar() {
     const chips = items.slice(0, 3).map(x => {
       const c = followupColor(x);
       const done = x.status === 'done';
-      return `<div onclick="event.stopPropagation();openFollowupModal(null,'${x.id}')"
-        title="${W.esc(x.customers?.name || '')}: ${W.esc(x.note)}"
+      const tag = x.kind === 'lead' ? '🧲 ' : '';
+      return `<div onclick="event.stopPropagation();openFollowupChip('${x.kind}','${x.id}','${x.lead_id || ''}')"
+        title="${x.kind === 'lead' ? 'Lead' : 'Customer'}: ${W.esc(x.name || '')} — ${W.esc(x.note)}"
         style="background:${c.bg};color:${c.fg};font-size:10px;font-weight:600;padding:2px 5px;border-radius:5px;margin-bottom:2px;
                cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${done?'text-decoration:line-through;opacity:.7;':''}">
-        ${W.esc(x.customers?.name || 'Follow-up')}</div>`;
+        ${tag}${W.esc(x.name || 'Follow-up')}</div>`;
     }).join('');
     const more = items.length > 3 ? `<div style="font-size:9px;color:var(--muted);padding-left:2px;">+${items.length-3} more</div>` : '';
     cells += `
@@ -7496,11 +7515,20 @@ function renderFollowupList() {
   }
   el.innerHTML = rows.map(x => {
     const c = followupColor(x);
+    const isLead = x.kind === 'lead';
+    const kindTag = isLead
+      ? `<span style="background:#F3E8FF;color:#7C3AED;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;text-transform:uppercase;letter-spacing:.3px;margin-right:6px;">Lead</span>`
+      : '';
+    const statusFn = isLead ? 'setLeadFollowupStatus' : 'setFollowupStatus';
+    const deleteFn = isLead ? 'deleteLeadFollowup' : 'deleteFollowup';
+    const editBtn = isLead
+      ? `<button class="btn btn-ghost btn-sm" onclick="openLeadFollowupModal('${x.lead_id}')">👁 View</button>`
+      : `<button class="btn btn-ghost btn-sm" onclick="openFollowupModal(null,'${x.id}')">✏️ Edit</button>`;
     return `
       <div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:10px;border-left:3px solid ${c.bar};">
         <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
-          <div><strong>${W.esc(x.customers?.name || '—')}</strong>
-            <span style="font-size:12px;color:var(--muted);"> · ${W.esc(x.customers?.phone || '')}</span></div>
+          <div>${kindTag}<strong>${W.esc(x.name || '—')}</strong>
+            <span style="font-size:12px;color:var(--muted);"> · ${W.esc(x.phone || '')}</span></div>
           <span style="background:${c.bg};color:${c.fg};font-size:11px;font-weight:700;padding:3px 9px;border-radius:9px;white-space:nowrap;">
             ${W.fmtDate(x.followup_date)} · ${x.status === 'done' ? 'DONE' : W.humanDays(x.followup_date)}</span>
         </div>
@@ -7508,10 +7536,10 @@ function renderFollowupList() {
         <div style="font-size:10px;color:var(--muted);margin-top:6px;">${x.created_by ? 'By ' + W.esc(x.created_by) + ' · ' : ''}${W.fmtDate(x.created_at)}</div>
         <div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap;">
           ${x.status === 'pending'
-            ? `<button class="btn btn-primary btn-sm" onclick="setFollowupStatus('${x.id}','done')">✓ Mark Done</button>`
-            : `<button class="btn btn-ghost btn-sm" onclick="setFollowupStatus('${x.id}','pending')">↩ Reopen</button>`}
-          <button class="btn btn-ghost btn-sm" onclick="openFollowupModal(null,'${x.id}')">✏️ Edit</button>
-          <button class="btn btn-ghost btn-sm" onclick="deleteFollowup('${x.id}')">🗑 Delete</button>
+            ? `<button class="btn btn-primary btn-sm" onclick="${statusFn}('${x.id}','done')">✓ Mark Done</button>`
+            : `<button class="btn btn-ghost btn-sm" onclick="${statusFn}('${x.id}','pending')">↩ Reopen</button>`}
+          ${editBtn}
+          <button class="btn btn-ghost btn-sm" onclick="${deleteFn}('${x.id}')">🗑 Delete</button>
         </div>
       </div>`;
   }).join('');
