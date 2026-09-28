@@ -890,7 +890,11 @@
     <!-- SALES REPORT PANEL -->
     <div class="panel" id="panel-salesreport">
       <div class="card" style="margin-bottom:16px;">
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="card-header">
+          <span class="card-title">Filters</span>
+          <button class="btn btn-primary btn-sm" onclick="downloadSalesReportPDF()" style="white-space:nowrap;">⬇ Download PDF</button>
+        </div>
+        <div style="padding:20px 24px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
           <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">From</label><input type="date" id="sr-from" class="form-input" onchange="renderSalesReport()"></div>
           <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">To</label><input type="date" id="sr-to" class="form-input" onchange="renderSalesReport()"></div>
           <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Sales agent</label><select id="sr-agent" class="form-input" onchange="renderSalesReport()"><option value="">All agents</option></select></div>
@@ -904,7 +908,6 @@
               <option value="lost">Lost</option>
             </select>
           </div>
-          <button class="btn btn-primary" onclick="downloadSalesReportPDF()" style="margin-left:auto;">⬇ Download PDF</button>
         </div>
       </div>
       <div id="salesreport-body"><div class="loading"><div class="spinner"></div> Loading...</div></div>
