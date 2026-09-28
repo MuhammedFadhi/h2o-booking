@@ -846,6 +846,10 @@
               <option value="relocation">Relocation</option>
               <option value="inspection">Inspection</option>
             </select>
+            <select id="filter-installer" onchange="loadBookings()">
+              <option value="">All Installers</option>
+              <option value="unassigned">Unassigned</option>
+            </select>
             <input type="date" id="filter-date" onchange="loadBookings()">
         </div>
         <div id="bookings-table">
@@ -1943,6 +1947,17 @@ async function loadInstallers() {
   const { data } = await dbAdmin.from('installers').select('*').order('name');
   installers = data || [];
   renderInstallersTable();
+
+  // Rebuilt (not appended) every time, since loadInstallers() is called from
+  // several places — keeps the "Assign Installer" bookings filter in sync
+  // with the current roster without accumulating duplicate options.
+  const filterInstaller = document.getElementById('filter-installer');
+  if (filterInstaller) {
+    const keep = filterInstaller.value;
+    filterInstaller.innerHTML = '<option value="">All Installers</option><option value="unassigned">Unassigned</option>' +
+      installers.map(i => `<option value="${escB(i.id)}">${escB(i.name)}</option>`).join('');
+    if (keep && [...filterInstaller.options].some(o => o.value === keep)) filterInstaller.value = keep;
+  }
 }
 
 async function loadBookings() {
@@ -1956,9 +1971,13 @@ async function loadBookings() {
 
   const status = document.getElementById('filter-status').value;
   const jobType = document.getElementById('filter-type')?.value ?? '';
+  const installerFilter = document.getElementById('filter-installer')?.value ?? '';
   const date = document.getElementById('filter-date').value;
   const range = document.getElementById('filter-range')?.value ?? 'month';
   const search = document.getElementById('search-bookings').value.trim().toLowerCase();
+
+  if (installerFilter === 'unassigned') q = q.is('installer_id', null);
+  else if (installerFilter) q = q.eq('installer_id', installerFilter);
 
   // 'installed' status is shared by real installations and serviced (repair/filter
   // change/etc.) jobs alike — split the filter option so admins can pick either
