@@ -854,6 +854,9 @@
   // ── leads ──────────────────────────────────────────────────────────────────
   let leads = null, leadFilter = 'open', pendingLeadId = null;
   let leadFollowups = null, currentFollowupLeadId = null;
+  // Same icon used for "Follow-up" in the admin console (admin/dashboard.html's FOLLOWUP_ICON_SVG).
+  const FOLLOWUP_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M21 3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6.455L2 22.5V4a1 1 0 0 1 1-1zm-1 2H4v13.385L5.763 17H20zm-3 2v8h-2V7zm-6 1v1.999L13 10v2l-2-.001V14H9v-2.001L7 12v-2l2-.001V8z"/></svg>';
+
   const LEAD_STATUS = {
     open: { label: 'Open', color: '#2563EB' },
     converted: { label: 'Converted', color: '#16A34A' },
@@ -896,7 +899,7 @@
     const days = followupDaysUntil(f.followup_date);
     const label = days < 0 ? `${-days}d overdue` : days === 0 ? 'Due today' : days === 1 ? 'Due tomorrow' : `In ${days}d`;
     const color = days < 0 ? '#DC2626' : days <= 2 ? '#D97706' : '#2563EB';
-    return `<span class="fup-badge" style="background:${color}22;color:${color}">🔔 ${esc(label)} · ${esc(f.note.slice(0, 60))}${f.note.length > 60 ? '…' : ''}</span>`;
+    return `<span class="fup-badge" style="background:${color}22;color:${color}">${FOLLOWUP_ICON_SVG} ${esc(label)} · ${esc(f.note.slice(0, 60))}${f.note.length > 60 ? '…' : ''}</span>`;
   }
 
   async function loadLeads(force) {
@@ -936,7 +939,7 @@
         <div class="lead-actions">
           ${l.status === 'open' ? `<button class="btn btn-primary btn-sm" data-convert="${esc(l.id)}">Convert to Booking</button>
           <button class="btn btn-ghost btn-sm" data-lost="${esc(l.id)}">Mark Lost</button>` : ''}
-          <button class="btn btn-ghost btn-sm" data-followup="${esc(l.id)}">🔔 Follow-up</button>
+          <button class="btn btn-ghost btn-sm" data-followup="${esc(l.id)}">${FOLLOWUP_ICON_SVG} Follow-up</button>
         </div>
       </div>`;
     }).join('');
