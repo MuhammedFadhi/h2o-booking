@@ -1,6 +1,7 @@
 // /api/sales/ops — the ONLY way a sales user reads or writes data.
 // Actions: me | my-bookings | check-promo | create-booking |
-//          my-leads | create-lead | mark-lead-lost
+//          my-leads | create-lead | mark-lead-lost |
+//          my-lead-followups | add-lead-followup | set-lead-followup-status
 // Auth: caller must present a Bearer token for an ACTIVE row in sales_users.
 //
 // All database access here uses the service key but is scoped to the caller:
@@ -307,6 +308,60 @@ async function markLeadLost(user, body) {
   return { ok: true };
 }
 
+// ── lead follow-ups ────────────────────────────────────────────────────────
+// lead_followups has no created_by_user column of its own — ownership is via
+// the lead it belongs to. leads!inner + a filter on the embedded resource
+// scopes every query/write to leads this sales user actually owns, same as
+// myLeads/markLeadLost do directly.
+async function myLeadFollowups(user) {
+  const rows = await sb('GET',
+    `/rest/v1/lead_followups?select=*,leads!inner(id,created_by_user)&leads.created_by_user=eq.${user.userId}&order=followup_date.asc&limit=1000`);
+  return { followups: (rows || []).map(({ leads, ...f }) => f) };
+}
+
+async function addLeadFollowup(user, body) {
+  const leadId = clean(body.leadId, 40);
+  const date = clean(body.followupDate, 10);
+  const note = clean(body.note, 500);
+  if (!UUID_RE.test(leadId)) throw bad(400, 'Unknown lead.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw bad(400, 'Pick a follow-up date.');
+  if (!note) throw bad(400, 'Enter a note for this follow-up.');
+
+  const rows = await sb('GET', `/rest/v1/leads?id=eq.${leadId}&select=id,created_by_user`);
+  const lead = rows && rows[0];
+  if (!lead || lead.created_by_user !== user.userId) throw bad(404, 'Lead not found.');
+
+  const created = await sb('POST', '/rest/v1/lead_followups', {
+    lead_id: leadId, followup_date: date, note,
+    created_by: user.email, status: 'pending'
+  }, null, { Prefer: 'return=representation' });
+  const row = created && created[0];
+  if (!row) throw bad(500, 'Could not save the follow-up.');
+
+  await sb('POST', '/rest/v1/activity_log', {
+    actor: user.email, action: 'lead.followup_add',
+    summary: `Sales (${user.name}) added a follow-up (${date})`,
+    entity_type: 'lead', entity_id: leadId
+  }).catch(() => {});
+
+  return { ok: true, followup: row };
+}
+
+async function setLeadFollowupStatus(user, body) {
+  const id = clean(body.followupId, 40);
+  const status = clean(body.status, 10);
+  if (!UUID_RE.test(id)) throw bad(400, 'Unknown follow-up.');
+  if (status !== 'pending' && status !== 'done') throw bad(400, 'Unknown status.');
+
+  const rows = await sb('GET',
+    `/rest/v1/lead_followups?id=eq.${id}&select=id,leads!inner(created_by_user)`);
+  const fup = rows && rows[0];
+  if (!fup || fup.leads.created_by_user !== user.userId) throw bad(404, 'Follow-up not found.');
+
+  await sb('PATCH', `/rest/v1/lead_followups?id=eq.${id}`, { status });
+  return { ok: true };
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -327,6 +382,9 @@ module.exports = async function handler(req, res) {
       case 'my-leads': return res.status(200).json(await myLeads(user));
       case 'create-lead': return res.status(201).json(await createLead(user, body));
       case 'mark-lead-lost': return res.status(200).json(await markLeadLost(user, body));
+      case 'my-lead-followups': return res.status(200).json(await myLeadFollowups(user));
+      case 'add-lead-followup': return res.status(201).json(await addLeadFollowup(user, body));
+      case 'set-lead-followup-status': return res.status(200).json(await setLeadFollowupStatus(user, body));
       case 'create-booking': return res.status(201).json(await createBooking(user, body));
       default: return res.status(400).json({ error: 'Unknown action' });
     }

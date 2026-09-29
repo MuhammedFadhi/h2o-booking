@@ -165,6 +165,18 @@
     .empty { text-align: center; padding: 40px 16px; color: var(--muted); font-size: 14px; }
     .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--navy); color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 14px; z-index: 50; display: none; max-width: 90vw; }
     [hidden] { display: none !important; }
+
+    .fup-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; margin-top: 8px; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(10,22,40,.55); display: none; align-items: flex-end; justify-content: center; z-index: 60; }
+    .modal-overlay.open { display: flex; }
+    .modal-sheet { background: #fff; border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); width: 100%; max-width: 480px; max-height: 88vh; overflow-y: auto; }
+    @media (min-width: 560px) { .modal-overlay { align-items: center; } .modal-sheet { border-radius: 16px; max-height: 80vh; } }
+    .modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 4px; }
+    .modal-head .nm { font-size: 17px; font-weight: 700; }
+    .modal-close { background: none; border: 0; font-size: 22px; line-height: 1; color: var(--muted); cursor: pointer; padding: 4px; }
+    .fup-item { background: var(--bg); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; border-left: 3px solid var(--line); }
+    .fup-item .note { font-size: 13px; color: var(--ink); white-space: pre-wrap; word-break: break-word; margin-top: 4px; }
+    .fup-item .row-actions { display: flex; gap: 6px; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -357,6 +369,22 @@
 </main>
 </div>
 <div class="toast" id="toast" role="status"></div>
+
+<div class="modal-overlay" id="fup-modal">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <div><div class="nm" id="fup-lead-name"></div><a href="tel:" id="fup-lead-phone" style="color:var(--blue);text-decoration:none;font-weight:600;font-size:13px;"></a></div>
+      <button class="modal-close" type="button" id="fup-close-btn" aria-label="Close">&times;</button>
+    </div>
+    <div id="fup-list" style="margin-top:12px;"></div>
+    <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:6px;">
+      <div class="field"><label for="fup-date">Follow-up date</label><input id="fup-date" type="date"></div>
+      <div class="field" style="margin-bottom:0"><label for="fup-note">Note</label><textarea id="fup-note" maxlength="500" placeholder="What needs following up?"></textarea></div>
+      <div class="err" id="fup-err" role="alert"></div>
+      <button class="btn btn-primary" id="fup-save-btn" type="button" style="margin-top:10px;">Add follow-up</button>
+    </div>
+  </div>
+</div>
 
 <script src="../shared/supabase.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -824,6 +852,7 @@
 
   // ── leads ──────────────────────────────────────────────────────────────────
   let leads = null, leadFilter = 'open', pendingLeadId = null;
+  let leadFollowups = null, currentFollowupLeadId = null;
   const LEAD_STATUS = {
     open: { label: 'Open', color: '#2563EB' },
     converted: { label: 'Converted', color: '#16A34A' },
@@ -843,9 +872,35 @@
     return leads;
   }
 
+  async function fetchLeadFollowups(force) {
+    if (leadFollowups && !force) return leadFollowups;
+    leadFollowups = (await api('my-lead-followups')).followups || [];
+    return leadFollowups;
+  }
+
+  // Nearest pending follow-up for a lead — what the card badge shows.
+  function nextFollowupFor(leadId) {
+    return (leadFollowups || [])
+      .filter((f) => f.lead_id === leadId && f.status === 'pending')
+      .sort((a, b) => a.followup_date.localeCompare(b.followup_date))[0] || null;
+  }
+
+  function followupDaysUntil(dateStr) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const d = new Date(dateStr + 'T00:00:00');
+    return Math.round((d - today) / 86400000);
+  }
+
+  function followupBadge(f) {
+    const days = followupDaysUntil(f.followup_date);
+    const label = days < 0 ? `${-days}d overdue` : days === 0 ? 'Due today' : days === 1 ? 'Due tomorrow' : `In ${days}d`;
+    const color = days < 0 ? '#DC2626' : days <= 2 ? '#D97706' : '#2563EB';
+    return `<span class="fup-badge" style="background:${color}22;color:${color}">🔔 ${esc(label)} · ${esc(f.note.slice(0, 60))}${f.note.length > 60 ? '…' : ''}</span>`;
+  }
+
   async function loadLeads(force) {
     $('lead-list').innerHTML = '<div class="empty">Loading…</div>'; $('lead-count').textContent = '';
-    try { await fetchLeads(force); renderLeads(); }
+    try { await Promise.all([fetchLeads(force), fetchLeadFollowups(force)]); renderLeads(); }
     catch (e) { $('lead-list').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
   }
 
@@ -876,10 +931,12 @@
           ${l.notes ? `<div><span class="k">Notes</span> ${esc(l.notes)}</div>` : ''}
           ${l.status === 'lost' && l.lost_reason ? `<div><span class="k">Lost reason</span> ${esc(l.lost_reason)}</div>` : ''}
         </div>
-        ${l.status === 'open' ? `<div class="lead-actions">
-          <button class="btn btn-primary btn-sm" data-convert="${esc(l.id)}">Convert to Booking</button>
-          <button class="btn btn-ghost btn-sm" data-lost="${esc(l.id)}">Mark Lost</button>
-        </div>` : ''}
+        ${(() => { const f = nextFollowupFor(l.id); return f ? followupBadge(f) : ''; })()}
+        <div class="lead-actions">
+          ${l.status === 'open' ? `<button class="btn btn-primary btn-sm" data-convert="${esc(l.id)}">Convert to Booking</button>
+          <button class="btn btn-ghost btn-sm" data-lost="${esc(l.id)}">Mark Lost</button>` : ''}
+          <button class="btn btn-ghost btn-sm" data-followup="${esc(l.id)}">🔔 Follow-up</button>
+        </div>
       </div>`;
     }).join('');
   }
@@ -1057,9 +1114,91 @@
     if (c) return convertLead(c.dataset.convert);
     const l = e.target.closest('button[data-lost]');
     if (l) return markLeadLost(l.dataset.lost);
+    const f = e.target.closest('button[data-followup]');
+    if (f) return openFollowupModal(f.dataset.followup);
   });
 
   function leadError(msg) { const el = $('lead-err'); el.textContent = msg; el.style.display = msg ? 'block' : 'none'; if (msg) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+
+  // ── lead follow-ups ──────────────────────────────────────────────────────
+  function fupError(msg) { const el = $('fup-err'); el.textContent = msg || ''; el.style.display = msg ? 'block' : 'none'; }
+
+  async function openFollowupModal(leadId) {
+    const l = (leads || []).find((x) => x.id === leadId);
+    if (!l) return;
+    currentFollowupLeadId = leadId;
+    $('fup-lead-name').textContent = l.name;
+    $('fup-lead-phone').textContent = l.phone;
+    $('fup-lead-phone').href = 'tel:' + l.phone;
+    $('fup-date').value = riyadhDateISO(new Date());
+    $('fup-note').value = '';
+    fupError('');
+    renderFollowupModalList();
+    $('fup-modal').classList.add('open');
+    try { await fetchLeadFollowups(true); renderFollowupModalList(); renderLeads(); } catch (e) { /* keep whatever was cached */ }
+  }
+
+  function closeFollowupModal() { $('fup-modal').classList.remove('open'); currentFollowupLeadId = null; }
+
+  function renderFollowupModalList() {
+    const el = $('fup-list');
+    const rows = (leadFollowups || []).filter((f) => f.lead_id === currentFollowupLeadId)
+      .slice().sort((a, b) => a.followup_date.localeCompare(b.followup_date));
+    if (!rows.length) { el.innerHTML = '<div class="empty" style="padding:16px 0;">No follow-ups yet.</div>'; return; }
+    el.innerHTML = rows.map((f) => {
+      const days = followupDaysUntil(f.followup_date);
+      const color = f.status === 'done' ? '#16A34A' : days < 0 ? '#DC2626' : days <= 2 ? '#D97706' : '#2563EB';
+      const when = new Date(f.followup_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      const dueLabel = f.status === 'done' ? 'Done' : days < 0 ? `${-days}d overdue` : days === 0 ? 'Due today' : `In ${days}d`;
+      return `<div class="fup-item" style="border-left-color:${color}">
+        <span class="pill" style="background:${color}">${esc(when)} · ${esc(dueLabel)}</span>
+        <div class="note">${esc(f.note)}</div>
+        <div class="row-actions">
+          ${f.status === 'pending'
+            ? `<button class="btn btn-primary btn-sm" data-fup-done="${esc(f.id)}">✓ Mark Done</button>`
+            : `<button class="btn btn-ghost btn-sm" data-fup-reopen="${esc(f.id)}">↩ Reopen</button>`}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  $('fup-list').addEventListener('click', (e) => {
+    const d = e.target.closest('button[data-fup-done]');
+    if (d) return setFollowupStatus(d.dataset.fupDone, 'done');
+    const r = e.target.closest('button[data-fup-reopen]');
+    if (r) return setFollowupStatus(r.dataset.fupReopen, 'pending');
+  });
+
+  async function setFollowupStatus(id, status) {
+    try {
+      await api('set-lead-followup-status', { followupId: id, status });
+      await fetchLeadFollowups(true);
+      renderFollowupModalList();
+      renderLeads();
+    } catch (e) { toast(e.message); }
+  }
+
+  async function saveFollowup() {
+    const date = $('fup-date').value;
+    const note = $('fup-note').value.trim();
+    fupError('');
+    if (!date || !note) return fupError('Date and note are both required.');
+    const btn = $('fup-save-btn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      await api('add-lead-followup', { leadId: currentFollowupLeadId, followupDate: date, note });
+      $('fup-note').value = '';
+      await fetchLeadFollowups(true);
+      renderFollowupModalList();
+      renderLeads();
+      toast('Follow-up added');
+    } catch (e) { fupError(e.message); }
+    finally { btn.disabled = false; btn.textContent = 'Add follow-up'; }
+  }
+
+  $('fup-save-btn').addEventListener('click', saveFollowup);
+  $('fup-close-btn').addEventListener('click', closeFollowupModal);
+  $('fup-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeFollowupModal(); });
 
   async function submitLead() {
     leadError('');
