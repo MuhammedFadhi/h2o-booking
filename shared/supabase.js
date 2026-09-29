@@ -15,27 +15,18 @@
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   window.db = db;
 
-  // Formats a slot as "8:00 AM - 9:00 AM". minute/durationMinutes are optional —
-  // omitted (as every call site did before slots could be anything but a flat
-  // 1-hour block) they default to :00 and 60, so old callers and old slot rows
-  // format exactly as they always have. New slots pass their real minute
-  // (0 or 30) and duration (e.g. 90) to get e.g. "10:30 AM - 12:00 PM".
+  // Formats a slot hour (0..23) as "8:00 AM - 9:00 AM".
   // Fixes v21 edge cases: h=11 → "11:00 AM - 12:00 PM" (was AM); h=23 → "11:00 PM - 12:00 AM" (was 24:00 PM).
-  window.formatHour = function (hour, minute, durationMinutes) {
+  window.formatHour = function (hour) {
     const h = parseInt(hour, 10);
     if (isNaN(h) || h < 0 || h > 23) return String(hour);
-    const m = (minute === 30) ? 30 : 0;
-    const dur = (Number.isFinite(durationMinutes) && durationMinutes > 0) ? durationMinutes : 60;
-    const label = (totalMin) => {
-      totalMin = ((totalMin % 1440) + 1440) % 1440; // wrap into 0..1439
-      const hh = Math.floor(totalMin / 60);
-      const mm = totalMin % 60;
-      const period = hh >= 12 ? 'PM' : 'AM';
-      const twelve = hh % 12 === 0 ? 12 : hh % 12;
-      return `${twelve}:${String(mm).padStart(2, '0')} ${period}`;
+    const next = (h + 1) % 24;
+    const label = (n) => {
+      const period = n >= 12 && n < 24 ? 'PM' : 'AM';
+      const twelve = n % 12 === 0 ? 12 : n % 12;
+      return `${twelve}:00 ${period}`;
     };
-    const startMin = h * 60 + m;
-    return `${label(startMin)} - ${label(startMin + dur)}`;
+    return `${label(h)} - ${label(next)}`;
   };
 
   window.formatDate = function (dateStr) {
@@ -86,15 +77,11 @@
   // notice (e.g. 60 = the slot must start at least an hour from now).
   window.SLOT_MIN_LEAD_MINUTES = 0;
 
-  // slotMinute is optional (defaults to :00, matching every slot before
-  // variable-duration slots existed) — pass it for accurate gating on a slot
-  // that starts on the half-hour (e.g. 10:30), not just the hour.
-  window.slotIsBookable = function (slotDate, slotHour, slotMinute, now) {
+  window.slotIsBookable = function (slotDate, slotHour, now) {
     const k = window.ksaNow(now);
     if (slotDate > k.dateISO) return true;
     if (slotDate < k.dateISO) return false;
-    const startMin = Number(slotHour) * 60 + (slotMinute === 30 ? 30 : 0);
-    return startMin > k.minutes + window.SLOT_MIN_LEAD_MINUTES;
+    return Number(slotHour) * 60 > k.minutes + window.SLOT_MIN_LEAD_MINUTES;
   };
 
   window.formatDateFull = function (dateStr) {

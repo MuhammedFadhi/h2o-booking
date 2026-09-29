@@ -567,10 +567,10 @@
     const regionId = $('f-region').value;
     const today = ksaNow().dateISO;
     const { data } = await db.from('availability_slots')
-      .select('slot_date, slot_hour, slot_minute').eq('service_region_id', regionId)
+      .select('slot_date, slot_hour').eq('service_region_id', regionId)
       .eq('is_available', true).eq('is_booked', false).gte('slot_date', today)
       .order('slot_date').limit(2000);
-    const dates = [...new Set((data || []).filter((s) => slotIsBookable(s.slot_date, s.slot_hour, s.slot_minute)).map((s) => s.slot_date))];
+    const dates = [...new Set((data || []).filter((s) => slotIsBookable(s.slot_date, s.slot_hour)).map((s) => s.slot_date))];
     $('f-date').innerHTML = dates.length
       ? '<option value="">Select a date…</option>' + dates.map((d) => `<option value="${d}">${esc(formatDateFull(d))}</option>`).join('')
       : '<option value="">No open slots in this region</option>';
@@ -583,13 +583,13 @@
     const host = $('slots');
     if (!date) { host.innerHTML = '<span class="hint">Pick a date to see the times.</span>'; return; }
     const { data } = await db.from('availability_slots')
-      .select('id, slot_hour, slot_minute, duration_minutes, is_booked').eq('service_region_id', $('f-region').value)
-      .eq('slot_date', date).eq('is_available', true).order('slot_hour').order('slot_minute');
-    const slots = (data || []).filter((s) => slotIsBookable(date, s.slot_hour, s.slot_minute));
+      .select('id, slot_hour, is_booked').eq('service_region_id', $('f-region').value)
+      .eq('slot_date', date).eq('is_available', true).order('slot_hour');
+    const slots = (data || []).filter((s) => slotIsBookable(date, s.slot_hour));
     if (!slots.length) { host.innerHTML = '<span class="hint">No time slots on this date.</span>'; return; }
     host.innerHTML = slots.map((s) => s.is_booked
-      ? `<button type="button" class="slot booked" disabled title="Already booked">${esc(formatHour(s.slot_hour, s.slot_minute, s.duration_minutes))}</button>`
-      : `<button type="button" class="slot" data-slot="${esc(s.id)}">${esc(formatHour(s.slot_hour, s.slot_minute, s.duration_minutes))}</button>`).join('')
+      ? `<button type="button" class="slot booked" disabled title="Already booked">${esc(formatHour(s.slot_hour))}</button>`
+      : `<button type="button" class="slot" data-slot="${esc(s.id)}">${esc(formatHour(s.slot_hour))}</button>`).join('')
       + (slots.some((s) => !s.is_booked) ? '' : '<div class="hint" style="flex-basis:100%">All times on this date are booked.</div>');
   }
 
@@ -724,7 +724,7 @@
     $('done-ref').textContent = b.reference || '';
     $('done-details').innerHTML =
       `<dt>Customer</dt><dd>${esc(b.customer_name)} · ${esc(b.customer_phone)}</dd>` +
-      `<dt>When</dt><dd>${esc(formatDateFull(b.slot_date))}<br>${esc(formatHour(b.slot_hour, b.slot_minute, b.duration_minutes))}</dd>` +
+      `<dt>When</dt><dd>${esc(formatDateFull(b.slot_date))}<br>${esc(formatHour(b.slot_hour))}</dd>` +
       `<dt>City</dt><dd>${esc(b.city_name)}</dd>` +
       (b.discount > 0 ? `<dt>Promo</dt><dd>${esc(b.promo_code)} (− ${money(b.discount)})</dd>` : '') +
       `<dt>Total</dt><dd>${money(b.total)}</dd>`;
@@ -748,7 +748,7 @@
       const { data } = await db.from('sms_settings').select('enabled').eq('key', 'confirmation').maybeSingle();
       if (data && data.enabled === false) return;
       const d = new Date(b.slot_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-      const t = formatHour(b.slot_hour, b.slot_minute, b.duration_minutes);
+      const h = Number(b.slot_hour), t = `${h % 12 === 0 ? 12 : h % 12}:00 ${h < 12 ? 'AM' : 'PM'}`;
       const body = `SA'DA H2O - Booking Confirmed!\n\nDear ${b.customer_name},\nRef: ${b.reference}\nDate: ${d}\nTime: ${t}\nCity: ${b.city_name}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
       const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 20000);
       await fetch('/api/send-sms', {
@@ -813,7 +813,7 @@
         </div>
         <div class="bk-meta">
           <div><span class="k">Ref</span> ${esc(b.booking_reference)}${b.referral_source ? ' · ' + esc(b.referral_source) : ''}</div>
-          <div><span class="k">When</span> ${esc(formatDateFull(b.slot_date))}, ${esc(formatHour(b.slot_hour, b.slot_minute, b.duration_minutes))}</div>
+          <div><span class="k">When</span> ${esc(formatDateFull(b.slot_date))}, ${esc(formatHour(b.slot_hour))}</div>
           <div><span class="k">Where</span> ${esc(b.city_name || '')}${place ? ' — ' + esc(place) : ''}</div>
           <div><span class="k">Products</span><br>${items}</div>
           <div><span class="k">Total</span> ${money(b.order_total - (b.discount_amount || 0))}${b.promo_code ? ` <span class="k">(${esc(b.promo_code)}: − ${money(b.discount_amount)})</span>` : ''}${b.installers && b.installers.name ? ' · <span class="k">Installer</span> ' + esc(b.installers.name) : ''}</div>

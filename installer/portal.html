@@ -352,7 +352,7 @@ function subscribeRealtime() {
       if (row.installer_id === null && row.status === 'upcoming') {
         showBrowserNotification(
           'New job available',
-          `${row.customer_name} · ${row.city_name} · ${formatDateLocal(row.slot_date)} ${formatHour(row.slot_hour, row.slot_minute, row.duration_minutes)}`
+          `${row.customer_name} · ${row.city_name} · ${formatDateLocal(row.slot_date)} ${formatHour(row.slot_hour)}`
         );
         await loadAll();
       }
@@ -381,8 +381,8 @@ function notifyUpcomingToday() {
   const tomorrowIso = localDateISO(tomorrow);
   const todays = myBookings.filter(b => b.slot_date === today && b.status === 'upcoming');
   const tomorrows = myBookings.filter(b => b.slot_date === tomorrowIso && b.status === 'upcoming');
-  if (todays.length) showBrowserNotification(`You have ${todays.length} job(s) today`, todays.map(b => `${formatHour(b.slot_hour, b.slot_minute, b.duration_minutes)} · ${b.customer_name}`).join('\n'));
-  else if (tomorrows.length) showBrowserNotification(`You have ${tomorrows.length} job(s) tomorrow`, tomorrows.map(b => `${formatHour(b.slot_hour, b.slot_minute, b.duration_minutes)} · ${b.customer_name}`).join('\n'));
+  if (todays.length) showBrowserNotification(`You have ${todays.length} job(s) today`, todays.map(b => `${formatHour(b.slot_hour)} · ${b.customer_name}`).join('\n'));
+  else if (tomorrows.length) showBrowserNotification(`You have ${tomorrows.length} job(s) tomorrow`, tomorrows.map(b => `${formatHour(b.slot_hour)} · ${b.customer_name}`).join('\n'));
 }
 
 function filterTab(tab, el) {
@@ -594,7 +594,7 @@ function renderAppointments() {
           </div>
           <div class="appt-main">
             <div style="margin-bottom:6px;">${jobTypeBadge(b)}</div>
-            <div class="appt-hour">🕐 ${formatHour(b.slot_hour, b.slot_minute, b.duration_minutes)} ${whenBadge(b.slot_date)}</div>
+            <div class="appt-hour">🕐 ${formatHour(b.slot_hour)} ${whenBadge(b.slot_date)}</div>
             <div class="appt-city">📍 ${b.city_name}</div>
             <div class="appt-customer">
               <div class="customer-name">👤 ${b.customer_name}</div>
@@ -668,21 +668,16 @@ function formatDateLocal(dateStr) {
   return `${dd}/${mm}/${d.getFullYear()}`;
 }
 
-function formatHour(hour, minute, durationMinutes) {
+function formatHour(hour) {
   const h = parseInt(hour);
   if (isNaN(h) || h < 0 || h > 23) return String(hour);
-  const m = (minute === 30) ? 30 : 0;
-  const dur = (Number.isFinite(durationMinutes) && durationMinutes > 0) ? durationMinutes : 60;
-  const label = (totalMin) => {
-    totalMin = ((totalMin % 1440) + 1440) % 1440;
-    const hh = Math.floor(totalMin / 60);
-    const mm = totalMin % 60;
-    const period = hh >= 12 ? 'PM' : 'AM';
-    const twelve = hh % 12 === 0 ? 12 : hh % 12;
-    return `${twelve}:${String(mm).padStart(2, '0')} ${period}`;
+  const next = (h + 1) % 24;
+  const label = (n) => {
+    const period = n >= 12 && n < 24 ? 'PM' : 'AM';
+    const twelve = n % 12 === 0 ? 12 : n % 12;
+    return `${twelve}:00 ${period}`;
   };
-  const startMin = h * 60 + m;
-  return `${label(startMin)} – ${label(startMin + dur)}`;
+  return `${label(h)} – ${label(next)}`;
 }
 
 function getStatusLabel(s) { return {upcoming:'Upcoming',in_progress:'In Progress',completed:'Completed',cancelled:'Cancelled'}[s] || s; }
