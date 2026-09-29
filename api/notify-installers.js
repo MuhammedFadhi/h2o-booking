@@ -51,10 +51,19 @@ function ddmmyyyy(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 }
-function formatHour(h) {
-  const n = h % 12 === 0 ? 12 : h % 12;
-  const p = h >= 12 && h < 24 ? 'PM' : 'AM';
-  return `${n}:00 ${p}`;
+function formatHour(h, m, durationMinutes) {
+  const minute = (m === 30) ? 30 : 0;
+  const dur = (Number.isFinite(durationMinutes) && durationMinutes > 0) ? durationMinutes : 60;
+  const label = (totalMin) => {
+    totalMin = ((totalMin % 1440) + 1440) % 1440;
+    const hh = Math.floor(totalMin / 60);
+    const mm = totalMin % 60;
+    const n = hh % 12 === 0 ? 12 : hh % 12;
+    const p = hh >= 12 ? 'PM' : 'AM';
+    return `${n}:${String(mm).padStart(2, '0')} ${p}`;
+  };
+  const startMin = h * 60 + minute;
+  return `${label(startMin)} - ${label(startMin + dur)}`;
 }
 
 module.exports = async function handler(req, res) {
@@ -71,7 +80,7 @@ module.exports = async function handler(req, res) {
     const settings = await sb('GET', `/sms_settings?key=eq.new_booking_available&select=enabled`);
     if (!settings?.length || settings[0].enabled !== true) return res.status(200).json({ ok: true, skipped: 'setting disabled' });
 
-    const rows = await sb('GET', `/bookings?id=eq.${encodeURIComponent(bookingId)}&select=id,customer_name,city_name,slot_date,slot_hour,status,created_at`);
+    const rows = await sb('GET', `/bookings?id=eq.${encodeURIComponent(bookingId)}&select=id,customer_name,city_name,slot_date,slot_hour,slot_minute,duration_minutes,status,created_at`);
     if (!rows?.length) return res.status(404).json({ error: 'Booking not found' });
     const b = rows[0];
     if (b.status !== 'upcoming') return res.status(200).json({ ok: true, skipped: 'not upcoming' });
@@ -80,7 +89,7 @@ module.exports = async function handler(req, res) {
     const installers = await sb('GET', `/installers?is_active=eq.true&select=name,phone`);
     if (!installers?.length) return res.status(200).json({ ok: true, sent: 0, skipped: 'no active installers' });
 
-    const msg = `SA'DA H2O — New job available!\n${b.customer_name} · ${b.city_name}\n${ddmmyyyy(b.slot_date)} at ${formatHour(b.slot_hour)}\nClaim it in the installer portal: ${PORTAL_URL}`;
+    const msg = `SA'DA H2O — New job available!\n${b.customer_name} · ${b.city_name}\n${ddmmyyyy(b.slot_date)} at ${formatHour(b.slot_hour, b.slot_minute, b.duration_minutes)}\nClaim it in the installer portal: ${PORTAL_URL}`;
 
     let sent = 0;
     for (const inst of installers) {

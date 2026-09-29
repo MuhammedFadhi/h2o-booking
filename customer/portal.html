@@ -304,7 +304,7 @@ let bookItems = {};       // basket for the Installation type: { [model_name]: {
 let bookCatalogueCache = []; // [{ model_name, price_sar, is_serialized, image_url, description }]
 let bookPromo = null;     // applied promo_codes row, or null
 let bookProductsLoaded = false;
-let bookDate = null, bookHour = null, bookSlotId = null;
+let bookDate = null, bookHour = null, bookMinute = 0, bookDuration = 60, bookSlotId = null;
 let activeRescheduleId = null, activeRescheduleSlotId = null;
 let bookLat = null, bookLng = null;
 let bookMap = null, bookMarker = null;
@@ -536,7 +536,7 @@ function renderBookingCard(b) {
         </div>
         <div style="text-align:right;font-size:12px;color:var(--muted);">
           <div style="font-weight:600;color:var(--text);">${formatDate(b.slot_date)}</div>
-          <div>${formatHour(b.slot_hour)}</div>
+          <div>${formatHour(b.slot_hour, b.slot_minute, b.duration_minutes)}</div>
         </div>
       </div>
       <div class="booking-card-body">
@@ -610,7 +610,7 @@ async function loadRescheduleSlotsCustomer() {
     .order('slot_hour');
   if (!data || !data.length) { sel.innerHTML = '<option>No slots available on this date</option>'; return; }
   sel.innerHTML = '<option value="">— Select a time —</option>';
-  data.forEach(s => { const o = document.createElement('option'); o.value = s.id; o.dataset.hour = s.slot_hour; o.textContent = formatHour(s.slot_hour); sel.appendChild(o); });
+  data.forEach(s => { const o = document.createElement('option'); o.value = s.id; o.dataset.hour = s.slot_hour; o.textContent = formatHour(s.slot_hour, s.slot_minute, s.duration_minutes); sel.appendChild(o); });
 }
 
 async function confirmCustomerReschedule() {
@@ -647,9 +647,11 @@ async function confirmCustomerReschedule() {
     return;
   }
 
-  // Update booking, referencing the new slot
+  // Update booking, referencing the new slot. Minute/duration come from the
+  // just-reserved row itself (authoritative), not the <option> dataset.
   const { error: updErr } = await db.from('bookings').update({
-    slot_date: date, slot_hour: newHour, slot_id: newSlotId, status: 'upcoming',
+    slot_date: date, slot_hour: newHour, slot_minute: reserved[0].slot_minute || 0, duration_minutes: reserved[0].duration_minutes || 60,
+    slot_id: newSlotId, status: 'upcoming',
     rescheduled_at: new Date().toISOString()
   }).eq('id', activeRescheduleId).eq('customer_phone', customer.phone);
 
@@ -843,11 +845,11 @@ async function loadBookDates() {
   const endD = new Date(startIso + 'T00:00:00Z'); endD.setUTCDate(endD.getUTCDate() + 60);
   const endIso = endD.toISOString().slice(0, 10);
   const { data } = await db.from('availability_slots')
-    .select('slot_date, slot_hour')
+    .select('slot_date, slot_hour, slot_minute')
     .eq('service_region_id', bookRegionId)
     .eq('is_available', true).eq('is_booked', false)
     .gte('slot_date', startIso).lte('slot_date', endIso);
-  const availableDates = [...new Set((data || []).filter(s => window.slotIsBookable(s.slot_date, s.slot_hour)).map(s => s.slot_date))].sort();
+  const availableDates = [...new Set((data || []).filter(s => window.slotIsBookable(s.slot_date, s.slot_hour, s.slot_minute)).map(s => s.slot_date))].sort();
   grid.innerHTML = '';
   if (!availableDates.length) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">No available slots for this region in the next 2 months.</p>'; return; }
   availableDates.forEach(dateStr => {
@@ -862,7 +864,7 @@ async function loadBookDates() {
 
 function selectBookDate(dateStr, el) {
   document.querySelectorAll('.date-box').forEach(b => b.classList.remove('selected'));
-  el.classList.add('selected'); bookDate = dateStr; bookHour = null; bookSlotId = null;
+  el.classList.add('selected'); bookDate = dateStr; bookHour = null; bookMinute = 0; bookDuration = 60; bookSlotId = null;
   loadBookSlots(dateStr);
 }
 
@@ -870,16 +872,16 @@ async function loadBookSlots(dateStr) {
   const section = document.getElementById('book-time-section');
   const grid = document.getElementById('book-time-grid');
   section.style.display = 'block'; grid.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-  const { data: allSlots } = await db.from('availability_slots').select('*').eq('service_region_id', bookRegionId).eq('slot_date', dateStr).eq('is_available', true).order('slot_hour');
+  const { data: allSlots } = await db.from('availability_slots').select('*').eq('service_region_id', bookRegionId).eq('slot_date', dateStr).eq('is_available', true).order('slot_hour').order('slot_minute');
   // Today: hide hours that have already started.
-  const data = (allSlots || []).filter(s => window.slotIsBookable(dateStr, s.slot_hour));
+  const data = (allSlots || []).filter(s => window.slotIsBookable(dateStr, s.slot_hour, s.slot_minute));
   if (!data.length) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;">No slots available.</p>'; return; }
   grid.innerHTML = '';
   data.forEach(slot => {
     const box = document.createElement('div');
     box.className = `time-slot${slot.is_booked ? ' booked' : ''}`;
-    box.textContent = formatHour(slot.slot_hour);
-    if (!slot.is_booked) box.onclick = () => { document.querySelectorAll('.time-slot').forEach(b => b.classList.remove('selected')); box.classList.add('selected'); bookHour = slot.slot_hour; bookSlotId = slot.id; };
+    box.textContent = formatHour(slot.slot_hour, slot.slot_minute, slot.duration_minutes);
+    if (!slot.is_booked) box.onclick = () => { document.querySelectorAll('.time-slot').forEach(b => b.classList.remove('selected')); box.classList.add('selected'); bookHour = slot.slot_hour; bookMinute = slot.slot_minute || 0; bookDuration = slot.duration_minutes || 60; bookSlotId = slot.id; };
     grid.appendChild(box);
   });
 }
@@ -891,9 +893,9 @@ async function submitNewBooking() {
   if (!bookRegionId || !cityName) { errEl.style.display = 'block'; errEl.textContent = 'Please pick a region and city.'; return; }
   if (!bookDate || bookHour === null) { errEl.style.display = 'block'; errEl.textContent = 'Please select a date and time slot.'; return; }
   // The page may have been open a while: the chosen slot could have started since.
-  if (!window.slotIsBookable(bookDate, bookHour)) {
+  if (!window.slotIsBookable(bookDate, bookHour, bookMinute)) {
     errEl.style.display = 'block'; errEl.textContent = 'That time has just passed. Please choose a later slot.';
-    bookHour = null; bookSlotId = null; loadBookDates(); loadBookSlots(bookDate);
+    bookHour = null; bookMinute = 0; bookDuration = 60; bookSlotId = null; loadBookDates(); loadBookSlots(bookDate);
     return;
   }
   if (selectedType === 'installation' && !bookBasketLines().length) { errEl.style.display = 'block'; errEl.textContent = 'Please add at least one product.'; return; }
@@ -928,13 +930,15 @@ async function submitNewBooking() {
   // Ground truth from the reserved slot itself.
   const bookedDate = reserved[0].slot_date;
   const bookedHour = reserved[0].slot_hour;
+  const bookedMinute = reserved[0].slot_minute || 0;
+  const bookedDuration = reserved[0].duration_minutes || 60;
 
   // Region sanity check
   if (reserved[0].service_region_id && bookRegionId && reserved[0].service_region_id !== bookRegionId) {
     await db.from('availability_slots').update({ is_booked: false }).eq('id', bookSlotId);
     errEl.style.display = 'block';
     errEl.textContent = 'This slot doesn\'t match your region. Please pick a slot again.';
-    bookDate = null; bookHour = null; bookSlotId = null;
+    bookDate = null; bookHour = null; bookMinute = 0; bookDuration = 60; bookSlotId = null;
     loadBookDates();
     resetBtn();
     return;
@@ -951,7 +955,7 @@ async function submitNewBooking() {
     customer_name: customer.name, customer_email: '', customer_phone: customer.phone,
     city_id: null, city_name: cityName, service_region_id: bookRegionId, location_address: address || customer.address,
     latitude: bookLat, longitude: bookLng,
-    slot_id: bookSlotId, slot_date: bookedDate, slot_hour: bookedHour,
+    slot_id: bookSlotId, slot_date: bookedDate, slot_hour: bookedHour, slot_minute: bookedMinute, duration_minutes: bookedDuration,
     status: 'upcoming', booking_type: selectedType,
     ...(primary ? {
       product_model: nameWithColor(primary), product_qty: primary.qty,
@@ -990,7 +994,7 @@ async function submitNewBooking() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ bookingId: booking.id })
   }).catch(e => console.warn('notify-installers failed:', e));
-  bookDate = null; bookHour = null; bookSlotId = null;
+  bookDate = null; bookHour = null; bookMinute = 0; bookDuration = 60; bookSlotId = null;
   bookLat = null; bookLng = null;
   // Reset the product basket + promo for the next booking.
   bookItems = {}; bookPromo = null;

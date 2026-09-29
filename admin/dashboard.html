@@ -994,6 +994,15 @@
             <div style="font-size:11px; color:var(--muted); margin-top:6px;">Click any day to turn it on or off. Presets above are just shortcuts — you can adjust freely afterwards.</div>
           </div>
 
+          <!-- Slot length -->
+          <div style="margin-bottom:16px;">
+            <label style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.4px; display:block; margin-bottom:8px;">Slot length</label>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="day-pill" id="dur-60" data-dur="60" style="flex:1; padding:8px;">1 hour</button>
+              <button type="button" class="day-pill" id="dur-90" data-dur="90" style="flex:1; padding:8px;">1.5 hours (9 AM–9 PM grid)</button>
+            </div>
+          </div>
+
           <!-- Hour strip -->
           <div style="margin-bottom:16px;">
             <label style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.4px; display:block; margin-bottom:8px;">Hours</label>
@@ -2088,7 +2097,7 @@ async function loadBookings() {
     switch (bookingSort.col) {
       case 'customer': return (b.customer_name || '').toLowerCase();
       case 'city': return (b.city_name || '').toLowerCase();
-      case 'schedule': return `${b.slot_date || ''} ${String(b.slot_hour ?? '').padStart(2, '0')}`;
+      case 'schedule': return `${b.slot_date || ''} ${String(b.slot_hour ?? '').padStart(2, '0')}:${String(b.slot_minute ?? 0).padStart(2, '0')}`;
       case 'created_by': return (b.created_by_name || (b.created_by === 'customer' ? 'Customer' : '')).toLowerCase();
       case 'sales_agent': return (b.sales_agent || '').toLowerCase();
       case 'installer': return (b.installers?.name || '').toLowerCase();
@@ -2148,7 +2157,7 @@ async function loadBookings() {
       <td data-label="City">${b.city_name || '—'}</td>
       <td data-label="Schedule">
         <div style="font-weight:500;">${formatDateShort(b.slot_date)}</div>
-        <div style="font-size:12px; color:var(--muted);">${formatHour(b.slot_hour)}</div>
+        <div style="font-size:12px; color:var(--muted);">${formatHour(b.slot_hour, b.slot_minute, b.duration_minutes)}</div>
       </td>
       <td data-label="Created By">${escB(b.created_by_name || (b.created_by === 'customer' ? 'Customer' : '—'))}</td>
       <td data-label="Sales Agent">
@@ -2303,9 +2312,9 @@ async function assignInstaller(bookingId, installerId) {
   if (!error) {
     showToast('Installer assigned successfully', 'success');
     if (installerId && await isSMSEnabled('installer_assigned')) {
-      const { data: b } = await dbAdmin.from('bookings').select('customer_phone,customer_name,slot_date,slot_hour,booking_reference').eq('id', bookingId).maybeSingle();
+      const { data: b } = await dbAdmin.from('bookings').select('customer_phone,customer_name,slot_date,slot_hour,slot_minute,duration_minutes,booking_reference').eq('id', bookingId).maybeSingle();
       const { data: inst } = await dbAdmin.from('installers').select('name').eq('id', installerId).maybeSingle();
-      if (b) await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your installation on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour)} has been assigned to our technician${inst ? ' ' + inst.name : ''}. Our team will contact you prior to the visit. Ref: ${b.booking_reference}`);
+      if (b) await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your installation on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour, b.slot_minute, b.duration_minutes)} has been assigned to our technician${inst ? ' ' + inst.name : ''}. Our team will contact you prior to the visit. Ref: ${b.booking_reference}`);
     }
   } else showToast('Failed to assign installer', 'error');
 }
@@ -2644,8 +2653,8 @@ async function sbLoadDates() {
 // whole day at a glance instead of wondering where a time went.
 function slotButtonsHTML(slots, pickFn, cls) {
   return slots.map(s => s.is_booked
-    ? `<button type="button" class="btn btn-ghost btn-sm ${cls} slot-booked" disabled title="Already booked" style="min-width:78px;">${formatHour(s.slot_hour)}</button>`
-    : `<button type="button" class="btn btn-ghost btn-sm ${cls}" data-slot="${s.id}" onclick="${pickFn}('${s.id}', this)" style="min-width:78px;">${formatHour(s.slot_hour)}</button>`
+    ? `<button type="button" class="btn btn-ghost btn-sm ${cls} slot-booked" disabled title="Already booked" style="min-width:78px;">${formatHour(s.slot_hour, s.slot_minute, s.duration_minutes)}</button>`
+    : `<button type="button" class="btn btn-ghost btn-sm ${cls}" data-slot="${s.id}" onclick="${pickFn}('${s.id}', this)" style="min-width:78px;">${formatHour(s.slot_hour, s.slot_minute, s.duration_minutes)}</button>`
   ).join('');
 }
 
@@ -2656,8 +2665,8 @@ async function sbLoadSlots() {
   const host = document.getElementById('sb-slots');
   if (!date) { host.innerHTML = '<span style="font-size:13px;color:var(--muted);">Pick a date to see available times.</span>'; return; }
   const { data } = await dbAdmin.from('availability_slots')
-    .select('id, slot_hour, is_booked').eq('service_region_id', regionId)
-    .eq('slot_date', date).eq('is_available', true).order('slot_hour');
+    .select('id, slot_hour, slot_minute, duration_minutes, is_booked').eq('service_region_id', regionId)
+    .eq('slot_date', date).eq('is_available', true).order('slot_hour').order('slot_minute');
   const slots = data || [];
   if (!slots.length) { host.innerHTML = '<span style="font-size:13px;color:var(--muted);">No time slots on this date.</span>'; return; }
   host.innerHTML = slotButtonsHTML(slots, 'sbPickSlot', 'sb-slot')
@@ -2771,7 +2780,7 @@ async function submitServiceBooking() {
     // Confirmation SMS — same shape as a new booking.
     if (await isSMSEnabled('confirmation')) {
       const dLabel = (function(){ try { return new Date(row.slot_date + 'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long', year:'numeric'}); } catch(e){ return row.slot_date; } })();
-      const hLabel = (function(h){ const n=parseInt(h,10); if(isNaN(n)) return h; const ap=n<12?'AM':'PM'; const hh=n%12===0?12:n%12; return `${hh}:00 ${ap}`; })(row.slot_hour);
+      const hLabel = formatHour(row.slot_hour, row.slot_minute, row.duration_minutes);
       sendAdminSMS(sbCustomer.phone,
         `SA'DA H2O - ${typeLabel} Booked!\n\nDear ${sbCustomer.name || 'Customer'},\nRef: ${ref}\nDate: ${dLabel}\nTime: ${hLabel}\n\nOur technician will contact you before the visit.\n\nThank you for choosing SA'DA H2O!`);
     }
@@ -2847,8 +2856,8 @@ async function abLoadSlots() {
   const host = document.getElementById('ab-slots');
   if (!date) { host.innerHTML = '<span style="font-size:12px;color:var(--muted);">Pick a date to see open slots.</span>'; return; }
   const { data } = await dbAdmin.from('availability_slots')
-    .select('id, slot_hour, is_booked').eq('service_region_id', regionId)
-    .eq('slot_date', date).eq('is_available', true).order('slot_hour');
+    .select('id, slot_hour, slot_minute, duration_minutes, is_booked').eq('service_region_id', regionId)
+    .eq('slot_date', date).eq('is_available', true).order('slot_hour').order('slot_minute');
   const slots = data || [];
   if (!slots.length) { host.innerHTML = '<span style="font-size:12px;color:var(--muted);">No time slots on this date.</span>'; return; }
   host.innerHTML = slotButtonsHTML(slots, 'abPickSlot', 'ab-slot')
@@ -3074,7 +3083,7 @@ async function submitAdminBooking() {
     // Fire-and-forget so a slow relay never blocks the admin UI.
     if (startStatus !== 'installed' && await isSMSEnabled('confirmation')) {
       const dLabel = (function(){ try { return new Date(row.slot_date + 'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long', year:'numeric'}); } catch(e){ return row.slot_date; } })();
-      const hLabel = (function(h){ const n = parseInt(h,10); if (isNaN(n)) return h; const ap = n < 12 ? 'AM' : 'PM'; const hh = n % 12 === 0 ? 12 : n % 12; return `${hh}:00 ${ap}`; })(row.slot_hour);
+      const hLabel = formatHour(row.slot_hour, row.slot_minute, row.duration_minutes);
       const msg = `SA'DA H2O - Booking Confirmed!\n\nDear ${name},\nRef: ${ref}\nDate: ${dLabel}\nTime: ${hLabel}\nCity: ${cityName}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
       sendAdminSMS(phone, msg);
     }
@@ -3102,7 +3111,7 @@ async function submitAdminBooking() {
 async function adminUndoComplete(bookingId) {
   if (!(await ensureSession())) return;
   if (!checkAdminPassword('undo completion')) return;
-  const { data: b } = await dbAdmin.from('bookings').select('customer_phone,customer_name,slot_date,slot_hour,booking_reference,slot_id').eq('id', bookingId).maybeSingle();
+  const { data: b } = await dbAdmin.from('bookings').select('customer_phone,customer_name,slot_date,slot_hour,slot_minute,duration_minutes,booking_reference,slot_id').eq('id', bookingId).maybeSingle();
   const { error } = await dbAdmin.from('bookings').update({
     status: 'upcoming', completed_by: null, completed_at: null, proof_photo_url: null, proof_qr_url: null, proof_qr_code: null
   }).eq('id', bookingId);
@@ -3110,7 +3119,7 @@ async function adminUndoComplete(bookingId) {
     // Restore slot as booked
     if (b?.slot_id) await dbAdmin.from('availability_slots').update({ is_booked: true }).eq('id', b.slot_id);
     if (b && await isSMSEnabled('reopen')) {
-      await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your booking (Ref: ${b.booking_reference}) on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour)} has been reopened and is now scheduled. Our team will contact you prior to the visit.`);
+      await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your booking (Ref: ${b.booking_reference}) on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour, b.slot_minute, b.duration_minutes)} has been reopened and is now scheduled. Our team will contact you prior to the visit.`);
     }
     showToast('Booking status reset to upcoming', 'success');
     loadBookings();
@@ -3165,7 +3174,7 @@ async function loadRescheduleSlots() {
     const opt = document.createElement('option');
     opt.value = slot.id;
     opt.dataset.hour = slot.slot_hour;
-    opt.textContent = formatHour(slot.slot_hour);
+    opt.textContent = formatHour(slot.slot_hour, slot.slot_minute, slot.duration_minutes);
     sel.appendChild(opt);
   });
 }
@@ -3204,8 +3213,11 @@ async function confirmReschedule() {
     await dbAdmin.from('availability_slots').update({ is_booked: false }).eq('id', oldBooking.slot_id);
   }
 
+  // Minute/duration come from the just-claimed slot itself (authoritative),
+  // not the <option> dataset.
+  const newMinute = claimed[0].slot_minute || 0, newDuration = claimed[0].duration_minutes || 60;
   const { error: updErr } = await dbAdmin.from('bookings').update({
-    slot_date: newDate, slot_hour: newHour, slot_id: newSlotId,
+    slot_date: newDate, slot_hour: newHour, slot_minute: newMinute, duration_minutes: newDuration, slot_id: newSlotId,
     status: 'upcoming', rescheduled_at: new Date().toISOString()
   }).eq('id', rescheduleBookingId);
 
@@ -3220,7 +3232,7 @@ async function confirmReschedule() {
   // Reschedule SMS
   const { data: b } = await dbAdmin.from('bookings').select('customer_phone,customer_name').eq('id', rescheduleBookingId).maybeSingle();
   if (b && await isSMSEnabled('reschedule')) {
-    await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your installation has been rescheduled to ${formatDateFull(newDate)} at ${formatHour(newHour)}. Ref: ${rescheduleBookingId.slice(0,8).toUpperCase()}. Our team will contact you prior to the visit.`);
+    await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your installation has been rescheduled to ${formatDateFull(newDate)} at ${formatHour(newHour, newMinute, newDuration)}. Ref: ${rescheduleBookingId.slice(0,8).toUpperCase()}. Our team will contact you prior to the visit.`);
   }
 
   document.getElementById('reschedule-modal').style.display = 'none';
@@ -3244,12 +3256,12 @@ async function updateStatus(bookingId, status) {
 async function releaseSlot(bookingId, slotId) {
   if (!(await ensureSession())) return;
   if (!confirm('Release this booking? The time slot will become available again.')) return;
-  const { data: b } = await dbAdmin.from('bookings').select('customer_phone,customer_name,slot_date,slot_hour').eq('id', bookingId).maybeSingle();
+  const { data: b } = await dbAdmin.from('bookings').select('customer_phone,customer_name,slot_date,slot_hour,slot_minute,duration_minutes').eq('id', bookingId).maybeSingle();
   await dbAdmin.from('bookings').update({ status: 'cancelled' }).eq('id', bookingId);
   if (slotId) await dbAdmin.from('availability_slots').update({ is_booked: false }).eq('id', slotId);
   // SMS
   if (b && await isSMSEnabled('cancellation')) {
-    await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your booking on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour)} has been cancelled. To rebook please visit: https://h2o.sadawater.com/booking`);
+    await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your booking on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour, b.slot_minute, b.duration_minutes)} has been cancelled. To rebook please visit: https://h2o.sadawater.com/booking`);
   }
   logActivity('booking.cancel', 'Cancelled booking (slot released)', 'booking', bookingId);
   showToast('Booking released, slot is now available', 'success');
@@ -3402,7 +3414,7 @@ async function viewBooking(bookingId) {
         <div style="font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; margin-bottom:12px;">Appointment</div>
         <div style="display:grid; gap:8px; font-size:14px;">
           <div><span style="color:var(--muted);">Date: </span><strong>${formatDateFull(b.slot_date)}</strong></div>
-          <div><span style="color:var(--muted);">Time: </span><strong>${formatHour(b.slot_hour)}</strong></div>
+          <div><span style="color:var(--muted);">Time: </span><strong>${formatHour(b.slot_hour, b.slot_minute, b.duration_minutes)}</strong></div>
           <div><span style="color:var(--muted);">Assigned to: </span><strong>${b.installers?.name || 'Unassigned'}</strong></div>
           ${b.rescheduled_at ? `<div><span style="color:var(--muted);">Rescheduled: </span><strong>${formatDateTime(b.rescheduled_at)}</strong></div>` : ''}
         </div>
@@ -4388,6 +4400,9 @@ const SLOT_PRESETS = {
   'everyday':     { days: [0,1,2,3,4,5,6], hours: rangeHours(9, 20) },
   'mornings':     { days: [0,1,2,3,4],     hours: rangeHours(9, 12) },
 };
+// Fixed 90-minute grid, 9 AM - 9 PM: [9:00-10:30, 10:30-12:00, ..., 7:30-9:00].
+// Index into this array is what slotBuilder.slots90 stores.
+const GRID90 = [[9,0],[10,30],[12,0],[13,30],[15,0],[16,30],[18,0],[19,30]];
 
 const slotBuilder = {
   regions: [],
@@ -4397,6 +4412,8 @@ const slotBuilder = {
   // Individually chosen hours — NOT a range. Clicking 1pm, 3pm and 5pm selects
   // exactly those three and nothing in between.
   hours: new Set(rangeHours(16, 20)),
+  durationMinutes: 60,                       // 60 = whole-hour grid, 90 = GRID90
+  slots90: new Set([0,1,2,3,4,5,6,7]),       // indices into GRID90, all on by default
 };
 
 async function populateSlotCities() {
@@ -4423,7 +4440,15 @@ async function populateSlotCities() {
         const p = SLOT_PRESETS[btn.dataset.preset];
         slotBuilder.days = new Set(p.days);
         slotBuilder.hours = new Set(p.hours);
-        renderDayPills(); renderHourStrip(); updatePreview();
+        slotBuilder.durationMinutes = 60; // presets are whole-hour ranges
+        renderDayPills(); renderDurationToggle(); renderHourStrip(); updatePreview();
+      });
+    });
+
+    document.querySelectorAll('#dur-60, #dur-90').forEach(btn => {
+      btn.addEventListener('click', () => {
+        slotBuilder.durationMinutes = +btn.dataset.dur;
+        renderDurationToggle(); renderHourStrip(); updatePreview();
       });
     });
 
@@ -4444,6 +4469,7 @@ async function populateSlotCities() {
   }
 
   renderDayPills();
+  renderDurationToggle();
   renderHourStrip();
   updatePreview();
 }
@@ -4503,9 +4529,45 @@ function renderDayPills() {
   });
 }
 
+function renderDurationToggle() {
+  document.getElementById('dur-60')?.classList.toggle('active', slotBuilder.durationMinutes === 60);
+  document.getElementById('dur-90')?.classList.toggle('active', slotBuilder.durationMinutes === 90);
+}
+
+function fmtClock(h, m) {
+  const n = h % 12 === 0 ? 12 : h % 12;
+  return `${n}${m ? ':' + String(m).padStart(2, '0') : ''} ${h >= 12 && h < 24 ? 'PM' : 'AM'}`;
+}
+
 function renderHourStrip() {
   const wrap = document.getElementById('hour-strip');
+  const summary = document.getElementById('hours-summary');
   wrap.innerHTML = '';
+
+  if (slotBuilder.durationMinutes === 90) {
+    wrap.style.gridTemplateColumns = 'repeat(4,1fr)';
+    GRID90.forEach(([h, m], i) => {
+      const endMin = h * 60 + m + 90;
+      const [eh, em] = [Math.floor((endMin % 1440) / 60), endMin % 60];
+      const cell = document.createElement('button');
+      cell.className = 'hour-cell' + (slotBuilder.slots90.has(i) ? ' active' : '');
+      cell.style.fontSize = '11px';
+      cell.textContent = `${fmtClock(h, m)}–${fmtClock(eh, em)}`;
+      cell.addEventListener('click', () => {
+        if (slotBuilder.slots90.has(i)) slotBuilder.slots90.delete(i);
+        else slotBuilder.slots90.add(i);
+        renderHourStrip(); updatePreview();
+      });
+      wrap.appendChild(cell);
+    });
+    const chosen = [...slotBuilder.slots90].sort((a, b) => a - b);
+    summary.textContent = chosen.length
+      ? `${chosen.length} slot${chosen.length === 1 ? '' : 's'}/day (90 min each)`
+      : 'No slots selected — tap the time blocks you want to open.';
+    return;
+  }
+
+  wrap.style.gridTemplateColumns = 'repeat(12,1fr)';
   for (let h = 0; h < 24; h++) {
     const cell = document.createElement('button');
     cell.className = 'hour-cell' + (slotBuilder.hours.has(h) ? ' active' : '');
@@ -4520,14 +4582,9 @@ function renderHourStrip() {
     });
     wrap.appendChild(cell);
   }
-  const fmt = (h) => {
-    const n = h % 12 === 0 ? 12 : h % 12;
-    return `${n} ${h >= 12 && h < 24 ? 'PM' : 'AM'}`;
-  };
   const chosen = [...slotBuilder.hours].sort((a, b) => a - b);
-  const summary = document.getElementById('hours-summary');
   summary.textContent = chosen.length
-    ? `${chosen.map(fmt).join(', ')} · ${chosen.length} slot${chosen.length === 1 ? '' : 's'}/day`
+    ? `${chosen.map(h => fmtClock(h, 0)).join(', ')} · ${chosen.length} slot${chosen.length === 1 ? '' : 's'}/day`
     : 'No hours selected — tap the hours you want to open.';
 }
 
@@ -4544,7 +4601,8 @@ function updatePreview() {
   for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
     if (slotBuilder.days.has(d.getDay())) matchingDays++;
   }
-  const total = matchingDays * slotBuilder.hours.size;
+  const perDay = slotBuilder.durationMinutes === 90 ? slotBuilder.slots90.size : slotBuilder.hours.size;
+  const total = matchingDays * perDay;
   document.getElementById('preview-count').textContent = `${total} new slot${total === 1 ? '' : 's'}`;
   const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
   document.getElementById('preview-range').textContent = `${fmt(s)} → ${fmt(e)}`;
@@ -4558,13 +4616,17 @@ async function bulkSlotOperation(create) {
   const regionId = slotBuilder.currentRegionId;
   const fromDate = document.getElementById('bulk-from').value;
   const toDate = document.getElementById('bulk-to').value;
-  const chosenHours = [...slotBuilder.hours].sort((a, b) => a - b);
+  const durationMinutes = slotBuilder.durationMinutes;
+  // [hour, minute] pairs for whichever grid is active.
+  const chosenPairs = durationMinutes === 90
+    ? [...slotBuilder.slots90].sort((a, b) => a - b).map(i => GRID90[i])
+    : [...slotBuilder.hours].sort((a, b) => a - b).map(h => [h, 0]);
   const msgEl = document.getElementById('bulk-msg');
   const setMsg = (color, bg, text) => { msgEl.style.display = 'block'; msgEl.style.background = bg; msgEl.style.color = color; msgEl.textContent = text; };
 
   if (!regionId)   return setMsg('#B71C1C', '#FEF2F2', 'Please pick a region.');
   if (!fromDate || !toDate) return setMsg('#B71C1C', '#FEF2F2', 'Please select both dates.');
-  if (!chosenHours.length)  return setMsg('#B71C1C', '#FEF2F2', 'Pick at least one hour.');
+  if (!chosenPairs.length)  return setMsg('#B71C1C', '#FEF2F2', 'Pick at least one time slot.');
   if (!slotBuilder.days.size) return setMsg('#B71C1C', '#FEF2F2', 'Pick at least one day of the week.');
 
   setMsg('#1D4ED8', '#EFF6FF', create ? '⏳ Creating slots…' : '⏳ Closing slots…');
@@ -4579,8 +4641,8 @@ async function bulkSlotOperation(create) {
     if (slotBuilder.days.has(cursor.getDay())) {
       const dateStr = localDateISO(cursor);
       dates.push(dateStr);
-      chosenHours.forEach(h => {
-        slots.push({ city_id: null, service_region_id: regionId, slot_date: dateStr, slot_hour: h, is_available: true, is_booked: false });
+      chosenPairs.forEach(([h, m]) => {
+        slots.push({ city_id: null, service_region_id: regionId, slot_date: dateStr, slot_hour: h, slot_minute: m, duration_minutes: durationMinutes, is_available: true, is_booked: false });
       });
     }
     cursor.setDate(cursor.getDate() + 1);
@@ -4591,16 +4653,22 @@ async function bulkSlotOperation(create) {
     const batchSize = 500;
     for (let i = 0; i < slots.length; i += batchSize) {
       const batch = slots.slice(i, i + batchSize);
-      const { error } = await dbAdmin.from('availability_slots').upsert(batch, { onConflict: 'service_region_id,slot_date,slot_hour', ignoreDuplicates: true });
+      // ignoreDuplicates means a slot that already exists at this (date, hour, minute)
+      // — whatever its duration — is left untouched, never overwritten.
+      const { error } = await dbAdmin.from('availability_slots').upsert(batch, { onConflict: 'service_region_id,slot_date,slot_hour,slot_minute', ignoreDuplicates: true });
       if (error) return setMsg('#B71C1C', '#FEF2F2', 'Error: ' + error.message);
     }
     setMsg('#166534', '#ECFDF5', `✅ ${slots.length} slot${slots.length === 1 ? '' : 's'} opened.`);
   } else {
-    const { error } = await dbAdmin.from('availability_slots')
-      .delete().eq('service_region_id', regionId)
-      .in('slot_date', dates).in('slot_hour', chosenHours)
-      .eq('is_booked', false);
-    if (error) return setMsg('#B71C1C', '#FEF2F2', 'Error: ' + error.message);
+    // One delete per (hour, minute) pair — matched against duration_minutes too, so
+    // closing a 1-hour grid never touches a 1.5-hour slot that starts at the same clock time.
+    for (const [h, m] of chosenPairs) {
+      const { error } = await dbAdmin.from('availability_slots')
+        .delete().eq('service_region_id', regionId)
+        .in('slot_date', dates).eq('slot_hour', h).eq('slot_minute', m).eq('duration_minutes', durationMinutes)
+        .eq('is_booked', false);
+      if (error) return setMsg('#B71C1C', '#FEF2F2', 'Error: ' + error.message);
+    }
     setMsg('#166534', '#ECFDF5', `✅ Matching unbooked slots closed.`);
   }
   await refreshRegionCounts();
@@ -4652,7 +4720,11 @@ async function loadSlotGrid() {
   if (!date)     { grid.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🗓️</div><div>Select a date to manage availability</div></div>'; return; }
   grid.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
   const { data: existing } = await dbAdmin.from('availability_slots').select('*').eq('service_region_id', regionId).eq('slot_date', date);
-  const existingMap = {}; (existing || []).forEach(s => { existingMap[s.slot_hour] = s; });
+  // This grid only edits the whole-hour (:00, 60-min) slots — 90-min grid slots
+  // (which can also start on the hour, e.g. 9:00 and 12:00) are managed from the
+  // bulk scheduler above and deliberately excluded here so the two don't collide.
+  const existingMap = {};
+  (existing || []).forEach(s => { if ((s.slot_minute || 0) === 0 && (s.duration_minutes || 60) === 60) existingMap[s.slot_hour] = s; });
   grid.innerHTML = '<div style="display:grid; grid-template-columns:repeat(6, 1fr); gap:8px;" id="hour-grid"></div>';
   const hourGrid = document.getElementById('hour-grid');
   for (let h = 0; h < 24; h++) {
@@ -4694,8 +4766,8 @@ async function saveSlots() {
       ops.push(dbAdmin.from('availability_slots').update({ is_available: change.on }).eq('id', change.existingId));
     } else if (change.on) {
       ops.push(dbAdmin.from('availability_slots').upsert(
-        { city_id: null, service_region_id: regionId, slot_date: date, slot_hour: parseInt(hour), is_available: true, is_booked: false },
-        { onConflict: 'service_region_id,slot_date,slot_hour' }
+        { city_id: null, service_region_id: regionId, slot_date: date, slot_hour: parseInt(hour), slot_minute: 0, duration_minutes: 60, is_available: true, is_booked: false },
+        { onConflict: 'service_region_id,slot_date,slot_hour,slot_minute' }
       ));
     }
   }
@@ -5251,16 +5323,21 @@ function showToast(msg, type = '') {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-function formatHour(hour) {
+function formatHour(hour, minute, durationMinutes) {
   const h = parseInt(hour);
   if (isNaN(h) || h < 0 || h > 23) return String(hour);
-  const nextH = (h + 1) % 24;                                     // wrap 23 → 0
-  const label = (n) => {
-    const period = n >= 12 && n < 24 ? 'PM' : 'AM';
-    const twelve = n % 12 === 0 ? 12 : n % 12;
-    return `${twelve}:00 ${period}`;
+  const m = (minute === 30) ? 30 : 0;
+  const dur = (Number.isFinite(durationMinutes) && durationMinutes > 0) ? durationMinutes : 60;
+  const label = (totalMin) => {
+    totalMin = ((totalMin % 1440) + 1440) % 1440;                  // wrap into 0..1439
+    const hh = Math.floor(totalMin / 60);
+    const mm = totalMin % 60;
+    const period = hh >= 12 ? 'PM' : 'AM';
+    const twelve = hh % 12 === 0 ? 12 : hh % 12;
+    return `${twelve}:${String(mm).padStart(2, '0')} ${period}`;
   };
-  return `${label(h)} – ${label(nextH)}`;
+  const startMin = h * 60 + m;
+  return `${label(startMin)} – ${label(startMin + dur)}`;
 }
 
 function formatDateShort(dateStr) {
@@ -6058,7 +6135,7 @@ async function viewCustomer(phone) {
             <span style="font-weight:700;color:var(--water);font-size:13px;">${b.booking_reference}</span>
             <span class="status-badge status-${b.status}">${getStatusLabel(b.status, b.booking_type)}</span>
           </div>
-          <div style="font-size:13px;color:var(--muted);">${formatDateFull(b.slot_date)} · ${formatHour(b.slot_hour)}</div>
+          <div style="font-size:13px;color:var(--muted);">${formatDateFull(b.slot_date)} · ${formatHour(b.slot_hour, b.slot_minute, b.duration_minutes)}</div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px;">Type: ${b.booking_type || 'installation'} · City: ${b.city_name || '—'}</div>
         </div>`).join('') || '<div style="color:var(--muted);font-size:13px;">No bookings yet.</div>'}
     </div>`;
@@ -6368,7 +6445,7 @@ async function loadOverview() {
 
   // Pull in parallel — each is independent.
   const [bk, wr, fu, lfu] = await Promise.all([
-    dbAdmin.from('bookings').select('id, customer_name, customer_phone, status, booking_type, slot_date, slot_hour, city_name, installer_id, slot_id, installers(name)'),
+    dbAdmin.from('bookings').select('id, customer_name, customer_phone, status, booking_type, slot_date, slot_hour, slot_minute, duration_minutes, city_name, installer_id, slot_id, installers(name)'),
     dbAdmin.from('warranties').select('id, qr_code, product_type, filter_expiry, service_expiry, warranty_expiry, status, service_opted_out, customers(name, phone)'),
     dbAdmin.from('customer_followups').select('id, followup_date, note, status, customers(name, phone)'),
     dbAdmin.from('lead_followups').select('id, followup_date, note, status, lead_id, leads(name, phone)')
@@ -6409,15 +6486,15 @@ async function loadOverview() {
     stat(FOLLOWUP_ICON_SVG, '#FEE2E2', '#B91C1C', overdueFups.length, 'Follow-ups Due', 'followups', overdueFups.length ? 'color:#B91C1C;' : '');
 
   // ---- actionable lists ----
-  const fmtWhen = (b) => `${W ? W.fmtDate(b.slot_date) : b.slot_date}${b.slot_hour!=null ? ' · ' + formatHour(b.slot_hour) : ''}`;
+  const fmtWhen = (b) => `${W ? W.fmtDate(b.slot_date) : b.slot_date}${b.slot_hour!=null ? ' · ' + formatHour(b.slot_hour, b.slot_minute, b.duration_minutes) : ''}`;
   const esc = (s) => W ? W.esc(s) : String(s||'');
 
   const todayList = todayBookings.length ? todayBookings
-    .sort((a,b)=>(a.slot_hour||0)-(b.slot_hour||0))
+    .sort((a,b)=>((a.slot_hour||0)*60+(a.slot_minute||0))-((b.slot_hour||0)*60+(b.slot_minute||0)))
     .map(b => `
       <div onclick="viewBooking('${b.id}')" style="display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:9px;background:var(--bg);margin-bottom:6px;cursor:pointer;">
         <div><strong>${esc(b.customer_name)}</strong><div style="font-size:11px;color:var(--muted);">${esc(b.city_name||'')} · ${esc(b.installers?.name||'Unassigned')}</div></div>
-        <div style="text-align:right;font-size:12px;"><strong>${b.slot_hour!=null?formatHour(b.slot_hour):'—'}</strong>
+        <div style="text-align:right;font-size:12px;"><strong>${b.slot_hour!=null?formatHour(b.slot_hour, b.slot_minute, b.duration_minutes):'—'}</strong>
           <div><span class="status-badge status-${b.status}" style="font-size:9px;">${getStatusLabel(b.status, b.booking_type)}</span></div></div>
       </div>`).join('')
     : '<div style="color:var(--muted);font-size:13px;padding:8px;">No bookings scheduled today.</div>';
@@ -6591,7 +6668,7 @@ async function exportBookingsCSV() {
     { label:'Reference', key:'booking_reference' },
     { label:'Customer', key:'customer_name' }, { label:'Phone', key:'customer_phone' },
     { label:'City', key:'city_name' }, { label:'Address', key:'location_address' },
-    { label:'Date', get:r=>W.fmtDate(r.slot_date) }, { label:'Hour', get:r=>r.slot_hour!=null?formatHour(r.slot_hour):'' },
+    { label:'Date', get:r=>W.fmtDate(r.slot_date) }, { label:'Hour', get:r=>r.slot_hour!=null?formatHour(r.slot_hour, r.slot_minute, r.duration_minutes):'' },
     { label:'Status', key:'status' }, { label:'Installer', get:r=>r.installers?.name }
   ]);
   downloadCSV(`sada-bookings-${W.localDateISO(new Date())}.csv`, csv);

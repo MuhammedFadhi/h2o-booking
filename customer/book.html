@@ -320,7 +320,7 @@
 <script>
 // db is a global from shared/supabase.js
 
-let state = { phone:'', name:'', cityName:'', regionId:null, address:'', latitude:null, longitude:null, selectedDate:null, selectedHour:null, selectedSlotId:null, generatedOTP:null, isReturning:false, existingProfile:null, otpAttempts:0, otpGeneratedAt:null, items:{} };
+let state = { phone:'', name:'', cityName:'', regionId:null, address:'', latitude:null, longitude:null, selectedDate:null, selectedHour:null, selectedMinute:0, selectedDuration:60, selectedSlotId:null, generatedOTP:null, isReturning:false, existingProfile:null, otpAttempts:0, otpGeneratedAt:null, items:{} };
 // items: { [model_name]: { model, price, qty, is_serialized } }  — the basket
 let catalogueCache = [];  // [{ model_name, price_sar, is_serialized, image_url, description }]
 let regionsCache = [];  // [{ id, key, name, city_labels }]
@@ -668,11 +668,11 @@ async function loadAvailableDates() {
   const endD=new Date(startIso+'T00:00:00Z'); endD.setUTCDate(endD.getUTCDate()+60);
   const endIso=endD.toISOString().slice(0,10);
   const{data}=await db.from('availability_slots')
-    .select('slot_date, slot_hour')
+    .select('slot_date, slot_hour, slot_minute')
     .eq('service_region_id', state.regionId)
     .eq('is_available',true).eq('is_booked',false)
     .gte('slot_date',startIso).lte('slot_date',endIso);
-  const availableDates=[...new Set((data||[]).filter(s=>window.slotIsBookable(s.slot_date,s.slot_hour)).map(s=>s.slot_date))].sort();
+  const availableDates=[...new Set((data||[]).filter(s=>window.slotIsBookable(s.slot_date,s.slot_hour,s.slot_minute)).map(s=>s.slot_date))].sort();
   grid.innerHTML='';
   if(!availableDates.length){grid.innerHTML='<p style="color:var(--muted);font-size:13px;padding:24px;text-align:center;">No available slots in this region for the next 2 months. Please contact SA\'DA H2O directly.</p>';return;}
   availableDates.forEach(dateStr=>{
@@ -687,7 +687,7 @@ async function loadAvailableDates() {
 
 function selectDate(dateStr,el) {
   document.querySelectorAll('.date-box').forEach(b=>b.classList.remove('selected'));
-  el.classList.add('selected'); state.selectedDate=dateStr; state.selectedHour=null; state.selectedSlotId=null;
+  el.classList.add('selected'); state.selectedDate=dateStr; state.selectedHour=null; state.selectedMinute=0; state.selectedDuration=60; state.selectedSlotId=null;
   document.getElementById('btn-step3').disabled=true;
   loadTimeSlots(dateStr);
 }
@@ -695,23 +695,23 @@ function selectDate(dateStr,el) {
 async function loadTimeSlots(dateStr) {
   const section=document.getElementById('time-section'); const grid=document.getElementById('time-grid');
   section.style.display='block'; grid.innerHTML='<div class="loading"><div class="spinner"></div></div>';
-  const{data:allSlots}=await db.from('availability_slots').select('*').eq('service_region_id', state.regionId).eq('slot_date',dateStr).eq('is_available',true).order('slot_hour');
+  const{data:allSlots}=await db.from('availability_slots').select('*').eq('service_region_id', state.regionId).eq('slot_date',dateStr).eq('is_available',true).order('slot_hour').order('slot_minute');
   // Today: hide hours that have already started.
-  const data=(allSlots||[]).filter(s=>window.slotIsBookable(dateStr,s.slot_hour));
+  const data=(allSlots||[]).filter(s=>window.slotIsBookable(dateStr,s.slot_hour,s.slot_minute));
   if(!data.length){grid.innerHTML='<div class="empty-msg">😔 No slots available for this date.</div>';return;}
   grid.innerHTML='';
   data.forEach(slot=>{
     const box=document.createElement('div');
     box.className=`time-slot${slot.is_booked?' booked':''}`;
-    box.innerHTML=`<div>${formatHour(slot.slot_hour)}</div>`;
-    if(!slot.is_booked)box.onclick=()=>selectTime(slot.slot_hour,slot.id,box);
+    box.innerHTML=`<div>${formatHour(slot.slot_hour,slot.slot_minute,slot.duration_minutes)}</div>`;
+    if(!slot.is_booked)box.onclick=()=>selectTime(slot.slot_hour,slot.slot_minute,slot.duration_minutes,slot.id,box);
     grid.appendChild(box);
   });
 }
 
-function selectTime(hour,slotId,el) {
+function selectTime(hour,minute,duration,slotId,el) {
   document.querySelectorAll('.time-slot').forEach(b=>b.classList.remove('selected'));
-  el.classList.add('selected'); state.selectedHour=hour; state.selectedSlotId=slotId;
+  el.classList.add('selected'); state.selectedHour=hour; state.selectedMinute=minute||0; state.selectedDuration=duration||60; state.selectedSlotId=slotId;
   document.getElementById('btn-step3').disabled=false;
 }
 
@@ -842,9 +842,9 @@ function goToStep4() {
     const errEl=document.getElementById('step3-error');errEl.style.display='block';errEl.textContent='Please select a date and time slot.';return;
   }
   // The page may have been open a while: the chosen slot could have started since.
-  if(!window.slotIsBookable(state.selectedDate,state.selectedHour)){
+  if(!window.slotIsBookable(state.selectedDate,state.selectedHour,state.selectedMinute)){
     const errEl=document.getElementById('step3-error');errEl.style.display='block';errEl.textContent='That time has just passed. Please choose a later slot.';
-    state.selectedHour=null; state.selectedSlotId=null; document.getElementById('btn-step3').disabled=true;
+    state.selectedHour=null; state.selectedMinute=0; state.selectedDuration=60; state.selectedSlotId=null; document.getElementById('btn-step3').disabled=true;
     loadAvailableDates(); loadTimeSlots(state.selectedDate);
     return;
   }
@@ -869,7 +869,7 @@ function goToStep4() {
   document.getElementById('promo-msg').style.display = 'none';
   renderConfirmTotals();
   document.getElementById('conf-date').textContent=formatDateFull(state.selectedDate);
-  document.getElementById('conf-time').textContent=formatHour(state.selectedHour);
+  document.getElementById('conf-time').textContent=formatHour(state.selectedHour,state.selectedMinute,state.selectedDuration);
   goToStep(4);
 }
 
@@ -933,7 +933,7 @@ async function applyPromo() {
 async function submitBooking() {
   const btn=document.getElementById('btn-submit');
   // The confirm screen can sit open for minutes — re-check the slot hasn't started.
-  if(!window.slotIsBookable(state.selectedDate,state.selectedHour)){
+  if(!window.slotIsBookable(state.selectedDate,state.selectedHour,state.selectedMinute)){
     const e=document.getElementById('step4-error');e.style.display='block';
     e.textContent='Sorry, that time slot has just passed. Please go back and choose a later slot.';
     return;
@@ -976,6 +976,8 @@ async function submitBooking() {
   const booking = { id: null, booking_reference: row.booking_reference };
   const bookedDate = row.slot_date;
   const bookedHour = row.slot_hour;
+  const bookedMinute = row.slot_minute;
+  const bookedDuration = row.duration_minutes;
   // Persist the product basket. The booking row keeps a SUMMARY (primary line, so
   // existing displays/flow keep working); the full basket goes to booking_items.
   const lines = basketLines();
@@ -1023,7 +1025,7 @@ async function submitBooking() {
   },{onConflict:'phone'});
   localStorage.setItem('sada_customer',JSON.stringify({phone:state.phone,name:state.name,city:state.cityName,regionId:state.regionId,address:state.address}));
   // Confirmation SMS
-  const msg=`SA'DA H2O - Booking Confirmed!\n\nDear ${state.name},\nRef: ${booking.booking_reference}\nDate: ${formatDateFull(bookedDate)}\nTime: ${formatHour(bookedHour)}\nCity: ${state.cityName}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
+  const msg=`SA'DA H2O - Booking Confirmed!\n\nDear ${state.name},\nRef: ${booking.booking_reference}\nDate: ${formatDateFull(bookedDate)}\nTime: ${formatHour(bookedHour,bookedMinute,bookedDuration)}\nCity: ${state.cityName}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
   await sendSMS(state.phone, msg);
   // Fire-and-forget: broadcast to all active installers. Look up the booking id
   // by its reference (the RPC returns the reference, not the uuid).

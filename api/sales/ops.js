@@ -47,11 +47,12 @@ function riyadhNow() {
   return { today: `${g('year')}-${g('month')}-${g('day')}`, minutes: Number(g('hour')) * 60 + Number(g('minute')) };
 }
 
-function slotHasStarted(slotDate, slotHour) {
+function slotHasStarted(slotDate, slotHour, slotMinute) {
   const { today, minutes } = riyadhNow();
   if (slotDate > today) return false;
   if (slotDate < today) return true;
-  return Number(slotHour) * 60 <= minutes;
+  const startMin = Number(slotHour) * 60 + (slotMinute === 30 ? 30 : 0);
+  return startMin <= minutes;
 }
 
 // ── promo codes ────────────────────────────────────────────────────────────
@@ -90,7 +91,7 @@ function promoDiscount(lines, promo) {
 async function myBookings(user) {
   const cols = [
     'id', 'booking_reference', 'status', 'booking_type', 'customer_name', 'customer_phone',
-    'city_name', 'service_region_id', 'location_address', 'floor_no', 'flat_no', 'slot_date', 'slot_hour',
+    'city_name', 'service_region_id', 'location_address', 'floor_no', 'flat_no', 'slot_date', 'slot_hour', 'slot_minute', 'duration_minutes',
     'product_model', 'product_qty', 'order_total', 'promo_code', 'discount_amount', 'referral_source', 'created_at',
     'installers(name)', 'booking_items(product_model,qty,unit_price)'
   ].join(',');
@@ -165,12 +166,12 @@ async function createBooking(user, body) {
 
   // ── validate the slot before reserving it ──
   const slots = await sb('GET',
-    `/rest/v1/availability_slots?id=eq.${slotId}&select=id,slot_date,slot_hour,is_booked,is_available,service_region_id`);
+    `/rest/v1/availability_slots?id=eq.${slotId}&select=id,slot_date,slot_hour,slot_minute,is_booked,is_available,service_region_id`);
   const slot = slots && slots[0];
   if (!slot || !slot.is_available) throw bad(409, 'That time slot is not available. Please pick another.');
   if (slot.is_booked) throw bad(409, 'That slot was just taken. Please pick another.');
   if (slot.service_region_id !== regionId) throw bad(400, 'That slot doesn\'t belong to the chosen region.');
-  if (slotHasStarted(slot.slot_date, slot.slot_hour)) throw bad(409, 'That time has already started. Please pick a later slot.');
+  if (slotHasStarted(slot.slot_date, slot.slot_hour, slot.slot_minute)) throw bad(409, 'That time has already started. Please pick a later slot.');
 
   // ── atomic reserve + insert (same RPC the customer and admin flows use) ──
   let created;
@@ -238,6 +239,7 @@ async function createBooking(user, body) {
     booking: {
       id: bookingId, reference: created.booking_reference,
       slot_date: created.slot_date, slot_hour: created.slot_hour,
+      slot_minute: created.slot_minute, duration_minutes: created.duration_minutes,
       customer_name: name, customer_phone: phone, city_name: cityName,
       subtotal, discount, promo_code: promo ? promo.code : null, total: Math.max(0, subtotal - discount)
     },
