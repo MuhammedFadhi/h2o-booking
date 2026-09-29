@@ -671,13 +671,9 @@ function formatDateLocal(dateStr) {
 function formatHour(hour) {
   const h = parseInt(hour);
   if (isNaN(h) || h < 0 || h > 23) return String(hour);
-  const next = (h + 1) % 24;
-  const label = (n) => {
-    const period = n >= 12 && n < 24 ? 'PM' : 'AM';
-    const twelve = n % 12 === 0 ? 12 : n % 12;
-    return `${twelve}:00 ${period}`;
-  };
-  return `${label(h)} – ${label(next)}`;
+  const period = h >= 12 && h < 24 ? 'PM' : 'AM';
+  const twelve = h % 12 === 0 ? 12 : h % 12;
+  return `${twelve}:00 ${period}`;
 }
 
 function getStatusLabel(s) { return {upcoming:'Upcoming',in_progress:'In Progress',completed:'Completed',cancelled:'Cancelled'}[s] || s; }
