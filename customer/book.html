@@ -528,15 +528,18 @@ async function verifyOTP() {
   state.otpAttempts=0;
   if(state.isReturning && state.existingProfile) {
     if (state.needsCustomerBackfill) {
-      await db.from('customers').upsert({
+      // customers has no latitude/longitude columns — including them here makes
+      // PostgREST reject the whole upsert (schema-cache error), silently, since
+      // this call's result is never checked. Job-site coordinates already live
+      // on the booking row; this table only needs the profile fields below.
+      const { error: backfillErr } = await db.from('customers').upsert({
         phone: state.existingProfile.phone,
         name: state.existingProfile.name,
         city: state.existingProfile.city,
         address: state.existingProfile.address,
-        latitude: state.existingProfile.latitude,
-        longitude: state.existingProfile.longitude,
         updated_at: new Date().toISOString()
       }, { onConflict: 'phone' });
+      if (backfillErr) console.error('customer backfill failed:', backfillErr.message);
     }
     localStorage.setItem('sada_customer', JSON.stringify({ ...state.existingProfile, phone: state.phone }));
     window.location.href = 'portal.html';
@@ -1032,12 +1035,16 @@ async function submitBooking() {
       // Promo usage is counted when the admin marks the job completed, not here.
     }
   }
-  // Save customer profile
-  await db.from('customers').upsert({
+  // Save customer profile. customers has no latitude/longitude columns —
+  // including them makes PostgREST reject the whole upsert (silently, since
+  // this call's error was never checked), so no row was ever written for any
+  // customer whose booking included coordinates. Job-site coordinates already
+  // live on the booking row itself.
+  const { error: profileErr } = await db.from('customers').upsert({
     phone:state.phone,name:state.name,city:state.cityName,address:state.address,
-    latitude:state.latitude,longitude:state.longitude,
     updated_at:new Date().toISOString()
   },{onConflict:'phone'});
+  if (profileErr) console.error('customer profile save failed:', profileErr.message);
   localStorage.setItem('sada_customer',JSON.stringify({phone:state.phone,name:state.name,city:state.cityName,regionId:state.regionId,address:state.address}));
   // Confirmation SMS
   const msg=`SA'DA H2O - Booking Confirmed!\n\nDear ${state.name},\nRef: ${booking.booking_reference}\nDate: ${formatDateFull(bookedDate)}\nTime: ${formatHour(bookedHour)}\nCity: ${state.cityName}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
