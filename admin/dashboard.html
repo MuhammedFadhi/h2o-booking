@@ -4401,8 +4401,9 @@ const SLOT_PRESETS = {
   'mornings':     { days: [0,1,2,3,4],     hours: rangeHours(9, 12) },
 };
 // Fixed 90-minute grid, 9 AM - 9 PM: [9:00-10:30, 10:30-12:00, ..., 7:30-9:00].
+// 12:00-1:30 is deliberately left out — technicians take their lunch break then.
 // Index into this array is what slotBuilder.slots90 stores.
-const GRID90 = [[9,0],[10,30],[12,0],[13,30],[15,0],[16,30],[18,0],[19,30]];
+const GRID90 = [[9,0],[10,30],[13,30],[15,0],[16,30],[18,0],[19,30]];
 
 const slotBuilder = {
   regions: [],
@@ -4413,7 +4414,7 @@ const slotBuilder = {
   // exactly those three and nothing in between.
   hours: new Set(rangeHours(16, 20)),
   durationMinutes: 60,                       // 60 = whole-hour grid, 90 = GRID90
-  slots90: new Set([0,1,2,3,4,5,6,7]),       // indices into GRID90, all on by default
+  slots90: new Set([0,1,2,3,4,5,6]),         // indices into GRID90, all on by default
 };
 
 async function populateSlotCities() {
