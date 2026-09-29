@@ -320,7 +320,7 @@
 <script>
 // db is a global from shared/supabase.js
 
-let state = { phone:'', name:'', cityName:'', regionId:null, address:'', latitude:null, longitude:null, selectedDate:null, selectedHour:null, selectedSlotId:null, generatedOTP:null, isReturning:false, existingProfile:null, otpAttempts:0, otpGeneratedAt:null, items:{} };
+let state = { phone:'', name:'', cityName:'', regionId:null, address:'', latitude:null, longitude:null, selectedDate:null, selectedHour:null, selectedSlotId:null, generatedOTP:null, isReturning:false, existingProfile:null, needsCustomerBackfill:false, otpAttempts:0, otpGeneratedAt:null, items:{} };
 // items: { [model_name]: { model, price, qty, is_serialized } }  — the basket
 let catalogueCache = [];  // [{ model_name, price_sar, is_serialized, image_url, description }]
 let regionsCache = [];  // [{ id, key, name, city_labels }]
@@ -405,6 +405,7 @@ async function sendOTP() {
   // Check if returning customer — flag it but still require OTP.
   // Look at customers first; if no row (some older customers only exist as
   // bookings rows), fall back to the latest booking and synthesize a profile.
+  state.needsCustomerBackfill = false;
   const { data: existing } = await db.from('customers').select('*').eq('phone', formatted).maybeSingle();
   if (existing) {
     state.isReturning = true;
@@ -418,6 +419,11 @@ async function sendOTP() {
       .maybeSingle();
     if (lastBooking) {
       state.isReturning = true;
+      // No customers row exists yet for this phone — portal.html's login guard
+      // requires one, so it gets created once the OTP is confirmed (see verifyOTP).
+      // Without this, a returning customer with only old bookings rows would
+      // verify OTP successfully and immediately get bounced back to login.
+      state.needsCustomerBackfill = true;
       state.existingProfile = {
         phone:     formatted,
         name:      lastBooking.customer_name || '',
@@ -487,7 +493,7 @@ async function resendOTP() {
   s.style.display='block'; s.textContent='A new OTP has been sent.';
 }
 
-function verifyOTP() {
+async function verifyOTP() {
   const entered=document.getElementById('otp-input').value.trim();
   const errEl=document.getElementById('step1b-error');
   if(!entered||entered.length!==6){errEl.style.display='block';errEl.textContent='Please enter the 6-digit OTP.';return;}
@@ -521,6 +527,17 @@ function verifyOTP() {
   errEl.style.display='none';
   state.otpAttempts=0;
   if(state.isReturning && state.existingProfile) {
+    if (state.needsCustomerBackfill) {
+      await db.from('customers').upsert({
+        phone: state.existingProfile.phone,
+        name: state.existingProfile.name,
+        city: state.existingProfile.city,
+        address: state.existingProfile.address,
+        latitude: state.existingProfile.latitude,
+        longitude: state.existingProfile.longitude,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'phone' });
+    }
     localStorage.setItem('sada_customer', JSON.stringify({ ...state.existingProfile, phone: state.phone }));
     window.location.href = 'portal.html';
   } else {
