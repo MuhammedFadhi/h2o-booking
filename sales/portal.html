@@ -1157,6 +1157,7 @@
           ${f.status === 'pending'
             ? `<button class="btn btn-primary btn-sm" data-fup-done="${esc(f.id)}">✓ Mark Done</button>`
             : `<button class="btn btn-ghost btn-sm" data-fup-reopen="${esc(f.id)}">↩ Reopen</button>`}
+          <button class="btn btn-ghost btn-sm" data-fup-delete="${esc(f.id)}" style="color:var(--danger)">🗑 Delete</button>
         </div>
       </div>`;
     }).join('');
@@ -1167,7 +1168,20 @@
     if (d) return setFollowupStatus(d.dataset.fupDone, 'done');
     const r = e.target.closest('button[data-fup-reopen]');
     if (r) return setFollowupStatus(r.dataset.fupReopen, 'pending');
+    const x = e.target.closest('button[data-fup-delete]');
+    if (x) return deleteFollowup(x.dataset.fupDelete);
   });
+
+  async function deleteFollowup(id) {
+    if (!confirm('Delete this follow-up? This cannot be undone.')) return;
+    try {
+      await api('delete-lead-followup', { followupId: id });
+      await fetchLeadFollowups(true);
+      renderFollowupModalList();
+      renderLeads();
+      toast('Follow-up deleted');
+    } catch (e) { toast(e.message); }
+  }
 
   async function setFollowupStatus(id, status) {
     try {

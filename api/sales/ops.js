@@ -1,7 +1,8 @@
 // /api/sales/ops — the ONLY way a sales user reads or writes data.
 // Actions: me | my-bookings | check-promo | create-booking |
 //          my-leads | create-lead | mark-lead-lost |
-//          my-lead-followups | add-lead-followup | set-lead-followup-status
+//          my-lead-followups | add-lead-followup | set-lead-followup-status |
+//          delete-lead-followup
 // Auth: caller must present a Bearer token for an ACTIVE row in sales_users.
 //
 // All database access here uses the service key but is scoped to the caller:
@@ -362,6 +363,19 @@ async function setLeadFollowupStatus(user, body) {
   return { ok: true };
 }
 
+async function deleteLeadFollowup(user, body) {
+  const id = clean(body.followupId, 40);
+  if (!UUID_RE.test(id)) throw bad(400, 'Unknown follow-up.');
+
+  const rows = await sb('GET',
+    `/rest/v1/lead_followups?id=eq.${id}&select=id,leads!inner(created_by_user)`);
+  const fup = rows && rows[0];
+  if (!fup || fup.leads.created_by_user !== user.userId) throw bad(404, 'Follow-up not found.');
+
+  await sb('DELETE', `/rest/v1/lead_followups?id=eq.${id}`);
+  return { ok: true };
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -385,6 +399,7 @@ module.exports = async function handler(req, res) {
       case 'my-lead-followups': return res.status(200).json(await myLeadFollowups(user));
       case 'add-lead-followup': return res.status(201).json(await addLeadFollowup(user, body));
       case 'set-lead-followup-status': return res.status(200).json(await setLeadFollowupStatus(user, body));
+      case 'delete-lead-followup': return res.status(200).json(await deleteLeadFollowup(user, body));
       case 'create-booking': return res.status(201).json(await createBooking(user, body));
       default: return res.status(400).json({ error: 'Unknown action' });
     }
