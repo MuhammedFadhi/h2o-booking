@@ -832,7 +832,8 @@
               <option value="cancelled">Cancelled</option>
             </select>
             <select id="filter-range" onchange="loadBookings()" title="Show bookings within a time window">
-              <option value="month">Next 30 days</option>
+              <option value="today">Today</option>
+              <option value="month" selected>Next 30 days</option>
               <option value="week">Next 7 days</option>
               <option value="two_months">Next 2 months</option>
               <option value="past">Past bookings</option>
@@ -2056,7 +2057,8 @@ async function loadBookings() {
     const W = window.SADA.Warranty;
     const todayISO = W.localDateISO(new Date());
     const plus = (n) => { const d = new Date(); d.setDate(d.getDate()+n); return W.localDateISO(d); };
-    if (range === 'week')        { q = q.gte('slot_date', todayISO).lte('slot_date', plus(7)); }
+    if (range === 'today')       { q = q.eq('slot_date', todayISO); }
+    else if (range === 'week')   { q = q.gte('slot_date', todayISO).lte('slot_date', plus(7)); }
     else if (range === 'month')  { q = q.gte('slot_date', todayISO).lte('slot_date', plus(30)); }
     else if (range === 'two_months') { q = q.gte('slot_date', todayISO).lte('slot_date', plus(60)); }
     else if (range === 'past')   { q = q.lt('slot_date', todayISO); }
