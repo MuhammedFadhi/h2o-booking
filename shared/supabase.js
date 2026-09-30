@@ -9,8 +9,17 @@
 //           window.checkAdminAuth / checkInstallerAuth
 // ============================================================
 (function () {
-  const SUPABASE_URL = 'https://ykgtrloptgazeqjgxney.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrZ3RybG9wdGdhemVxamd4bmV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NjAxODEsImV4cCI6MjA5MjQzNjE4MX0.4yr-4mlvQQSw7R6qNUYmDfLA4ITVC09Iei2k3JB6M4A';
+  // dev-booking.sadawater.com talks to a separate dev-only Supabase project so
+  // testing never touches real customer data. Any other host (production,
+  // localhost, previews) uses the real project — unknown hosts must default
+  // to production, not dev, so a misconfigured host never masks real data.
+  const IS_DEV_HOST = window.location.hostname === 'dev-booking.sadawater.com';
+  const SUPABASE_URL = IS_DEV_HOST
+    ? 'https://ouncsmhyyxfmqhhfaceo.supabase.co'
+    : 'https://ykgtrloptgazeqjgxney.supabase.co';
+  const SUPABASE_ANON_KEY = IS_DEV_HOST
+    ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91bmNzbWh5eXhmbXFoaGZhY2VvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4ODkwNTMsImV4cCI6MjEwNTQ2NTA1M30.fKyyXkrLxi-XjGpZYtE5ic2h6RTW8X_FTxyaX-DV-3w'
+    : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrZ3RybG9wdGdhemVxamd4bmV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NjAxODEsImV4cCI6MjA5MjQzNjE4MX0.4yr-4mlvQQSw7R6qNUYmDfLA4ITVC09Iei2k3JB6M4A';
 
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   window.db = db;
