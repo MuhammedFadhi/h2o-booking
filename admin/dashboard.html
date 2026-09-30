@@ -68,7 +68,8 @@
       color: var(--gold);
       margin-top: 6px;
     }
-    .nav { flex: 1; padding: 16px 0; overflow-y: auto; }
+    .nav { flex: 1; padding: 16px 0; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+    .nav::-webkit-scrollbar { display: none; }
     .nav-item {
       display: flex;
       align-items: center;
