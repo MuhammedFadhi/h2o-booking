@@ -859,7 +859,11 @@
               <option value="">All Installers</option>
               <option value="unassigned">Unassigned</option>
             </select>
-            <input type="date" id="filter-date" onchange="loadBookings()">
+            <div style="display:flex; align-items:center; gap:4px;">
+              <input type="date" id="filter-date-from" onchange="loadBookings()" title="From date">
+              <span style="color:var(--muted); font-size:12px;">–</span>
+              <input type="date" id="filter-date-to" onchange="loadBookings()" title="To date">
+            </div>
         </div>
         <div id="bookings-table">
           <div class="loading"><div class="spinner"></div> Loading bookings...</div>
@@ -2021,7 +2025,8 @@ async function loadBookings() {
   const status = document.getElementById('filter-status').value;
   const jobType = document.getElementById('filter-type')?.value ?? '';
   const installerFilter = document.getElementById('filter-installer')?.value ?? '';
-  const date = document.getElementById('filter-date').value;
+  const dateFrom = document.getElementById('filter-date-from').value;
+  const dateTo = document.getElementById('filter-date-to').value;
   const range = document.getElementById('filter-range')?.value ?? 'month';
   const search = document.getElementById('search-bookings').value.trim().toLowerCase();
 
@@ -2047,8 +2052,11 @@ async function loadBookings() {
   } else if (jobType) {
     q = q.eq('booking_type', jobType);
   }
-  if (date) {
-    q = q.eq('slot_date', date);   // explicit date beats the range filter
+  if (dateFrom || dateTo) {
+    // Explicit from/to beats the relative range filter. Either side alone is
+    // an open-ended range (from-only = "on or after", to-only = "on or before").
+    if (dateFrom) q = q.gte('slot_date', dateFrom);
+    if (dateTo) q = q.lte('slot_date', dateTo);
   } else if (range) {
     const W = window.SADA.Warranty;
     const todayISO = W.localDateISO(new Date());
