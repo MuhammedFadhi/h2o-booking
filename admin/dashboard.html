@@ -559,16 +559,10 @@
       /* SMS panel */
       .card { border-radius: 12px; }
 
-      /* New this session: keep the bulk checkbox cell compact (no data-label row) */
-      td.bulk-cell::before { content: ''; margin: 0; }
-      td.bulk-cell { justify-content: flex-start; }
       /* Overview two-column grid stacks on mobile */
       #overview-body > div[style*="grid-template-columns:1fr 1fr"],
       #overview-body > div { display: block !important; }
       #overview-body > div > div { margin-bottom: 12px; }
-      /* Bulk action bar wraps cleanly */
-      #bulk-bar { flex-direction: column; align-items: stretch !important; }
-      #bulk-bar > div { margin-left: 0 !important; }
       /* Global search shrinks */
       #global-search { width: 100% !important; }
       #global-results { width: calc(100vw - 32px) !important; right: auto !important; left: 0 !important; }
@@ -2133,11 +2127,6 @@ async function loadBookings() {
 
   const rows = filtered.map((b, i) => { const tc = bookingTypeColor(b.booking_type); return `
     <tr>
-      <td class="bulk-cell" data-label="" style="width:34px;text-align:center;">
-        <input type="checkbox" class="bulk-cb" value="${b.id}" onchange="onBulkToggle()"
-               data-status="${b.status}" data-installer="${b.installer_id || ''}"
-               style="width:17px;height:17px;cursor:pointer;">
-      </td>
       <td data-label="#" style="text-align:center;color:var(--muted);font-size:12px;">${i + 1}</td>
       <td data-label="Customer">
         <div style="font-weight:600;">${b.customer_name}</div>
@@ -2199,7 +2188,6 @@ async function loadBookings() {
     <table>
       <thead>
         <tr>
-          <th style="width:34px;text-align:center;"><input type="checkbox" id="bulk-all" onchange="onBulkSelectAll(this.checked)" title="Select all" style="width:17px;height:17px;cursor:pointer;"></th>
           <th style="width:34px;text-align:center;color:var(--muted);">#</th>
           ${thSort('Customer', 'customer')}
           ${thSort('City', 'city')}
@@ -2213,94 +2201,7 @@ async function loadBookings() {
       </thead>
       <tbody>${rows}</tbody>
     </table>
-    <div id="bulk-bar" style="display:none; position:sticky; bottom:0; margin-top:12px; background:var(--deep,#0A1628); color:#fff; padding:12px 16px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.2); align-items:center; gap:12px; flex-wrap:wrap;">
-      <strong id="bulk-count" style="font-size:14px;">0 selected</strong>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-left:auto;">
-        <select id="bulk-installer" class="form-input" style="min-width:150px; color:var(--text);">
-          <option value="">Reassign to…</option>
-          ${installers.filter(i=>i.is_active).map(i=>`<option value="${i.id}">${i.name}</option>`).join('')}
-        </select>
-        <button class="btn btn-sm btn-primary" onclick="bulkReassign()">Reassign</button>
-        <button class="btn btn-sm btn-success" onclick="bulkMarkComplete()">✓ Mark Complete</button>
-        <button class="btn btn-sm btn-ghost" onclick="clearBulk()" style="color:#fff;border-color:rgba(255,255,255,.3);">Clear</button>
-      </div>
-    </div>
   `;
-}
-
-// ============================================================
-// BULK ACTIONS — every action shows a count and confirm before running.
-// Deliberately conservative: no bulk delete (too destructive), operations run
-// sequentially with a per-row result tally.
-// ============================================================
-function selectedBulkIds() {
-  return [...document.querySelectorAll('.bulk-cb:checked')].map(cb => cb.value);
-}
-function onBulkToggle() {
-  const ids = selectedBulkIds();
-  const bar = document.getElementById('bulk-bar');
-  const cnt = document.getElementById('bulk-count');
-  if (bar) bar.style.display = ids.length ? 'flex' : 'none';
-  if (cnt) cnt.textContent = `${ids.length} selected`;
-  const all = document.getElementById('bulk-all');
-  const total = document.querySelectorAll('.bulk-cb').length;
-  if (all) all.checked = ids.length === total && total > 0;
-}
-function onBulkSelectAll(checked) {
-  document.querySelectorAll('.bulk-cb').forEach(cb => { cb.checked = checked; });
-  onBulkToggle();
-}
-function clearBulk() {
-  document.querySelectorAll('.bulk-cb, #bulk-all').forEach(cb => { cb.checked = false; });
-  onBulkToggle();
-}
-
-async function bulkReassign() {
-  if (!(await ensureSession())) return;
-  const ids = selectedBulkIds();
-  const sel = document.getElementById('bulk-installer');
-  const installerId = sel.value;
-  if (!ids.length) return;
-  if (!installerId) { showToast('Pick an installer first', 'error'); return; }
-  const name = sel.options[sel.selectedIndex].text;
-  // Don't reassign completed/cancelled bookings — warn and skip them.
-  const eligible = [...document.querySelectorAll('.bulk-cb:checked')]
-    .filter(cb => cb.dataset.status !== 'completed' && cb.dataset.status !== 'cancelled')
-    .map(cb => cb.value);
-  const skipped = ids.length - eligible.length;
-  if (!eligible.length) { showToast('None of the selected bookings can be reassigned (all completed/cancelled)', 'error'); return; }
-  if (!confirm(`Reassign ${eligible.length} booking(s) to ${name}?` + (skipped ? `\n\n${skipped} completed/cancelled booking(s) will be skipped.` : ''))) return;
-
-  let ok = 0, fail = 0;
-  for (const id of eligible) {
-    const { error } = await dbAdmin.from('bookings').update({ installer_id: installerId }).eq('id', id);
-    error ? fail++ : ok++;
-  }
-  logActivity('bulk.reassign', `Bulk reassigned ${ok} booking(s) to ${name}`, 'booking', null);
-  showToast(`Reassigned ${ok}${fail ? `, ${fail} failed` : ''}${skipped ? `, ${skipped} skipped` : ''}`, fail ? 'error' : 'success');
-  clearBulk();
-  loadBookings();
-}
-
-async function bulkMarkComplete() {
-  if (!(await ensureSession())) return;
-  const cbs = [...document.querySelectorAll('.bulk-cb:checked')];
-  const eligible = cbs.filter(cb => !['completed','installed','cancelled'].includes(cb.dataset.status)).map(cb => cb.value);
-  const skipped = cbs.length - eligible.length;
-  if (!eligible.length) { showToast('Nothing to mark installed (all already installed/completed/cancelled)', 'error'); return; }
-  if (!confirm(`Mark ${eligible.length} booking(s) as INSTALLED?\n\nPayment & invoice are added per-booking afterwards to complete them.` + (skipped ? `\n\n${skipped} will be skipped.` : ''))) return;
-
-  let ok = 0, fail = 0;
-  for (const id of eligible) {
-    const { error } = await dbAdmin.from('bookings').update({
-      status: 'installed', completed_by: 'admin (bulk)', installed_at: new Date().toISOString()
-    }).eq('id', id);
-    error ? fail++ : ok++;
-  }
-  logActivity('bulk.installed', `Bulk marked ${ok} booking(s) installed`, 'booking', null);
-  showToast(`Marked ${ok} installed${fail ? `, ${fail} failed` : ''}${skipped ? `, ${skipped} skipped` : ''}`, fail ? 'error' : 'success');
-  clearBulk();
-  loadBookings();
 }
 
 // ============================================================
