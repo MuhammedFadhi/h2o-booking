@@ -470,13 +470,16 @@ function applyLocationFilter(rows) {
 }
 
 // ---- What kind of visit is this? Drives the coloured badge on every job card.
+// Pastel palette (lavender/pink/rose/blue, plus a deeper blue + mint added to
+// cover all 6 job types) — bg is the requested pastel, fg is a darker shade
+// of the same hue for legible text on top of it.
 const JOB_TYPES = {
-  installation:     { label: 'NEW INSTALLATION', icon: '🔧', bg: '#DBEAFE', fg: '#1D4ED8' },
-  repair:           { label: 'REPAIR / FIX',     icon: '🛠️', bg: '#FEE2E2', fg: '#B91C1C' },
-  quarterly_service:{ label: 'FILTER CHANGE',    icon: '🔄', bg: '#FEF3C7', fg: '#B45309' },
-  annual_service:   { label: 'ANNUAL SERVICE',   icon: '📅', bg: '#EDE9FE', fg: '#6D28D9' },
-  relocation:       { label: 'RELOCATION',       icon: '🚚', bg: '#FFE4E6', fg: '#BE123C' },
-  inspection:       { label: 'INSPECTION',       icon: '🔍', bg: '#CCFBF1', fg: '#0F766E' }
+  installation:     { label: 'NEW INSTALLATION', icon: '🔧', bg: '#BDE0FE', fg: '#1C4F82' },
+  repair:           { label: 'REPAIR / FIX',     icon: '🛠️', bg: '#FFAFCC', fg: '#9D174D' },
+  quarterly_service:{ label: 'FILTER CHANGE',    icon: '🔄', bg: '#FFC8DD', fg: '#BE185D' },
+  annual_service:   { label: 'ANNUAL SERVICE',   icon: '📅', bg: '#CDB4DB', fg: '#6B21A8' },
+  relocation:       { label: 'RELOCATION',       icon: '🚚', bg: '#A2D2FF', fg: '#1E40AF' },
+  inspection:       { label: 'INSPECTION',       icon: '🔍', bg: '#B9FBC0', fg: '#166534' }
 };
 function jobTypeOf(b) {
   return JOB_TYPES[(b.booking_type || 'installation')] ||
@@ -512,7 +515,7 @@ function equipmentPanel(b) {
     ? `<div style="font-size:11px;color:#BE123C;margin-top:7px;">Relocation — uninstall at the old address and refit at the new one. Bring fittings and spare tubing, and re-capture the location on site.</div>`
     : isService
     ? `<div style="font-size:11px;color:#92400E;margin-top:7px;">Service visit — bring the matching filter set / spares for the unit above.</div>`
-    : `<div style="font-size:11px;color:var(--muted);margin-top:7px;">Bring the unit(s) above plus fittings. QR sticker photo is required to finish.</div>`;
+    : '';
 
   const panelTitle = (type === 'installation') ? '📦 What to bring' : '📦 Unit on site';
 
