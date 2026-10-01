@@ -47,23 +47,28 @@
     .loc-chip:hover{border-color:var(--green);color:var(--green);}
     .loc-chip.on{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 2px 6px rgba(45,106,79,0.28);}
     .appointment-list{display:flex;flex-direction:column;gap:16px;}
-    .appointment-card{background:white;border-radius:18px;border:1px solid var(--border);overflow:hidden;transition:box-shadow 0.15s,transform 0.15s;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
+    .appointment-card{background:white;border-radius:18px;border:1px solid var(--border);border-left:4px solid var(--border);overflow:hidden;transition:box-shadow 0.15s,transform 0.15s;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
     .appointment-card:hover{box-shadow:0 8px 24px rgba(15,23,42,0.08);transform:translateY(-1px);}
-    .appt-header{padding:18px 22px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+    /* Collapsed-by-default summary row: date badge + name/type + day·time·city, tap to expand. */
+    .appt-summary{padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;}
+    .appt-summary-main{flex:1;min-width:0;}
+    .appt-summary-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;}
+    .appt-summary-name{font-size:15px;font-weight:700;color:var(--text);}
+    .appt-summary-sub{font-size:12px;color:var(--muted);}
+    .appt-summary-sub .when-overdue{color:#B91C1C;font-weight:700;}
+    .chevron-btn{background:var(--bg);border:1px solid var(--border);border-radius:50%;width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);transition:transform 0.2s;}
+    .appointment-card.expanded .chevron-btn{transform:rotate(180deg);}
+    .appt-body{display:none;padding:0 22px 18px;}
+    .appointment-card.expanded .appt-body{display:block;}
+    .appt-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:4px;}
+    .appt-detail-grid .detail-label{font-size:10px;font-weight:800;letter-spacing:.4px;color:var(--muted);text-transform:uppercase;margin-bottom:4px;}
+    @media (max-width:420px){ .appt-detail-grid{grid-template-columns:1fr;} }
     .appt-time{background:var(--green-deep);color:white;border-radius:14px;padding:12px 16px;text-align:center;min-width:80px;flex-shrink:0;box-shadow:0 4px 12px rgba(27,58,45,0.25);}
     .appt-day{font-size:11px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;}
     .appt-date-num{font-family:'Playfair Display',serif;font-size:26px;line-height:1;}
     .appt-month{font-size:12px;opacity:0.8;}
-    .appt-main{flex:1;}
-    .appt-hour{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;}
-    .appt-city{font-size:13px;color:var(--muted);margin-bottom:10px;}
-    .appt-customer{background:var(--bg);border-radius:10px;padding:12px 14px;}
-    .customer-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;}
-    .customer-contact{display:flex;gap:16px;flex-wrap:wrap;}
-    .contact-item{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);}
     .contact-link{color:var(--green);text-decoration:none;font-weight:600;}
     .contact-link:hover{text-decoration:underline;}
-    .appt-address{margin-top:10px;font-size:13px;color:var(--muted);display:flex;align-items:flex-start;gap:6px;}
     .appt-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg);flex-wrap:wrap;}
     .status-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;}
     .status-upcoming{background:#EFF6FF;color:#1D4ED8;}
@@ -130,11 +135,11 @@
       .stat-icon{font-size:22px;}
       .stat-label{font-size:10px;}
       .container{padding:16px 12px calc(16px + env(safe-area-inset-bottom));}
-      .appt-header{flex-direction:column; gap:12px;}
-      .appt-time{display:flex; gap:12px; align-items:center; border-radius:10px; padding:10px 14px; min-width:unset; width:100%;}
+      .appt-summary{padding:12px 14px; gap:10px;}
+      .appt-time{padding:8px 10px; min-width:56px;}
       .appt-date-num{font-size:20px;}
-      .appt-main{width:100%;}
-      .appt-footer{flex-direction:column; align-items:flex-start; gap:10px;}
+      .appt-body{padding:0 14px 14px;}
+      .appt-footer{flex-direction:column; align-items:flex-start; gap:10px; margin-left:-14px!important; margin-right:-14px!important;}
       .appt-footer > div{width:100%; display:flex; gap:8px;}
       .btn-complete{flex:1; text-align:center;}
       .btn-map{flex:1; justify-content:center;}
@@ -560,7 +565,7 @@ function renderAppointments() {
     // office separately records payment/invoice, but the installer's own proof
     // photos exist as soon as they submit the report and should show right away.
     const proofSection = b.proof_photo_url ? `
-      <div class="proof-section">
+      <div class="proof-section" style="margin:14px -22px 0;">
         <div class="proof-title">📸 Installation Proof</div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;">
           <img src="${b.proof_photo_url}" style="height:80px;border-radius:8px;object-fit:cover;" alt="Photo">
@@ -593,34 +598,42 @@ function renderAppointments() {
         ${jobBtn}`;
     }
 
+    // Collapsed by default: just the date, name, type and a day·time·city line.
+    // Tap the row (or chevron) to expand into phone/address/equipment/actions —
+    // keeps a long job list scannable instead of every card fully open at once.
     return `
-      <div class="appointment-card">
-        <div class="appt-header">
+      <div class="appointment-card" style="border-left-color:${jobTypeOf(b).fg};">
+        <div class="appt-summary" onclick="this.closest('.appointment-card').classList.toggle('expanded')">
           <div class="appt-time">
             <div class="appt-day">${d.toLocaleDateString('en-US',{weekday:'short'})}</div>
             <div class="appt-date-num">${dd}</div>
             <div class="appt-month">${mm}/${d.getFullYear()}</div>
           </div>
-          <div class="appt-main">
-            <div style="margin-bottom:6px;">${jobTypeBadge(b)}</div>
-            <div class="appt-hour">🕐 ${formatHour(b.slot_hour)} ${whenBadge(b.slot_date)}</div>
-            <div class="appt-city">📍 ${b.city_name}</div>
-            <div class="appt-customer">
-              <div class="customer-name">👤 ${b.customer_name}</div>
-              <div class="customer-contact">
-                <div class="contact-item"><span>📞</span><a href="tel:${b.customer_phone}" class="contact-link">${b.customer_phone}</a></div>
-              </div>
-              ${b.location_address ? `<div class="appt-address"><span>🏠</span> ${b.location_address}</div>` : ''}
-              ${flatLine(b) ? `<div class="appt-address"><span>🏢</span> <strong>${flatLine(b)}</strong></div>` : ''}
+          <div class="appt-summary-main">
+            <div class="appt-summary-top">
+              <span class="appt-summary-name">${b.customer_name}</span>
+              ${jobTypeBadge(b)}
             </div>
-            ${equipmentPanel(b)}
+            <div class="appt-summary-sub">${d.toLocaleDateString('en-US',{weekday:'short'})} · ${formatHour(b.slot_hour)} · ${b.city_name} ${whenBadge(b.slot_date)}</div>
           </div>
+          <div class="chevron-btn">⌄</div>
         </div>
-        ${proofSection}
-        <div class="appt-footer">
-          <span class="status-badge status-${b.status}">${activeTab === 'available' ? '🔔 Open' : getStatusLabel(b.status)}</span>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            ${actions}
+        <div class="appt-body">
+          <div class="appt-detail-grid">
+            <div><div class="detail-label">Phone number</div><a href="tel:${b.customer_phone}" class="contact-link">${b.customer_phone}</a></div>
+            <div>
+              <div class="detail-label">Address</div>
+              ${b.location_address ? `<div>${b.location_address}</div>` : '<div style="color:var(--muted);">—</div>'}
+              ${flatLine(b) ? `<div><strong>${flatLine(b)}</strong></div>` : ''}
+            </div>
+          </div>
+          ${equipmentPanel(b)}
+          ${proofSection}
+          <div class="appt-footer" style="margin:14px -22px -18px;border-radius:0 0 17px 17px;">
+            <span class="status-badge status-${b.status}">${activeTab === 'available' ? '🔔 Open' : getStatusLabel(b.status)}</span>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              ${actions}
+            </div>
           </div>
         </div>
       </div>`;
