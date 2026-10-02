@@ -58,6 +58,10 @@
     .appt-summary-sub .when-overdue{color:#B91C1C;font-weight:700;}
     .chevron-btn{background:var(--bg);border:1px solid var(--border);border-radius:50%;width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);transition:transform 0.2s;}
     .appointment-card.expanded .chevron-btn{transform:rotate(180deg);}
+    /* Job-type icon, bigger and icon-only in the summary row — tap it to reveal the type name. */
+    .type-icon-btn{position:relative;width:38px;height:38px;border-radius:50%;border:none;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:19px;cursor:pointer;padding:0;}
+    .type-icon-label{position:absolute;right:calc(100% + 8px);top:50%;transform:translateY(-50%);background:#0A1628;color:#fff;font-size:11px;font-weight:700;letter-spacing:.3px;padding:5px 10px;border-radius:8px;white-space:nowrap;display:none;z-index:2;}
+    .type-icon-btn.show-label .type-icon-label{display:block;}
     .appt-body{display:none;padding:0 22px 18px;}
     .appointment-card.expanded .appt-body{display:block;}
     .appt-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:4px;}
@@ -503,11 +507,6 @@ function jobTypeOf(b) {
   return JOB_TYPES[(b.booking_type || 'installation')] ||
     { label: String(b.booking_type || 'VISIT').replace(/_/g,' ').toUpperCase(), icon: '📌', bg: '#F1F5F9', fg: '#475569' };
 }
-function jobTypeBadge(b) {
-  const t = jobTypeOf(b);
-  return `<span style="display:inline-flex;align-items:center;gap:5px;background:${t.bg};color:${t.fg};font-size:11px;font-weight:800;letter-spacing:.3px;padding:4px 10px;border-radius:20px;white-space:nowrap;">${t.icon} ${t.label}</span>`;
-}
-
 // ---- What the installer must load in the van for this job.
 function equipmentPanel(b) {
   const items = itemsByBooking[b.id] || [];
@@ -625,7 +624,7 @@ function renderAppointments() {
     return `
       <div class="appointment-card" style="border-color:${jobTypeOf(b).fg};">
         <div class="appt-summary" onclick="this.closest('.appointment-card').classList.toggle('expanded')">
-          <div class="appt-time">
+          <div class="appt-time" style="background:${jobTypeOf(b).fg};">
             <div class="appt-day">${d.toLocaleDateString('en-US',{weekday:'short'})}</div>
             <div class="appt-date-num">${dd}</div>
             <div class="appt-month">${mm}/${d.getFullYear()}</div>
@@ -633,10 +632,13 @@ function renderAppointments() {
           <div class="appt-summary-main">
             <div class="appt-summary-top">
               <span class="appt-summary-name">${b.customer_name}</span>
-              ${jobTypeBadge(b)}
             </div>
             <div class="appt-summary-sub">${d.toLocaleDateString('en-US',{weekday:'short'})} · ${formatHour(b.slot_hour)} · ${b.city_name} ${whenBadge(b.slot_date)}</div>
           </div>
+          <button type="button" class="type-icon-btn" style="background:${jobTypeOf(b).bg};color:${jobTypeOf(b).fg};" title="${jobTypeOf(b).label}" onclick="event.stopPropagation();this.classList.toggle('show-label');">
+            ${jobTypeOf(b).icon}
+            <span class="type-icon-label">${jobTypeOf(b).label}</span>
+          </button>
           <div class="chevron-btn">⌄</div>
         </div>
         <div class="appt-body">
