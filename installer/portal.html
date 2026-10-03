@@ -612,7 +612,7 @@ function renderAppointments() {
     if (activeTab === 'available') {
       actions = `
         <a href="${mapsUrl}" target="_blank" class="btn-map">${ICON_DIRECTIONS} Directions</a>
-        <button class="btn-claim" onclick="claimJob('${b.id}')" id="claim-${b.id}">${ICON_CLAIM} Claim this Job</button>`;
+        <button class="btn-claim" style="background:${jobTypeOf(b).fg};" onclick="claimJob('${b.id}')" id="claim-${b.id}">${ICON_CLAIM} Claim this Job</button>`;
     } else {
       // One button does it all now: the inspection report form (checklist,
       // water analysis, photos, GPS, signatures) finishes the job on submit —
