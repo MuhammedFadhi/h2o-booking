@@ -50,8 +50,11 @@
     .appointment-card{background:white;border-radius:18px;border:2px solid var(--border);overflow:hidden;transition:box-shadow 0.15s,transform 0.15s;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
     .appointment-card:hover{box-shadow:0 8px 24px rgba(15,23,42,0.08);transform:translateY(-1px);}
     /* Collapsed-by-default summary row: date badge + name/type + day·time·city, tap to expand. */
-    .appt-summary{padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;}
+    .appt-summary{padding:14px 18px;display:flex;align-items:flex-start;gap:14px;cursor:pointer;}
     .appt-summary-main{flex:1;min-width:0;}
+    /* Type icon + toggle, always kept together as one unit regardless of how
+       tall the name/subtitle column grows (e.g. a long name wrapping to 2 lines). */
+    .appt-summary-icons{display:flex;align-items:center;gap:8px;flex-shrink:0;}
     .appt-summary-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;}
     .appt-summary-name{font-size:15px;font-weight:700;color:var(--text);}
     .appt-summary-sub{font-size:12px;color:var(--muted);}
@@ -656,10 +659,12 @@ function renderAppointments() {
             </div>
             <div class="appt-summary-sub">${d.toLocaleDateString('en-US',{weekday:'short'})} · ${formatHour(b.slot_hour)} · ${b.city_name} ${whenBadge(b.slot_date)}</div>
           </div>
-          <div class="type-icon-btn" style="background:${jobTypeOf(b).bg};color:${jobTypeOf(b).fg};" title="${jobTypeOf(b).label}">
-            ${jobTypeOf(b).icon}
+          <div class="appt-summary-icons">
+            <div class="type-icon-btn" style="background:${jobTypeOf(b).bg};color:${jobTypeOf(b).fg};" title="${jobTypeOf(b).label}">
+              ${jobTypeOf(b).icon}
+            </div>
+            <div class="chevron-btn">${ICON_TOGGLE}</div>
           </div>
-          <div class="chevron-btn">${ICON_TOGGLE}</div>
         </div>
         <div class="appt-body">
           <div class="type-reveal" style="background:${jobTypeOf(b).bg};color:${jobTypeOf(b).fg};">${jobTypeOf(b).icon} ${jobTypeOf(b).label}</div>
