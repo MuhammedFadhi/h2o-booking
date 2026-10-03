@@ -58,7 +58,7 @@
     .appt-summary-name{font-size:15px;font-weight:700;color:var(--text);}
     .appt-summary-sub{font-size:12px;color:var(--muted);}
     .appt-summary-sub .when-overdue{color:#B91C1C;font-weight:700;}
-    .chevron-btn{position:absolute;right:18px;bottom:14px;background:var(--bg);border:1px solid var(--border);border-radius:50%;width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--muted);transition:transform 0.2s;cursor:pointer;}
+    .chevron-btn{position:absolute;right:18px;bottom:14px;width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--muted);transition:transform 0.2s;cursor:pointer;}
     .appointment-card.expanded .chevron-btn{transform:rotate(45deg);bottom:auto;top:14px;}
     /* Job-type icon, bigger and icon-only in the summary row — purely decorative
        now; expanding the card (the chevron) is what reveals the type name as a
@@ -173,11 +173,11 @@
 <div class="container">
   <div class="stat-row">
     <div class="stat-card"><div class="stat-icon">🔔</div><div class="stat-value" id="stat-available">—</div><div class="stat-label">Available</div></div>
-    <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="stat-upcoming">—</div><div class="stat-label">My Upcoming</div></div>
+    <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="stat-upcoming">—</div><div class="stat-label">My Jobs</div></div>
     <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="stat-done">—</div><div class="stat-label">Completed</div></div>
   </div>
   <div class="tabs">
-    <button class="tab active" onclick="filterTab('upcoming',this)">My Upcoming <span class="badge-count" id="badge-upcoming" style="display:none;"></span></button>
+    <button class="tab active" onclick="filterTab('upcoming',this)">My Jobs <span class="badge-count" id="badge-upcoming" style="display:none;"></span></button>
     <button class="tab" onclick="filterTab('available',this)">Available <span class="badge-count" id="badge-available" style="display:none;"></span></button>
     <button class="tab" onclick="filterTab('in_progress',this)">In Progress</button>
     <button class="tab" onclick="filterTab('completed',this)">Completed</button>
@@ -362,7 +362,8 @@ async function loadAll() {
     });
   }
 
-  const upcomingCount = myBookings.filter(b => b.status === 'upcoming').length;
+  // My Jobs only shows today's work, so the count/badge match that, not the whole backlog.
+  const upcomingCount = myBookings.filter(b => b.status === 'upcoming' && b.slot_date === todayIso).length;
   document.getElementById('stat-available').textContent = availableBookings.length;
   document.getElementById('stat-upcoming').textContent = upcomingCount;
   document.getElementById('stat-done').textContent = myBookings.filter(b => b.status === 'completed').length;
@@ -586,6 +587,11 @@ function renderAppointments() {
   let filtered;
   if (activeTab === 'available') filtered = availableBookings;
   else if (activeTab === 'completed') filtered = myBookings.filter(b => b.status === 'installed' || b.status === 'completed');
+  else if (activeTab === 'upcoming') {
+    // My Jobs — today's assigned work only, not the whole upcoming backlog.
+    const todayIso = localDateISO(new Date());
+    filtered = sortTodayThenDue(myBookings.filter(b => b.status === 'upcoming' && b.slot_date === todayIso));
+  }
   else filtered = sortTodayThenDue(myBookings.filter(b => b.status === activeTab));
   filtered = applyLocationFilter(filtered);
 
