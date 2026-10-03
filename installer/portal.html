@@ -58,15 +58,16 @@
     .appt-summary-sub .when-overdue{color:#B91C1C;font-weight:700;}
     .chevron-btn{background:var(--bg);border:1px solid var(--border);border-radius:50%;width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);transition:transform 0.2s;}
     .appointment-card.expanded .chevron-btn{transform:rotate(180deg);}
-    /* Job-type icon, bigger and icon-only in the summary row — tap it to reveal the type name. */
-    .type-icon-btn{position:relative;width:38px;height:38px;border-radius:50%;border:none;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:19px;cursor:pointer;padding:0;}
-    .type-icon-label{position:absolute;right:calc(100% + 8px);top:50%;transform:translateY(-50%);background:#0A1628;color:#fff;font-size:11px;font-weight:700;letter-spacing:.3px;padding:5px 10px;border-radius:8px;white-space:nowrap;display:none;z-index:2;}
-    .type-icon-btn.show-label .type-icon-label{display:block;}
+    /* Job-type icon, bigger and icon-only in the summary row — tap it to reveal
+       the type name as a badge inside the expanded card (see .type-reveal). */
+    .type-icon-btn{width:38px;height:38px;border-radius:50%;border:none;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:19px;cursor:pointer;padding:0;}
     .appt-body{display:none;padding:0 22px 18px;}
     .appointment-card.expanded .appt-body{display:block;}
     .appt-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:4px;}
     .appt-detail-grid .detail-label{font-size:10px;font-weight:800;letter-spacing:.4px;color:var(--muted);text-transform:uppercase;margin-bottom:4px;}
-    @media (max-width:420px){ .appt-detail-grid{grid-template-columns:1fr;} }
+    .type-reveal{display:none;position:absolute;top:10px;right:12px;align-items:center;gap:5px;font-size:11px;font-weight:800;letter-spacing:.3px;padding:4px 10px;border-radius:20px;white-space:nowrap;}
+    .appointment-card.show-type .type-reveal{display:inline-flex;}
+    @media (max-width:420px){ .appt-detail-grid{grid-template-columns:1fr;} .type-reveal{position:static;margin-bottom:8px;} }
     .appt-time{background:var(--green-deep);color:white;border-radius:14px;padding:12px 16px;text-align:center;min-width:80px;flex-shrink:0;box-shadow:0 4px 12px rgba(27,58,45,0.25);}
     .appt-day{font-size:11px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;}
     .appt-date-num{font-family:'Playfair Display',serif;font-size:26px;line-height:1;}
@@ -174,8 +175,8 @@
     <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="stat-done">—</div><div class="stat-label">Completed</div></div>
   </div>
   <div class="tabs">
-    <button class="tab active" onclick="filterTab('available',this)">Available <span class="badge-count" id="badge-available" style="display:none;"></span></button>
-    <button class="tab" onclick="filterTab('upcoming',this)">My Upcoming</button>
+    <button class="tab active" onclick="filterTab('upcoming',this)">My Upcoming <span class="badge-count" id="badge-upcoming" style="display:none;"></span></button>
+    <button class="tab" onclick="filterTab('available',this)">Available <span class="badge-count" id="badge-available" style="display:none;"></span></button>
     <button class="tab" onclick="filterTab('in_progress',this)">In Progress</button>
     <button class="tab" onclick="filterTab('completed',this)">Completed</button>
   </div>
@@ -245,7 +246,7 @@ function matchCity(raw) {
 }
 let reportsByBooking = {};  // { [bookingId]: { id, status } } — submitted/draft state per booking
 let itemsByBooking = {};    // { [bookingId]: [{product_model, qty, is_serialized}] } — what to bring
-let activeTab = 'available';
+let activeTab = 'upcoming';
 let realtimeChannel = null;
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -297,24 +298,26 @@ document.addEventListener('visibilitychange', () => {
 });
 
 async function loadAll() {
-  // Available also reaches back 3 days: a slot that passed with nobody claiming it
+  // Available only ever shows today + overdue — a future-dated open slot isn't
+  // actionable yet, so it stays out of the list until it's actually due.
+  // Overdue reaches back 3 days: a slot that passed with nobody claiming it
   // shouldn't just vanish — it still needs doing, so it stays visible (flagged
   // "Overdue" by whenBadge) for a few days before it's assumed to need office follow-up.
+  const todayIso = localDateISO(new Date());
   const availSince = new Date(); availSince.setDate(availSince.getDate() - 3);
   const availSinceIso = localDateISO(availSince);
   const [mine, avail] = await Promise.all([
     db.from('bookings').select('*').eq('installer_id', installerId)
       .order('slot_date', { ascending: true }).order('slot_hour', { ascending: true }),
     db.from('bookings').select('*').is('installer_id', null).eq('status', 'upcoming')
-      .gte('slot_date', availSinceIso)
+      .gte('slot_date', availSinceIso).lte('slot_date', todayIso)
       .order('slot_date', { ascending: true }).order('slot_hour', { ascending: true })
   ]);
   myBookings = mine.data || [];
   availableBookings = avail.data || [];
 
   // Today's open jobs go first regardless of date order, so the installer sees
-  // what's actionable right now before overdue/future jobs further down.
-  const todayIso = localDateISO(new Date());
+  // what's actionable right now before overdue jobs further down.
   availableBookings.sort((a, b) => {
     const aToday = a.slot_date === todayIso ? 0 : 1;
     const bToday = b.slot_date === todayIso ? 0 : 1;
@@ -350,13 +353,18 @@ async function loadAll() {
     });
   }
 
+  const upcomingCount = myBookings.filter(b => b.status === 'upcoming').length;
   document.getElementById('stat-available').textContent = availableBookings.length;
-  document.getElementById('stat-upcoming').textContent = myBookings.filter(b => b.status === 'upcoming').length;
+  document.getElementById('stat-upcoming').textContent = upcomingCount;
   document.getElementById('stat-done').textContent = myBookings.filter(b => b.status === 'completed').length;
 
   const badge = document.getElementById('badge-available');
   if (availableBookings.length) { badge.textContent = availableBookings.length; badge.style.display = 'inline-flex'; }
   else badge.style.display = 'none';
+
+  const upcomingBadge = document.getElementById('badge-upcoming');
+  if (upcomingCount) { upcomingBadge.textContent = upcomingCount; upcomingBadge.style.display = 'inline-flex'; }
+  else upcomingBadge.style.display = 'none';
 
   if (typeof buildLocationFilter === 'function' && serviceRegions.length) buildLocationFilter();
   renderAppointments();
@@ -483,7 +491,7 @@ const JOB_TYPES = {
     icon: `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 15 15"><path d="M0 0h15v15H0z" fill="none"/><path fill="currentColor" d="M13.792 3.262s-1.676 1.675-2.116 2.12a.3.3 0 0 1-.282.097c-.149-.023-.298-.038-.447-.056l-1.229-.146c-.069-.592-.14-1.172-.2-1.753c-.006-.055.033-.13.074-.172c.508-.513 1.927-1.928 2.134-2.136c-.45-.213-1.224-.297-1.8-.203a3.545 3.545 0 0 0-2.82 4.625c.037.115.013.182-.069.264q-2.771 2.766-5.539 5.535a3 3 0 0 0-.178.192a1.457 1.457 0 0 0 .298 2.102c.604.42 1.365.344 1.905-.195q2.78-2.778 5.556-5.56c.092-.092.165-.123.299-.078a3.4 3.4 0 0 0 1.888.089a3.544 3.544 0 0 0 2.655-4.304c-.031-.13-.078-.259-.13-.421"/></svg>`
   },
   repair: {
-    label: 'REPAIR / FIX', bg: '#FFAFCC', fg: '#9D174D',
+    label: 'REPAIR / FIX', bg: '#FFD6A5', fg: '#9A3412',
     icon: `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 512 512"><path d="M0 0h512v512H0z" fill="none"/><path fill="currentColor" d="m241.406 21l-15.22 34.75a182 182 0 0 0-23.467 2.97l-23.282-30.064l-25.094 8.532l-.125 38.25c-10.63 5.464-20.817 12.07-30.44 19.78L88.313 79.25L70.156 98.563L88.312 133a180.6 180.6 0 0 0-15.218 26.094l-38.938 1.062l-7.906 25.28l31.438 23.158c-1.505 9.38-2.24 18.858-2.282 28.344L20.5 254.625l3.656 26.25l38.313 7.5a182 182 0 0 0 8.5 23.5L45.72 343.22l14.093 22.436l39.25-9.187a185 185 0 0 0 7.718 8.53a187 187 0 0 0 17.72 16.125l-7.625 39.313l22.938 13.25l29.968-26.094a179.4 179.4 0 0 0 26.407 8.312l9.782 38.406l26.405 2.157l15.875-36.22c10.97-.66 21.904-2.3 32.656-4.938l25.22 29.22l24.593-9.844l-.72-14.813l-57.406-43.53c-16.712 4.225-34.042 5.356-51.063 3.436c-31.754-3.58-62.27-17.92-86.218-42.686c-54.738-56.614-53.173-146.67 3.438-201.406c27.42-26.513 62.69-39.963 98-40.344c37.59-.406 75.214 13.996 103.438 43.187c45.935 47.512 52.196 118.985 19.562 173.095l31.97 24.25a181 181 0 0 0 10.75-19.375l38.655-1.063l7.906-25.28l-31.217-23a183 183 0 0 0 2.28-28.594l34.688-17.625l-3.655-26.25l-38.28-7.5a182 182 0 0 0-12.75-32.125l22.81-31.594l-15.25-21.657l-37.56 10.906c-.472-.5-.93-1.007-1.408-1.5a185 185 0 0 0-18.937-17.064l7.188-37.125L334 43.78l-28.5 24.814c-9.226-3.713-18.702-6.603-28.313-8.75l-9.343-36.688zM183.25 174.5c-10.344.118-20.597 2.658-30 7.28l45.22 34.314c13.676 10.376 17.555 30.095 7.06 43.937c-10.498 13.85-30.656 15.932-44.53 5.408l-45.188-34.282c-4.627 24.793 4.135 51.063 25.594 67.344c19.245 14.597 43.944 17.33 65.22 9.688l4.78-1.72l4.03 3.063l135.19 102.564l4.03 3.062l-.344 5.063c-1.637 22.55 7.59 45.61 26.844 60.217c21.46 16.28 49.145 17.63 71.78 6.5l-45.186-34.28c-13.874-10.526-17.282-30.506-6.78-44.344c10.5-13.84 30.537-15.405 44.217-5.032l45.188 34.283c4.616-24.784-4.11-51.067-25.563-67.344c-19.313-14.658-43.817-17.562-64.968-10.033l-4.75 1.688l-4.03-3.063l-135.19-102.562l-4.03-3.063l.344-5.03c1.55-22.387-7.85-45.194-27.157-59.845c-12.544-9.516-27.222-13.978-41.78-13.812zm43.563 90.25l163.875 124.344L379.406 404L215.5 279.625z"/></svg>`
   },
   quarterly_service: {
@@ -635,14 +643,14 @@ function renderAppointments() {
             </div>
             <div class="appt-summary-sub">${d.toLocaleDateString('en-US',{weekday:'short'})} · ${formatHour(b.slot_hour)} · ${b.city_name} ${whenBadge(b.slot_date)}</div>
           </div>
-          <button type="button" class="type-icon-btn" style="background:${jobTypeOf(b).bg};color:${jobTypeOf(b).fg};" title="${jobTypeOf(b).label}" onclick="event.stopPropagation();this.classList.toggle('show-label');">
+          <button type="button" class="type-icon-btn" style="background:${jobTypeOf(b).bg};color:${jobTypeOf(b).fg};" title="${jobTypeOf(b).label}" onclick="event.stopPropagation();this.closest('.appointment-card').classList.toggle('show-type');">
             ${jobTypeOf(b).icon}
-            <span class="type-icon-label">${jobTypeOf(b).label}</span>
           </button>
           <div class="chevron-btn">⌄</div>
         </div>
         <div class="appt-body">
-          <div class="appt-detail-grid">
+          <div class="appt-detail-grid" style="position:relative;">
+            <div class="type-reveal" style="background:${jobTypeOf(b).bg};color:${jobTypeOf(b).fg};">${jobTypeOf(b).icon} ${jobTypeOf(b).label}</div>
             <div><div class="detail-label">Phone number</div><a href="tel:${b.customer_phone}" class="contact-link">${b.customer_phone}</a></div>
             <div>
               <div class="detail-label">Address</div>
