@@ -60,7 +60,7 @@
     .appt-summary-sub{font-size:12px;color:var(--muted);}
     .appt-summary-sub .when-overdue{color:#B91C1C;font-weight:700;}
     .chevron-btn{background:var(--bg);border:1px solid var(--border);border-radius:50%;width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--muted);transition:transform 0.2s;}
-    .appointment-card.expanded .chevron-btn{transform:rotate(180deg);}
+    .appointment-card.expanded .chevron-btn{transform:rotate(45deg);}
     /* Job-type icon, bigger and icon-only in the summary row — purely decorative
        now; expanding the card (the chevron) is what reveals the type name as a
        badge at the top of the body, see .type-reveal. */
@@ -495,7 +495,7 @@ function applyLocationFilter(rows) {
 const ICON_CLAIM = `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M20.5 5A1.5 1.5 0 0 0 19 6.5V11h-1V4.5a1.5 1.5 0 0 0-3 0V11h-1V3.5a1.5 1.5 0 0 0-3 0V11h-1V5.5a1.5 1.5 0 0 0-3 0v10.81l-2.22-3.6a1.5 1.5 0 0 0-2.56 1.58l3.31 5.34A5 5 0 0 0 9.78 22H17a5 5 0 0 0 5-5V6.5A1.5 1.5 0 0 0 20.5 5"/></svg>`;
 const ICON_DIRECTIONS = `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M8.75 10a3.25 3.25 0 1 1 6.5 0a3.25 3.25 0 0 1-6.5 0"/><path fill="currentColor" fill-rule="evenodd" d="M3.774 8.877a8.04 8.04 0 0 1 8.01-7.377h.432a8.04 8.04 0 0 1 8.01 7.377a8.7 8.7 0 0 1-1.933 6.217L13.5 20.956a1.937 1.937 0 0 1-3 0l-4.792-5.862a8.7 8.7 0 0 1-1.934-6.217M12 5.25a4.75 4.75 0 1 0 0 9.5a4.75 4.75 0 0 0 0-9.5" clip-rule="evenodd"/></svg>`;
 const ICON_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="0.88em" height="1em" viewBox="0 0 448 512" style="vertical-align:-2px;"><path d="M0 0h448v512H0z" fill="none"/><path fill="currentColor" d="M48 32C21.5 32 0 53.5 0 80v352c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V80c0-26.5-21.5-48-48-48zm176.193 64c47.05 0 85.56 38.51 85.56 85.56v80.553c9.586 15.424 15.138 33.588 15.138 52.996C324.89 370.626 279.517 416 224 416s-100.89-45.374-100.89-100.89c0-55.518 45.373-100.89 100.89-100.89c18.78 0 36.394 5.198 51.488 14.218V181.56c0-28.533-22.763-51.295-51.295-51.295c-28.531 0-51.293 22.762-51.293 51.295v11.685h-34.265V181.56c0-47.051 38.508-85.561 85.558-85.561M224 248.484c-36.999 0-66.625 29.627-66.625 66.625c0 37 29.626 66.625 66.625 66.625s66.625-29.626 66.625-66.625s-29.626-66.625-66.625-66.625m.328 38.662c15.612 0 28.27 12.656 28.27 28.268s-12.658 28.27-28.27 28.27s-28.267-12.658-28.267-28.27s12.655-28.268 28.267-28.268"/></svg>`;
-const ICON_TOGGLE = `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M10 8H6l6-6l6 6h-4v8h4l-6 6l-6-6h4z"/></svg>`;
+const ICON_TOGGLE = `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16"><path d="M0 0h16v16H0z" fill="none"/><path fill="currentColor" d="M8 1a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2H9v5a1 1 0 1 1-2 0V9H2a1 1 0 0 1 0-2h5V2a1 1 0 0 1 1-1"/></svg>`;
 
 // ---- What kind of visit is this? Drives the coloured badge on every job card.
 // Pastel palette (lavender/pink/rose/blue, plus a deeper blue + mint added to
