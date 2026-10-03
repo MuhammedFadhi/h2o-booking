@@ -58,16 +58,16 @@
     .appt-summary-sub .when-overdue{color:#B91C1C;font-weight:700;}
     .chevron-btn{background:var(--bg);border:1px solid var(--border);border-radius:50%;width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);transition:transform 0.2s;}
     .appointment-card.expanded .chevron-btn{transform:rotate(180deg);}
-    /* Job-type icon, bigger and icon-only in the summary row — tap it to reveal
-       the type name as a badge inside the expanded card (see .type-reveal). */
-    .type-icon-btn{width:38px;height:38px;border-radius:50%;border:none;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:19px;cursor:pointer;padding:0;}
+    /* Job-type icon, bigger and icon-only in the summary row — purely decorative
+       now; expanding the card (the chevron) is what reveals the type name as a
+       badge at the top of the body, see .type-reveal. */
+    .type-icon-btn{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:19px;}
     .appt-body{display:none;padding:0 22px 18px;}
     .appointment-card.expanded .appt-body{display:block;}
+    .type-reveal{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:800;letter-spacing:.3px;padding:4px 10px;border-radius:20px;white-space:nowrap;width:fit-content;margin:0 0 10px auto;}
     .appt-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;background:var(--bg);border-radius:10px;padding:12px 14px;margin-bottom:4px;}
     .appt-detail-grid .detail-label{font-size:10px;font-weight:800;letter-spacing:.4px;color:var(--muted);text-transform:uppercase;margin-bottom:4px;}
-    .type-reveal{display:none;position:absolute;top:10px;right:12px;align-items:center;gap:5px;font-size:11px;font-weight:800;letter-spacing:.3px;padding:4px 10px;border-radius:20px;white-space:nowrap;}
-    .appointment-card.show-type .type-reveal{display:inline-flex;}
-    @media (max-width:420px){ .appt-detail-grid{grid-template-columns:1fr;} .type-reveal{position:static;margin-bottom:8px;} }
+    @media (max-width:420px){ .appt-detail-grid{grid-template-columns:1fr;} }
     .appt-time{background:var(--green-deep);color:white;border-radius:14px;padding:12px 16px;text-align:center;min-width:80px;flex-shrink:0;box-shadow:0 4px 12px rgba(27,58,45,0.25);}
     .appt-day{font-size:11px;opacity:0.7;text-transform:uppercase;letter-spacing:0.5px;}
     .appt-date-num{font-family:'Playfair Display',serif;font-size:26px;line-height:1;}
@@ -643,14 +643,14 @@ function renderAppointments() {
             </div>
             <div class="appt-summary-sub">${d.toLocaleDateString('en-US',{weekday:'short'})} · ${formatHour(b.slot_hour)} · ${b.city_name} ${whenBadge(b.slot_date)}</div>
           </div>
-          <button type="button" class="type-icon-btn" style="background:${jobTypeOf(b).bg};color:${jobTypeOf(b).fg};" title="${jobTypeOf(b).label}" onclick="event.stopPropagation();this.closest('.appointment-card').classList.toggle('show-type');">
+          <div class="type-icon-btn" style="background:${jobTypeOf(b).bg};color:${jobTypeOf(b).fg};" title="${jobTypeOf(b).label}">
             ${jobTypeOf(b).icon}
-          </button>
+          </div>
           <div class="chevron-btn">⌄</div>
         </div>
         <div class="appt-body">
-          <div class="appt-detail-grid" style="position:relative;">
-            <div class="type-reveal" style="background:${jobTypeOf(b).bg};color:${jobTypeOf(b).fg};">${jobTypeOf(b).icon} ${jobTypeOf(b).label}</div>
+          <div class="type-reveal" style="background:${jobTypeOf(b).bg};color:${jobTypeOf(b).fg};">${jobTypeOf(b).icon} ${jobTypeOf(b).label}</div>
+          <div class="appt-detail-grid">
             <div><div class="detail-label">Phone number</div><a href="tel:${b.customer_phone}" class="contact-link">${b.customer_phone}</a></div>
             <div>
               <div class="detail-label">Address</div>
