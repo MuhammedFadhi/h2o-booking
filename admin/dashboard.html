@@ -1533,6 +1533,7 @@
         <div class="form-group">
           <label>Which unit?</label>
           <select class="form-input" id="sb-unit"></select>
+          <div id="sb-unit-help" style="font-size:11px;color:var(--muted);margin-top:4px;display:none;"></div>
         </div>
 
         <!-- Location: inherited by default, overridable -->
@@ -2461,7 +2462,7 @@ async function sbLookup() {
     }
     sbUnits = units;
 
-    renderServiceCustomer(bookings);
+    await renderServiceCustomer(bookings);
     document.getElementById('sb-details').style.display = 'block';
     document.getElementById('sb-save').disabled = false;
     await sbLoadRegions();
@@ -2475,7 +2476,7 @@ async function sbLookup() {
 
 function displayPhoneAdmin(p) { return (typeof p === 'string' && p.startsWith('+9665')) ? '0' + p.slice(4) : p; }
 
-function renderServiceCustomer(bookings) {
+async function renderServiceCustomer(bookings) {
   const c = sbCustomer;
   const past = (bookings || []).length;
   const lastInstall = (bookings || []).find(b => b.installed_at);
@@ -2488,11 +2489,22 @@ function renderServiceCustomer(bookings) {
       · ${sbUnits.length} registered unit${sbUnits.length===1?'':'s'}
     </div>`;
 
-  // Unit picker
+  // Unit picker. No registered unit on file (new/never-booked customer) — fall
+  // back to the product catalogue so the admin can still say what this visit
+  // is for, instead of leaving it unrecorded.
   const usel = document.getElementById('sb-unit');
-  usel.innerHTML = sbUnits.length
-    ? sbUnits.map((u,i) => `<option value="${i}">${escB(u.label)}</option>`).join('')
-    : '<option value="">No registered unit on file</option>';
+  const help = document.getElementById('sb-unit-help');
+  if (sbUnits.length) {
+    usel.innerHTML = sbUnits.map((u,i) => `<option value="${i}">${escB(u.label)}</option>`).join('');
+    help.style.display = 'none';
+  } else {
+    const cat = await getCatalogue();
+    const list = cat.filter(p => p.is_catalogue).length ? cat.filter(p => p.is_catalogue) : cat;
+    usel.innerHTML = '<option value="">— select a product —</option>' +
+      list.map(p => `<option value="cat:${escB(p.model_name)}">${escB(p.model_name)}</option>`).join('');
+    help.textContent = 'No registered unit on file — select which product this visit is for.';
+    help.style.display = 'block';
+  }
 
   // Location summary
   renderServiceLocation();
@@ -2620,7 +2632,8 @@ async function submitServiceBooking() {
   }
 
   const unitIdx = document.getElementById('sb-unit').value;
-  const unit = (unitIdx !== '' && sbUnits[unitIdx]) ? sbUnits[unitIdx] : null;
+  const unit = unitIdx.startsWith('cat:') ? { label: unitIdx.slice(4), product: unitIdx.slice(4), serial: null }
+    : (unitIdx !== '' && sbUnits[unitIdx]) ? sbUnits[unitIdx] : null;
   const notes = (document.getElementById('sb-notes').value || '').trim();
   const chargeRaw = (document.getElementById('sb-charge').value || '').trim();
   const charge = chargeRaw === '' ? null : Number(chargeRaw);
