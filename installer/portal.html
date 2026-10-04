@@ -681,6 +681,7 @@ function renderAppointments() {
               ${flatLine(b) ? `<div><strong>${flatLine(b)}</strong></div>` : ''}
             </div>
           </div>
+          ${b.notes ? `<div class="appt-detail-grid" style="grid-template-columns:1fr;margin-top:10px;"><div><div class="detail-label">Notes</div><div>${b.notes}</div></div></div>` : ''}
           ${equipmentPanel(b)}
           ${proofSection}
           <div class="appt-footer" style="margin:14px -22px -18px;border-radius:0 0 17px 17px;">
