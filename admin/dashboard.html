@@ -2388,7 +2388,7 @@ async function openServiceBookingModal() {
   document.getElementById('sb-notes').value = '';
   document.getElementById('sb-charge').value = '';
   sbCustomer = null; sbLocation = null; sbUnits = []; sbSelectedSlotId = null;
-  populateSalesAgentSelect('sb-sales-agent');
+  await populateSalesAgentSelect('sb-sales-agent');
   document.getElementById('service-booking-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('sb-phone').focus(), 150);
 }
@@ -2721,7 +2721,7 @@ async function openAdminBookingModal() {
   document.getElementById('ab-status').value = 'upcoming';
   document.getElementById('ab-source').value = '';
   document.getElementById('ab-error').style.display = 'none';
-  populateSalesAgentSelect('ab-sales-agent');
+  await populateSalesAgentSelect('ab-sales-agent');
   await abLoadDates();
   openModal('admin-booking-modal');
 }
@@ -4819,9 +4819,16 @@ function salesAgentNames(keep) {
   return names;
 }
 
-function populateSalesAgentSelect(selectId, preselect) {
+async function populateSalesAgentSelect(selectId, preselect) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
+  // These booking modals can open before the admin has ever visited "User
+  // Management" / "Manage Access", which is normally what loads these lists —
+  // so load them here too if they're still empty.
+  await Promise.all([
+    admins.length ? Promise.resolve() : loadAdmins(),
+    salesUsers.length ? Promise.resolve() : loadSales()
+  ]);
   const names = salesAgentNames(preselect);
   sel.innerHTML = names.map(n => `<option value="${escB(n)}">${escB(n)}</option>`).join('');
   sel.value = preselect || currentAdminDisplayName();
