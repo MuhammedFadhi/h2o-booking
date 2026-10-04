@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin Dashboard · SA'DA H2O</title>
-  <meta name="theme-color" content="#0A1628">
+  <meta name="theme-color" content="#25293C">
 
   <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="../assets/apple-touch-icon.png">
@@ -22,27 +22,30 @@
   <script defer src="../js/city-normalize.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
   <style>
     :root {
-      --deep: #0A1628;
+      /* Vuexy-sourced: darker sidebar tone, neutral grays, tighter radius —
+         brand blue (--ocean/--water/--ripple/--foam) kept as-is on purpose,
+         same call made on the sales portal (Vuexy's purple didn't stick there). */
+      --deep: #25293C;
       --ocean: #0D3B6E;
       --water: #1565C0;
       --ripple: #1E88E5;
       --foam: #E3F2FD;
       --white: #FFFFFF;
       --gold: #C9A84C;
-      --text: #1A2B47;
-      --muted: #607D8B;
-      --border: #E2E8F0;
-      --bg: #F8FAFC;
+      --text: #444050;
+      --muted: #6D6B77;
+      --border: #E6E6E8;
+      --bg: #F8F7FA;
       --success: #16A34A;
       --warning: #D97706;
       --danger: #DC2626;
       --sidebar-w: 260px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; overflow-x: hidden; }
+    body { font-family: 'Public Sans', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; overflow-x: hidden; }
 
     /* SIDEBAR */
     .sidebar {
@@ -56,19 +59,14 @@
       z-index: 100;
     }
     .sidebar-logo {
-      padding: 28px 24px;
+      padding: 12px 24px;
       border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .sidebar-logo img { height: 100px; }
-    .sidebar-badge {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: var(--gold);
-      margin-top: 6px;
-    }
-    .nav { flex: 1; padding: 16px 0; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+    .sidebar-logo img { height: 55px; }
+    .nav { flex: 1; padding: 0 0 16px; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
     .nav::-webkit-scrollbar { display: none; }
     .nav-item {
       display: flex;
@@ -123,7 +121,7 @@
       border: none;
       border-radius: 8px;
       color: rgba(255,255,255,0.6);
-      font-family: 'DM Sans', sans-serif;
+      font-family: 'Public Sans', sans-serif;
       font-size: 13px;
       cursor: pointer;
       transition: all 0.2s;
@@ -146,7 +144,7 @@
       align-items: center;
       justify-content: space-between;
     }
-    .topbar-title { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--deep); }
+    .topbar-title { font-family: 'Public Sans', sans-serif; font-weight: 700; font-size: 20px; color: var(--deep); }
     .topbar-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
     .content { padding: 28px 32px; flex: 1; min-width: 0; }
 
@@ -168,7 +166,7 @@
     }
     .stat-card {
       background: white;
-      border-radius: 16px;
+      border-radius: 10px;
       padding: 24px;
       border: 1px solid var(--border);
     }
@@ -182,13 +180,13 @@
       font-size: 20px;
       margin-bottom: 16px;
     }
-    .stat-value { font-family: 'Playfair Display', serif; font-size: 32px; color: var(--deep); }
+    .stat-value { font-family: 'Public Sans', sans-serif; font-weight: 700; font-size: 30px; color: var(--deep); }
     .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
     /* TABLE */
     .card {
       background: white;
-      border-radius: 16px;
+      border-radius: 10px;
       border: 1px solid var(--border);
       overflow: hidden;
     }
@@ -250,9 +248,9 @@
     .status-pending     { background: #FFEDD5; color: #C2410C; }   /* orange */
 
     /* BUTTONS */
-    .btn { padding: 8px 16px; border-radius: 8px; border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-    .btn-primary { background: var(--water); color: white; }
-    .btn-primary:hover { background: var(--ocean); }
+    .btn { padding: 8px 16px; border-radius: 8px; border: none; font-family: 'Public Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-primary { background: linear-gradient(135deg, var(--ocean), var(--water)); color: white; }
+    .btn-primary:hover { filter: brightness(0.92); }
     .btn-sm { padding: 6px 12px; font-size: 12px; }
     .btn-ghost { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
     /* Booked time slot in the booking pickers: visible, but struck through and unclickable (matches the customer page). */
@@ -274,7 +272,7 @@
       padding: 9px 14px;
       border: 1px solid var(--border);
       border-radius: 10px;
-      font-family: 'DM Sans', sans-serif;
+      font-family: 'Public Sans', sans-serif;
       font-size: 13px;
       background: white;
       outline: none;
@@ -298,14 +296,14 @@
     }
     .modal {
       background: white;
-      border-radius: 20px;
+      border-radius: 12px;
       padding: 32px;
       width: 100%;
       max-width: 520px;
       max-height: 90vh;
       overflow-y: auto;
     }
-    .modal-title { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--deep); margin-bottom: 20px; }
+    .modal-title { font-family: 'Public Sans', sans-serif; font-weight: 700; font-size: 20px; color: var(--deep); margin-bottom: 20px; }
     .modal-footer { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
     .form-group { margin-bottom: 16px; }
     label { display: block; font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -314,7 +312,7 @@
       padding: 12px 14px;
       border: 2px solid var(--border);
       border-radius: 10px;
-      font-family: 'DM Sans', sans-serif;
+      font-family: 'Public Sans', sans-serif;
       font-size: 14px;
       outline: none;
       transition: all 0.2s;
@@ -322,7 +320,7 @@
     .form-input:focus { border-color: var(--water); }
 
     /* SLOT MANAGER */
-    .slot-manager { background: white; border-radius: 16px; border: 1px solid var(--border); padding: 24px; margin-bottom: 24px; }
+    .slot-manager { background: white; border-radius: 10px; border: 1px solid var(--border); padding: 24px; margin-bottom: 24px; }
     .slot-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: gap; }
     .region-tab { padding: 8px 14px; border: 1px solid var(--border); background: white; border-radius: 10px; font-size: 13px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px; color: var(--muted); font-family: inherit; transition: all 0.12s; }
     .region-tab:hover { border-color: var(--water); color: var(--text); }
@@ -380,7 +378,7 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       font-size: 12px;
-      font-family: 'DM Sans', sans-serif;
+      font-family: 'Public Sans', sans-serif;
       outline: none;
       background: white;
     }
@@ -541,7 +539,7 @@
       .slot-manager { padding: 16px; }
 
       /* Modals */
-      .modal { padding: 20px 16px; border-radius: 16px 16px 0 0; margin: 0; max-width: 100%; width: 100%; }
+      .modal { padding: 20px 16px; border-radius: 12px 12px 0 0; margin: 0; max-width: 100%; width: 100%; }
       .modal-overlay { align-items: flex-end; padding: 0; }
 
       /* Toast */
@@ -593,7 +591,7 @@
 
     /* Sidebar: subtle vertical depth + a soft right edge */
     .sidebar {
-      background: linear-gradient(180deg, #0B1A2E 0%, var(--deep) 55%, #081321 100%);
+      background: linear-gradient(180deg, #2B3049 0%, var(--deep) 55%, #1E2233 100%);
       box-shadow: 2px 0 20px rgba(8,19,33,0.18);
     }
     .nav-item { transition: color .18s ease, background .18s ease, padding-left .18s ease; }
@@ -627,10 +625,10 @@
     .btn { transition: all .18s cubic-bezier(.2,.7,.2,1); }
     .btn:active { transform: translateY(1px); }
     .btn-primary {
-      background: linear-gradient(135deg, var(--ripple), var(--water));
+      background: linear-gradient(135deg, var(--ocean), var(--water));
       box-shadow: 0 6px 16px -8px rgba(21,101,192,0.65);
     }
-    .btn-primary:hover { background: linear-gradient(135deg, var(--water), var(--ocean)); box-shadow: 0 10px 22px -8px rgba(13,59,110,0.6); }
+    .btn-primary:hover { filter: brightness(0.92); box-shadow: 0 10px 22px -8px rgba(13,59,110,0.6); }
 
     /* Table rows: smoother hover, crisper header */
     tr:hover td { background: #F4F9FF; }
@@ -665,67 +663,62 @@
 <aside class="sidebar">
   <div class="sidebar-logo">
     <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O">
-    <div class="sidebar-badge">Admin Console</div>
   </div>
   <nav class="nav">
-    <div class="nav-section">Management</div>
     <div class="nav-item active" onclick="showPanel('overview', this)">
-      <span class="nav-icon">🏠</span> Overview
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M5 12H3l9-9l9 9h-2M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M9 21v-6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6"/></g></svg></span> Overview
     </div>
     <div class="nav-item" onclick="showPanel('analytics', this)">
-      <span class="nav-icon">📊</span> Analytics
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zm12-4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1zM9 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1zM4 20h14"/></svg></span> Analytics
     </div>
     <div class="nav-item" onclick="showPanel('bookings', this)">
-      <span class="nav-icon">📋</span> All Bookings
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2m0 7h.01M13 12h2m-6 4h.01M13 16h2"/></g></svg></span> All Bookings
     </div>
     <div class="nav-item" onclick="showPanel('leads', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><g fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m16.719 19.752l-.64-5.124A3 3 0 0 0 13.101 12h-2.204a3 3 0 0 0-2.976 2.628l-.641 5.124A2 2 0 0 0 9.266 22h5.468a2 2 0 0 0 1.985-2.248"/><circle cx="12" cy="5" r="3"/><circle cx="4" cy="9" r="2"/><circle cx="20" cy="9" r="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 14h-.306a2 2 0 0 0-1.973 1.671l-.333 2A2 2 0 0 0 3.361 20H7m13-6h.306a2 2 0 0 1 1.973 1.671l.333 2A2 2 0 0 1 20.639 20H17"/></g></svg></span> Leads
     </div>
     <div class="nav-item" onclick="showPanel('salesreport', this)">
-      <span class="nav-icon">📈</span> Sales Report
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2m5 6h-2.5a1.5 1.5 0 0 0 0 3h1a1.5 1.5 0 0 1 0 3H10m2 0v1m0-8v1"/></g></svg></span> Sales Report
     </div>
     <div class="nav-item" onclick="showPanel('slots', this)">
-      <span class="nav-icon">🗓️</span> Availability Slots
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M11.795 21H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M14 18a4 4 0 1 0 8 0a4 4 0 1 0-8 0m1-15v4M7 3v4m-4 4h16"/><path d="M18 16.496V18l1 1"/></g></svg></span> Availability Slots
     </div>
-    <div class="nav-section">Team</div>
     <div class="nav-item" onclick="showPanel('installers', this)">
-      <span class="nav-icon">👥</span> User Management
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 13a2 2 0 1 0 4 0a2 2 0 0 0-4 0m-2 8v-1a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1M15 5a2 2 0 1 0 4 0a2 2 0 0 0-4 0m2 5h2a2 2 0 0 1 2 2v1M5 5a2 2 0 1 0 4 0a2 2 0 0 0-4 0m-2 8v-1a2 2 0 0 1 2-2h2"/></svg></span> User Management
     </div>
     <div class="nav-item" onclick="showPanel('passwords', this)">
-      <span class="nav-icon">🔑</span> Manage Access
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16.555 3.843l3.602 3.602a2.877 2.877 0 0 1 0 4.069l-2.643 2.643a2.877 2.877 0 0 1-4.069 0l-.301-.301l-6.558 6.558a2 2 0 0 1-1.239.578L5.172 21H4a1 1 0 0 1-.993-.883L3 20v-1.172a2 2 0 0 1 .467-1.284l.119-.13L4 17h2v-2h2v-2l2.144-2.144l-.301-.301a2.877 2.877 0 0 1 0-4.069l2.643-2.643a2.877 2.877 0 0 1 4.069 0M15 9h.01"/></svg></span> Manage Access
     </div>
-    <div class="nav-section">Communications</div>
     <div class="nav-item" onclick="showPanel('sms', this)">
-      <span class="nav-icon">📲</span> Send Booking Link
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M11 3h10v8h-3l-4 2v-2h-3z"/><path d="M15 16v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2m2 13v.01"/></g></svg></span> Send Booking Link
     </div>
     <div class="nav-item" onclick="showPanel('bulksms', this)">
-      <span class="nav-icon">📢</span> Bulk SMS
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M18 8a3 3 0 0 1 0 6m-8-6v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-5"/><path d="m12 8l4.524-3.77A.9.9 0 0 1 18 4.922v12.156a.9.9 0 0 1-1.476.692L12 14H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/></g></svg></span> Bulk SMS
     </div>
     <div class="nav-item" onclick="showPanel('sms-settings', this)">
-      <span class="nav-icon">⚙️</span> SMS Settings
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37c1 .608 2.296.07 2.572-1.065"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0-6 0"/></g></svg></span> SMS Settings
     </div>
-    <div class="nav-section">Database</div>
     <div class="nav-item" onclick="showPanel('customers', this)">
-      <span class="nav-icon">👥</span> Customers
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 6v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2M10 16h6"/><path d="M11 11a2 2 0 1 0 4 0a2 2 0 1 0-4 0M4 8h3m-3 4h3m-3 4h3"/></g></svg></span> Customers
     </div>
     <div class="nav-item" onclick="showPanel('reports', this)">
-      <span class="nav-icon">📋</span> Inspection Reports
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2m0 9l2 2l4-4"/></g></svg></span> Inspection Reports
     </div>
     <div class="nav-item" onclick="showPanel('warranties', this)">
-      <span class="nav-icon">🛡️</span> Warranties
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.46 20.846A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3a12 12 0 0 0 8.5 3a12 12 0 0 1-.09 7.06M15 19l2 2l4-4"/></svg></span> Warranties
     </div>
     <div class="nav-item" onclick="showPanel('promocodes', this)">
-      <span class="nav-icon">🎟️</span> Promo Codes
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7a2 2 0 0 1 2-2"/></svg></span> Promo Codes
     </div>
     <div class="nav-item" onclick="showPanel('invoices', this)">
-      <span class="nav-icon">🧾</span> Invoices
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-3-2l-2 2l-2-2l-2 2l-2-2zM9 7h6m-6 4h6m-2 4h2"/></svg></span> Invoices
     </div>
     <div class="nav-item" onclick="showPanel('followups', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M21 3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6.455L2 22.5V4a1 1 0 0 1 1-1zm-1 2H4v13.385L5.763 17H20zm-3 2v8h-2V7zm-6 1v1.999L13 10v2l-2-.001V14H9v-2.001L7 12v-2l2-.001V8z"/></svg></span> Follow-ups
       <span id="badge-followups" style="display:none;background:#DC2626;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;margin-left:auto;"></span>
     </div>
     <div class="nav-item" onclick="showPanel('activity', this)">
-      <span class="nav-icon">🕘</span> Activity Log
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/></g></svg></span> Activity Log
     </div>
   </nav>
   <div class="sidebar-bottom">
@@ -749,16 +742,17 @@
     </div>
     <div style="display:flex; align-items:center; gap:12px;">
       <div style="position:relative;">
-        <input type="text" id="global-search" placeholder="🔍 Search everything..."
+        <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0-14 0m18 11l-6-6"/></svg>
+        <input type="text" id="global-search" placeholder="Search everything..."
                autocomplete="off" name="global_q" data-lpignore="true" data-1p-ignore data-form-type="other"
                oninput="globalSearch(this.value)" onfocus="if(this.value)globalSearch(this.value)"
-               style="width:230px; padding:9px 13px; border:1px solid var(--border); border-radius:9px; font-family:'DM Sans',sans-serif; font-size:13px;">
+               style="width:230px; padding:9px 13px 9px 32px; border:1px solid var(--border); border-radius:9px; font-family:'Public Sans',sans-serif; font-size:13px;">
         <div id="global-results" style="display:none; position:absolute; top:calc(100% + 6px); right:0; width:360px; max-height:60vh; overflow-y:auto; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 12px 30px rgba(0,0,0,.14); z-index:200; padding:8px;"></div>
       </div>
       <div id="topbar-actions"></div>
       <button id="density-toggle" onclick="toggleDensity()" title="Compact / comfortable rows"
-              style="padding:8px 11px; background:var(--bg); border:1px solid var(--border); border-radius:8px; font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer;">⇕</button>
-      <button onclick="logout()" style="padding:8px 14px; background:#FEF2F2; color:#991B1B; border:1px solid #FECACA; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer;" id="mobile-logout-btn">Sign Out</button>
+              style="padding:8px 11px; background:var(--bg); border:1px solid var(--border); border-radius:8px; font-family:'Public Sans',sans-serif; font-size:13px; cursor:pointer;">⇕</button>
+      <button onclick="logout()" style="padding:8px 14px; background:#FEF2F2; color:#991B1B; border:1px solid #FECACA; border-radius:8px; font-family:'Public Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer;" id="mobile-logout-btn">Sign Out</button>
     </div>
   </div>
 
@@ -788,22 +782,22 @@
     <div class="panel" id="panel-bookings">
       <div class="stat-grid">
         <div class="stat-card">
-          <div class="stat-icon" style="background:#EFF6FF; color:#1D4ED8;">📋</div>
+          <div class="stat-icon" style="background:#EFF6FF; color:#1D4ED8;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2m0 7h.01M13 12h2m-6 4h.01M13 16h2"/></g></svg></div>
           <div class="stat-value" id="stat-total">—</div>
           <div class="stat-label">Total Bookings</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:#FFF7ED; color:#92400E;">⏳</div>
+          <div class="stat-icon" style="background:#FFF7ED; color:#92400E;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0"/><path d="M12 7v5l3 3"/></g></svg></div>
           <div class="stat-value" id="stat-upcoming">—</div>
           <div class="stat-label">Upcoming</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:#F0FDF4; color:#166534;">✅</div>
+          <div class="stat-icon" style="background:#F0FDF4; color:#166534;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0"/><path d="m9 12l2 2l4-4"/></g></svg></div>
           <div class="stat-value" id="stat-completed">—</div>
           <div class="stat-label">Installed / Done</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:#FFF3E0; color:#E65100;">📍</div>
+          <div class="stat-icon" style="background:#FFF3E0; color:#E65100;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.18 8.189a4.01 4.01 0 0 0 2.616 2.627m3.507-.545a4 4 0 1 0-5.59-5.552M6 21v-2a4 4 0 0 1 4-4h4c.412 0 .81.062 1.183.178m2.633 2.618c.12.38.184.785.184 1.204v2M3 3l18 18"/></svg></div>
           <div class="stat-value" id="stat-unassigned">—</div>
           <div class="stat-label">Unassigned</div>
         </div>
@@ -814,7 +808,7 @@
           <span class="card-title">Bookings</span>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn btn-primary btn-sm" onclick="openAdminBookingModal()" style="white-space:nowrap;">+ Book for Customer</button>
-            <button class="btn btn-ghost btn-sm" onclick="openServiceBookingModal()" style="white-space:nowrap;">🔧 Service / Repair</button>
+            <button class="btn btn-ghost btn-sm" onclick="openServiceBookingModal()" style="white-space:nowrap; display:inline-flex; align-items:center; gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 10h3V7L6.5 3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8z"/></svg> Service / Repair</button>
           </div>
         </div>
       </div>
@@ -1513,7 +1507,7 @@
         <div style="display:flex;gap:8px;">
           <input type="tel" class="form-input" id="sb-phone" placeholder="05XXXXXXXX" style="flex:1;"
                  onkeydown="if(event.key==='Enter'){event.preventDefault();sbLookup();}">
-          <button type="button" class="btn btn-primary" onclick="sbLookup()" id="sb-lookup-btn" style="white-space:nowrap;">🔍 Find</button>
+          <button type="button" class="btn btn-primary" onclick="sbLookup()" id="sb-lookup-btn" style="white-space:nowrap; display:inline-flex; align-items:center; gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0-14 0m18 11l-6-6"/></svg> Find</button>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:4px;">Enter the number they booked with, then press Find.</div>
       </div>
@@ -2475,7 +2469,7 @@ async function sbLookup() {
   } catch (e) {
     nf.style.display='block'; nf.textContent = 'Lookup failed: ' + (e.message || e);
   } finally {
-    btn.disabled = false; btn.textContent = '🔍 Find';
+    btn.disabled = false; btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0-14 0m18 11l-6-6"/></svg> Find';
   }
 }
 
@@ -6324,9 +6318,9 @@ async function loadOverview() {
     </div>`;
 
   statsEl.innerHTML =
-    stat('📅', '#EFF6FF', '#1D4ED8', todayBookings.length, "Today's Bookings", 'bookings') +
-    stat('⏳', '#FFF7ED', '#92400E', pendingInstalls.length, 'Pending Installs', 'bookings') +
-    stat('🛡️', '#FEF3C7', '#B45309', warrAttention.length, 'Warranties Need Attention', 'warranties', warrAttention.length ? 'color:#B45309;' : '') +
+    stat('<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm12-4v4M8 3v4m-4 4h16"/><path d="M8 15h2v2H8z"/></g></svg>', '#EFF6FF', '#1D4ED8', todayBookings.length, "Today's Bookings", 'bookings') +
+    stat('<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M6.5 7h11m-11 10h11M6 20v-2a6 6 0 1 1 12 0v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1"/><path d="M6 4v2a6 6 0 1 0 12 0V4a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1"/></g></svg>', '#FFF7ED', '#92400E', pendingInstalls.length, 'Pending Installs', 'bookings') +
+    stat('<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.04 19.745c-.942.551-1.964.976-3.04 1.255A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 .195 6.015M19 16v3m0 3v.01"/></svg>', '#FEF3C7', '#B45309', warrAttention.length, 'Warranties Need Attention', 'warranties', warrAttention.length ? 'color:#B45309;' : '') +
     stat(FOLLOWUP_ICON_SVG, '#FEE2E2', '#B91C1C', overdueFups.length, 'Follow-ups Due', 'followups', overdueFups.length ? 'color:#B91C1C;' : '');
 
   // ---- actionable lists ----
