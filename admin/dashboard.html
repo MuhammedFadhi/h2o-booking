@@ -1518,7 +1518,14 @@
            customer right here instead of switching to "Book for Customer". -->
       <div id="sb-newcust-form" style="display:none;background:#F8FAFC;border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;">
         <div class="form-group"><label>Full Name</label><input class="form-input" id="sb-new-name" placeholder="Full name"></div>
-        <div class="form-group"><label>City</label><input class="form-input" id="sb-new-city" placeholder="e.g. Al Khobar"></div>
+        <div class="form-group"><label>Region</label>
+          <select class="form-input" id="sb-new-region" onchange="sbNewCustLoadCities()">
+            <option value="">Select region…</option>
+          </select>
+        </div>
+        <div class="form-group"><label>City</label>
+          <select class="form-input" id="sb-new-city" disabled><option value="">Choose region first</option></select>
+        </div>
         <div class="form-group"><label>Address <span style="color:var(--muted);font-weight:400;">(as told by customer)</span></label><input class="form-input" id="sb-new-address" placeholder="Area, street, building…"></div>
         <div id="sb-newcust-error" style="display:none;color:#B71C1C;font-size:12px;margin-bottom:8px;"></div>
         <button type="button" class="btn btn-primary btn-sm" onclick="sbUseNewCustomer()">Continue</button>
@@ -2405,7 +2412,9 @@ async function openServiceBookingModal() {
   document.getElementById('sb-charge').value = '';
   document.getElementById('sb-newcust-form').style.display = 'none';
   document.getElementById('sb-new-name').value = '';
-  document.getElementById('sb-new-city').value = '';
+  document.getElementById('sb-new-region').innerHTML = '<option value="">Select region…</option>';
+  document.getElementById('sb-new-city').disabled = true;
+  document.getElementById('sb-new-city').innerHTML = '<option value="">Choose region first</option>';
   document.getElementById('sb-new-address').value = '';
   document.getElementById('sb-newcust-error').style.display = 'none';
   sbCustomer = null; sbLocation = null; sbUnits = []; sbSelectedSlotId = null; sbNewCustPhone = null;
@@ -2503,24 +2512,45 @@ function displayPhoneAdmin(p) { return (typeof p === 'string' && p.startsWith('+
 // instead of leaving this modal for "Book for Customer". No registered units
 // either, so the unit/product picker falls back to the catalogue (see
 // renderServiceCustomer) exactly like it does for an existing-but-new customer.
-function sbShowNewCustomerForm() {
+async function sbShowNewCustomerForm() {
   document.getElementById('sb-newcust-error').style.display = 'none';
   document.getElementById('sb-newcust-form').style.display = 'block';
+  const { data: regions } = await dbAdmin.from('service_regions').select('id, name').order('sort_order');
+  document.getElementById('sb-new-region').innerHTML = '<option value="">Select region…</option>' +
+    (regions || []).map(r => `<option value="${r.id}">${escB(r.name)}</option>`).join('');
+  document.getElementById('sb-new-city').disabled = true;
+  document.getElementById('sb-new-city').innerHTML = '<option value="">Choose region first</option>';
   setTimeout(() => document.getElementById('sb-new-name').focus(), 50);
+}
+
+async function sbNewCustLoadCities() {
+  const regionId = document.getElementById('sb-new-region').value;
+  const csel = document.getElementById('sb-new-city');
+  if (!regionId) {
+    csel.disabled = true;
+    csel.innerHTML = '<option value="">Choose region first</option>';
+    return;
+  }
+  const { data: cities } = await dbAdmin.from('cities').select('id, name, region_id').eq('region_id', regionId).order('name');
+  csel.disabled = false;
+  csel.innerHTML = '<option value="">Select city…</option>' +
+    (cities || []).map(c => `<option value="${escB(c.name)}">${escB(c.name)}</option>`).join('');
 }
 
 async function sbUseNewCustomer() {
   const errEl = document.getElementById('sb-newcust-error');
   const name = document.getElementById('sb-new-name').value.trim();
+  const regionId = document.getElementById('sb-new-region').value;
   const city = document.getElementById('sb-new-city').value.trim();
   const address = document.getElementById('sb-new-address').value.trim();
   if (!name) { errEl.style.display='block'; errEl.textContent='Enter the customer’s name.'; return; }
-  if (!city) { errEl.style.display='block'; errEl.textContent='Enter the city.'; return; }
+  if (!regionId) { errEl.style.display='block'; errEl.textContent='Choose a region.'; return; }
+  if (!city) { errEl.style.display='block'; errEl.textContent='Choose a city.'; return; }
   if (!address) { errEl.style.display='block'; errEl.textContent='Enter the address the customer gave.'; return; }
   errEl.style.display = 'none';
 
   sbCustomer = { id: null, name, phone: sbNewCustPhone, city, address };
-  sbLocation = { lat: null, lng: null, source: 'none', address, city, region_id: null, when: null };
+  sbLocation = { lat: null, lng: null, source: 'none', address, city, region_id: regionId, when: null };
   sbUnits = [];
 
   document.getElementById('sb-notfound').style.display = 'none';
