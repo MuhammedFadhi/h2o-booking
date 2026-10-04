@@ -3249,7 +3249,7 @@ const BOOKING_DELETE_PASSWORD = '@Sada2026';
 
 async function deleteBookingPermanently(bookingId, customerName, bookingRef) {
   if (!(await ensureSession())) return;
-  const pwd = prompt(`⚠ Permanently delete this booking?\n\n${customerName || 'Unknown'} · ${bookingRef || bookingId}\n\nThis removes the booking, its warranties, its line items, and frees its time slot. Cannot be undone.\n\nEnter admin password to confirm:`);
+  const pwd = prompt(`⚠ Permanently delete this booking?\n\n${customerName || 'Unknown'} · ${bookingRef || bookingId}\n\nThis removes the booking, its warranties, line items, and inspection reports, and frees its time slot. Cannot be undone.\n\nEnter admin password to confirm:`);
   if (pwd === null) return;
   if (pwd !== BOOKING_DELETE_PASSWORD) { alert('Wrong password. Aborted.'); return; }
 
@@ -3257,6 +3257,7 @@ async function deleteBookingPermanently(bookingId, customerName, bookingRef) {
   const { data: bk } = await dbAdmin.from('bookings').select('slot_id, customer_phone').eq('id', bookingId).maybeSingle();
   await dbAdmin.from('warranties').delete().eq('booking_id', bookingId);
   await dbAdmin.from('booking_items').delete().eq('booking_id', bookingId);
+  await dbAdmin.from('inspection_reports').delete().eq('booking_id', bookingId);
   const { error } = await dbAdmin.from('bookings').delete().eq('id', bookingId);
   if (error) { showToast('Delete failed: ' + error.message, 'error'); return; }
   if (bk?.slot_id) await dbAdmin.from('availability_slots').update({ is_booked: false }).eq('id', bk.slot_id);
