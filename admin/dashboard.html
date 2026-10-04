@@ -2243,9 +2243,13 @@ function checkAdminPassword(action) {
 // ============================================================
 let paymentModalBookingId = null;
 
+// Flat-rate service visits with no product sale attached — no basket total
+// to fall back on, so the invoice amount is just a fixed call-out fee.
+const SERVICE_VISIT_PRICES = { quarterly_service: 89, annual_service: 199 };
+
 async function adminMarkComplete(bookingId) {
   const { data: b } = await dbAdmin.from('bookings')
-    .select('id, customer_name, customer_phone, booking_reference, status, order_total, discount_amount, payment_method, invoice_number, invoice_url')
+    .select('id, customer_name, customer_phone, booking_reference, status, booking_type, order_total, discount_amount, payment_method, invoice_number, invoice_url')
     .eq('id', bookingId).maybeSingle();
   if (!b) { showToast('Booking not found', 'error'); return; }
   paymentModalBookingId = bookingId;
@@ -2254,7 +2258,7 @@ async function adminMarkComplete(bookingId) {
   document.getElementById('pay-booking-ref').textContent = b.booking_reference || '';
   document.getElementById('pay-customer').textContent = `${b.customer_name || ''} · ${b.customer_phone || ''}`;
   const net = (b.order_total != null ? b.order_total : 0) - (b.discount_amount || 0);
-  document.getElementById('pay-amount').value = net > 0 ? net : '';
+  document.getElementById('pay-amount').value = net > 0 ? net : (SERVICE_VISIT_PRICES[b.booking_type] || '');
   document.getElementById('pay-method').value = b.payment_method || '';
   document.getElementById('pay-invoice-no').value = b.invoice_number || '';
   document.getElementById('pay-invoice-file').value = '';
