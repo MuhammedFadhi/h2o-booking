@@ -5216,8 +5216,10 @@ async function logout() {
   window.location.href = 'login.html';
 }
 
-// Close modals on overlay click
+// Close modals on overlay click (except the Book for Customer form, which has
+// enough fields that an accidental backdrop click shouldn't discard it).
 document.querySelectorAll('.modal-overlay').forEach(m => {
+  if (m.id === 'admin-booking-modal') return;
   m.addEventListener('click', (e) => { if (e.target === m) m.style.display = 'none'; });
 });
 
