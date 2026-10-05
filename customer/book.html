@@ -818,7 +818,10 @@ async function loadAvailableDates() {
     .eq('service_region_id', state.regionId)
     .eq('is_available',true).eq('is_booked',false)
     .gte('slot_date',startIso).lte('slot_date',endIso);
-  const availableDates=[...new Set((data||[]).filter(s=>window.slotIsBookable(s.slot_date,s.slot_hour)).map(s=>s.slot_date))].sort();
+  // Customers need 2 days' notice (DB-enforced) — filter these out here too,
+  // so the date grid never offers a slot the server would reject.
+  const minDate = window.minBookableDateISO();
+  const availableDates=[...new Set((data||[]).filter(s=>s.slot_date>=minDate && window.slotIsBookable(s.slot_date,s.slot_hour)).map(s=>s.slot_date))].sort();
   grid.innerHTML='';
   if(!availableDates.length){grid.innerHTML='<p style="color:var(--muted);font-size:13px;padding:24px;text-align:center;">No available slots in this region for the next 2 months. Please contact SA\'DA H2O directly.</p>';return;}
   availableDates.forEach(dateStr=>{
@@ -1151,6 +1154,9 @@ async function submitBooking() {
       state.selectedDate=null; state.selectedHour=null; state.selectedSlotId=null;
     } else if (/slot_not_found|not_available/.test(msg)) {
       text = 'That slot is no longer available. Please go back and choose another.';
+    } else if (/lead time/i.test(msg)) {
+      text = 'Bookings need at least 2 days’ notice. Please go back and choose a later date.';
+      state.selectedDate=null; state.selectedHour=null; state.selectedSlotId=null;
     }
     document.getElementById('step4-error').style.display='block';
     document.getElementById('step4-error').textContent = text;
