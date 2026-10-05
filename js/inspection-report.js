@@ -740,6 +740,50 @@ SADA.InspectionReport = (function () {
     }
   }
 
+  // Filter Change / Annual Service completed with no QR-registered unit —
+  // e.g. a customer whose only relationship with us is this one visit,
+  // possibly on a non-SA'DA unit. Creates (first visit) or renews (later
+  // visits) a `source:'self_reported'` warranty row so the customer portal's
+  // dedicated Service tab can still show a next-due date, honestly framed as
+  // estimated from our own visit rather than a real SA'DA install date.
+  // Never touches a real (source:'install') warranty — no QR is involved
+  // anywhere in this path. Never blocks completion on failure.
+  async function createOrUpdateSelfReportedWarranty(bookingId, jobType) {
+    if (jobType !== 'quarterly_service' && jobType !== 'maintenance' && jobType !== 'annual_service') return;
+    const { data: b } = await window.db.from('bookings')
+      .select('id, customer_phone, product_model').eq('id', bookingId).maybeSingle();
+    if (!b) return;
+    const { data: cust } = await window.db.from('customers').select('id').eq('phone', b.customer_phone).maybeSingle();
+    if (!cust) return;
+    const cid = cust.id;
+    const productType = b.product_model || 'Unregistered unit';
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const pushDate = (days) => { const x = new Date(); x.setDate(x.getDate() + days); return x.toISOString(); };
+    const isAnnual = jobType === 'annual_service';
+
+    const { data: existing } = await window.db.from('warranties')
+      .select('id').eq('customer_id', cid).eq('source', 'self_reported').maybeSingle();
+
+    let warrantyId = existing?.id;
+    if (warrantyId) {
+      const patch = isAnnual ? { service_expiry: pushDate(365) } : { filter_expiry: pushDate(90) };
+      await window.db.from('warranties').update(patch).eq('id', warrantyId);
+    } else {
+      const { data: ins } = await window.db.from('warranties').insert({
+        customer_id: cid, qr_code: null, product_type: productType, quantity: 1,
+        source: 'self_reported', booking_id: bookingId, status: 'active',
+        registration_date: todayIso, filter_expiry: pushDate(90), service_expiry: pushDate(365), warranty_expiry: null
+      }).select('id').maybeSingle();
+      warrantyId = ins?.id;
+    }
+    if (!warrantyId) return;
+
+    await window.db.from('warranty_service_history').insert({
+      warranty_id: warrantyId, service_type: isAnnual ? 'service' : 'filter',
+      source: 'manual', performed_on: todayIso, performed_by: 'customer (self-reported)'
+    });
+  }
+
   // ------------------------------------------------------------- form wiring
   function wireForm(root, ctx) {
     // Auto-compute "Next Service Due" = visit date + interval. Recomputes when the
@@ -992,7 +1036,10 @@ SADA.InspectionReport = (function () {
               patch.location_updated_at = nowIso;
             }
             await window.db.from('bookings').update(patch).eq('id', ctx.bookingId).eq('installer_id', ctx.installerId);
-            try { if (isInstall) await createPendingWarranties(ctx.bookingId); } catch (werr) { console.warn('[IR] pending warranty creation failed', werr); }
+            try {
+              if (isInstall) await createPendingWarranties(ctx.bookingId);
+              else await createOrUpdateSelfReportedWarranty(ctx.bookingId, jt);
+            } catch (werr) { console.warn('[IR] warranty tracking update failed', werr); }
 
             // Fire-and-forget SMS (server checks sms_settings.inspection_report toggle)
             fetch('/api/notify-report', {
