@@ -43,16 +43,9 @@
     header img{height:100px;}
     main{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 16px;}
     .booking-card{background:var(--white);border-radius:24px;width:100%;max-width:600px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,0.45),0 2px 8px rgba(0,0,0,0.2);}
-    .progress-bar{background:var(--foam);padding:20px 32px;border-bottom:1px solid var(--border);}
-    .progress-steps{display:flex;align-items:center;justify-content:center;}
-    .step{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--muted);transition:all 0.3s;}
-    .step.active{color:var(--water);}
-    .step.done{color:#1B5E20;}
-    .step-num{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;background:var(--white);transition:all 0.3s;flex-shrink:0;}
-    .step.active .step-num{border-color:var(--water);background:var(--water);color:white;}
-    .step.done .step-num{border-color:#1B5E20;background:#1B5E20;color:white;}
-    .step-line{height:2px;width:28px;background:var(--border);transition:all 0.3s;}
-    .step-line.done{background:#1B5E20;}
+    .progress-bar{background:var(--foam);padding:16px 32px;border-bottom:1px solid var(--border);}
+    .progress-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+    .progress-fill{height:100%;width:8%;background:linear-gradient(90deg,var(--ocean),var(--water));border-radius:3px;transition:width 0.3s ease;}
     .form-section{display:none;padding:40px 40px 32px;animation:fadeIn 0.4s ease;}
     .form-section.active{display:block;}
     @keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
@@ -60,10 +53,24 @@
     .section-subtitle{color:var(--muted);font-size:14px;margin-bottom:28px;}
     .form-group{margin-bottom:20px;}
     label{display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;letter-spacing:0.3px;text-transform:uppercase;}
-    input,select{width:100%;padding:14px 16px;border:1.5px solid var(--border);border-radius:12px;font-family:'DM Sans',sans-serif;font-size:15px;color:var(--text);background:var(--white);transition:border-color 0.15s,box-shadow 0.15s;outline:none;}
+    input,select,textarea{width:100%;padding:14px 16px;border:1.5px solid var(--border);border-radius:12px;font-family:'DM Sans',sans-serif;font-size:15px;color:var(--text);background:var(--white);transition:border-color 0.15s,box-shadow 0.15s;outline:none;}
+    textarea{resize:vertical;min-height:80px;}
     select:disabled{background:var(--foam);color:var(--muted);cursor:not-allowed;}
-    input:focus,select:focus{border-color:var(--water);box-shadow:0 0 0 3px rgba(21,101,192,0.15);}
+    input:focus,select:focus,textarea:focus{border-color:var(--water);box-shadow:0 0 0 3px rgba(21,101,192,0.15);}
     .otp-info{background:var(--foam);border-radius:12px;padding:16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;}
+    .visit-type-list{display:flex;flex-direction:column;gap:10px;margin-top:8px;}
+    .visit-type-btn{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border:1.5px solid var(--border);border-radius:16px;background:var(--white);cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+    .visit-type-btn:hover{border-color:var(--water);background:var(--foam);transform:translateY(-1px);box-shadow:0 4px 12px rgba(21,101,192,0.12);}
+    .visit-type-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;}
+    .visit-type-text{flex:1;min-width:0;}
+    .visit-type-label{font-size:15px;font-weight:700;color:var(--text);}
+    .visit-type-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+    .visit-type-arrow{color:var(--muted);flex-shrink:0;font-size:20px;}
+    .chosen-type-chip{display:flex;align-items:center;justify-content:space-between;background:var(--foam);border-radius:12px;padding:12px 16px;margin-bottom:20px;}
+    .chosen-type-chip-left{display:flex;align-items:center;gap:10px;}
+    .chosen-type-chip .visit-type-icon{width:32px;height:32px;font-size:15px;border-radius:9px;}
+    .chosen-type-chip-label{font-weight:700;color:var(--text);font-size:14px;}
+    .chosen-type-chip-change{color:var(--water);font-size:13px;font-weight:600;text-decoration:none;flex-shrink:0;}
     .timer-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px;}
     .timer-text{font-size:13px;color:var(--muted);}
     .timer-text span{font-weight:600;color:var(--water);}
@@ -132,15 +139,7 @@
   <main>
     <div class="booking-card">
       <div class="progress-bar" id="progress-bar">
-        <div class="progress-steps">
-          <div class="step active" id="prog-1"><div class="step-num">1</div><span>Verify</span></div>
-          <div class="step-line" id="line-1"></div>
-          <div class="step" id="prog-2"><div class="step-num">2</div><span>Details</span></div>
-          <div class="step-line" id="line-2"></div>
-          <div class="step" id="prog-3"><div class="step-num">3</div><span>Schedule</span></div>
-          <div class="step-line" id="line-3"></div>
-          <div class="step" id="prog-4"><div class="step-num">4</div><span>Confirm</span></div>
-        </div>
+        <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
       </div>
 
       <!-- STEP 1: Phone + OTP -->
@@ -176,10 +175,66 @@
         <button class="btn-back" onclick="goToStep(1)" style="justify-content:center;margin-top:8px;">← Change number</button>
       </div>
 
+      <!-- STEP TYPE: What do you need? (shown right after OTP verify) -->
+      <div class="form-section" id="step-type">
+        <h1 class="section-title">How can we help?</h1>
+        <p class="section-subtitle">Pick an option to get started.</p>
+        <div class="visit-type-list">
+          <button type="button" class="visit-type-btn" onclick="selectVisitType('installation')">
+            <span class="visit-type-icon" style="background:#BDE0FE;color:#1C4F82;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 15 15"><path fill="currentColor" d="M13.792 3.262s-1.676 1.675-2.116 2.12a.3.3 0 0 1-.282.097c-.149-.023-.298-.038-.447-.056l-1.229-.146c-.069-.592-.14-1.172-.2-1.753c-.006-.055.033-.13.074-.172c.508-.513 1.927-1.928 2.134-2.136c-.45-.213-1.224-.297-1.8-.203a3.545 3.545 0 0 0-2.82 4.625c.037.115.013.182-.069.264q-2.771 2.766-5.539 5.535a3 3 0 0 0-.178.192a1.457 1.457 0 0 0 .298 2.102c.604.42 1.365.344 1.905-.195q2.78-2.778 5.556-5.56c.092-.092.165-.123.299-.078a3.4 3.4 0 0 0 1.888.089a3.544 3.544 0 0 0 2.655-4.304c-.031-.13-.078-.259-.13-.421"/></svg></span>
+            <span class="visit-type-text"><div class="visit-type-label">New Installation</div><div class="visit-type-sub">Buy and install a new SA'DA RO unit</div></span>
+            <span class="visit-type-arrow">›</span>
+          </button>
+          <button type="button" class="visit-type-btn" onclick="selectVisitType('repair')">
+            <span class="visit-type-icon" style="background:#FFD6A5;color:#9A3412;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 512 512"><path fill="currentColor" d="m241.406 21l-15.22 34.75a182 182 0 0 0-23.467 2.97l-23.282-30.064l-25.094 8.532l-.125 38.25c-10.63 5.464-20.817 12.07-30.44 19.78L88.313 79.25L70.156 98.563L88.312 133a180.6 180.6 0 0 0-15.218 26.094l-38.938 1.062l-7.906 25.28l31.438 23.158c-1.505 9.38-2.24 18.858-2.282 28.344L20.5 254.625l3.656 26.25l38.313 7.5a182 182 0 0 0 8.5 23.5L45.72 343.22l14.093 22.436l39.25-9.187a185 185 0 0 0 7.718 8.53a187 187 0 0 0 17.72 16.125l-7.625 39.313l22.938 13.25l29.968-26.094a179.4 179.4 0 0 0 26.407 8.312l9.782 38.406l26.405 2.157l15.875-36.22c10.97-.66 21.904-2.3 32.656-4.938l25.22 29.22l24.593-9.844l-.72-14.813l-57.406-43.53c-16.712 4.225-34.042 5.356-51.063 3.436c-31.754-3.58-62.27-17.92-86.218-42.686c-54.738-56.614-53.173-146.67 3.438-201.406c27.42-26.513 62.69-39.963 98-40.344c37.59-.406 75.214 13.996 103.438 43.187c45.935 47.512 52.196 118.985 19.562 173.095l31.97 24.25a181 181 0 0 0 10.75-19.375l38.655-1.063l7.906-25.28l-31.217-23a183 183 0 0 0 2.28-28.594l34.688-17.625l-3.655-26.25l-38.28-7.5a182 182 0 0 0-12.75-32.125l22.81-31.594l-15.25-21.657l-37.56 10.906c-.472-.5-.93-1.007-1.408-1.5a185 185 0 0 0-18.937-17.064l7.188-37.125L334 43.78l-28.5 24.814c-9.226-3.713-18.702-6.603-28.313-8.75l-9.343-36.688zM183.25 174.5c-10.344.118-20.597 2.658-30 7.28l45.22 34.314c13.676 10.376 17.555 30.095 7.06 43.937c-10.498 13.85-30.656 15.932-44.53 5.408l-45.188-34.282c-4.627 24.793 4.135 51.063 25.594 67.344c19.245 14.597 43.944 17.33 65.22 9.688l4.78-1.72l4.03 3.063l135.19 102.564l4.03 3.062l-.344 5.063c-1.637 22.55 7.59 45.61 26.844 60.217c21.46 16.28 49.145 17.63 71.78 6.5l-45.186-34.28c-13.874-10.526-17.282-30.506-6.78-44.344c10.5-13.84 30.537-15.405 44.217-5.032l45.188 34.283c4.616-24.784-4.11-51.067-25.563-67.344c-19.313-14.658-43.817-17.562-64.968-10.033l-4.75 1.688l-4.03-3.063l-135.19-102.562l-4.03-3.063l.344-5.03c1.55-22.387-7.85-45.194-27.157-59.845c-12.544-9.516-27.222-13.978-41.78-13.812zm43.563 90.25l163.875 124.344L379.406 404L215.5 279.625z"/></svg></span>
+            <span class="visit-type-text"><div class="visit-type-label">Repair / Fix</div><div class="visit-type-sub">Something's wrong with your existing unit</div></span>
+            <span class="visit-type-arrow">›</span>
+          </button>
+          <button type="button" class="visit-type-btn" onclick="selectVisitType('quarterly_service')">
+            <span class="visit-type-icon" style="background:#FFC8DD;color:#BE185D;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m19 1l-1.26 2.75L15 5l2.74 1.26L19 9l1.25-2.74L23 5l-2.75-1.25M9 4L6.5 9.5L1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5M19 15l-1.26 2.74L15 19l2.74 1.25L19 23l1.25-2.75L23 19l-2.75-1.26"/></svg></span>
+            <span class="visit-type-text"><div class="visit-type-label">Filter Change</div><div class="visit-type-sub">Routine quarterly filter replacement</div></span>
+            <span class="visit-type-arrow">›</span>
+          </button>
+          <button type="button" class="visit-type-btn" onclick="selectVisitType('annual_service')">
+            <span class="visit-type-icon" style="background:#CDB4DB;color:#6B21A8;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 28 28"><path fill="currentColor" d="M6.75 3h14.5C23.304 3 25 4.749 25 6.75v7.75h-.054c-.207-.654-.961-1.271-1.4-1.384L23.5 13.1V9.5h-19v11.75a2.25 2.25 0 0 0 2.25 2.25h6.65A3 3 0 0 0 13 25H6.75A3.75 3.75 0 0 1 3 21.25V6.75C3 4.712 4.72 3 6.75 3M14 25a2 2 0 0 0 3.414 1.413l3.649-3.647a4.5 4.5 0 0 0 5.89-4.92c-.054-.367-.495-.476-.758-.213l-1.78 1.781a2 2 0 1 1-2.83-2.828l1.782-1.781c.262-.263.154-.704-.213-.758a4.5 4.5 0 0 0-4.92 5.89l-3.648 3.648c-.391.39-.586.903-.586 1.415"/></svg></span>
+            <span class="visit-type-text"><div class="visit-type-label">Annual Service</div><div class="visit-type-sub">Yearly maintenance check-up</div></span>
+            <span class="visit-type-arrow">›</span>
+          </button>
+          <button type="button" class="visit-type-btn" onclick="selectVisitType('relocation')">
+            <span class="visit-type-icon" style="background:#A2D2FF;color:#1E40AF;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M20.96 16.45c.01-.15.04-.3.04-.45v.5zM11 16c0 .71.15 1.39.42 2H6v1c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-8l2.08-6c.2-.58.76-1 1.42-1h11c.66 0 1.22.42 1.42 1L21 11v5c0-2.76-2.24-5-5-5s-5 2.24-5 5m-3-2.5c0-.83-.67-1.5-1.5-1.5S5 12.67 5 13.5S5.67 15 6.5 15S8 14.33 8 13.5M19 10l-1.5-4.5h-11L5 10zm3.87 11.19l-4.11-4.11c.41-1.04.18-2.26-.68-3.11c-.9-.91-2.25-1.09-3.34-.59l1.94 1.94l-1.35 1.36l-1.99-1.95c-.54 1.09-.29 2.44.59 3.35a2.91 2.91 0 0 0 3.12.68l4.11 4.1c.18.19.45.19.63 0l1.04-1.03c.22-.18.22-.5.04-.64"/></svg></span>
+            <span class="visit-type-text"><div class="visit-type-label">Relocation</div><div class="visit-type-sub">Move your unit to a new address</div></span>
+            <span class="visit-type-arrow">›</span>
+          </button>
+          <button type="button" class="visit-type-btn" onclick="selectVisitType('inspection')">
+            <span class="visit-type-icon" style="background:#B9FBC0;color:#166534;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 26 26"><path fill="currentColor" d="M13 0c-.7 0-1.206.294-1.406.594c-.1.1-.181.306-.281.406H10c-1.1 0-2 .9-2 2H6C4.3 3 3 4.3 3 6v17c0 1.7 1.3 3 3 3h14c1.7 0 3-1.3 3-3V6c0-1.7-1.3-3-3-3h-2c0-1.1-.9-2-2-2h-1.313c-.1-.1-.18-.306-.28-.406C14.206.294 13.7 0 13 0m-3 3h6v2h-6zM6 6h2.313c.3.6.987 1 1.687 1h6c.7 0 1.387-.4 1.688-1H20v17H6zm10.563 4.688c-.188 0-.37.068-.47.218l-4.405 4.688L10 14c-.3-.3-.8-.3-1 0l-.688.688c-.3.3-.3.8 0 1l2.782 2.624c.4.4 1.006.275 1.406-.125l5.406-5.78c.2-.2.207-.607-.093-.907l-.72-.594a.75.75 0 0 0-.53-.219z"/></svg></span>
+            <span class="visit-type-text"><div class="visit-type-label">Inspection / Site Visit</div><div class="visit-type-sub">General check-up or site visit</div></span>
+            <span class="visit-type-arrow">›</span>
+          </button>
+        </div>
+      </div>
+
       <!-- STEP 2: Details -->
       <div class="form-section" id="step-2">
         <h1 class="section-title">Your Details</h1>
         <p class="section-subtitle">Tell us a bit about yourself so we can serve you better.</p>
+        <div class="chosen-type-chip">
+          <div class="chosen-type-chip-left">
+            <span class="visit-type-icon" id="chosen-type-icon"></span>
+            <span class="chosen-type-chip-label" id="chosen-type-label"></span>
+          </div>
+          <a href="#" class="chosen-type-chip-change" onclick="event.preventDefault();goToStep('type');">Change</a>
+        </div>
+        <div class="form-group" id="unit-brand-group" style="display:none;">
+          <label>Which unit do you have?</label>
+          <select id="unit-model-select" onchange="onUnitModelChange()">
+            <option value="">Select your unit…</option>
+          </select>
+          <input type="text" id="unit-brand-other" placeholder="e.g. Kent, Aquafresh, Pureit — brand/model" style="margin-top:10px;display:none;">
+        </div>
+        <div class="form-group" id="issue-desc-group" style="display:none;">
+          <label>What's wrong?</label>
+          <textarea id="issue-desc" rows="3" placeholder="Briefly describe the issue"></textarea>
+        </div>
         <div class="form-group"><label>Full Name</label><input type="text" id="customer-name" placeholder="Enter your full name"></div>
         <div class="form-group">
           <label>Region</label>
@@ -194,12 +249,16 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Installation Address</label>
+          <label id="address-label">Installation Address</label>
           <button type="button" class="location-btn" id="location-btn" onclick="getLocation()" style="margin-top:0;"><span>📍</span> <span id="location-btn-label">Use My Current Location</span></button>
           <div class="location-hint" id="location-hint">Tap to fill your address from GPS. You can drag the pin on the map to fine-tune.</div>
           <input type="text" id="customer-address" placeholder="Enter your address" style="margin-top:12px;">
           <div id="location-map" aria-label="Draggable map pin"></div>
           <div class="map-caption" id="map-caption" style="display:none;">Drag the pin to your exact door.</div>
+        </div>
+        <div class="form-group" id="relocate-to-group" style="display:none;">
+          <label>New Address <span style="color:var(--muted,#94a3b8);font-weight:400;">(where should we move it to?)</span></label>
+          <input type="text" id="relocate-to-address" placeholder="New address">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div class="form-group">
@@ -237,13 +296,15 @@
       <!-- STEP 3: Schedule -->
       <div class="form-section" id="step-3">
         <button class="btn-back" onclick="goToStep(2)">← Back</button>
-        <h1 class="section-title" style="margin-bottom:16px;">Choose Your Product</h1>
-        <div class="form-group">
-          <div id="product-grid" style="display:grid;grid-template-columns:1fr;gap:8px;"></div>
-          <div id="basket-total" style="display:none;margin-top:10px;padding:10px 14px;background:#EFF6FF;border-radius:10px;font-weight:700;text-align:right;color:#1565C0;"></div>
+        <div id="product-section">
+          <h1 class="section-title" style="margin-bottom:16px;">Choose Your Product</h1>
+          <div class="form-group">
+            <div id="product-grid" style="display:grid;grid-template-columns:1fr;gap:8px;"></div>
+            <div id="basket-total" style="display:none;margin-top:10px;padding:10px 14px;background:#EFF6FF;border-radius:10px;font-weight:700;text-align:right;color:#1565C0;"></div>
+          </div>
         </div>
         <h1 class="section-title" style="margin-top:28px;">Choose a Time Slot</h1>
-        <p class="section-subtitle">Select an available date and time for your installation.</p>
+        <p class="section-subtitle" id="schedule-subtitle">Select an available date and time for your installation.</p>
         <div class="form-group">
           <label>Available Dates</label>
           <div id="date-grid" class="date-grid"><div class="loading"><div class="spinner"></div> Loading...</div></div>
@@ -268,7 +329,7 @@
           <div class="confirm-row"><span class="confirm-label">City</span><span class="confirm-value" id="conf-city"></span></div>
           <div class="confirm-row"><span class="confirm-label">Address</span><span class="confirm-value" id="conf-address"></span></div>
         </div>
-        <div class="confirm-block">
+        <div class="confirm-block" id="product-confirm-block">
           <div class="confirm-title">Product</div>
           <div class="confirm-row"><span class="confirm-label">Model</span><span class="confirm-value" id="conf-product"></span></div>
           <div class="confirm-row"><span class="confirm-label">Quantity</span><span class="confirm-value" id="conf-qty"></span></div>
@@ -283,6 +344,14 @@
           <div class="confirm-row" id="conf-discount-row" style="display:none;"><span class="confirm-label" style="color:#0d7a63;">Discount <span id="conf-promo-label"></span></span><span class="confirm-value" id="conf-discount" style="color:#0d7a63;"></span></div>
           <div class="confirm-row"><span class="confirm-label" style="font-weight:700;">Total</span><span class="confirm-value" id="conf-total" style="font-weight:700;"></span></div>
         </div>
+        <div class="confirm-block" id="visit-confirm-block" style="display:none;">
+          <div class="confirm-title">Visit Details</div>
+          <div class="confirm-row"><span class="confirm-label">Visit Type</span><span class="confirm-value" id="conf-visit-type"></span></div>
+          <div class="confirm-row"><span class="confirm-label">Unit Brand / Model</span><span class="confirm-value" id="conf-unit-brand"></span></div>
+          <div class="confirm-row" id="conf-issue-row" style="display:none;"><span class="confirm-label">Issue</span><span class="confirm-value" id="conf-issue"></span></div>
+          <div class="confirm-row" id="conf-relocate-row" style="display:none;"><span class="confirm-label">New Address</span><span class="confirm-value" id="conf-relocate-to"></span></div>
+          <div class="confirm-row"><span class="confirm-label" style="font-weight:700;">Fee</span><span class="confirm-value" id="conf-visit-fee" style="font-weight:700;"></span></div>
+        </div>
         <div class="confirm-block">
           <div class="confirm-title">Appointment</div>
           <div class="confirm-row"><span class="confirm-label">Date</span><span class="confirm-value" id="conf-date"></span></div>
@@ -295,8 +364,8 @@
       <!-- SUCCESS -->
       <div id="step-success" style="display:none;">
         <div class="success-icon">✓</div>
-        <h2 class="success-title">Booking Confirmed!</h2>
-        <p class="success-message">Your installation appointment has been successfully booked.</p>
+        <h2 class="success-title" id="success-title">Booking Confirmed!</h2>
+        <p class="success-message" id="success-subtitle">Your installation appointment has been successfully booked.</p>
         <div class="booking-ref">
           <div class="booking-ref-label">Your Booking Reference</div>
           <div class="booking-ref-code" id="booking-ref-display"></div>
@@ -318,14 +387,27 @@
 <script>
 // db is a global from shared/supabase.js
 
-let state = { phone:'', name:'', cityName:'', regionId:null, address:'', latitude:null, longitude:null, selectedDate:null, selectedHour:null, selectedSlotId:null, generatedOTP:null, isReturning:false, existingProfile:null, needsCustomerBackfill:false, otpAttempts:0, otpGeneratedAt:null, items:{} };
+let state = { phone:'', name:'', cityName:'', regionId:null, address:'', latitude:null, longitude:null, selectedDate:null, selectedHour:null, selectedSlotId:null, generatedOTP:null, isReturning:false, existingProfile:null, needsCustomerBackfill:false, otpAttempts:0, otpGeneratedAt:null, items:{}, visitType:'installation', unitBrand:'', issueDesc:'', relocateTo:'' };
+// Service visits (not a new installation) have a flat call-out fee where known;
+// Repair/Relocation/Inspection vary by job, so pricing is confirmed on-site.
+const SERVICE_VISIT_PRICES = { quarterly_service: 89, annual_service: 199 };
+const VISIT_TYPE_LABELS = { installation:'New Installation', repair:'Repair / Fix', quarterly_service:'Filter Change', annual_service:'Annual Service', relocation:'Relocation', inspection:'Inspection / Site Visit' };
+// Same bg/fg/icon set as the "What do you need?" link-tree buttons — reused
+// for the chosen-type chip shown at the top of the Details step.
+const VISIT_TYPE_CHIP = {
+  installation:      { bg:'#BDE0FE', fg:'#1C4F82', icon:'<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 15 15"><path fill="currentColor" d="M13.792 3.262s-1.676 1.675-2.116 2.12a.3.3 0 0 1-.282.097c-.149-.023-.298-.038-.447-.056l-1.229-.146c-.069-.592-.14-1.172-.2-1.753c-.006-.055.033-.13.074-.172c.508-.513 1.927-1.928 2.134-2.136c-.45-.213-1.224-.297-1.8-.203a3.545 3.545 0 0 0-2.82 4.625c.037.115.013.182-.069.264q-2.771 2.766-5.539 5.535a3 3 0 0 0-.178.192a1.457 1.457 0 0 0 .298 2.102c.604.42 1.365.344 1.905-.195q2.78-2.778 5.556-5.56c.092-.092.165-.123.299-.078a3.4 3.4 0 0 0 1.888.089a3.544 3.544 0 0 0 2.655-4.304c-.031-.13-.078-.259-.13-.421"/></svg>' },
+  repair:             { bg:'#FFD6A5', fg:'#9A3412', icon:'<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 512 512"><path fill="currentColor" d="m241.406 21l-15.22 34.75a182 182 0 0 0-23.467 2.97l-23.282-30.064l-25.094 8.532l-.125 38.25c-10.63 5.464-20.817 12.07-30.44 19.78L88.313 79.25L70.156 98.563L88.312 133a180.6 180.6 0 0 0-15.218 26.094l-38.938 1.062l-7.906 25.28l31.438 23.158c-1.505 9.38-2.24 18.858-2.282 28.344L20.5 254.625l3.656 26.25l38.313 7.5a182 182 0 0 0 8.5 23.5L45.72 343.22l14.093 22.436l39.25-9.187a185 185 0 0 0 7.718 8.53a187 187 0 0 0 17.72 16.125l-7.625 39.313l22.938 13.25l29.968-26.094a179.4 179.4 0 0 0 26.407 8.312l9.782 38.406l26.405 2.157l15.875-36.22c10.97-.66 21.904-2.3 32.656-4.938l25.22 29.22l24.593-9.844l-.72-14.813l-57.406-43.53c-16.712 4.225-34.042 5.356-51.063 3.436c-31.754-3.58-62.27-17.92-86.218-42.686c-54.738-56.614-53.173-146.67 3.438-201.406c27.42-26.513 62.69-39.963 98-40.344c37.59-.406 75.214 13.996 103.438 43.187c45.935 47.512 52.196 118.985 19.562 173.095l31.97 24.25a181 181 0 0 0 10.75-19.375l38.655-1.063l7.906-25.28l-31.217-23a183 183 0 0 0 2.28-28.594l34.688-17.625l-3.655-26.25l-38.28-7.5a182 182 0 0 0-12.75-32.125l22.81-31.594l-15.25-21.657l-37.56 10.906c-.472-.5-.93-1.007-1.408-1.5a185 185 0 0 0-18.937-17.064l7.188-37.125L334 43.78l-28.5 24.814c-9.226-3.713-18.702-6.603-28.313-8.75l-9.343-36.688zM183.25 174.5c-10.344.118-20.597 2.658-30 7.28l45.22 34.314c13.676 10.376 17.555 30.095 7.06 43.937c-10.498 13.85-30.656 15.932-44.53 5.408l-45.188-34.282c-4.627 24.793 4.135 51.063 25.594 67.344c19.245 14.597 43.944 17.33 65.22 9.688l4.78-1.72l4.03 3.063l135.19 102.564l4.03 3.062l-.344 5.063c-1.637 22.55 7.59 45.61 26.844 60.217c21.46 16.28 49.145 17.63 71.78 6.5l-45.186-34.28c-13.874-10.526-17.282-30.506-6.78-44.344c10.5-13.84 30.537-15.405 44.217-5.032l45.188 34.283c4.616-24.784-4.11-51.067-25.563-67.344c-19.313-14.658-43.817-17.562-64.968-10.033l-4.75 1.688l-4.03-3.063l-135.19-102.562l-4.03-3.063l.344-5.03c1.55-22.387-7.85-45.194-27.157-59.845c-12.544-9.516-27.222-13.978-41.78-13.812zm43.563 90.25l163.875 124.344L379.406 404L215.5 279.625z"/></svg>' },
+  quarterly_service:  { bg:'#FFC8DD', fg:'#BE185D', icon:'<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m19 1l-1.26 2.75L15 5l2.74 1.26L19 9l1.25-2.74L23 5l-2.75-1.25M9 4L6.5 9.5L1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5M19 15l-1.26 2.74L15 19l2.74 1.25L19 23l1.25-2.75L23 19l-2.75-1.26"/></svg>' },
+  annual_service:     { bg:'#CDB4DB', fg:'#6B21A8', icon:'<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 28 28"><path fill="currentColor" d="M6.75 3h14.5C23.304 3 25 4.749 25 6.75v7.75h-.054c-.207-.654-.961-1.271-1.4-1.384L23.5 13.1V9.5h-19v11.75a2.25 2.25 0 0 0 2.25 2.25h6.65A3 3 0 0 0 13 25H6.75A3.75 3.75 0 0 1 3 21.25V6.75C3 4.712 4.72 3 6.75 3M14 25a2 2 0 0 0 3.414 1.413l3.649-3.647a4.5 4.5 0 0 0 5.89-4.92c-.054-.367-.495-.476-.758-.213l-1.78 1.781a2 2 0 1 1-2.83-2.828l1.782-1.781c.262-.263.154-.704-.213-.758a4.5 4.5 0 0 0-4.92 5.89l-3.648 3.648c-.391.39-.586.903-.586 1.415"/></svg>' },
+  relocation:         { bg:'#A2D2FF', fg:'#1E40AF', icon:'<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M20.96 16.45c.01-.15.04-.3.04-.45v.5zM11 16c0 .71.15 1.39.42 2H6v1c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-8l2.08-6c.2-.58.76-1 1.42-1h11c.66 0 1.22.42 1.42 1L21 11v5c0-2.76-2.24-5-5-5s-5 2.24-5 5m-3-2.5c0-.83-.67-1.5-1.5-1.5S5 12.67 5 13.5S5.67 15 6.5 15S8 14.33 8 13.5M19 10l-1.5-4.5h-11L5 10zm3.87 11.19l-4.11-4.11c.41-1.04.18-2.26-.68-3.11c-.9-.91-2.25-1.09-3.34-.59l1.94 1.94l-1.35 1.36l-1.99-1.95c-.54 1.09-.29 2.44.59 3.35a2.91 2.91 0 0 0 3.12.68l4.11 4.1c.18.19.45.19.63 0l1.04-1.03c.22-.18.22-.5.04-.64"/></svg>' },
+  inspection:         { bg:'#B9FBC0', fg:'#166534', icon:'<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 26 26"><path fill="currentColor" d="M13 0c-.7 0-1.206.294-1.406.594c-.1.1-.181.306-.281.406H10c-1.1 0-2 .9-2 2H6C4.3 3 3 4.3 3 6v17c0 1.7 1.3 3 3 3h14c1.7 0 3-1.3 3-3V6c0-1.7-1.3-3-3-3h-2c0-1.1-.9-2-2-2h-1.313c-.1-.1-.18-.306-.28-.406C14.206.294 13.7 0 13 0m-3 3h6v2h-6zM6 6h2.313c.3.6.987 1 1.687 1h6c.7 0 1.387-.4 1.688-1H20v17H6zm10.563 4.688c-.188 0-.37.068-.47.218l-4.405 4.688L10 14c-.3-.3-.8-.3-1 0l-.688.688c-.3.3-.3.8 0 1l2.782 2.624c.4.4 1.006.275 1.406-.125l5.406-5.78c.2-.2.207-.607-.093-.907l-.72-.594a.75.75 0 0 0-.53-.219z"/></svg>' }
+};
 // items: { [model_name]: { model, price, qty, is_serialized } }  — the basket
 let catalogueCache = [];  // [{ model_name, price_sar, is_serialized, image_url, description }]
 let regionsCache = [];  // [{ id, key, name, city_labels }]
 let citiesCache = [];   // [{ id, name, region_id }]
 const MAX_OTP_ATTEMPTS = 3;
 const OTP_EXPIRY_MS = 2 * 60 * 1000; // 2 minutes
-let currentStep = 1;
 let timerInterval = null;
 let leafletMap = null;
 let leafletMarker = null;
@@ -361,6 +443,26 @@ function onRegionChange() {
   citySel.disabled = false;
   citySel.innerHTML = '<option value="">Select city…</option>' +
     cities.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+}
+
+// Picked from the "What do you need?" link-tree — sets state, updates the
+// chosen-type chip + conditional fields on the Details step, then proceeds.
+async function selectVisitType(t) {
+  state.visitType = t;
+  const isInstall = t === 'installation';
+  const meta = VISIT_TYPE_CHIP[t];
+  document.getElementById('chosen-type-icon').style.background = meta.bg;
+  document.getElementById('chosen-type-icon').style.color = meta.fg;
+  document.getElementById('chosen-type-icon').innerHTML = meta.icon;
+  document.getElementById('chosen-type-label').textContent = VISIT_TYPE_LABELS[t];
+  document.getElementById('unit-brand-group').style.display = isInstall ? 'none' : 'block';
+  document.getElementById('issue-desc-group').style.display = t === 'repair' ? 'block' : 'none';
+  document.getElementById('relocate-to-group').style.display = t === 'relocation' ? 'block' : 'none';
+  document.getElementById('address-label').textContent = t === 'relocation' ? 'Current Address' : (isInstall ? 'Installation Address' : 'Visit Address');
+  document.getElementById('unit-brand-other').style.display = 'none';
+  document.getElementById('unit-brand-other').value = '';
+  if (!isInstall) populateUnitModelSelect();
+  goToStep(2);
 }
 
 function formatSaudiPhone(p) {
@@ -542,7 +644,7 @@ async function verifyOTP() {
     localStorage.setItem('sada_customer', JSON.stringify({ ...state.existingProfile, phone: state.phone }));
     window.location.href = 'portal.html';
   } else {
-    goToStep(2);
+    goToStep('type');
   }
 }
 
@@ -561,6 +663,27 @@ function goToStep(step) {
     const address=document.getElementById('customer-address').value.trim();
     const errEl=document.getElementById('step2-error');
     if(!name||!region||!city||!address){errEl.style.display='block';errEl.textContent='Please fill in all fields.';return;}
+
+    const visitType = state.visitType;
+    let unitBrand = '', issueDesc = '', relocateTo = '';
+    if (visitType !== 'installation') {
+      const modelSel = document.getElementById('unit-model-select').value;
+      if (!modelSel) { errEl.style.display='block'; errEl.textContent='Please select which unit you have.'; return; }
+      if (modelSel === '__other__') {
+        unitBrand = document.getElementById('unit-brand-other').value.trim();
+        if (!unitBrand) { errEl.style.display='block'; errEl.textContent='Please tell us your unit’s brand/model.'; return; }
+      } else {
+        unitBrand = modelSel;
+      }
+      if (visitType === 'repair') {
+        issueDesc = document.getElementById('issue-desc').value.trim();
+        if (!issueDesc) { errEl.style.display='block'; errEl.textContent='Please briefly describe the issue.'; return; }
+      }
+      if (visitType === 'relocation') {
+        relocateTo = document.getElementById('relocate-to-address').value.trim();
+        if (!relocateTo) { errEl.style.display='block'; errEl.textContent='Please enter the new address.'; return; }
+      }
+    }
     errEl.style.display='none';
     // Canonicalise the city so reporting groups spellings consistently.
     const cityCanon = (window.SADACity ? (SADACity.canonicalCity(city) || city) : city);
@@ -568,22 +691,27 @@ function goToStep(step) {
     state.source=document.getElementById('customer-source').value || null;
     state.floorNo=document.getElementById('customer-floor').value.trim() || null;
     state.flatNo=document.getElementById('customer-flat').value.trim() || null;
-    loadProducts();
+    state.visitType=visitType; state.unitBrand=unitBrand; state.issueDesc=issueDesc; state.relocateTo=relocateTo;
+
+    const isInstall = visitType === 'installation';
+    document.getElementById('product-section').style.display = isInstall ? 'block' : 'none';
+    document.getElementById('schedule-subtitle').textContent = isInstall
+      ? 'Select an available date and time for your installation.'
+      : 'Select an available date and time for your visit.';
+    if (isInstall) loadProducts();
     loadAvailableDates();
   }
   showStep(step);
-  currentStep = step === '1b' ? 1 : parseInt(step);
-  updateProgress();
+  updateProgress(step);
 }
 
-function updateProgress() {
-  const total=4;
-  for(let i=1;i<=total;i++){
-    const prog=document.getElementById(`prog-${i}`);if(!prog)continue;
-    prog.classList.remove('active','done');
-    if(i<currentStep)prog.classList.add('done');else if(i===currentStep)prog.classList.add('active');
-    if(i<total){const line=document.getElementById(`line-${i}`);if(line)line.classList.toggle('done',i<currentStep);}
-  }
+// A plain fill bar instead of a numbered wizard — simpler to keep in sync now
+// that the flow branches (service visits skip the product step, and "What do
+// you need?" is a real screen of its own between OTP and Details).
+const PROGRESS_PCT = { '1': 8, '1b': 20, 'type': 35, '2': 50, '3': 75, '4': 100 };
+function updateProgress(step) {
+  const fill = document.getElementById('progress-fill');
+  if (fill) fill.style.width = (PROGRESS_PCT[String(step)] || 10) + '%';
 }
 
 function setLocationBtn(state, labelText, hintText, hintIsError) {
@@ -734,19 +862,39 @@ function selectTime(hour,slotId,el) {
 }
 
 // ---- Product basket (multiple line items, each with a quantity stepper) ----
-async function loadProducts() {
-  const grid = document.getElementById('product-grid');
-  if (catalogueCache.length) { renderProducts(); return; }
-  grid.innerHTML = '<div class="loading"><div class="spinner"></div> Loading products...</div>';
+async function ensureCatalogueLoaded() {
+  if (catalogueCache.length) return catalogueCache;
   const { data, error } = await db.from('product_models')
     .select('model_name, price_sar, is_serialized, image_url, description, in_stock')
     .eq('is_catalogue', true).order('sort_order', { ascending: true });
-  if (error || !data || !data.length) {
+  catalogueCache = (!error && data) ? data : [];
+  return catalogueCache;
+}
+
+// Service visits (not installation) offer the same catalogue as a "which unit
+// do you have" picker, in case it's actually a SA'DA model — plus an "Other"
+// option that reveals free text for a different brand.
+async function populateUnitModelSelect() {
+  const cat = await ensureCatalogueLoaded();
+  const sel = document.getElementById('unit-model-select');
+  sel.innerHTML = '<option value="">Select your unit…</option>' +
+    cat.map(p => `<option value="${p.model_name}">${p.model_name}</option>`).join('') +
+    '<option value="__other__">Other / not listed</option>';
+}
+
+function onUnitModelChange() {
+  const v = document.getElementById('unit-model-select').value;
+  document.getElementById('unit-brand-other').style.display = v === '__other__' ? 'block' : 'none';
+}
+
+async function loadProducts() {
+  const grid = document.getElementById('product-grid');
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div> Loading products...</div>';
+  const cat = await ensureCatalogueLoaded();
+  if (!cat.length) {
     grid.innerHTML = '<div style="font-size:13px;color:#B45309;">Product list unavailable — our team will confirm your product.</div>';
-    catalogueCache = [];
     return;
   }
-  catalogueCache = data;
   renderProducts();
 }
 
@@ -853,7 +1001,8 @@ function updateBasketTotal() {
 }
 
 function goToStep4() {
-  if (catalogueCache.length && !basketLines().length) {
+  const isInstall = state.visitType === 'installation';
+  if (isInstall && catalogueCache.length && !basketLines().length) {
     const errEl=document.getElementById('step3-error');errEl.style.display='block';errEl.textContent='Please choose at least one product.';return;
   }
   if(!state.selectedDate||state.selectedHour===null){
@@ -872,20 +1021,37 @@ function goToStep4() {
   document.getElementById('conf-city').textContent=state.cityName;
   const flatParts=[state.floorNo?`Floor ${state.floorNo}`:'', state.flatNo?`Flat ${state.flatNo}`:''].filter(Boolean);
   document.getElementById('conf-address').textContent=state.address+(flatParts.length?` — ${flatParts.join(', ')}`:'');
-  // product summary — list every line
-  const lines = basketLines();
-  const prodEl=document.getElementById('conf-product'), qtyEl=document.getElementById('conf-qty');
-  if (lines.length) {
-    prodEl.innerHTML = lines.map(l => `${l.model}${l.color ? ` — ${l.color}` : ''} ×${l.qty}`).join('<br>');
-    qtyEl.textContent = basketCount();
+
+  document.getElementById('product-confirm-block').style.display = isInstall ? 'block' : 'none';
+  document.getElementById('visit-confirm-block').style.display = isInstall ? 'none' : 'block';
+  if (isInstall) {
+    // product summary — list every line
+    const lines = basketLines();
+    const prodEl=document.getElementById('conf-product'), qtyEl=document.getElementById('conf-qty');
+    if (lines.length) {
+      prodEl.innerHTML = lines.map(l => `${l.model}${l.color ? ` — ${l.color}` : ''} ×${l.qty}`).join('<br>');
+      qtyEl.textContent = basketCount();
+    } else {
+      prodEl.textContent = '—'; qtyEl.textContent = '—';
+    }
+    // Reset any previously-applied promo when re-entering the step, then render totals.
+    state.promo = null;
+    document.getElementById('promo-input').value = '';
+    document.getElementById('promo-msg').style.display = 'none';
+    renderConfirmTotals();
   } else {
-    prodEl.textContent = '—'; qtyEl.textContent = '—';
+    document.getElementById('conf-visit-type').textContent = VISIT_TYPE_LABELS[state.visitType] || state.visitType;
+    document.getElementById('conf-unit-brand').textContent = state.unitBrand || '—';
+    const issueRow = document.getElementById('conf-issue-row');
+    if (state.visitType === 'repair') { issueRow.style.display = ''; document.getElementById('conf-issue').textContent = state.issueDesc; }
+    else { issueRow.style.display = 'none'; }
+    const relocRow = document.getElementById('conf-relocate-row');
+    if (state.visitType === 'relocation') { relocRow.style.display = ''; document.getElementById('conf-relocate-to').textContent = state.relocateTo; }
+    else { relocRow.style.display = 'none'; }
+    const fee = SERVICE_VISIT_PRICES[state.visitType];
+    document.getElementById('conf-visit-fee').textContent = fee ? `SAR ${fee}` : 'To be confirmed on-site';
   }
-  // Reset any previously-applied promo when re-entering the step, then render totals.
-  state.promo = null;
-  document.getElementById('promo-input').value = '';
-  document.getElementById('promo-msg').style.display = 'none';
-  renderConfirmTotals();
+
   document.getElementById('conf-date').textContent=formatDateFull(state.selectedDate);
   document.getElementById('conf-time').textContent=formatHour(state.selectedHour);
   goToStep(4);
@@ -969,7 +1135,8 @@ async function submitBooking() {
     p_region_id: state.regionId,
     p_address:   state.address,
     p_latitude:  state.latitude,
-    p_longitude: state.longitude
+    p_longitude: state.longitude,
+    p_booking_type: state.visitType
   });
 
   const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
@@ -1032,6 +1199,28 @@ async function submitBooking() {
       })));
       // Promo usage is counted when the admin marks the job completed, not here.
     }
+  } else if (state.visitType !== 'installation') {
+    // Service visit on a (likely non-SADA) existing unit — no product basket,
+    // just the unit/issue details the customer gave in step 2.
+    const { data: bkRow } = await db.from('bookings').select('id')
+      .eq('booking_reference', row.booking_reference).maybeSingle();
+    const bkId = bkRow?.id;
+    if (bkId) {
+      const noteParts = [
+        state.unitBrand ? `Unit: ${state.unitBrand}` : '',
+        state.issueDesc ? `Issue: ${state.issueDesc}` : '',
+        state.relocateTo ? `Relocate to: ${state.relocateTo}` : ''
+      ].filter(Boolean);
+      const patch = { product_model: state.unitBrand || null, referral_source: state.source || null };
+      const flatFee = SERVICE_VISIT_PRICES[state.visitType];
+      if (flatFee) patch.order_total = flatFee;
+      if (noteParts.length) patch.notes = noteParts.join(' · ');
+      await db.from('bookings').update(patch).eq('id', bkId);
+      if (state.floorNo || state.flatNo) {
+        const fl = await db.from('bookings').update({ floor_no: state.floorNo || null, flat_no: state.flatNo || null }).eq('id', bkId);
+        if (fl.error) console.warn('Floor/flat not saved:', fl.error.message);
+      }
+    }
   }
   // Save customer profile. customers has no latitude/longitude columns —
   // including them makes PostgREST reject the whole upsert (silently, since
@@ -1045,7 +1234,8 @@ async function submitBooking() {
   if (profileErr) console.error('customer profile save failed:', profileErr.message);
   localStorage.setItem('sada_customer',JSON.stringify({phone:state.phone,name:state.name,city:state.cityName,regionId:state.regionId,address:state.address}));
   // Confirmation SMS
-  const msg=`SA'DA H2O - Booking Confirmed!\n\nDear ${state.name},\nRef: ${booking.booking_reference}\nDate: ${formatDateFull(bookedDate)}\nTime: ${formatHour(bookedHour)}\nCity: ${state.cityName}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
+  const typeLabel = VISIT_TYPE_LABELS[state.visitType] || 'Booking';
+  const msg=`SA'DA H2O - ${typeLabel} Confirmed!\n\nDear ${state.name},\nRef: ${booking.booking_reference}\nDate: ${formatDateFull(bookedDate)}\nTime: ${formatHour(bookedHour)}\nCity: ${state.cityName}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
   await sendSMS(state.phone, msg);
   // Fire-and-forget: broadcast to all active installers. Look up the booking id
   // by its reference (the RPC returns the reference, not the uuid).
@@ -1059,6 +1249,9 @@ async function submitBooking() {
         }).catch(e => console.warn('notify-installers failed:', e));
       }
     });
+  document.getElementById('success-subtitle').textContent = state.visitType === 'installation'
+    ? 'Your installation appointment has been successfully booked.'
+    : 'Your visit has been successfully booked.';
   document.querySelectorAll('.form-section').forEach(s=>s.classList.remove('active'));
   document.getElementById('step-success').style.display='block';
   document.getElementById('booking-ref-display').textContent=booking.booking_reference;
