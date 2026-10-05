@@ -847,10 +847,7 @@ async function loadBookDates() {
     .eq('service_region_id', bookRegionId)
     .eq('is_available', true).eq('is_booked', false)
     .gte('slot_date', startIso).lte('slot_date', endIso);
-  // Customers need 2 days' notice (DB-enforced) — filter these out here too,
-  // so the date grid never offers a slot the server would reject.
-  const minDate = window.minBookableDateISO();
-  const availableDates = [...new Set((data || []).filter(s => s.slot_date >= minDate && window.slotIsBookable(s.slot_date, s.slot_hour)).map(s => s.slot_date))].sort();
+  const availableDates = [...new Set((data || []).filter(s => window.slotIsBookable(s.slot_date, s.slot_hour)).map(s => s.slot_date))].sort();
   grid.innerHTML = '';
   if (!availableDates.length) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">No available slots for this region in the next 2 months.</p>'; return; }
   availableDates.forEach(dateStr => {

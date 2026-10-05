@@ -93,20 +93,6 @@
     return Number(slotHour) * 60 > k.minutes + window.SLOT_MIN_LEAD_MINUTES;
   };
 
-  // Earliest calendar date (Saudi time) a customer (anon/authenticated role) is
-  // allowed to book — mirrors the DB trigger enforce_booking_lead_time(), which
-  // rejects any customer-created booking before CURRENT_DATE + 2 days. Staff
-  // (admin) are exempt there, but this client-side floor is only used on the
-  // customer-facing pages, so it never needs an admin bypass of its own.
-  // NOT the same thing as SLOT_MIN_LEAD_MINUTES above, which only protects
-  // against picking a slot later today that has already started.
-  window.minBookableDateISO = function (now) {
-    const k = window.ksaNow(now);
-    const d = new Date(k.dateISO + 'T00:00:00Z');
-    d.setUTCDate(d.getUTCDate() + 2);
-    return d.toISOString().slice(0, 10);
-  };
-
   window.formatDateFull = function (dateStr) {
     // dd/mm/yyyy + weekday for at-a-glance context
     const d = new Date(dateStr + 'T00:00:00');
