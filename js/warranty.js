@@ -248,7 +248,11 @@
     }
     var img = (u.product_models && u.product_models.image_url) || '/assets/models/purifier-generic.png';
     var desc = (u.product_models && u.product_models.description) || '';
-    var hid = 'wh-' + idx;
+    // Keyed by the warranty's own id (not the loop index) so it stays unique
+    // even when My Units and the Service tab both render a card at index 0 —
+    // their panels coexist in the DOM at once (one just hidden), and
+    // getElementById only ever finds the first match.
+    var hid = 'wh-' + (u.id || idx);
     return '' +
     '<div style="background:var(--foam,#E3F2FD);border:1px solid var(--border,#CFD8DC);border-radius:16px;padding:16px;margin-bottom:14px;">' +
       '<div style="display:flex;gap:13px;align-items:flex-start;margin-bottom:13px;">' +

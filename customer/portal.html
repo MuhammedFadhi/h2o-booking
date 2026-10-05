@@ -190,6 +190,7 @@
     <button class="tab" onclick="switchTab('units',this)"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.46 20.846A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3a12 12 0 0 0 8.5 3a12 12 0 0 1-.09 7.06M15 19l2 2l4-4"/></svg><span>Units</span></button>
     <button class="tab" onclick="switchTab('book',this)"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0m6 0h6m-3-3v6"/></svg><span>Book</span></button>
     <button class="tab" onclick="switchTab('profile',this)"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg><span>Profile</span></button>
+    <button class="tab" onclick="switchTab('service',this)"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/></g></svg><span>Service</span></button>
   </nav>
 
   <!-- MY BOOKINGS -->
@@ -293,6 +294,13 @@
       <div class="form-group"><label>Phone (cannot be changed)</label><input type="text" id="profile-phone" disabled style="background:var(--bg);color:var(--muted);"></div>
       <button class="btn-primary" onclick="saveProfile()" style="width:100%;padding:14px;">Save Changes</button>
     </div>
+  </div>
+
+  <!-- SERVICE (self-reported tracking — units with no QR / not SA'DA-registered) -->
+  <div class="tab-panel" id="tab-service">
+    <p class="section-title">Service</p>
+    <p class="section-sub">Filter &amp; service tracking for a unit that isn't registered with SA'DA.</p>
+    <div id="service-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
   </div>
 </div>
 
@@ -400,9 +408,10 @@ function switchTab(name, el) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById(`tab-${name}`).classList.add('active');
-  // Units are loaded lazily — most visits are about bookings, and this saves
-  // 2 round trips on every portal open.
+  // Units/Service are loaded lazily — most visits are about bookings, and
+  // this saves round trips on every portal open.
   if (name === 'units' && !unitsLoaded) loadUnits();
+  if (name === 'service' && !serviceLoaded) loadServiceHistory();
 }
 
 let unitsLoaded = false;
@@ -413,7 +422,9 @@ async function loadUnits() {
     return;
   }
   try {
-    const units = await SADA.Warranty.unitsForPhone(customer.phone);
+    // Real, QR-registered SA'DA units only — self-reported tracking (no QR,
+    // possibly a non-SA'DA unit) lives in the separate Service tab instead.
+    const units = (await SADA.Warranty.unitsForPhone(customer.phone)).filter(u => u.source !== 'self_reported');
     unitsLoaded = true;
     if (!units.length) {
       el.innerHTML =
@@ -427,6 +438,31 @@ async function loadUnits() {
   } catch (e) {
     console.error('loadUnits failed:', e);
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load your units. Please refresh.</p></div>';
+  }
+}
+
+let serviceLoaded = false;
+async function loadServiceHistory() {
+  const el = document.getElementById('service-list');
+  if (!window.SADA || !window.SADA.Warranty) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Service module still loading — please try again in a moment.</p></div>';
+    return;
+  }
+  try {
+    const units = (await SADA.Warranty.unitsForPhone(customer.phone)).filter(u => u.source === 'self_reported');
+    serviceLoaded = true;
+    if (!units.length) {
+      el.innerHTML =
+        '<div class="empty-state"><div class="empty-icon">🔧</div>' +
+        '<p style="font-weight:700;margin-bottom:6px;">Nothing tracked yet</p>' +
+        '<p style="font-size:13px;color:var(--muted);line-height:1.6;">Complete a Filter Change or Annual Service visit with us and we’ll start tracking your next-due date here — no SA\'DA unit or QR code required.</p>' +
+        '</div>';
+      return;
+    }
+    el.innerHTML = units.map((u, i) => SADA.Warranty.unitCard(u, i)).join('');
+  } catch (e) {
+    console.error('loadServiceHistory failed:', e);
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load your service history. Please refresh.</p></div>';
   }
 }
 
