@@ -228,14 +228,24 @@
 
   /** Full unit card for the customer portal. */
   function unitCard(u, idx) {
+    // A self-reported row (standalone service visit, no SA'DA install/QR) gets
+    // honest framing instead of implying formal SA'DA product coverage: no
+    // warranty badge/countdown, "first serviced" instead of "installed".
+    var isSelfReported = u.source === 'self_reported';
     // Admin can pause/deactivate a warranty. Reflect that to the customer:
     // a deactivated unit is not covered; a paused one is temporarily suspended.
     var st = u.status || 'active';
-    var wSt = statusOf(u.warranty_expiry);
-    var wc = STATUS_COLORS[wSt];
-    var statusBadge = (wSt === 'expired') ? 'EXPIRED' : '2-YR WARRANTY';
-    if (st === 'deactivated') { wc = STATUS_COLORS.expired; statusBadge = 'NOT COVERED'; }
-    else if (st === 'paused') { wc = STATUS_COLORS.soon; statusBadge = 'SUSPENDED'; }
+    var wc, statusBadge;
+    if (isSelfReported) {
+      wc = STATUS_COLORS.unknown;
+      statusBadge = 'SERVICE TRACKING';
+    } else {
+      var wSt = statusOf(u.warranty_expiry);
+      wc = STATUS_COLORS[wSt];
+      statusBadge = (wSt === 'expired') ? 'EXPIRED' : '2-YR WARRANTY';
+      if (st === 'deactivated') { wc = STATUS_COLORS.expired; statusBadge = 'NOT COVERED'; }
+      else if (st === 'paused') { wc = STATUS_COLORS.soon; statusBadge = 'SUSPENDED'; }
+    }
     var img = (u.product_models && u.product_models.image_url) || '/assets/models/purifier-generic.png';
     var desc = (u.product_models && u.product_models.description) || '';
     var hid = 'wh-' + idx;
@@ -247,21 +257,22 @@
              'onerror="this.src=\'/assets/models/purifier-generic.png\'">' +
         '<div style="flex:1;min-width:0;">' +
           '<div style="font-size:15px;font-weight:800;color:var(--ocean,#0D3B6E);word-break:break-word;">' + esc(u.product_type) + '</div>' +
-          '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--muted,#607D8B);word-break:break-all;margin-top:2px;">' + esc(u.qr_code) + '</div>' +
+          (u.qr_code ? '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--muted,#607D8B);word-break:break-all;margin-top:2px;">' + esc(u.qr_code) + '</div>' : '') +
           (u.quantity > 1 ? '<div style="font-size:10px;color:#92400E;background:#FEF3C7;display:inline-block;padding:2px 7px;border-radius:8px;margin-top:4px;font-weight:700;">×' + u.quantity + ' units on this record</div>' : '') +
         '</div>' +
         '<span style="background:' + wc.bg + ';color:' + wc.fg + ';font-size:10px;font-weight:800;padding:4px 9px;border-radius:10px;white-space:nowrap;">' +
           statusBadge + '</span>' +
       '</div>' +
 
-      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:' + (isSelfReported ? '4px' : '12px') + ';">' +
         milestoneCard('Filter Replacement', 'Filter', u.filter_expiry, TERMS.filter) +
         milestoneCard('Annual RO Service', 'Service', u.service_expiry, TERMS.service) +
       '</div>' +
+      (isSelfReported ? '<p style="font-size:10.5px;color:var(--muted,#607D8B);margin:0 0 12px;line-height:1.5;">Estimated from your last SA\'DA visit, not this unit\'s original install date.</p>' : '') +
 
       '<div style="background:#fff;border-radius:11px;padding:11px 13px;font-size:12px;">' +
-        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted,#607D8B);">Installed</span><strong>' + fmtDate(u.registration_date) + '</strong></div>' +
-        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted,#607D8B);">Warranty until</span><strong style="color:' + wc.fg + ';">' + fmtDate(u.warranty_expiry) + ' · ' + humanDays(u.warranty_expiry) + '</strong></div>' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted,#607D8B);">' + (isSelfReported ? 'First serviced by SA\'DA' : 'Installed') + '</span><strong>' + fmtDate(u.registration_date) + '</strong></div>' +
+        (isSelfReported ? '' : '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted,#607D8B);">Warranty until</span><strong style="color:' + wc.fg + ';">' + fmtDate(u.warranty_expiry) + ' · ' + humanDays(u.warranty_expiry) + '</strong></div>') +
         (u.client_code ? '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted,#607D8B);">Client code</span><strong>' + esc(u.client_code) + '</strong></div>' : '') +
       '</div>' +
 
