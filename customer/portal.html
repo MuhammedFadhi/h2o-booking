@@ -25,22 +25,39 @@
     :root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#E2E8F0;--bg:#F8FAFC;--green:#16A34A;--red:#DC2626;--amber:#D97706;}
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;}
-    header{background:linear-gradient(135deg,var(--deep),var(--ocean));padding:0 24px;padding-top:env(safe-area-inset-top);height:calc(72px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 4px 20px rgba(10,22,40,0.2);}
-    header img{height:60px;}
-    .header-right{display:flex;align-items:center;gap:12px;}
-    .user-chip{background:rgba(255,255,255,0.12);border-radius:20px;padding:6px 14px;font-size:13px;color:white;display:flex;align-items:center;gap:8px;}
-    .logout-btn{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.85);padding:6px 14px;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;transition:background 0.15s;}
-    .logout-btn:hover{background:rgba(255,255,255,0.18);color:white;}
-    .container{max-width:720px;margin:0 auto;padding:28px 16px calc(40px + env(safe-area-inset-bottom));}
-    .tabs{display:flex;gap:4px;background:white;border-radius:14px;padding:5px;border:1px solid var(--border);margin-bottom:24px;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
-    .tab{flex:1;padding:10px;border-radius:10px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);background:none;transition:all 0.15s;text-align:center;}
-    .tab:hover:not(.active){color:var(--text);background:var(--bg);}
-    .tab.active{background:var(--water);color:white;box-shadow:0 2px 8px rgba(21,101,192,0.35);}
+
+    /* HEADER — personalized greeting instead of a plain brand bar */
+    header{background:white;padding:16px 20px;padding-top:calc(16px + env(safe-area-inset-top));display:flex;align-items:center;gap:13px;position:sticky;top:0;z-index:50;border-bottom:1px solid var(--border);}
+    .avatar-circle{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--ocean),var(--water));color:white;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0;box-shadow:0 4px 12px rgba(21,101,192,0.3);font-family:'DM Sans',sans-serif;}
+    .greet-text{flex:1;min-width:0;}
+    .greet-hello{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;}
+    .greet-name{font-size:16px;font-weight:800;color:var(--deep);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .icon-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:white;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;flex-shrink:0;transition:all 0.15s;}
+    .icon-btn:hover{border-color:var(--red);color:var(--red);background:#FEF2F2;}
+
+    .container{max-width:720px;margin:0 auto;padding:20px 16px calc(96px + env(safe-area-inset-bottom));}
+
+    /* HERO BANNER — next-booking summary or a promo CTA, top of My Bookings */
+    .hero-banner{background:linear-gradient(135deg,var(--ocean),var(--water));border-radius:22px;padding:22px 24px;margin-bottom:20px;color:white;box-shadow:0 12px 28px -10px rgba(13,59,110,0.5);cursor:default;}
+    .hero-banner.clickable{cursor:pointer;transition:transform 0.15s;}
+    .hero-banner.clickable:hover{transform:translateY(-2px);}
+    .hero-banner-label{font-size:11px;font-weight:800;letter-spacing:0.6px;opacity:0.8;text-transform:uppercase;margin-bottom:8px;}
+    .hero-banner-title{font-family:'Playfair Display',serif;font-size:21px;font-weight:700;margin-bottom:4px;}
+    .hero-banner-sub{font-size:13px;opacity:0.9;line-height:1.5;}
+
+    /* BOTTOM NAV — .tab / .tabs classes are kept so switchTab()'s existing
+       selectors (`.tab`, `el.classList`) need zero JS changes. */
+    .tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:white;border-top:1px solid var(--border);box-shadow:0 -6px 20px rgba(15,23,42,0.06);padding:6px 6px calc(6px + env(safe-area-inset-bottom));z-index:60;}
+    .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:12px;border:none;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;cursor:pointer;color:var(--muted);background:none;transition:all 0.15s;}
+    .tab svg{width:22px;height:22px;}
+    .tab:hover:not(.active){color:var(--text);}
+    .tab.active{color:var(--water);background:var(--foam);}
+
     .tab-panel{display:none;}
     .tab-panel.active{display:block;}
 
     /* BOOKING CARDS */
-    .booking-card{background:white;border-radius:18px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px;box-shadow:0 1px 3px rgba(15,23,42,0.04);transition:box-shadow 0.15s,transform 0.15s;}
+    .booking-card{background:white;border-radius:20px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px;box-shadow:0 1px 3px rgba(15,23,42,0.04);transition:box-shadow 0.15s,transform 0.15s;}
     .booking-card:hover{box-shadow:0 6px 20px rgba(15,23,42,0.08);transform:translateY(-1px);}
     .booking-card-header{padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--border);}
     .booking-ref{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--water);}
@@ -62,6 +79,7 @@
     .progress-step:not(:last-child)::after{content:'';position:absolute;top:14px;left:50%;width:100%;height:2px;background:var(--border);z-index:0;}
     .progress-step.done:not(:last-child)::after{background:var(--green);}
     .progress-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:white;display:flex;align-items:center;justify-content:center;font-size:12px;position:relative;z-index:1;transition:all 0.3s;}
+    .progress-dot svg{width:14px;height:14px;}
     .progress-step.done .progress-dot{background:var(--green);border-color:var(--green);color:white;}
     .progress-step.active .progress-dot{background:var(--water);border-color:var(--water);color:white;}
     .progress-label{font-size:10px;color:var(--muted);margin-top:6px;text-align:center;font-weight:500;}
@@ -73,21 +91,23 @@
     .btn-outline:hover{border-color:var(--water);color:var(--water);}
     .btn-danger{padding:9px 16px;border:1.5px solid #FECACA;border-radius:10px;background:white;color:var(--red);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;}
     .btn-danger:hover{background:#FEF2F2;}
-    .btn-primary{padding:9px 16px;background:var(--water);color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.15s;}
-    .btn-primary:hover{background:var(--ocean);}
+    .btn-primary{padding:9px 16px;background:linear-gradient(135deg,var(--ocean),var(--water));color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:filter 0.15s;}
+    .btn-primary:hover{filter:brightness(0.92);}
     .btn-primary:disabled{opacity:0.55;cursor:not-allowed;}
     .btn-wa{padding:9px 16px;background:#25D366;color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;text-decoration:none;transition:background 0.15s;}
     .btn-wa:hover{background:#128C7E;}
     .btn-disabled{padding:9px 16px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:not-allowed;}
 
-    /* BOOK AGAIN */
-    .type-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;}
-    .type-card{border:2px solid var(--border);border-radius:14px;padding:18px;cursor:pointer;text-align:center;transition:all 0.15s;background:white;}
-    .type-card:hover{border-color:var(--water);}
+    /* BOOK AGAIN — quick-action icon grid, same visual language as a
+       marketplace app's service-category picker. */
+    .type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;}
+    .type-card{border:2px solid transparent;border-radius:16px;padding:14px 8px;cursor:pointer;text-align:center;transition:all 0.15s;background:white;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
+    .type-card:hover{box-shadow:0 4px 12px rgba(15,23,42,0.08);transform:translateY(-1px);}
     .type-card.selected{border-color:var(--water);background:var(--foam);box-shadow:0 2px 8px rgba(21,101,192,0.15);}
-    .type-icon{font-size:28px;margin-bottom:8px;}
-    .type-name{font-size:14px;font-weight:600;color:var(--text);}
-    .type-desc{font-size:12px;color:var(--muted);margin-top:4px;}
+    .type-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:20px;}
+    .type-icon svg{width:21px;height:21px;}
+    .type-name{font-size:11.5px;font-weight:700;color:var(--text);line-height:1.2;}
+    .type-desc{display:none;}
     .form-group{margin-bottom:16px;}
     .form-group label{display:block;font-size:12px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px;}
     .form-group input,.form-group select{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:var(--white);outline:none;transition:border-color 0.15s,box-shadow 0.15s;}
@@ -121,8 +141,8 @@
     .time-slot.booked{background:var(--bg);color:var(--muted);cursor:not-allowed;text-decoration:line-through;}
 
     /* PROFILE */
-    .profile-card{background:white;border-radius:18px;border:1px solid var(--border);padding:24px;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
-    .profile-avatar{width:64px;height:64px;background:linear-gradient(135deg,var(--ocean),var(--water));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:white;margin-bottom:16px;box-shadow:0 4px 12px rgba(21,101,192,0.35);}
+    .profile-card{background:white;border-radius:22px;border:1px solid var(--border);padding:24px;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
+    .profile-avatar{width:68px;height:68px;background:linear-gradient(135deg,var(--ocean),var(--water));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:white;margin-bottom:16px;box-shadow:0 4px 12px rgba(21,101,192,0.35);}
 
     /* MISC */
     .section-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--deep);margin-bottom:4px;letter-spacing:-0.01em;}
@@ -132,7 +152,7 @@
     .loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px;color:var(--muted);}
     .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--water);border-radius:50%;animation:spin 0.8s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg);}}
-    .toast{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));right:24px;background:#1A2B47;color:white;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:500;z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,0.25);}
+    .toast{position:fixed;bottom:calc(96px + env(safe-area-inset-bottom));right:24px;background:#1A2B47;color:white;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:500;z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,0.25);}
     .toast.show{opacity:1;}
     .alert-box{padding:14px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;}
     .alert-info{background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;}
@@ -149,31 +169,32 @@
       .time-grid{grid-template-columns:repeat(2,1fr);}
       .booking-actions{flex-direction:column;}
       .booking-actions a,.booking-actions button{width:100%;justify-content:center;text-align:center;}
-      header{padding:0 16px;padding-top:env(safe-area-inset-top);}
-      header img{height:52px;}
+      header{padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));}
     }
     @media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}}
   </style>
 </head>
 <body>
 <header>
-  <a href="https://h2o.sadawater.com" target="_blank"><img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O"></a>
-  <div class="header-right">
-    <div class="user-chip">👤 <span id="user-name-header">My Account</span></div>
-    <button class="logout-btn" onclick="logout()">Sign Out</button>
+  <div class="avatar-circle" id="header-avatar">?</div>
+  <div class="greet-text">
+    <div class="greet-hello">Hello 👋</div>
+    <div class="greet-name" id="user-name-header">My Account</div>
   </div>
+  <button class="icon-btn" onclick="logout()" title="Sign Out"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M14 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2"/><path d="M9 12h12l-3-3m0 6l3-3"/></g></svg></button>
 </header>
 
 <div class="container">
-  <div class="tabs">
-    <button class="tab active" onclick="switchTab('bookings',this)">📋 My Bookings</button>
-    <button class="tab" onclick="switchTab('units',this)">🛡️ My Units</button>
-    <button class="tab" onclick="switchTab('book',this)">➕ Book Again</button>
-    <button class="tab" onclick="switchTab('profile',this)">👤 My Profile</button>
-  </div>
+  <nav class="tabs">
+    <button class="tab active" onclick="switchTab('bookings',this)"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.5 21H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6M16 3v4M8 3v4m-4 4h16m-5 8l2 2l4-4"/></svg><span>Bookings</span></button>
+    <button class="tab" onclick="switchTab('units',this)"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.46 20.846A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3a12 12 0 0 0 8.5 3a12 12 0 0 1-.09 7.06M15 19l2 2l4-4"/></svg><span>Units</span></button>
+    <button class="tab" onclick="switchTab('book',this)"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0m6 0h6m-3-3v6"/></svg><span>Book</span></button>
+    <button class="tab" onclick="switchTab('profile',this)"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg><span>Profile</span></button>
+  </nav>
 
   <!-- MY BOOKINGS -->
   <div class="tab-panel active" id="tab-bookings">
+    <div id="hero-banner"></div>
     <p class="section-title">My Installations</p>
     <p class="section-sub">Track your current and past SA'DA H2O bookings.</p>
     <div id="bookings-list"><div class="loading"><div class="spinner"></div> Loading your bookings...</div></div>
@@ -192,22 +213,22 @@
     <p class="section-sub">Choose a service type and select your slot.</p>
     <div class="type-grid">
       <div class="type-card selected" id="type-installation" onclick="selectType('installation')">
-        <div class="type-icon">🚰</div>
+        <div class="type-icon" style="background:#BDE0FE;color:#1C4F82;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 15 15"><path fill="currentColor" d="M13.792 3.262s-1.676 1.675-2.116 2.12a.3.3 0 0 1-.282.097c-.149-.023-.298-.038-.447-.056l-1.229-.146c-.069-.592-.14-1.172-.2-1.753c-.006-.055.033-.13.074-.172c.508-.513 1.927-1.928 2.134-2.136c-.45-.213-1.224-.297-1.8-.203a3.545 3.545 0 0 0-2.82 4.625c.037.115.013.182-.069.264q-2.771 2.766-5.539 5.535a3 3 0 0 0-.178.192a1.457 1.457 0 0 0 .298 2.102c.604.42 1.365.344 1.905-.195q2.78-2.778 5.556-5.56c.092-.092.165-.123.299-.078a3.4 3.4 0 0 0 1.888.089a3.544 3.544 0 0 0 2.655-4.304c-.031-.13-.078-.259-.13-.421"/></svg></div>
         <div class="type-name">Installation</div>
         <div class="type-desc">New RO filter setup</div>
       </div>
       <div class="type-card" id="type-quarterly_service" onclick="selectType('quarterly_service')">
-        <div class="type-icon">🔄</div>
-        <div class="type-name">Maintenance</div>
+        <div class="type-icon" style="background:#FFC8DD;color:#BE185D;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m19 1l-1.26 2.75L15 5l2.74 1.26L19 9l1.25-2.74L23 5l-2.75-1.25M9 4L6.5 9.5L1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5M19 15l-1.26 2.74L15 19l2.74 1.25L19 23l1.25-2.75L23 19l-2.75-1.26"/></svg></div>
+        <div class="type-name">Filter Change</div>
         <div class="type-desc">Regular service (3 months)</div>
       </div>
       <div class="type-card" id="type-repair" onclick="selectType('repair')">
-        <div class="type-icon">🛠</div>
+        <div class="type-icon" style="background:#FFD6A5;color:#9A3412;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 512 512"><path fill="currentColor" d="m241.406 21l-15.22 34.75a182 182 0 0 0-23.467 2.97l-23.282-30.064l-25.094 8.532l-.125 38.25c-10.63 5.464-20.817 12.07-30.44 19.78L88.313 79.25L70.156 98.563L88.312 133a180.6 180.6 0 0 0-15.218 26.094l-38.938 1.062l-7.906 25.28l31.438 23.158c-1.505 9.38-2.24 18.858-2.282 28.344L20.5 254.625l3.656 26.25l38.313 7.5a182 182 0 0 0 8.5 23.5L45.72 343.22l14.093 22.436l39.25-9.187a185 185 0 0 0 7.718 8.53a187 187 0 0 0 17.72 16.125l-7.625 39.313l22.938 13.25l29.968-26.094a179.4 179.4 0 0 0 26.407 8.312l9.782 38.406l26.405 2.157l15.875-36.22c10.97-.66 21.904-2.3 32.656-4.938l25.22 29.22l24.593-9.844l-.72-14.813l-57.406-43.53c-16.712 4.225-34.042 5.356-51.063 3.436c-31.754-3.58-62.27-17.92-86.218-42.686c-54.738-56.614-53.173-146.67 3.438-201.406c27.42-26.513 62.69-39.963 98-40.344c37.59-.406 75.214 13.996 103.438 43.187c45.935 47.512 52.196 118.985 19.562 173.095l31.97 24.25a181 181 0 0 0 10.75-19.375l38.655-1.063l7.906-25.28l-31.217-23a183 183 0 0 0 2.28-28.594l34.688-17.625l-3.655-26.25l-38.28-7.5a182 182 0 0 0-12.75-32.125l22.81-31.594l-15.25-21.657l-37.56 10.906c-.472-.5-.93-1.007-1.408-1.5a185 185 0 0 0-18.937-17.064l7.188-37.125L334 43.78l-28.5 24.814c-9.226-3.713-18.702-6.603-28.313-8.75l-9.343-36.688zM183.25 174.5c-10.344.118-20.597 2.658-30 7.28l45.22 34.314c13.676 10.376 17.555 30.095 7.06 43.937c-10.498 13.85-30.656 15.932-44.53 5.408l-45.188-34.282c-4.627 24.793 4.135 51.063 25.594 67.344c19.245 14.597 43.944 17.33 65.22 9.688l4.78-1.72l4.03 3.063l135.19 102.564l4.03 3.062l-.344 5.063c-1.637 22.55 7.59 45.61 26.844 60.217c21.46 16.28 49.145 17.63 71.78 6.5l-45.186-34.28c-13.874-10.526-17.282-30.506-6.78-44.344c10.5-13.84 30.537-15.405 44.217-5.032l45.188 34.283c4.616-24.784-4.11-51.067-25.563-67.344c-19.313-14.658-43.817-17.562-64.968-10.033l-4.75 1.688l-4.03-3.063l-135.19-102.562l-4.03-3.063l.344-5.03c1.55-22.387-7.85-45.194-27.157-59.845c-12.544-9.516-27.222-13.978-41.78-13.812zm43.563 90.25l163.875 124.344L379.406 404L215.5 279.625z"/></svg></div>
         <div class="type-name">Repair</div>
         <div class="type-desc">Fix an issue</div>
       </div>
       <div class="type-card" id="type-relocation" onclick="selectType('relocation')">
-        <div class="type-icon">📦</div>
+        <div class="type-icon" style="background:#A2D2FF;color:#1E40AF;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M20.96 16.45c.01-.15.04-.3.04-.45v.5zM11 16c0 .71.15 1.39.42 2H6v1c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-8l2.08-6c.2-.58.76-1 1.42-1h11c.66 0 1.22.42 1.42 1L21 11v5c0-2.76-2.24-5-5-5s-5 2.24-5 5m-3-2.5c0-.83-.67-1.5-1.5-1.5S5 12.67 5 13.5S5.67 15 6.5 15S8 14.33 8 13.5M19 10l-1.5-4.5h-11L5 10zm3.87 11.19l-4.11-4.11c.41-1.04.18-2.26-.68-3.11c-.9-.91-2.25-1.09-3.34-.59l1.94 1.94l-1.35 1.36l-1.99-1.95c-.54 1.09-.29 2.44.59 3.35a2.91 2.91 0 0 0 3.12.68l4.11 4.1c.18.19.45.19.63 0l1.04-1.03c.22-.18.22-.5.04-.64"/></svg></div>
         <div class="type-name">Relocation</div>
         <div class="type-desc">Move to new address</div>
       </div>
@@ -263,7 +284,7 @@
   <!-- MY PROFILE -->
   <div class="tab-panel" id="tab-profile">
     <div class="profile-card">
-      <div class="profile-avatar">👤</div>
+      <div class="profile-avatar" id="profile-avatar">?</div>
       <p class="section-title" id="profile-name-display">—</p>
       <p style="font-size:13px;color:var(--muted);margin-bottom:24px;" id="profile-phone-display">—</p>
       <div class="form-group"><label>Full Name</label><input type="text" id="profile-name" placeholder="Your name"></div>
@@ -326,6 +347,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (!stillExists) { logout(); return; }
 
   document.getElementById('user-name-header').textContent = customer.name || customer.phone;
+  updateAvatars();
   loadProfile();
   loadMyBookings();
   await loadBookRegionsAndCities();
@@ -434,6 +456,14 @@ async function loadProfile() {
   document.getElementById('profile-name-display').textContent = customer.name || 'My Account';
   document.getElementById('profile-phone-display').textContent = customer.phone || '';
   document.getElementById('book-address').value = customer.address || '';
+  updateAvatars();
+}
+
+// Both header + profile-tab avatar circles show the same initial.
+function updateAvatars() {
+  const initial = (customer.name || customer.phone || '?').trim().charAt(0).toUpperCase();
+  const h = document.getElementById('header-avatar'); if (h) h.textContent = initial;
+  const p = document.getElementById('profile-avatar'); if (p) p.textContent = initial;
 }
 
 async function saveProfile() {
@@ -445,13 +475,41 @@ async function saveProfile() {
   localStorage.setItem('sada_customer', JSON.stringify(customer));
   document.getElementById('user-name-header').textContent = name || customer.phone;
   document.getElementById('profile-name-display').textContent = name || 'My Account';
+  updateAvatars();
   showToast('Profile saved!');
 }
 
 // ── MY BOOKINGS ──
+// Top-of-tab banner: the nearest upcoming/in-progress booking, or a promo
+// CTA into Book Again when there's nothing scheduled.
+function renderHeroBanner(data) {
+  const host = document.getElementById('hero-banner');
+  if (!host) return;
+  const typeLabel = (t) => ({ installation:'Installation', repair:'Repair', relocation:'Relocation',
+    quarterly_service:'Filter Change', maintenance:'Filter Change',
+    annual_service:'Annual Service', inspection:'Inspection' })[t] || (t || 'Installation');
+  const upcoming = data.find(b => b.status === 'upcoming' || b.status === 'in_progress');
+  if (upcoming) {
+    host.innerHTML = `
+      <div class="hero-banner">
+        <div class="hero-banner-label">${upcoming.status === 'in_progress' ? 'IN PROGRESS' : 'UPCOMING'}</div>
+        <div class="hero-banner-title">${typeLabel(upcoming.booking_type)} · ${formatDate(upcoming.slot_date)}</div>
+        <div class="hero-banner-sub">${formatHour(upcoming.slot_hour)} · ${upcoming.city_name || ''}</div>
+      </div>`;
+  } else {
+    host.innerHTML = `
+      <div class="hero-banner clickable" onclick="switchTab('book', document.querySelectorAll('.tab')[2])">
+        <div class="hero-banner-label">NEED SERVICE?</div>
+        <div class="hero-banner-title">Book your next visit</div>
+        <div class="hero-banner-sub">Filter change, repair, or a new installation — tap to book.</div>
+      </div>`;
+  }
+}
+
 async function loadMyBookings() {
   const list = document.getElementById('bookings-list');
   const { data } = await db.from('bookings').select('*, installers(name)').eq('customer_phone', customer.phone).order('created_at', { ascending: false });
+  renderHeroBanner(data || []);
   if (!data || !data.length) {
     list.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px;">No bookings yet</p><p>Your installations will appear here after booking.</p></div>`;
     return;
@@ -479,7 +537,12 @@ async function loadMyBookings() {
 function renderBookingCard(b) {
   const steps = ['upcoming','in_progress','completed'];
   const stepLabels = ['Scheduled','In Progress','Completed'];
-  const stepIcons = ['📅','⚙️','✅'];
+  const ICON_CHECK = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="m5 12l5 5L20 7"/></svg>';
+  const stepIcons = [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm12-4v4M8 3v4m-4 4h16m-9 4h1m0 0v3"/></svg>',
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37c1 .608 2.296.07 2.572-1.065"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0-6 0"/></g></svg>',
+    ICON_CHECK
+  ];
   // 'installed' sits between in_progress and fully completed/invoiced — from
   // the customer's side their unit IS in, so treat it as reaching the final step.
   const currentIdx = steps.indexOf(b.status === 'installed' ? 'completed' : b.status);
@@ -494,7 +557,7 @@ function renderBookingCard(b) {
     <div class="progress-track">
       ${steps.map((s,i) => `
         <div class="progress-step ${i < currentIdx ? 'done' : i === currentIdx ? 'active' : ''}">
-          <div class="progress-dot">${i < currentIdx ? '✓' : stepIcons[i]}</div>
+          <div class="progress-dot">${i < currentIdx ? ICON_CHECK : stepIcons[i]}</div>
           <div class="progress-label">${stepLabels[i]}</div>
         </div>
         ${i < steps.length-1 ? '' : ''}
