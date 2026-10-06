@@ -77,10 +77,11 @@
     .quick-action-sub{font-size:12px;color:var(--muted);margin-top:2px;}
     .quick-action-arrow{color:var(--muted);font-size:18px;}
 
-    /* "+" floating action button on Home, opens Book Again. */
-    .fab{position:fixed;right:18px;bottom:calc(84px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--ocean),var(--water));color:white;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px -4px rgba(13,59,110,0.5);cursor:pointer;z-index:55;transition:transform 0.15s;}
-    .fab:hover{transform:scale(1.06);}
-    .fab svg{width:24px;height:24px;}
+    /* Full-width "Book a visit" bar at the bottom of Home/Service content,
+       opens Book Again. Replaces a floating circular FAB. */
+    .book-bar{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:15px;margin-top:16px;background:linear-gradient(135deg,var(--ocean),var(--water));color:white;border:none;border-radius:14px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 6px 16px -6px rgba(13,59,110,0.5);transition:filter 0.15s;}
+    .book-bar:hover{filter:brightness(0.95);}
+    .book-bar svg{width:19px;height:19px;}
 
     /* Service tab — flat history feed (reuses js/warranty.js historyList()). */
     .history-card{background:white;border-radius:18px;border:1px solid var(--border);padding:6px 16px;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
@@ -228,8 +229,8 @@
     <p class="section-sub">Warranty coverage and service status for every SA'DA H2O purifier you own.</p>
     <div id="home-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
     <div id="home-quick-action"></div>
+    <button class="book-bar" onclick="openBookModal()"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"/></svg> Book a Visit</button>
   </div>
-  <button class="fab" onclick="openBookModal()" title="Book a visit"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"/></svg></button>
 
   <!-- MY BOOKINGS -->
   <div class="tab-panel" id="tab-bookings">
@@ -349,6 +350,7 @@
     <p class="section-title">Service History</p>
     <p class="section-sub">Every installation and service visit we've done for you.</p>
     <div id="service-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    <button class="book-bar" onclick="openBookModal()"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"/></svg> Book a Visit</button>
   </div>
 </div>
 
