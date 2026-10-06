@@ -254,7 +254,7 @@
     .btn-sm { padding: 6px 12px; font-size: 12px; }
     .btn-ghost { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
     /* Booked time slot in the booking pickers: visible, but struck through and unclickable (matches the customer page). */
-    .btn.slot-booked, .btn.slot-booked:hover { background: #F3F4F6; color: #9CA3AF; border-color: #E5E7EB; text-decoration: line-through; cursor: not-allowed; opacity: 1; box-shadow: none; transform: none; }
+    .btn.slot-booked, .btn.slot-booked:hover { background: #FFF7ED; color: #B45309; border-color: #FDBA74; cursor: pointer; opacity: 1; box-shadow: none; transform: none; }
     .btn-ghost:hover { background: var(--border); }
     .btn-danger { background: #FEF2F2; color: var(--danger); border: 1px solid #FECACA; }
     .btn-danger:hover { background: #FEE2E2; }
@@ -2382,6 +2382,7 @@ async function submitPayment() {
 // slot so it deconflicts with online bookings), flagged created_by='admin'.
 // ============================================================
 let abSelectedSlotId = null;
+let abForceBooking = false;  // true after admin confirms double-booking an already-taken slot
 let abBasket = [];   // [{ model, qty, unit_price, is_serialized, color|null }]
 let abPromo = null;  // applied promo_codes row, or null
 
@@ -2396,6 +2397,7 @@ let sbCustomer = null;      // { id, name, phone, city, address }
 let sbLocation = null;      // { lat, lng, source, address, city, region_id }
 let sbUnits = [];           // warranties/products the customer owns
 let sbSelectedSlotId = null;
+let sbForceBooking = false;  // true after admin confirms double-booking an already-taken slot
 let sbNewCustPhone = null;  // phone that failed lookup, carried into the inline "add new customer" form
 
 async function openServiceBookingModal() {
@@ -2417,7 +2419,7 @@ async function openServiceBookingModal() {
   document.getElementById('sb-new-city').innerHTML = '<option value="">Choose region first</option>';
   document.getElementById('sb-new-address').value = '';
   document.getElementById('sb-newcust-error').style.display = 'none';
-  sbCustomer = null; sbLocation = null; sbUnits = []; sbSelectedSlotId = null; sbNewCustPhone = null;
+  sbCustomer = null; sbLocation = null; sbUnits = []; sbSelectedSlotId = null; sbForceBooking = false; sbNewCustPhone = null;
   await populateSalesAgentSelect('sb-sales-agent');
   document.getElementById('service-booking-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('sb-phone').focus(), 150);
@@ -2655,15 +2657,19 @@ async function sbLoadDates() {
 // Time-slot buttons for the booking pickers. Open slots are clickable; booked
 // ones stay on screen but struck through and disabled, so staff can see the
 // whole day at a glance instead of wondering where a time went.
+// Booked slots are still clickable — admin can deliberately double-book one
+// (e.g. a second installer covering the same hour); the pick function shows
+// a confirmation before treating it as a forced override.
 function slotButtonsHTML(slots, pickFn, cls) {
   return slots.map(s => s.is_booked
-    ? `<button type="button" class="btn btn-ghost btn-sm ${cls} slot-booked" disabled title="Already booked" style="min-width:78px;">${formatHour(s.slot_hour)}</button>`
-    : `<button type="button" class="btn btn-ghost btn-sm ${cls}" data-slot="${s.id}" onclick="${pickFn}('${s.id}', this)" style="min-width:78px;">${formatHour(s.slot_hour)}</button>`
+    ? `<button type="button" class="btn btn-ghost btn-sm ${cls} slot-booked" title="Already booked — click to add another booking anyway" data-slot="${s.id}" onclick="${pickFn}('${s.id}', this, true)" style="min-width:78px;">${formatHour(s.slot_hour)} ⚠</button>`
+    : `<button type="button" class="btn btn-ghost btn-sm ${cls}" data-slot="${s.id}" onclick="${pickFn}('${s.id}', this, false)" style="min-width:78px;">${formatHour(s.slot_hour)}</button>`
   ).join('');
 }
 
 async function sbLoadSlots() {
   sbSelectedSlotId = null;
+  sbForceBooking = false;
   const regionId = document.getElementById('sb-region').value;
   const date = document.getElementById('sb-date').value;
   const host = document.getElementById('sb-slots');
@@ -2677,8 +2683,10 @@ async function sbLoadSlots() {
     + (slots.some(s => !s.is_booked) ? '' : '<div style="flex-basis:100%;font-size:13px;color:var(--muted);margin-top:4px;">All times on this date are booked.</div>');
 }
 
-function sbPickSlot(slotId, el) {
+function sbPickSlot(slotId, el, isBooked) {
+  if (isBooked && !confirm('This slot already has a booking — add another anyway?')) return;
   sbSelectedSlotId = slotId;
+  sbForceBooking = !!isBooked;
   document.querySelectorAll('.sb-slot').forEach(b => b.classList.remove('btn-primary'));
   el.classList.add('btn-primary');
 }
@@ -2732,7 +2740,7 @@ async function submitServiceBooking() {
     const { data: rpcData, error: rpcErr } = await dbAdmin.rpc('create_booking', {
       p_slot_id: sbSelectedSlotId, p_name: sbCustomer.name || 'Customer', p_phone: sbCustomer.phone,
       p_city_name: cityName, p_region_id: regionId, p_address: address,
-      p_latitude: lat, p_longitude: lng, p_booking_type: jobType
+      p_latitude: lat, p_longitude: lng, p_booking_type: jobType, p_force: sbForceBooking
     });
     const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
     if (rpcErr || !row) {
@@ -2807,6 +2815,7 @@ async function submitServiceBooking() {
 
 async function openAdminBookingModal() {
   abSelectedSlotId = null;
+  abForceBooking = false;
   abBasket = [];
   abPromo = null;
   document.getElementById('ab-promo-input').value = '';
@@ -2861,6 +2870,7 @@ async function abLoadDates() {
 // Show open time slots for the chosen date.
 async function abLoadSlots() {
   abSelectedSlotId = null;
+  abForceBooking = false;
   const regionId = document.getElementById('ab-region').value;
   const date = document.getElementById('ab-date').value;
   const host = document.getElementById('ab-slots');
@@ -2874,8 +2884,10 @@ async function abLoadSlots() {
     + (slots.some(s => !s.is_booked) ? '' : '<div style="flex-basis:100%;font-size:12px;color:var(--muted);margin-top:4px;">All times on this date are booked.</div>');
 }
 
-function abPickSlot(slotId, el) {
+function abPickSlot(slotId, el, isBooked) {
+  if (isBooked && !confirm('This slot already has a booking — add another anyway?')) return;
   abSelectedSlotId = slotId;
+  abForceBooking = !!isBooked;
   document.querySelectorAll('.ab-slot').forEach(b => b.classList.remove('btn-primary'));
   el.classList.add('btn-primary');
 }
@@ -3021,7 +3033,7 @@ async function submitAdminBooking() {
     const { data: rpcData, error: rpcErr } = await dbAdmin.rpc('create_booking', {
       p_slot_id: abSelectedSlotId, p_name: name, p_phone: phone,
       p_city_name: cityName, p_region_id: regionId, p_address: address,
-      p_latitude: null, p_longitude: null
+      p_latitude: null, p_longitude: null, p_force: abForceBooking
     });
     const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
     if (rpcErr || !row) {
@@ -3189,6 +3201,19 @@ async function loadRescheduleSlots() {
   });
 }
 
+// Only frees a slot if no OTHER active (non-cancelled) booking still uses it.
+// Needed now that admin can deliberately double-book a slot (force override,
+// see sbPickSlot/abPickSlot) — blindly freeing on every cancel/delete/
+// reschedule-away would wrongly open up a slot a second booking still needs.
+async function freeSlotIfUnused(slotId, excludeBookingId) {
+  if (!slotId) return;
+  let q = dbAdmin.from('bookings').select('id', { count: 'exact', head: true })
+    .eq('slot_id', slotId).neq('status', 'cancelled');
+  if (excludeBookingId) q = q.neq('id', excludeBookingId);
+  const { count } = await q;
+  if (!count) await dbAdmin.from('availability_slots').update({ is_booked: false }).eq('id', slotId);
+}
+
 async function confirmReschedule() {
   if (!(await ensureSession())) return;
   const newDate = document.getElementById('reschedule-date').value;
@@ -3220,7 +3245,7 @@ async function confirmReschedule() {
   // New slot is ours. Now release the old slot and point the booking at the new one.
   const { data: oldBooking } = await dbAdmin.from('bookings').select('slot_id').eq('id', rescheduleBookingId).maybeSingle();
   if (oldBooking?.slot_id && oldBooking.slot_id !== newSlotId) {
-    await dbAdmin.from('availability_slots').update({ is_booked: false }).eq('id', oldBooking.slot_id);
+    await freeSlotIfUnused(oldBooking.slot_id, rescheduleBookingId);
   }
 
   const { error: updErr } = await dbAdmin.from('bookings').update({
@@ -3230,7 +3255,7 @@ async function confirmReschedule() {
 
   if (updErr) {
     // Roll back: release the new slot we claimed, re-book the old one.
-    await dbAdmin.from('availability_slots').update({ is_booked: false }).eq('id', newSlotId);
+    await freeSlotIfUnused(newSlotId, rescheduleBookingId);
     if (oldBooking?.slot_id) await dbAdmin.from('availability_slots').update({ is_booked: true }).eq('id', oldBooking.slot_id);
     errEl.style.display = 'block'; errEl.textContent = 'Reschedule failed. Please try again.';
     return;
@@ -3265,7 +3290,7 @@ async function releaseSlot(bookingId, slotId) {
   if (!confirm('Release this booking? The time slot will become available again.')) return;
   const { data: b } = await dbAdmin.from('bookings').select('customer_phone,customer_name,slot_date,slot_hour').eq('id', bookingId).maybeSingle();
   await dbAdmin.from('bookings').update({ status: 'cancelled' }).eq('id', bookingId);
-  if (slotId) await dbAdmin.from('availability_slots').update({ is_booked: false }).eq('id', slotId);
+  await freeSlotIfUnused(slotId, bookingId);
   // SMS
   if (b && await isSMSEnabled('cancellation')) {
     await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your booking on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour)} has been cancelled. To rebook please visit: https://h2o.sadawater.com/booking`);
@@ -3290,7 +3315,7 @@ async function deleteBookingPermanently(bookingId, customerName, bookingRef) {
   await dbAdmin.from('inspection_reports').delete().eq('booking_id', bookingId);
   const { error } = await dbAdmin.from('bookings').delete().eq('id', bookingId);
   if (error) { showToast('Delete failed: ' + error.message, 'error'); return; }
-  if (bk?.slot_id) await dbAdmin.from('availability_slots').update({ is_booked: false }).eq('id', bk.slot_id);
+  if (bk?.slot_id) await freeSlotIfUnused(bk.slot_id);
 
   logActivity('booking.delete', `Permanently deleted booking ${bookingRef || ''} (+ warranties, items; slot freed)`, 'booking', bookingId);
 

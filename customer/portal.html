@@ -657,6 +657,19 @@ function viewInspectionReport(reportId) {
   window.SADA.InspectionReport.openView(reportId, { canPrint: true });
 }
 
+// Only frees a slot if no OTHER active (non-cancelled) booking still uses it
+// — an admin can deliberately double-book a slot, so cancelling/rescheduling
+// one booking on a shared slot must not blindly reopen it out from under
+// the other booking still using it.
+async function freeSlotIfUnused(slotId, excludeBookingId) {
+  if (!slotId) return;
+  let q = db.from('bookings').select('id', { count: 'exact', head: true })
+    .eq('slot_id', slotId).neq('status', 'cancelled');
+  if (excludeBookingId) q = q.neq('id', excludeBookingId);
+  const { count } = await q;
+  if (!count) await db.from('availability_slots').update({ is_booked: false }).eq('id', slotId);
+}
+
 async function cancelBooking(bookingId, slotId) {
   if (!confirm('Are you sure you want to cancel this booking?')) return;
   // Verify booking belongs to this customer
@@ -665,7 +678,7 @@ async function cancelBooking(bookingId, slotId) {
   if (booking.status === 'cancelled') { showToast('Already cancelled.'); return; }
   if (booking.status === 'completed' || booking.status === 'installed') { showToast('This job is already done — contact us if you need help.'); return; }
   await db.from('bookings').update({ status: 'cancelled' }).eq('id', bookingId).eq('customer_phone', customer.phone);
-  if (slotId) await db.from('availability_slots').update({ is_booked: false }).eq('id', slotId);
+  await freeSlotIfUnused(slotId, bookingId);
   showToast('Booking cancelled.');
   loadMyBookings();
 }
@@ -761,7 +774,7 @@ async function confirmCustomerReschedule() {
 
   // Release the old slot only after the update succeeded
   if (activeRescheduleSlotId && activeRescheduleSlotId !== newSlotId) {
-    await db.from('availability_slots').update({ is_booked: false }).eq('id', activeRescheduleSlotId);
+    await freeSlotIfUnused(activeRescheduleSlotId);
   }
   document.getElementById('reschedule-modal').style.display = 'none';
   showToast('Booking rescheduled!');
