@@ -224,7 +224,6 @@
 
   <!-- HOME (default) — next appointment + unit/warranty status -->
   <div class="tab-panel active" id="tab-home">
-    <div id="hero-banner"></div>
     <p class="section-title">My Units</p>
     <p class="section-sub">Warranty coverage and service status for every SA'DA H2O purifier you own.</p>
     <div id="home-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
@@ -234,6 +233,7 @@
 
   <!-- MY BOOKINGS -->
   <div class="tab-panel" id="tab-bookings">
+    <div id="hero-banner"></div>
     <p class="section-title">My Installations</p>
     <p class="section-sub">Track your current and past SA'DA H2O bookings.</p>
     <div id="bookings-list"><div class="loading"><div class="spinner"></div> Loading your bookings...</div></div>
@@ -1200,7 +1200,7 @@ async function submitNewBooking() {
   if (cap) cap.style.display = 'none';
   loadBookDates();
   resetBtn();
-  setTimeout(() => { closeBookModal(); switchTab('home'); }, 1500);
+  setTimeout(() => { closeBookModal(); switchTab('bookings'); }, 1500);
   loadHome();
   loadMyBookings();
 }
