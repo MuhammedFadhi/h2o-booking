@@ -770,10 +770,17 @@ SADA.InspectionReport = (function () {
       const upd = await window.db.from('warranties').update(patch).eq('id', warrantyId);
       if (upd.error) console.warn('[IR] self-reported warranty renewal failed:', upd.error.message);
     } else {
+      // First-ever tracked event for this customer. If it's a Filter Change,
+      // they almost certainly already owned the unit a while before we ever
+      // saw them — we have zero real history, so a full 365 days would
+      // assume today is day one of their cycle. 365-90 hedges toward
+      // reminding them a bit early rather than risk going quietly overdue.
+      // If the first event IS an Annual Service, the full 365 is correct —
+      // that genuinely just happened.
       const ins = await window.db.from('warranties').insert({
         customer_id: cid, qr_code: null, product_type: productType, quantity: 1,
         source: 'self_reported', booking_id: bookingId, status: 'active',
-        registration_date: todayIso, filter_expiry: pushDate(90), service_expiry: pushDate(365), warranty_expiry: null
+        registration_date: todayIso, filter_expiry: pushDate(90), service_expiry: pushDate(isAnnual ? 365 : 365 - 90), warranty_expiry: null
       }).select('id').maybeSingle();
       if (ins.error) console.warn('[IR] self-reported warranty creation failed:', ins.error.message);
       warrantyId = ins.data?.id;
