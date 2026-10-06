@@ -767,21 +767,24 @@ SADA.InspectionReport = (function () {
     let warrantyId = existing?.id;
     if (warrantyId) {
       const patch = isAnnual ? { service_expiry: pushDate(365) } : { filter_expiry: pushDate(90) };
-      await window.db.from('warranties').update(patch).eq('id', warrantyId);
+      const upd = await window.db.from('warranties').update(patch).eq('id', warrantyId);
+      if (upd.error) console.warn('[IR] self-reported warranty renewal failed:', upd.error.message);
     } else {
-      const { data: ins } = await window.db.from('warranties').insert({
+      const ins = await window.db.from('warranties').insert({
         customer_id: cid, qr_code: null, product_type: productType, quantity: 1,
         source: 'self_reported', booking_id: bookingId, status: 'active',
         registration_date: todayIso, filter_expiry: pushDate(90), service_expiry: pushDate(365), warranty_expiry: null
       }).select('id').maybeSingle();
-      warrantyId = ins?.id;
+      if (ins.error) console.warn('[IR] self-reported warranty creation failed:', ins.error.message);
+      warrantyId = ins.data?.id;
     }
     if (!warrantyId) return;
 
-    await window.db.from('warranty_service_history').insert({
+    const hist = await window.db.from('warranty_service_history').insert({
       warranty_id: warrantyId, service_type: isAnnual ? 'service' : 'filter',
       source: 'manual', performed_on: todayIso, performed_by: 'customer (self-reported)'
     });
+    if (hist.error) console.warn('[IR] self-reported service history log failed:', hist.error.message);
   }
 
   // ------------------------------------------------------------- form wiring
