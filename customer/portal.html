@@ -26,8 +26,10 @@
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;}
 
-    /* HEADER — personalized greeting instead of a plain brand bar */
+    /* HEADER — personalized greeting instead of a plain brand bar. The
+       avatar+name area is a button that opens the Profile modal. */
     header{background:white;padding:16px 20px;padding-top:calc(16px + env(safe-area-inset-top));display:flex;align-items:center;gap:13px;position:sticky;top:0;z-index:50;border-bottom:1px solid var(--border);}
+    .header-profile-btn{display:flex;align-items:center;gap:13px;flex:1;min-width:0;background:none;border:none;padding:0;cursor:pointer;text-align:left;font-family:inherit;}
     .avatar-circle{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--ocean),var(--water));color:white;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0;box-shadow:0 4px 12px rgba(21,101,192,0.3);font-family:'DM Sans',sans-serif;}
     .greet-text{flex:1;min-width:0;}
     .greet-hello{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;}
@@ -55,6 +57,33 @@
 
     .tab-panel{display:none;}
     .tab-panel.active{display:block;}
+
+    /* Book Again / Profile are full-screen modals now, not bottom-nav tabs. */
+    .sheet-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;}
+    .sheet-modal.open{display:block;}
+    .sheet-modal-inner{position:absolute;inset:0;background:var(--bg);overflow-y:auto;}
+    .sheet-modal-header{position:sticky;top:0;background:white;border-bottom:1px solid var(--border);padding:16px 20px;padding-top:calc(16px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px;z-index:5;}
+    .sheet-modal-header h2{font-family:'Playfair Display',serif;font-size:19px;color:var(--deep);flex:1;}
+    .sheet-modal-body{padding:20px 16px calc(32px + env(safe-area-inset-bottom));max-width:720px;margin:0 auto;}
+
+    /* Home quick-action card — non-SA'DA/self-reported customers get a
+       one-tap shortcut into booking a Filter Change. */
+    .quick-action-card{display:flex;align-items:center;gap:14px;background:white;border:1px solid var(--border);border-radius:16px;padding:16px;margin-top:14px;cursor:pointer;transition:all 0.15s;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
+    .quick-action-card:hover{box-shadow:0 4px 12px rgba(15,23,42,0.08);transform:translateY(-1px);}
+    .quick-action-icon{width:44px;height:44px;border-radius:50%;background:#FFC8DD;color:#BE185D;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .quick-action-icon svg{width:21px;height:21px;}
+    .quick-action-text{flex:1;}
+    .quick-action-title{font-size:14px;font-weight:700;color:var(--text);}
+    .quick-action-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+    .quick-action-arrow{color:var(--muted);font-size:18px;}
+
+    /* "+" floating action button on Home, opens Book Again. */
+    .fab{position:fixed;right:18px;bottom:calc(84px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--ocean),var(--water));color:white;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px -4px rgba(13,59,110,0.5);cursor:pointer;z-index:55;transition:transform 0.15s;}
+    .fab:hover{transform:scale(1.06);}
+    .fab svg{width:24px;height:24px;}
+
+    /* Service tab — flat history feed (reuses js/warranty.js historyList()). */
+    .history-card{background:white;border-radius:18px;border:1px solid var(--border);padding:6px 16px;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
 
     /* BOOKING CARDS */
     .booking-card{background:white;border-radius:20px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px;box-shadow:0 1px 3px rgba(15,23,42,0.04);transition:box-shadow 0.15s,transform 0.15s;}
@@ -176,41 +205,49 @@
 </head>
 <body>
 <header>
-  <div class="avatar-circle" id="header-avatar">?</div>
-  <div class="greet-text">
-    <div class="greet-hello">Hello 👋</div>
-    <div class="greet-name" id="user-name-header">My Account</div>
-  </div>
+  <button class="header-profile-btn" onclick="openProfileModal()" title="My Profile">
+    <div class="avatar-circle" id="header-avatar">?</div>
+    <div class="greet-text">
+      <div class="greet-hello">Hello 👋</div>
+      <div class="greet-name" id="user-name-header">My Account</div>
+    </div>
+  </button>
   <button class="icon-btn" onclick="logout()" title="Sign Out"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M14 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2"/><path d="M9 12h12l-3-3m0 6l3-3"/></g></svg></button>
 </header>
 
 <div class="container">
   <nav class="tabs">
-    <button class="tab active" onclick="switchTab('bookings',this)"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.5 21H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6M16 3v4M8 3v4m-4 4h16m-5 8l2 2l4-4"/></svg><span>Bookings</span></button>
-    <button class="tab" onclick="switchTab('units',this)"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.46 20.846A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3a12 12 0 0 0 8.5 3a12 12 0 0 1-.09 7.06M15 19l2 2l4-4"/></svg><span>Units</span></button>
-    <button class="tab" onclick="switchTab('book',this)"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0m6 0h6m-3-3v6"/></svg><span>Book</span></button>
-    <button class="tab" onclick="switchTab('profile',this)"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg><span>Profile</span></button>
-    <button class="tab" onclick="switchTab('service',this)"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/></g></svg><span>Service</span></button>
+    <button class="tab active" data-tab="home" onclick="switchTab('home')"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12H3l9-9l9 9h-2M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 21v-6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6"/></svg><span>Home</span></button>
+    <button class="tab" data-tab="service" onclick="switchTab('service')"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/></g></svg><span>Service</span></button>
+    <button class="tab" data-tab="bookings" onclick="switchTab('bookings')"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.5 21H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6M16 3v4M8 3v4m-4 4h16m-5 8l2 2l4-4"/></svg><span>Bookings</span></button>
   </nav>
 
-  <!-- MY BOOKINGS -->
-  <div class="tab-panel active" id="tab-bookings">
+  <!-- HOME (default) — next appointment + unit/warranty status -->
+  <div class="tab-panel active" id="tab-home">
     <div id="hero-banner"></div>
+    <p class="section-title">My Units</p>
+    <p class="section-sub">Warranty coverage and service status for every SA'DA H2O purifier you own.</p>
+    <div id="home-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    <div id="home-quick-action"></div>
+  </div>
+  <button class="fab" onclick="openBookModal()" title="Book a visit"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"/></svg></button>
+
+  <!-- MY BOOKINGS -->
+  <div class="tab-panel" id="tab-bookings">
     <p class="section-title">My Installations</p>
     <p class="section-sub">Track your current and past SA'DA H2O bookings.</p>
     <div id="bookings-list"><div class="loading"><div class="spinner"></div> Loading your bookings...</div></div>
   </div>
 
-  <!-- MY UNITS (warranty) -->
-  <div class="tab-panel" id="tab-units">
-    <p class="section-title">My Units</p>
-    <p class="section-sub">Warranty coverage and service history for every SA'DA H2O purifier you own.</p>
-    <div id="units-list"><div class="loading"><div class="spinner"></div> Loading your units...</div></div>
-  </div>
-
-  <!-- BOOK AGAIN -->
-  <div class="tab-panel" id="tab-book">
-    <p class="section-title">New Booking</p>
+  <!-- BOOK AGAIN — a full-screen modal now, opened from Home's "+" FAB or the
+       Filter Change quick-action card, not a bottom-nav tab. -->
+  <div class="sheet-modal" id="book-modal">
+   <div class="sheet-modal-inner">
+    <div class="sheet-modal-header">
+      <button class="icon-btn" onclick="closeBookModal()" title="Close"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 6l-6 6l6 6"/></svg></button>
+      <h2>New Booking</h2>
+    </div>
+   <div class="sheet-modal-body">
     <p class="section-sub">Choose a service type and select your slot.</p>
     <div class="type-grid">
       <div class="type-card selected" id="type-installation" onclick="selectType('installation')">
@@ -280,10 +317,18 @@
     </div>
     <div id="book-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:12px;"></div>
     <button class="btn-primary" id="btn-confirm-booking" onclick="submitNewBooking()" style="width:100%;padding:14px;">Confirm Booking →</button>
+   </div>
+   </div>
   </div>
 
-  <!-- MY PROFILE -->
-  <div class="tab-panel" id="tab-profile">
+  <!-- MY PROFILE — a modal now, opened by tapping the header avatar/name. -->
+  <div class="sheet-modal" id="profile-modal">
+   <div class="sheet-modal-inner">
+    <div class="sheet-modal-header">
+      <button class="icon-btn" onclick="closeProfileModal()" title="Close"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 6l-6 6l6 6"/></svg></button>
+      <h2>My Profile</h2>
+    </div>
+   <div class="sheet-modal-body">
     <div class="profile-card">
       <div class="profile-avatar" id="profile-avatar">?</div>
       <p class="section-title" id="profile-name-display">—</p>
@@ -294,12 +339,15 @@
       <div class="form-group"><label>Phone (cannot be changed)</label><input type="text" id="profile-phone" disabled style="background:var(--bg);color:var(--muted);"></div>
       <button class="btn-primary" onclick="saveProfile()" style="width:100%;padding:14px;">Save Changes</button>
     </div>
+   </div>
+   </div>
   </div>
 
-  <!-- SERVICE (self-reported tracking — units with no QR / not SA'DA-registered) -->
+  <!-- SERVICE — flat history feed: every filter/service/activation event,
+       for both real SA'DA units and self-reported tracking, newest first. -->
   <div class="tab-panel" id="tab-service">
-    <p class="section-title">Service</p>
-    <p class="section-sub">Filter &amp; service tracking for a unit that isn't registered with SA'DA.</p>
+    <p class="section-title">Service History</p>
+    <p class="section-sub">Every installation and service visit we've done for you.</p>
     <div id="service-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
   </div>
 </div>
@@ -357,6 +405,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('user-name-header').textContent = customer.name || customer.phone;
   updateAvatars();
   loadProfile();
+  loadHome();
   loadMyBookings();
   await loadBookRegionsAndCities();
   if (selectedType === 'installation') loadBookProducts();
@@ -403,44 +452,57 @@ function onBookRegionChange() {
   loadBookDates();
 }
 
-function switchTab(name, el) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById(`tab-${name}`).classList.add('active');
-  // Units/Service are loaded lazily — most visits are about bookings, and
-  // this saves round trips on every portal open.
-  if (name === 'units' && !unitsLoaded) loadUnits();
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
+  // Service is loaded lazily — most visits are about Home/Bookings, and this
+  // saves a round trip on every portal open. Home loads eagerly on page load.
   if (name === 'service' && !serviceLoaded) loadServiceHistory();
 }
 
-let unitsLoaded = false;
-async function loadUnits() {
-  const el = document.getElementById('units-list');
+// ICON reused from the Book Again "Filter Change" type-card, for visual
+// consistency on the Home quick-action shortcut.
+const FILTER_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m19 1l-1.26 2.75L15 5l2.74 1.26L19 9l1.25-2.74L23 5l-2.75-1.25M9 4L6.5 9.5L1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5M19 15l-1.26 2.74L15 19l2.74 1.25L19 23l1.25-2.75L23 19l-2.75-1.26"/></svg>';
+
+// HOME — every unit (real SA'DA + self-reported tracking) in one list, plus
+// a "Book a Filter Change" shortcut for anyone with no real registered unit.
+async function loadHome() {
+  const el = document.getElementById('home-list');
+  const qaHost = document.getElementById('home-quick-action');
   if (!window.SADA || !window.SADA.Warranty) {
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Warranty module still loading — please try again in a moment.</p></div>';
     return;
   }
   try {
-    // Real, QR-registered SA'DA units only — self-reported tracking (no QR,
-    // possibly a non-SA'DA unit) lives in the separate Service tab instead.
-    const units = (await SADA.Warranty.unitsForPhone(customer.phone)).filter(u => u.source !== 'self_reported');
-    unitsLoaded = true;
+    const units = await SADA.Warranty.unitsForPhone(customer.phone);
     if (!units.length) {
       el.innerHTML =
         '<div class="empty-state"><div class="empty-icon">🛡️</div>' +
         '<p style="font-weight:700;margin-bottom:6px;">No units registered yet</p>' +
-        '<p style="font-size:13px;color:var(--muted);line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty and start tracking filter and service dates here.</p>' +
+        '<p style="font-size:13px;color:var(--muted);line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty, or book a Filter Change below.</p>' +
         '</div>';
-      return;
+    } else {
+      el.innerHTML = units.map((u, i) => SADA.Warranty.unitCard(u, i)).join('');
     }
-    el.innerHTML = units.map((u, i) => SADA.Warranty.unitCard(u, i)).join('');
+    const hasRealUnit = units.some(u => u.source !== 'self_reported');
+    qaHost.innerHTML = hasRealUnit ? '' : `
+      <div class="quick-action-card" onclick="openBookModal('quarterly_service')">
+        <div class="quick-action-icon">${FILTER_ICON_SVG}</div>
+        <div class="quick-action-text">
+          <div class="quick-action-title">Book a Filter Change</div>
+          <div class="quick-action-sub">For a non-SA'DA or unregistered unit</div>
+        </div>
+        <div class="quick-action-arrow">›</div>
+      </div>`;
   } catch (e) {
-    console.error('loadUnits failed:', e);
+    console.error('loadHome failed:', e);
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load your units. Please refresh.</p></div>';
   }
 }
 
+// SERVICE — flat history feed: every warranty_service_history entry across
+// ALL the customer's units (real + self-reported), newest first. Reuses
+// SADA.Warranty.historyList()'s existing icon/label rendering as-is.
 let serviceLoaded = false;
 async function loadServiceHistory() {
   const el = document.getElementById('service-list');
@@ -449,21 +511,37 @@ async function loadServiceHistory() {
     return;
   }
   try {
-    const units = (await SADA.Warranty.unitsForPhone(customer.phone)).filter(u => u.source === 'self_reported');
+    const units = await SADA.Warranty.unitsForPhone(customer.phone);
     serviceLoaded = true;
-    if (!units.length) {
+    const allHistory = units.flatMap(u => u.history || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    if (!allHistory.length) {
       el.innerHTML =
         '<div class="empty-state"><div class="empty-icon">🔧</div>' +
-        '<p style="font-weight:700;margin-bottom:6px;">Nothing tracked yet</p>' +
-        '<p style="font-size:13px;color:var(--muted);line-height:1.6;">Complete a Filter Change or Annual Service visit with us and we’ll start tracking your next-due date here — no SA\'DA unit or QR code required.</p>' +
+        '<p style="font-weight:700;margin-bottom:6px;">Nothing here yet</p>' +
+        '<p style="font-size:13px;color:var(--muted);line-height:1.6;">Every installation and service visit we do for you will show up here.</p>' +
         '</div>';
       return;
     }
-    el.innerHTML = units.map((u, i) => SADA.Warranty.unitCard(u, i)).join('');
+    el.innerHTML = `<div class="history-card">${SADA.Warranty.historyList(allHistory)}</div>`;
   } catch (e) {
     console.error('loadServiceHistory failed:', e);
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load your service history. Please refresh.</p></div>';
   }
+}
+
+// BOOK AGAIN / PROFILE modals
+function openBookModal(presetType) {
+  document.getElementById('book-modal').classList.add('open');
+  selectType(presetType || 'installation');
+}
+function closeBookModal() {
+  document.getElementById('book-modal').classList.remove('open');
+}
+function openProfileModal() {
+  document.getElementById('profile-modal').classList.add('open');
+}
+function closeProfileModal() {
+  document.getElementById('profile-modal').classList.remove('open');
 }
 
 function showToast(msg) {
@@ -534,7 +612,7 @@ function renderHeroBanner(data) {
       </div>`;
   } else {
     host.innerHTML = `
-      <div class="hero-banner clickable" onclick="switchTab('book', document.querySelectorAll('.tab')[2])">
+      <div class="hero-banner clickable" onclick="openBookModal()">
         <div class="hero-banner-label">NEED SERVICE?</div>
         <div class="hero-banner-title">Book your next visit</div>
         <div class="hero-banner-sub">Filter change, repair, or a new installation — tap to book.</div>
@@ -1122,7 +1200,8 @@ async function submitNewBooking() {
   if (cap) cap.style.display = 'none';
   loadBookDates();
   resetBtn();
-  setTimeout(() => switchTab('bookings', document.querySelector('.tab')), 1500);
+  setTimeout(() => { closeBookModal(); switchTab('home'); }, 1500);
+  loadHome();
   loadMyBookings();
 }
 
