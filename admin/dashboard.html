@@ -5762,7 +5762,7 @@ async function loadSalesReport() {
   await dbAdmin.auth.getSession();
   const [{ data, error }, { data: bks, error: bErr }, { data: regions }] = await Promise.all([
     dbAdmin.from('leads').select('*').order('created_at', { ascending: false }).limit(2000),
-    dbAdmin.from('bookings').select('id, status, customer_name, customer_phone, created_at, created_by_name, sales_agent, service_region_id, product_model'),
+    dbAdmin.from('bookings').select('id, status, booking_type, customer_name, customer_phone, created_at, created_by_name, sales_agent, service_region_id, product_model'),
     dbAdmin.from('service_regions').select('id, name')
   ]);
   if (error) { host.innerHTML = `<div class="empty-state">⚠️ Failed to load leads: ${escB(error.message)}</div>`; return; }
