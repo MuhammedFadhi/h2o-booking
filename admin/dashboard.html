@@ -1181,8 +1181,13 @@
       <div class="card">
         <div class="card-header">
           <span class="card-title">Registered Units</span>
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <select class="form-input" id="war-filter" onchange="renderWarrantyStats();renderWarranties()" style="min-width:200px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" onclick="exportWarrantiesCSV()" title="Download as CSV">⬇ CSV</button>
+            <button class="btn btn-ghost btn-sm" onclick="sendDueReminders()" title="SMS everyone with a filter/service due soon">🔔 Send Reminders</button>
+          </div>
+        </div>
+        <div class="filter-bar" style="padding:16px 20px 0;">
+            <select id="war-filter" onchange="renderWarrantyStats();renderWarranties()">
               <option value="">All units</option>
               <optgroup label="Needs attention">
                 <option value="attention">⚠ Anything past due or due soon</option>
@@ -1203,18 +1208,15 @@
                 <option value="expiring">Warranty expiring (30d)</option>
               </optgroup>
             </select>
-            <select class="form-input" id="war-region" onchange="onWarRegionChange()" style="min-width:150px;">
+            <select id="war-region" onchange="onWarRegionChange()">
               <option value="">All Regions</option>
             </select>
-            <select class="form-input" id="war-city" onchange="renderWarranties()" style="min-width:150px;">
+            <select id="war-city" onchange="renderWarranties()">
               <option value="">All Cities</option>
             </select>
-            <input type="text" class="form-input" id="war-search" placeholder="🔍 QR, name, phone, model..."
+            <input type="text" id="war-search" placeholder="🔍 QR, name, phone, model..."
                    oninput="renderWarranties()" autocomplete="off" name="war_search_q"
                    data-lpignore="true" data-1p-ignore data-form-type="other" style="min-width:230px;">
-            <button class="btn btn-ghost btn-sm" onclick="exportWarrantiesCSV()" title="Download as CSV">⬇ CSV</button>
-            <button class="btn btn-ghost btn-sm" onclick="sendDueReminders()" title="SMS everyone with a filter/service due soon">🔔 Send Reminders</button>
-          </div>
         </div>
         <div style="padding:16px 20px;">
           <div id="warranties-list"><div class="loading"><div class="spinner"></div> Loading warranties...</div></div>
