@@ -1176,7 +1176,8 @@
 
     <!-- WARRANTIES PANEL -->
     <div class="panel" id="panel-warranties">
-      <div class="stats-grid" id="warranty-stats" style="margin-bottom:16px;"></div>
+      <div class="stat-grid" id="warranty-stats" style="margin-bottom:12px;"></div>
+      <div class="stat-grid" id="warranty-region-stats" style="margin-bottom:16px;"></div>
       <div class="card">
         <div class="card-header">
           <span class="card-title">Registered Units</span>
@@ -7248,12 +7249,14 @@ async function loadActivityLog() {
 // product_models.
 let warCitiesAll = [];       // cities: {id, name, region_id}
 let warCityRegionId = {};    // lowercased city name -> region_id
+let warRegionsAll = [];      // service_regions: {id, name}
 
 async function loadWarrantyRegionFilters() {
   const [{ data: regions }, { data: cities }] = await Promise.all([
     dbAdmin.from('service_regions').select('id, name').order('sort_order'),
     dbAdmin.from('cities').select('id, name, region_id').order('name')
   ]);
+  warRegionsAll = regions || [];
   warCitiesAll = cities || [];
   warCityRegionId = {};
   warCitiesAll.forEach(c => { warCityRegionId[(c.name || '').toLowerCase()] = c.region_id; });
@@ -7261,7 +7264,7 @@ async function loadWarrantyRegionFilters() {
   const regionSel = document.getElementById('war-region');
   const keepRegion = regionSel.value;
   regionSel.innerHTML = '<option value="">All Regions</option>' +
-    (regions || []).map(r => `<option value="${r.id}">${window.SADA.Warranty.esc(r.name)}</option>`).join('');
+    warRegionsAll.map(r => `<option value="${r.id}">${window.SADA.Warranty.esc(r.name)}</option>`).join('');
   if (keepRegion && [...regionSel.options].some(o => o.value === keepRegion)) regionSel.value = keepRegion;
 
   populateWarCityOptions();
@@ -7279,7 +7282,42 @@ function populateWarCityOptions() {
 
 function onWarRegionChange() {
   populateWarCityOptions();
+  renderWarrantyRegionStats();
   renderWarranties();
+}
+
+/** Click a region tile → jump the region filter straight to it. */
+function setWarRegionFilter(regionId) {
+  document.getElementById('war-region').value = regionId;
+  populateWarCityOptions();
+  renderWarrantyRegionStats();
+  renderWarranties();
+  document.getElementById('warranties-list')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Quick-glance breakdown for the 4 main regions, regardless of how many
+// service_regions rows exist — matched by name since this file has no
+// hardcoded region ids. If a name isn't found (e.g. renamed in the DB) that
+// tile is simply skipped.
+const WARRANTY_REGION_WIDGET_NAMES = ['Dammam & Khobar', 'Jubail', 'Jeddah', 'Riyadh'];
+function renderWarrantyRegionStats() {
+  const el = document.getElementById('warranty-region-stats');
+  if (!el) return;
+  const activeRegion = document.getElementById('war-region')?.value || '';
+  const tiles = WARRANTY_REGION_WIDGET_NAMES
+    .map(name => warRegionsAll.find(r => (r.name || '').toLowerCase() === name.toLowerCase()))
+    .filter(Boolean)
+    .map(r => {
+      const count = allWarranties.filter(w => warCityRegionId[(w.customers?.city || '').toLowerCase()] === r.id).length;
+      return `
+        <div class="stat-card" onclick="setWarRegionFilter('${r.id}')"
+             style="cursor:pointer; ${activeRegion === r.id ? 'outline:2px solid var(--water); outline-offset:-2px;' : ''}"
+             title="Click to filter">
+          <div class="stat-label">${window.SADA.Warranty.esc(r.name)}</div>
+          <div class="stat-value" style="color:var(--water);">${count}</div>
+        </div>`;
+    });
+  el.innerHTML = tiles.join('');
 }
 
 async function loadWarranties() {
@@ -7298,6 +7336,7 @@ async function loadWarranties() {
   }
   allWarranties = await window.SADA.Warranty.attachModels(data || []);
   renderWarrantyStats();
+  renderWarrantyRegionStats();
   renderWarranties();
 }
 
