@@ -5806,6 +5806,26 @@ const SALES_REPORT_STATUS = {
   lost:      { label: 'Lost',      color: '#94A3B8' }
 };
 
+// Same booking_type -> label/color mapping used in the Bookings table
+// (duplicated here per this file's existing convention of local helpers per
+// section) — a sales report row for a Filter Change/Repair/etc. visit looked
+// identical to a new-unit sale otherwise, since both just showed the product.
+function salesReportTypeLabel(t) {
+  return ({ installation: 'Installation', repair: 'Repair', quarterly_service: 'Filter Change',
+    maintenance: 'Filter Change', annual_service: 'Annual Service', relocation: 'Relocation', inspection: 'Inspection' })[t] || (t || 'Installation');
+}
+function salesReportTypeColor(t) {
+  return ({
+    installation:      { fg: '#1D4ED8', bg: '#DBEAFE' },
+    repair:            { fg: '#B45309', bg: '#FEF3C7' },
+    quarterly_service: { fg: '#0F766E', bg: '#CCFBF1' },
+    maintenance:       { fg: '#0F766E', bg: '#CCFBF1' },
+    annual_service:    { fg: '#5B21B6', bg: '#F3E8FF' },
+    relocation:        { fg: '#9A3412', bg: '#FFEDD5' },
+    inspection:        { fg: '#334155', bg: '#E2E8F0' }
+  })[t] || { fg: '#1D4ED8', bg: '#DBEAFE' };
+}
+
 // A booking's own status -> lifecycle stage. Bookings use 'installed' when the
 // job type is an installation and 'completed' for other visit types (see
 // getStatusLabel's comment above) — both mean the same "done" stage here.
@@ -5831,9 +5851,12 @@ function salesReportStatusKey(l) {
 // since the report used to read only the leads table.
 function salesReportRows() {
   const linkedIds = new Set(allLeads.map(l => l.converted_booking_id).filter(Boolean));
+  const bookingTypeById = {};
+  salesReportBookings.forEach(b => { bookingTypeById[b.id] = b.booking_type; });
   const leadRows = allLeads.map(l => ({
     name: l.name, phone: l.phone, createdAt: l.created_at, agent: l.created_by_name,
     region: salesReportRegionName[l.region_id] || '—', product: l.product_interest || '—',
+    bookingType: bookingTypeById[l.converted_booking_id] || 'installation',
     statusKey: salesReportStatusKey(l)
   }));
   const directRows = salesReportBookings
@@ -5841,6 +5864,7 @@ function salesReportRows() {
     .map(b => ({
       name: b.customer_name, phone: b.customer_phone, createdAt: b.created_at, agent: b.sales_agent || b.created_by_name,
       region: salesReportRegionName[b.service_region_id] || '—', product: b.product_model || '—',
+      bookingType: b.booking_type || 'installation',
       statusKey: salesReportBookingOnlyStatus(b.status)
     }));
   return [...leadRows, ...directRows];
@@ -5923,11 +5947,12 @@ function salesReportDetailHTML(rows, escFn) {
   // the live dashboard and in the standalone PDF print window, which has no
   // access to dashboard.html's stylesheet.
   const pill = (key) => { const s = SALES_REPORT_STATUS[key]; return `<span style="display:inline-flex;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${s.color}22;color:${s.color};">${s.label}</span>`; };
+  const typePill = (t) => { const c = salesReportTypeColor(t); return `<span style="display:inline-flex;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${c.bg};color:${c.fg};">${salesReportTypeLabel(t)}</span>`; };
   return `<table>
-    <thead><tr><th>Name</th><th>Number</th><th>Added</th><th>Agent</th><th>Region</th><th>Product</th><th>Status</th></tr></thead>
+    <thead><tr><th>Name</th><th>Number</th><th>Added</th><th>Agent</th><th>Region</th><th>Type</th><th>Product</th><th>Status</th></tr></thead>
     <tbody>${sorted.length ? sorted.map(r => `<tr>
-      <td>${escFn(r.name)}</td><td>${escFn(r.phone)}</td><td>${salesReportFmtTimestamp(r.createdAt)}</td><td>${escFn(r.agent || '—')}</td><td>${escFn(r.region)}</td><td>${escFn(r.product)}</td><td>${pill(r.statusKey)}</td>
-    </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);">No leads in range</td></tr>'}</tbody>
+      <td>${escFn(r.name)}</td><td>${escFn(r.phone)}</td><td>${salesReportFmtTimestamp(r.createdAt)}</td><td>${escFn(r.agent || '—')}</td><td>${escFn(r.region)}</td><td>${typePill(r.bookingType)}</td><td>${escFn(r.product)}</td><td>${pill(r.statusKey)}</td>
+    </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--muted);">No leads in range</td></tr>'}</tbody>
   </table>`;
 }
 
