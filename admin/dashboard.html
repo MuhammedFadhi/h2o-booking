@@ -7288,10 +7288,13 @@ function onWarRegionChange() {
   renderWarranties();
 }
 
-/** Click a region tile → jump the region filter straight to it. */
+/** Click a region tile → jump the region filter straight to it, standalone
+ *  (not combined with whatever unit-status filter was active). */
 function setWarRegionFilter(regionId) {
+  document.getElementById('war-filter').value = '';
   document.getElementById('war-region').value = regionId;
   populateWarCityOptions();
+  renderWarrantyStats();
   renderWarrantyRegionStats();
   renderWarranties();
   document.getElementById('warranties-list')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -7369,10 +7372,14 @@ function renderWarrantyStats() {
     card('expired',     'Warranty Expired', expired,             expired ? '#DC2626' : 'var(--muted)', expired ? 'No longer covered' : 'All covered');
 }
 
-/** Click a stat card → apply that filter to the table below. */
+/** Click a stat card → apply that filter to the table below, standalone
+ *  (not combined with whatever region was active). */
 function setWarrantyFilter(key) {
   document.getElementById('war-filter').value = key;
+  document.getElementById('war-region').value = '';
+  populateWarCityOptions();
   renderWarrantyStats();      // re-render so the active card shows its outline
+  renderWarrantyRegionStats();
   renderWarranties();
   document.getElementById('warranties-list')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
