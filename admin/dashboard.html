@@ -1378,9 +1378,12 @@
         <div style="font-size:11px;color:var(--muted);margin-top:4px;">Internal only — never shown to the customer.</div>
       </div>
       <div id="fup-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;">
-        <button class="btn btn-ghost" onclick="closeModal('followup-modal')">Cancel</button>
-        <button class="btn btn-primary" id="fup-save" onclick="saveFollowup()">Save</button>
+      <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;">
+        <div id="fup-manage-actions" style="display:flex;gap:7px;"></div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" onclick="closeModal('followup-modal')">Cancel</button>
+          <button class="btn btn-primary" id="fup-save" onclick="saveFollowup()">Save</button>
+        </div>
       </div>
     </div>
   </div>
@@ -8068,7 +8071,38 @@ async function openFollowupModal(customerId, followupId) {
   document.getElementById('fup-error').style.display = 'none';
   document.querySelector('#followup-modal .modal-title').textContent = existing ? 'Edit Follow-up' : 'New Follow-up';
   document.getElementById('fup-save').textContent = existing ? 'Save Changes' : 'Save';
+
+  // Editing an existing one — offer the same Mark Done/Reopen/Delete this
+  // follow-up already has in the List view, so you don't have to leave the
+  // calendar and go find it there just to manage it.
+  const manageEl = document.getElementById('fup-manage-actions');
+  manageEl.innerHTML = existing ? (
+    (existing.status === 'pending'
+      ? `<button class="btn btn-primary btn-sm" onclick="fupModalSetStatus('done')">✓ Mark Done</button>`
+      : `<button class="btn btn-ghost btn-sm" onclick="fupModalSetStatus('pending')">↩ Reopen</button>`) +
+    `<button class="btn btn-ghost btn-sm" onclick="fupModalDelete()">🗑 Delete</button>`
+  ) : '';
+
   document.getElementById('followup-modal').style.display = 'flex';
+}
+
+async function fupModalSetStatus(status) {
+  if (!editingFollowupId) return;
+  await setFollowupStatus(editingFollowupId, status);
+  closeModal('followup-modal');
+}
+
+async function fupModalDelete() {
+  if (!editingFollowupId) return;
+  if (!(await ensureSession())) return;
+  // deleteFollowup() has its own confirm() — asking here too would double-
+  // prompt, so this duplicates its body instead of calling it.
+  if (!confirm('Delete this follow-up? This cannot be undone.')) return;
+  const { error } = await dbAdmin.from('customer_followups').delete().eq('id', editingFollowupId);
+  if (error) { showToast(error.message, 'error'); return; }
+  showToast('Follow-up deleted', 'success');
+  closeModal('followup-modal');
+  loadFollowups();
 }
 
 // Searchable list — filters as you type, offers "add new" at the bottom.
