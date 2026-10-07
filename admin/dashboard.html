@@ -3177,8 +3177,11 @@ async function loadRescheduleSlots() {
   if (warn) warn.style.display = 'none';
   if (!date) { sel.innerHTML = '<option value="">— Pick a date first —</option>'; return; }
 
+  // Booked slots are included too (not just free ones) — admin can
+  // deliberately reschedule into an already-taken slot, same override as
+  // creating a new booking. confirmReschedule() confirms before forcing it.
   let query = dbAdmin.from('availability_slots')
-    .select('*').eq('slot_date', date).eq('is_available', true).eq('is_booked', false);
+    .select('*').eq('slot_date', date).eq('is_available', true);
   // Filter to the booking's region when we know it.
   if (rescheduleRegionId) query = query.eq('service_region_id', rescheduleRegionId);
   const { data } = await query.order('slot_hour');
@@ -3190,14 +3193,15 @@ async function loadRescheduleSlots() {
   }
 
   if (!data || !data.length) {
-    sel.innerHTML = '<option value="">No available slots in this region on this date</option>'; return;
+    sel.innerHTML = '<option value="">No slots in this region on this date</option>'; return;
   }
   sel.innerHTML = '<option value="">— Select a time slot —</option>';
   data.forEach(slot => {
     const opt = document.createElement('option');
     opt.value = slot.id;
     opt.dataset.hour = slot.slot_hour;
-    opt.textContent = formatHour(slot.slot_hour);
+    opt.dataset.booked = slot.is_booked ? 'true' : 'false';
+    opt.textContent = formatHour(slot.slot_hour) + (slot.is_booked ? ' — already booked' : '');
     sel.appendChild(opt);
   });
 }
@@ -3227,16 +3231,28 @@ async function confirmReschedule() {
     errEl.style.display = 'block'; errEl.textContent = 'Please select a date and time slot.'; return;
   }
 
+  const forceBooking = sel.options[sel.selectedIndex]?.dataset?.booked === 'true';
+  if (forceBooking && !confirm('This slot already has a booking — add another anyway?')) return;
+
   errEl.style.display = 'none';
 
   // Guard: atomically claim the NEW slot first (only if still free). If someone
   // took it between the admin opening the modal and confirming, stop before we
   // free the old slot — so we never end up with the booking pointing at a taken
-  // slot or with both slots in a bad state.
-  const { data: claimed } = await dbAdmin.from('availability_slots')
-    .update({ is_booked: true })
-    .eq('id', newSlotId).eq('is_booked', false)
-    .select();
+  // slot or with both slots in a bad state. Skipped when the admin deliberately
+  // chose an already-booked slot above — it's expected to already be taken.
+  let claimed;
+  if (forceBooking) {
+    ({ data: claimed } = await dbAdmin.from('availability_slots')
+      .update({ is_booked: true })
+      .eq('id', newSlotId)
+      .select());
+  } else {
+    ({ data: claimed } = await dbAdmin.from('availability_slots')
+      .update({ is_booked: true })
+      .eq('id', newSlotId).eq('is_booked', false)
+      .select());
+  }
   if (!claimed || !claimed.length) {
     errEl.style.display = 'block';
     errEl.textContent = 'That slot was just taken. Please pick another time.';
