@@ -1402,6 +1402,34 @@
   </div>
 </div>
 
+<!-- CUSTOMER FOLLOW-UPS (same list+add view as lead follow-ups above, scoped
+     to one customer — opened from Services/Warranties rows and anywhere else
+     a specific customer is already in hand, e.g. not via the combobox picker
+     the generic #followup-modal uses). -->
+<div class="modal-overlay" id="customer-followup-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Follow-ups — <span id="cfup-customer-name"></span></span>
+      <button class="modal-close" onclick="closeModal('customer-followup-modal')">&times;</button></div>
+    <div class="modal-body">
+      <div id="cfup-customer-phone" style="font-size:12px;color:var(--muted);margin:-8px 0 14px;"></div>
+      <div id="cfup-list" style="margin-bottom:16px;"></div>
+      <div style="border-top:1px solid var(--border);padding-top:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Add a follow-up</div>
+        <div class="form-group"><label>Follow-up date</label>
+          <input type="date" id="cfup-date" class="form-input"></div>
+        <div class="form-group"><label>Note</label>
+          <textarea id="cfup-note" class="form-input" rows="3" placeholder="What needs following up?" autocomplete="off" data-lpignore="true" data-1p-ignore></textarea>
+        </div>
+        <div id="cfup-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button class="btn btn-ghost" onclick="closeModal('customer-followup-modal')">Close</button>
+          <button class="btn btn-primary" id="cfup-save" onclick="saveCustomerFollowup()">Add follow-up</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ADMIN "BOOK FOR CUSTOMER" MODAL (no OTP) -->
 <div class="modal-overlay" id="admin-booking-modal" style="display:none;">
   <div class="modal">
@@ -5827,6 +5855,99 @@ async function deleteLeadFollowup(id) {
   renderLeadFollowupModalList();
 }
 
+// Same list+add view as the lead follow-up modal above, scoped to a
+// customer_id instead of a lead_id — opened straight from a row that already
+// has a customer in hand (e.g. the Services/Warranties table), skipping the
+// generic #followup-modal's customer-search combobox.
+let currentCustomerFollowupCustomerId = null;
+let currentCustomerFollowups = [];
+
+async function openCustomerFollowupModal(customerId) {
+  currentCustomerFollowupCustomerId = customerId;
+  const { data: cust } = await dbAdmin.from('customers').select('id, name, phone').eq('id', customerId).maybeSingle();
+  if (!cust) { showToast('Could not find that customer.', 'error'); return; }
+
+  document.getElementById('cfup-customer-name').textContent = cust.name || '—';
+  document.getElementById('cfup-customer-phone').textContent = cust.phone || '';
+  document.getElementById('cfup-date').value = window.SADA.Warranty.localDateISO(new Date());
+  document.getElementById('cfup-note').value = '';
+  document.getElementById('cfup-error').style.display = 'none';
+
+  const { data: fups, error: fErr } = await dbAdmin.from('customer_followups')
+    .select('*').eq('customer_id', customerId).order('followup_date', { ascending: true });
+  currentCustomerFollowups = fErr ? [] : (fups || []);
+
+  renderCustomerFollowupModalList();
+  document.getElementById('customer-followup-modal').style.display = 'flex';
+}
+
+function renderCustomerFollowupModalList() {
+  const W = window.SADA.Warranty;
+  const el = document.getElementById('cfup-list');
+  const rows = currentCustomerFollowups.slice().sort((a, b) => a.followup_date.localeCompare(b.followup_date));
+  if (!rows.length) { el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0;">No follow-ups yet.</div>'; return; }
+  el.innerHTML = rows.map(x => {
+    const c = followupColor(x);
+    return `
+      <div style="background:var(--bg);border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:3px solid ${c.bar};">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
+          <span style="background:${c.bg};color:${c.fg};font-size:11px;font-weight:700;padding:3px 9px;border-radius:9px;white-space:nowrap;">
+            ${W.fmtDate(x.followup_date)} · ${x.status === 'done' ? 'DONE' : W.humanDays(x.followup_date)}</span>
+        </div>
+        <div style="font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word;">${W.esc(x.note)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px;">${x.created_by ? 'By ' + W.esc(x.created_by) + ' · ' : ''}${W.fmtDate(x.created_at)}</div>
+        <div style="display:flex;gap:7px;margin-top:8px;flex-wrap:wrap;">
+          ${x.status === 'pending'
+            ? `<button class="btn btn-primary btn-sm" onclick="setCustomerFollowupStatus('${x.id}','done')">✓ Mark Done</button>`
+            : `<button class="btn btn-ghost btn-sm" onclick="setCustomerFollowupStatus('${x.id}','pending')">↩ Reopen</button>`}
+          <button class="btn btn-ghost btn-sm" onclick="deleteCustomerFollowupEntry('${x.id}')">🗑 Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function saveCustomerFollowup() {
+  if (!(await ensureSession())) return;
+  const date = document.getElementById('cfup-date').value;
+  const note = document.getElementById('cfup-note').value.trim();
+  const errEl = document.getElementById('cfup-error');
+  const btn = document.getElementById('cfup-save');
+  const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
+  errEl.style.display = 'none';
+  if (!date || !note) return fail('Date and note are both required.');
+
+  btn.disabled = true; btn.textContent = 'Saving...';
+  const { data: { session } } = await dbAdmin.auth.getSession();
+  const { error } = await dbAdmin.from('customer_followups').insert({
+    customer_id: currentCustomerFollowupCustomerId, followup_date: date, note,
+    created_by: session?.user?.email || null, status: 'pending'
+  });
+  btn.disabled = false; btn.textContent = 'Add follow-up';
+  if (error) return fail(error.message);
+
+  showToast('Follow-up added', 'success');
+  loadFollowups();   // keeps the unified Follow-ups calendar/badge in sync too
+  await openCustomerFollowupModal(currentCustomerFollowupCustomerId);
+}
+
+async function setCustomerFollowupStatus(id, status) {
+  if (!(await ensureSession())) return;
+  const { error } = await dbAdmin.from('customer_followups').update({ status }).eq('id', id);
+  if (error) { showToast(error.message, 'error'); return; }
+  loadFollowups();
+  await openCustomerFollowupModal(currentCustomerFollowupCustomerId);
+}
+
+async function deleteCustomerFollowupEntry(id) {
+  if (!(await ensureSession())) return;
+  if (!confirm('Delete this follow-up? This cannot be undone.')) return;
+  const { error } = await dbAdmin.from('customer_followups').delete().eq('id', id);
+  if (error) { showToast(error.message, 'error'); return; }
+  showToast('Follow-up deleted', 'success');
+  loadFollowups();
+  await openCustomerFollowupModal(currentCustomerFollowupCustomerId);
+}
+
 // ============================================================
 // SALES REPORT — new leads by day, filterable by date range / agent / status,
 // with a PDF export (browser print, same technique as warranty certificates —
@@ -7522,7 +7643,7 @@ function renderWarranties() {
             <td><div style="display:flex;gap:6px;flex-wrap:wrap;">
               <button class="btn btn-primary btn-sm" onclick="openJobOrder('${w.id}')">+ Job</button>
               <button class="btn btn-ghost btn-sm" onclick="viewWarrantyHistory('${w.id}')">History</button>
-              ${w.customers?.id ? `<button class="btn btn-ghost btn-sm" onclick="openFollowupModal('${w.customers.id}', null)" title="Schedule a follow-up for this customer">📅 Follow-up</button>` : ''}
+              ${w.customers?.id ? `<button class="btn btn-ghost btn-sm" onclick="openCustomerFollowupModal('${w.customers.id}')" title="Schedule a follow-up for this customer">📅 Follow-up</button>` : ''}
               <button class="btn btn-ghost btn-sm" onclick="toggleServiceOptOut('${w.id}', ${!!w.service_opted_out})" title="${w.service_opted_out ? 'Re-enable service reminders' : 'Customer does not want service'}">${w.service_opted_out ? '🔔' : '🔕'}</button>
               ${(w.status || 'active') === 'active'
                 ? `<button class="btn btn-ghost btn-sm" onclick="setWarrantyStatus('${w.id}','paused')" title="Pause coverage">⏸</button>
