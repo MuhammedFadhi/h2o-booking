@@ -305,6 +305,17 @@
       overflow-y: auto;
     }
     .modal-title { font-family: 'Public Sans', sans-serif; font-weight: 700; font-size: 20px; color: var(--deep); margin-bottom: 20px; }
+    /* .modal-header had no layout rule of its own, so the title (an inline
+       span) and the close button just flowed one after another in normal
+       text — fine for a short one-line title, but a long one (or one with a
+       nested customer-name span) wraps and leaves the × stranded mid-line
+       instead of pinned to the corner. */
+    .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .modal-close {
+      flex-shrink: 0; background: none; border: none; font-size: 22px; line-height: 1;
+      color: var(--muted); cursor: pointer; padding: 2px 8px; border-radius: 6px;
+    }
+    .modal-close:hover { background: var(--bg); color: var(--text); }
     .modal-footer { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
     .form-group { margin-bottom: 16px; }
     label { display: block; font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
