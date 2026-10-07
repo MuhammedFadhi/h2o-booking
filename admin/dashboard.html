@@ -1202,6 +1202,12 @@
                 <option value="expiring">Warranty expiring (30d)</option>
               </optgroup>
             </select>
+            <select class="form-input" id="war-region" onchange="onWarRegionChange()" style="min-width:150px;">
+              <option value="">All Regions</option>
+            </select>
+            <select class="form-input" id="war-city" onchange="renderWarranties()" style="min-width:150px;">
+              <option value="">All Cities</option>
+            </select>
             <input type="text" class="form-input" id="war-search" placeholder="🔍 QR, name, phone, model..."
                    oninput="renderWarranties()" autocomplete="off" name="war_search_q"
                    data-lpignore="true" data-1p-ignore data-form-type="other" style="min-width:230px;">
@@ -7236,14 +7242,55 @@ async function loadActivityLog() {
   }).join('');
 }
 
+// customers.city is free text (no FK), so a unit's region is derived by
+// matching that text against the cities table's name, then following its
+// region_id — same join-by-name pattern as the rest of this file uses for
+// product_models.
+let warCitiesAll = [];       // cities: {id, name, region_id}
+let warCityRegionId = {};    // lowercased city name -> region_id
+
+async function loadWarrantyRegionFilters() {
+  const [{ data: regions }, { data: cities }] = await Promise.all([
+    dbAdmin.from('service_regions').select('id, name').order('sort_order'),
+    dbAdmin.from('cities').select('id, name, region_id').order('name')
+  ]);
+  warCitiesAll = cities || [];
+  warCityRegionId = {};
+  warCitiesAll.forEach(c => { warCityRegionId[(c.name || '').toLowerCase()] = c.region_id; });
+
+  const regionSel = document.getElementById('war-region');
+  const keepRegion = regionSel.value;
+  regionSel.innerHTML = '<option value="">All Regions</option>' +
+    (regions || []).map(r => `<option value="${r.id}">${window.SADA.Warranty.esc(r.name)}</option>`).join('');
+  if (keepRegion && [...regionSel.options].some(o => o.value === keepRegion)) regionSel.value = keepRegion;
+
+  populateWarCityOptions();
+}
+
+function populateWarCityOptions() {
+  const regionId = document.getElementById('war-region').value;
+  const citySel = document.getElementById('war-city');
+  const keepCity = citySel.value;
+  const list = regionId ? warCitiesAll.filter(c => c.region_id === regionId) : warCitiesAll;
+  citySel.innerHTML = '<option value="">All Cities</option>' +
+    list.map(c => `<option value="${window.SADA.Warranty.esc(c.name)}">${window.SADA.Warranty.esc(c.name)}</option>`).join('');
+  if (keepCity && [...citySel.options].some(o => o.value === keepCity)) citySel.value = keepCity;
+}
+
+function onWarRegionChange() {
+  populateWarCityOptions();
+  renderWarranties();
+}
+
 async function loadWarranties() {
   const el = document.getElementById('warranties-list');
   el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading warranties...</div>';
   // NOTE: product_models is joined by NAME, not an FK — PostgREST cannot embed
   // it (PGRST200). customers CAN be embedded (real FK on customer_id).
-  const { data, error } = await dbAdmin.from('warranties')
-    .select('*, customers(id, name, phone, city)')
-    .order('registration_date', { ascending: false });
+  const [{ data, error }] = await Promise.all([
+    dbAdmin.from('warranties').select('*, customers(id, name, phone, city)').order('registration_date', { ascending: false }),
+    loadWarrantyRegionFilters()
+  ]);
   if (error) {
     console.error(error);
     el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">Could not load warranties.</div>';
@@ -7346,6 +7393,11 @@ function renderWarranties() {
     });
   }
 
+  const regionId = document.getElementById('war-region')?.value || '';
+  const cityFilter = (document.getElementById('war-city')?.value || '').toLowerCase();
+  if (regionId) rows = rows.filter(w => warCityRegionId[(w.customers?.city || '').toLowerCase()] === regionId);
+  if (cityFilter) rows = rows.filter(w => (w.customers?.city || '').toLowerCase() === cityFilter);
+
   const LEGEND = `
     <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center; padding:10px 12px; background:var(--bg); border-radius:9px; margin-bottom:12px; font-size:12px;">
       <span style="font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; font-size:10px;">Key</span>
@@ -7403,7 +7455,8 @@ function renderWarranties() {
                 ? `<strong>${W.esc(w.customers.name)}</strong>`
                 : `<span style="color:#B45309;font-style:italic;font-size:12px;">No name</span>`}
                 ${w.customers?.phone ? `<button class="btn btn-ghost btn-sm" onclick="editCustomerName('${W.esc(w.customers.phone)}')" style="padding:1px 6px;font-size:11px;margin-left:4px;">✏️</button>` : ''}
-                <div style="font-size:11px;color:var(--muted);">${W.esc(w.customers?.phone || '')}${w.customers?.phone ? ` <button class="btn btn-ghost btn-sm" onclick="editCustomerPhone('${W.esc(w.customers.phone)}')" style="padding:0px 5px;font-size:10px;" title="Change phone number">📱</button>` : ''}</div></td>
+                <div style="font-size:11px;color:var(--muted);">${W.esc(w.customers?.phone || '')}${w.customers?.phone ? ` <button class="btn btn-ghost btn-sm" onclick="editCustomerPhone('${W.esc(w.customers.phone)}')" style="padding:0px 5px;font-size:10px;" title="Change phone number">📱</button>` : ''}</div>
+                ${w.customers?.city ? `<div style="font-size:11px;color:var(--muted);">📍 ${W.esc(w.customers.city)}</div>` : ''}</td>
             <td style="font-size:12px;">${W.esc(w.product_type)}${w.quantity > 1 ? ` ×${w.quantity}` : ''}
               <button class="btn btn-ghost btn-sm" onclick="editWarrantyProduct('${w.id}')" title="Edit product / quantity" style="padding:0 5px;font-size:11px;">✏️</button></td>
             <td>${pill(w.filter_expiry)}</td>
