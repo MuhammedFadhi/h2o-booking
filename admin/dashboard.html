@@ -7446,6 +7446,15 @@ function renderWarranties() {
   if (regionId) rows = rows.filter(w => warCityRegionId[(w.customers?.city || '').toLowerCase()] === regionId);
   if (cityFilter) rows = rows.filter(w => (w.customers?.city || '').toLowerCase() === cityFilter);
 
+  // Most urgent first — whichever of filter/service is due soonest (or most
+  // overdue, which sorts even earlier since daysUntil goes negative). Units
+  // with neither date set drop to the bottom.
+  const nextDueDays = (w) => {
+    const vals = [W.daysUntil(w.filter_expiry), W.daysUntil(w.service_expiry)].filter(d => d !== null);
+    return vals.length ? Math.min(...vals) : Infinity;
+  };
+  rows = rows.slice().sort((a, b) => nextDueDays(a) - nextDueDays(b));
+
   const LEGEND = `
     <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center; padding:10px 12px; background:var(--bg); border-radius:9px; margin-bottom:12px; font-size:12px;">
       <span style="font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; font-size:10px;">Key</span>
