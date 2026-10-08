@@ -282,6 +282,15 @@
     .filter-bar select:focus, .filter-bar input:focus {
       border-color: var(--water);
     }
+    /* Search inputs: an inline Iconify SVG (not emoji — see memory) can't go
+       inside a placeholder attribute, so it's an absolutely-positioned icon
+       over a text input with left padding to clear it. */
+    .search-wrap { position: relative; display: inline-flex; }
+    .search-wrap input { padding-left: 34px !important; }
+    .search-icon {
+      position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+      color: var(--muted); pointer-events: none; display: flex;
+    }
 
     /* MODAL */
     .modal-overlay {
@@ -827,7 +836,7 @@
 
       <div class="card" style="margin-top:20px;">
         <div class="filter-bar">
-            <input type="text" id="search-bookings" placeholder="🔍 Search by name or phone..." oninput="loadBookings()" style="min-width:220px;">
+            <span class="search-wrap"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" id="search-bookings" placeholder="Search by name or phone..." oninput="loadBookings()" style="min-width:220px;"></span>
             <select id="filter-status" onchange="loadBookings()">
               <option value="">All Statuses</option>
               <option value="upcoming">Upcoming</option>
@@ -880,7 +889,7 @@
         <div class="card-header">
           <span class="card-title">Leads</span>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <input type="text" class="form-input" id="lead-search" placeholder="🔍 Search by name or phone..." oninput="renderLeadsAdminTable()" style="min-width:220px;" autocomplete="off">
+            <span class="search-wrap"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="lead-search" placeholder="Search by name or phone..." oninput="renderLeadsAdminTable()" style="min-width:220px;" autocomplete="off"></span>
             <select id="lead-status-filter" class="form-input" onchange="renderLeadsAdminTable()">
               <option value="open">Open</option>
               <option value="converted">Converted</option>
@@ -1157,7 +1166,7 @@
         <div class="card-header">
           <span class="card-title">Customer Database</span>
           <div style="display:flex;gap:10px;align-items:center;">
-            <input type="text" class="form-input" id="customer-search" placeholder="🔍 Search by name or phone..." oninput="filterCustomers()" style="min-width:220px;" autocomplete="off" name="cust_search_q" data-lpignore="true" data-1p-ignore data-form-type="other">
+            <span class="search-wrap"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="customer-search" placeholder="Search by name or phone..." oninput="filterCustomers()" style="min-width:220px;" autocomplete="off" name="cust_search_q" data-lpignore="true" data-1p-ignore data-form-type="other"></span>
             <button class="btn btn-primary" onclick="openAddCustomerModal()">+ Add Customer</button>
           </div>
         </div>
@@ -1176,7 +1185,7 @@
               <option value="">All (incl. drafts)</option>
               <option value="draft">Drafts only</option>
             </select>
-            <input type="text" class="form-input" id="reports-search" placeholder="🔍 Name or phone..." oninput="renderReportsList()" style="min-width:220px;" autocomplete="off" name="rep_search_q" data-lpignore="true" data-1p-ignore data-form-type="other">
+            <span class="search-wrap"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="reports-search" placeholder="Name or phone..." oninput="renderReportsList()" style="min-width:220px;" autocomplete="off" name="rep_search_q" data-lpignore="true" data-1p-ignore data-form-type="other"></span>
           </div>
         </div>
         <div style="padding:16px 20px;">
@@ -1225,9 +1234,9 @@
             <select id="war-city" onchange="renderWarranties()">
               <option value="">All Cities</option>
             </select>
-            <input type="text" id="war-search" placeholder="🔍 QR, name, phone, model..."
+            <span class="search-wrap"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" id="war-search" placeholder="QR, name, phone, model..."
                    oninput="renderWarranties()" autocomplete="off" name="war_search_q"
-                   data-lpignore="true" data-1p-ignore data-form-type="other" style="min-width:230px;">
+                   data-lpignore="true" data-1p-ignore data-form-type="other" style="min-width:230px;"></span>
         </div>
         <div style="padding:16px 20px;">
           <div id="warranties-list"><div class="loading"><div class="spinner"></div> Loading warranties...</div></div>
@@ -1352,7 +1361,8 @@
       <div class="form-group">
         <label>Customer</label>
         <div style="position:relative;">
-          <input type="text" id="fup-customer-search" class="form-input" placeholder="🔍 Type name or phone…"
+          <span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span>
+          <input type="text" id="fup-customer-search" class="form-input" placeholder="Type name or phone…" style="padding-left:34px;"
                  autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other"
                  oninput="filterFupCustomers(this.value)" onfocus="filterFupCustomers(this.value)">
           <input type="hidden" id="fup-customer">
