@@ -1811,7 +1811,7 @@
     <div class="modal-header"><span class="modal-title">Edit City</span>
       <button class="modal-close" onclick="closeModal('edit-booking-city-modal')">&times;</button></div>
     <div class="modal-body">
-      <div style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">Changes this booking only — not the customer record or other bookings.</div>
+      <div style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">Updates this booking and the customer's saved city (used by the Services region filter). Other past bookings for this customer are not changed.</div>
       <div class="form-group"><label>Region</label>
         <select class="form-input" id="ebc-region" onchange="ebcLoadCities()"></select></div>
       <div class="form-group"><label>City</label>
@@ -3754,6 +3754,10 @@ async function ebcLoadCities(preselectName) {
   if (preselectName && [...csel.options].some(o => o.value === preselectName)) csel.value = preselectName;
 }
 
+// Unlike editBookingName (deliberately booking-only — see comment above),
+// city is kept in sync with the customer record: the Services panel's region
+// filter reads customers.city, so a city fixed here but not there would
+// silently stay wrong in Services.
 async function saveBookingCity() {
   if (!(await ensureSession())) return;
   const errEl = document.getElementById('ebc-error');
@@ -3765,12 +3769,21 @@ async function saveBookingCity() {
   const { error } = await dbAdmin.from('bookings').update({ city_name: city, service_region_id: regionId }).eq('id', ebcBookingId);
   if (error) { errEl.style.display = 'block'; errEl.textContent = error.message; return; }
 
+  const phone = window.__lastViewedBooking?.customer_phone;
+  if (phone) {
+    const { error: custErr } = await dbAdmin.from('customers').update({ city }).eq('phone', phone);
+    if (custErr) console.warn('[city edit] customer record not updated:', custErr.message);
+  }
+
   logActivity('booking.city_edit', `Changed booking city to "${city}"`, 'booking', ebcBookingId);
   const el = document.getElementById('bk-city-display'); if (el) el.textContent = city;
   if (window.__lastViewedBooking) { window.__lastViewedBooking.city_name = city; window.__lastViewedBooking.service_region_id = regionId; }
   closeModal('edit-booking-city-modal');
-  showToast('Booking city updated', 'success');
+  showToast('City updated for this booking and the customer', 'success');
   if (typeof loadBookings === 'function') loadBookings();
+  if (typeof allWarranties !== 'undefined') allWarranties = [];
+  if (document.getElementById('panel-warranties')?.classList.contains('active')) loadWarranties();
+  if (typeof loadCustomers === 'function' && document.getElementById('panel-customers')?.classList.contains('active')) loadCustomers();
 }
 
 // Edit the canonical customer name (used by warranties, portal, follow-ups).
