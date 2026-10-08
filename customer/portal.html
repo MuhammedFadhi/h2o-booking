@@ -38,9 +38,8 @@
     .header-profile-btn{display:flex;align-items:center;gap:13px;flex:1;min-width:0;background:none;border:none;padding:0;cursor:pointer;text-align:left;font-family:inherit;}
     .avatar-circle{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.35);color:white;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0;font-family:'DM Sans',sans-serif;}
     .greet-text{flex:1;min-width:0;}
-    .greet-hi{font-size:13px;color:rgba(255,255,255,0.75);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .greet-hello{font-size:23px;font-weight:800;color:#fff;line-height:1.25;margin:2px 0 4px;}
-    .greet-sub{font-size:11px;color:rgba(255,255,255,0.5);}
+    .greet-hello{font-size:11px;color:rgba(255,255,255,0.65);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;}
+    .greet-name{font-size:17px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .icon-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:white;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;flex-shrink:0;transition:all 0.15s;}
     .icon-btn:hover{border-color:var(--red);color:var(--red);background:#FEF2F2;}
     /* Same button, but sitting on the header's dark gradient — needs its
@@ -222,9 +221,8 @@
   <button class="header-profile-btn" onclick="openProfileModal()" title="My Profile">
     <div class="avatar-circle" id="header-avatar">?</div>
     <div class="greet-text">
-      <div class="greet-hi">Hi <span id="user-name-header">there</span></div>
-      <div class="greet-hello" id="greet-time">Good Morning</div>
-      <div class="greet-sub">Your purifier status, at a glance</div>
+      <div class="greet-hello" id="greet-time">Hello</div>
+      <div class="greet-name" id="user-name-header">My Account</div>
     </div>
   </button>
   <button class="icon-btn" onclick="logout()" title="Sign Out"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M14 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2"/><path d="M9 12h12l-3-3m0 6l3-3"/></g></svg></button>
@@ -499,7 +497,7 @@ async function loadHome() {
         '<p style="font-size:13px;color:var(--muted);line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty, or book a Filter Change below.</p>' +
         '</div>';
     } else {
-      el.innerHTML = units.map((u, i) => SADA.Warranty.unitCardCompact(u, i)).join('');
+      el.innerHTML = units.map((u, i) => SADA.Warranty.unitCard(u, i)).join('');
     }
     const hasRealUnit = units.some(u => u.source !== 'self_reported');
     qaHost.innerHTML = hasRealUnit ? '' : `
