@@ -7754,7 +7754,7 @@ function renderWarranties() {
             <td><div style="display:flex;gap:6px;flex-wrap:wrap;">
               <button class="btn btn-primary btn-sm" onclick="openJobOrder('${w.id}')">+ Job</button>
               <button class="btn btn-ghost btn-sm" onclick="viewWarrantyHistory('${w.id}')">History</button>
-              ${w.customers?.id ? `<button class="btn btn-ghost btn-sm" onclick="openCustomerFollowupModal('${w.customers.id}')" title="Schedule a follow-up for this customer">📅 Follow-up</button>` : ''}
+              ${w.customers?.id ? `<button class="btn btn-ghost btn-sm" onclick="openCustomerFollowupModal('${w.customers.id}')" title="Schedule a follow-up for this customer">${FOLLOWUP_ICON_SVG} Follow-up</button>` : ''}
               <button class="btn btn-ghost btn-sm" onclick="toggleServiceOptOut('${w.id}', ${!!w.service_opted_out})" title="${w.service_opted_out ? 'Re-enable service reminders' : 'Customer does not want service'}">${w.service_opted_out ? '🔔' : '🔕'}</button>
               ${(w.status || 'active') === 'active'
                 ? `<button class="btn btn-ghost btn-sm" onclick="setWarrantyStatus('${w.id}','paused')" title="Pause coverage">⏸</button>
