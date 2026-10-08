@@ -3507,6 +3507,10 @@ async function deleteBookingPermanently(bookingId, customerName, bookingRef) {
   loadBookings();
 }
 
+// Iconify (tabler) icons — see memory: icons are always inline SVG, never emoji.
+const ICON_PENCIL = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 20h4L18.5 9.5a2.828 2.828 0 1 0-4-4L4 16v4"/><path d="M13.5 6.5l4 4"/></g></svg>';
+const ICON_DEVICE_MOBILE = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M6 5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5z"/><path d="M11 4h2M12 17v.01"/></g></svg>';
+
 // ============================================================
 // VIEW BOOKING DETAIL
 // ============================================================
@@ -3594,15 +3598,15 @@ async function viewBooking(bookingId) {
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="color:var(--muted);">Name: </span>
             <strong id="bk-name-display">${W.esc(b.customer_name)}</strong>
-            <button class="btn btn-ghost btn-sm" onclick="editBookingName('${b.id}')" style="padding:2px 8px;font-size:12px;">✏️ Edit</button>
+            <button class="btn btn-ghost btn-sm" onclick="editBookingName('${b.id}')" style="padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">${ICON_PENCIL} Edit</button>
           </div>
           <div><span style="color:var(--muted);">Mobile: </span><strong>${b.customer_phone}</strong>
-            <button class="btn btn-ghost btn-sm" onclick="editCustomerPhone('${W.esc(b.customer_phone)}')" style="padding:2px 8px;font-size:12px;" title="Change number everywhere">📱 Change</button>
+            <button class="btn btn-ghost btn-sm" onclick="editCustomerPhone('${W.esc(b.customer_phone)}')" style="padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px;" title="Change number everywhere">${ICON_DEVICE_MOBILE} Change</button>
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="color:var(--muted);">City: </span>
             <strong id="bk-city-display">${W.esc(b.city_name)}</strong>
-            <button class="btn btn-ghost btn-sm" onclick="editBookingCity('${b.id}')" style="padding:2px 8px;font-size:12px;">✏️ Edit</button>
+            <button class="btn btn-ghost btn-sm" onclick="editBookingCity('${b.id}')" style="padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">${ICON_PENCIL} Edit</button>
           </div>
           <div><span style="color:var(--muted);">Address: </span><strong>${b.location_address || '—'}</strong>
             ${b.location_updated_by === 'installer' ? ` <span style="font-size:11px;color:#166534;background:#DCFCE7;padding:1px 7px;border-radius:20px;">📍 GPS corrected on-site</span>` : ''}
