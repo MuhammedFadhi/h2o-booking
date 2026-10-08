@@ -22,22 +22,32 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#E2E8F0;--bg:#F8FAFC;--green:#16A34A;--red:#DC2626;--amber:#D97706;}
+    :root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#E2E8F0;--bg:#F8FAFC;--green:#16A34A;--red:#DC2626;--amber:#D97706;
+      /* Accent gradient for the greeting header + bottom nav only — every
+         button/link/action stays SADA blue (--water). Not a rebrand. */
+      --dark-grad:linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%);}
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;padding-top:env(safe-area-inset-top);}
 
-    /* HEADER — personalized greeting instead of a plain brand bar. The
-       avatar+name area is a button that opens the Profile modal. */
-    header{background:white;padding:16px 20px;padding-top:calc(16px + env(safe-area-inset-top));display:flex;align-items:center;gap:13px;position:sticky;top:0;z-index:50;border-bottom:1px solid var(--border);}
+    /* HEADER — a dark-gradient greeting card (accent only, see --dark-grad
+       above) instead of a plain white bar. The avatar+name area is a button
+       that opens the Profile modal. Its own max-width/centering mirrors
+       .container (kept as a separate element, not moved into it) so it
+       reads as a card like the reference, not a sticky edge-to-edge bar. */
+    header{background:var(--dark-grad);border-radius:22px;padding:20px 20px;margin:16px auto 0;max-width:688px;width:calc(100% - 32px);display:flex;align-items:center;gap:13px;box-shadow:0 14px 30px -14px rgba(5,6,10,0.55);}
     .header-profile-btn{display:flex;align-items:center;gap:13px;flex:1;min-width:0;background:none;border:none;padding:0;cursor:pointer;text-align:left;font-family:inherit;}
-    .avatar-circle{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--ocean),var(--water));color:white;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0;box-shadow:0 4px 12px rgba(21,101,192,0.3);font-family:'DM Sans',sans-serif;}
+    .avatar-circle{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.35);color:white;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0;font-family:'DM Sans',sans-serif;}
     .greet-text{flex:1;min-width:0;}
-    .greet-hello{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;}
-    .greet-name{font-size:16px;font-weight:800;color:var(--deep);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .greet-hello{font-size:11px;color:rgba(255,255,255,0.65);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;}
+    .greet-name{font-size:17px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .icon-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:white;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;flex-shrink:0;transition:all 0.15s;}
     .icon-btn:hover{border-color:var(--red);color:var(--red);background:#FEF2F2;}
+    /* Same button, but sitting on the header's dark gradient — needs its
+       own (near-invisible otherwise) contrast, not .icon-btn's white-bg look. */
+    header .icon-btn{border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);}
+    header .icon-btn:hover{border-color:#fff;color:#fff;background:rgba(255,255,255,0.18);}
 
-    .container{max-width:720px;margin:0 auto;padding:20px 16px calc(96px + env(safe-area-inset-bottom));}
+    .container{max-width:720px;margin:0 auto;padding:20px 16px calc(108px + env(safe-area-inset-bottom));}
 
     /* HERO BANNER — next-booking summary or a promo CTA, top of My Bookings */
     .hero-banner{background:linear-gradient(135deg,var(--ocean),var(--water));border-radius:22px;padding:22px 24px;margin-bottom:20px;color:white;box-shadow:0 12px 28px -10px rgba(13,59,110,0.5);cursor:default;}
@@ -47,13 +57,15 @@
     .hero-banner-title{font-family:'Playfair Display',serif;font-size:21px;font-weight:700;margin-bottom:4px;}
     .hero-banner-sub{font-size:13px;opacity:0.9;line-height:1.5;}
 
-    /* BOTTOM NAV — .tab / .tabs classes are kept so switchTab()'s existing
-       selectors (`.tab`, `el.classList`) need zero JS changes. */
-    .tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:white;border-top:1px solid var(--border);box-shadow:0 -6px 20px rgba(15,23,42,0.06);padding:6px 6px calc(6px + env(safe-area-inset-bottom));z-index:60;}
-    .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:12px;border:none;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;cursor:pointer;color:var(--muted);background:none;transition:all 0.15s;}
+    /* BOTTOM NAV — floating dark pill (same accent gradient as the header),
+       not an edge-to-edge white bar. .tab / .tabs classes are kept so
+       switchTab()'s existing selectors (`.tab`, `el.classList`) need zero
+       JS changes. */
+    .tabs{position:fixed;left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;background:var(--dark-grad);border-radius:20px;box-shadow:0 14px 30px -12px rgba(5,6,10,0.5);padding:7px;z-index:60;max-width:688px;margin:0 auto;}
+    .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:14px;border:none;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;cursor:pointer;color:rgba(255,255,255,0.55);background:none;transition:all 0.15s;}
     .tab svg{width:22px;height:22px;}
-    .tab:hover:not(.active){color:var(--text);}
-    .tab.active{color:var(--water);background:var(--foam);}
+    .tab:hover:not(.active){color:rgba(255,255,255,0.85);}
+    .tab.active{color:#fff;background:var(--water);}
 
     .tab-panel{display:none;}
     .tab-panel.active{display:block;}
@@ -199,7 +211,7 @@
       .time-grid{grid-template-columns:repeat(2,1fr);}
       .booking-actions{flex-direction:column;}
       .booking-actions a,.booking-actions button{width:100%;justify-content:center;text-align:center;}
-      header{padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));}
+      header{padding:16px;}
     }
     @media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}}
   </style>
@@ -209,7 +221,7 @@
   <button class="header-profile-btn" onclick="openProfileModal()" title="My Profile">
     <div class="avatar-circle" id="header-avatar">?</div>
     <div class="greet-text">
-      <div class="greet-hello">Hello 👋</div>
+      <div class="greet-hello" id="greet-time">Hello</div>
       <div class="greet-name" id="user-name-header">My Account</div>
     </div>
   </button>
@@ -405,6 +417,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (!stillExists) { logout(); return; }
 
   document.getElementById('user-name-header').textContent = customer.name || customer.phone;
+  setGreetTime();
   updateAvatars();
   loadProfile();
   loadHome();
@@ -573,6 +586,12 @@ async function loadProfile() {
   document.getElementById('profile-phone-display').textContent = customer.phone || '';
   document.getElementById('book-address').value = customer.address || '';
   updateAvatars();
+}
+
+function setGreetTime() {
+  const h = new Date().getHours();
+  const el = document.getElementById('greet-time');
+  if (el) el.textContent = h < 12 ? 'Good Morning' : h < 17 ? 'Good Afternoon' : 'Good Evening';
 }
 
 // Both header + profile-tab avatar circles show the same initial.
