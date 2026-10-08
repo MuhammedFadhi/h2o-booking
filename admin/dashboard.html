@@ -1802,6 +1802,29 @@
   </div>
 </div>
 
+<!-- EDIT BOOKING CITY MODAL — a dropdown (region, then its cities) rather
+     than free text, since the Services panel's region filter matches a
+     customer's city by exact name against the cities table. A typo'd
+     free-text city would silently fall out of that filter. -->
+<div class="modal-overlay" id="edit-booking-city-modal" style="display:none;">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header"><span class="modal-title">Edit City</span>
+      <button class="modal-close" onclick="closeModal('edit-booking-city-modal')">&times;</button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">Changes this booking only — not the customer record or other bookings.</div>
+      <div class="form-group"><label>Region</label>
+        <select class="form-input" id="ebc-region" onchange="ebcLoadCities()"></select></div>
+      <div class="form-group"><label>City</label>
+        <select class="form-input" id="ebc-city"></select></div>
+      <div id="ebc-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="closeModal('edit-booking-city-modal')">Cancel</button>
+        <button class="btn btn-primary" id="ebc-save" onclick="saveBookingCity()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- RESCHEDULE MODAL -->
 <div class="modal-overlay" id="reschedule-modal" style="display:none;">
   <div class="modal" style="max-width:420px;">
@@ -3707,18 +3730,45 @@ async function editBookingName(bookingId) {
   if (typeof loadBookings === 'function') loadBookings();
 }
 
+let ebcBookingId = null;
+
 async function editBookingCity(bookingId) {
   if (!(await ensureSession())) return;
-  const cur = document.getElementById('bk-city-display')?.textContent || '';
-  const next = prompt('Edit the city on this booking only.\n(Does not change the customer record or other bookings.)', cur);
-  if (next == null) return;
-  const city = next.trim();
-  if (!city) { showToast('City cannot be empty', 'error'); return; }
-  const { error } = await dbAdmin.from('bookings').update({ city_name: city }).eq('id', bookingId);
-  if (error) { showToast(error.message, 'error'); return; }
-  logActivity('booking.city_edit', `Changed booking city to "${city}"`, 'booking', bookingId);
+  ebcBookingId = bookingId;
+  const b = window.__lastViewedBooking;
+  const { data: regions } = await dbAdmin.from('service_regions').select('id, name').order('sort_order');
+  const rsel = document.getElementById('ebc-region');
+  rsel.innerHTML = (regions || []).map(r => `<option value="${r.id}">${escB(r.name)}</option>`).join('');
+  if (b?.service_region_id && [...rsel.options].some(o => o.value === b.service_region_id)) rsel.value = b.service_region_id;
+  await ebcLoadCities(b?.city_name);
+  document.getElementById('ebc-error').style.display = 'none';
+  openModal('edit-booking-city-modal');
+}
+
+async function ebcLoadCities(preselectName) {
+  const regionId = document.getElementById('ebc-region').value;
+  const { data: cities } = await dbAdmin.from('cities').select('id, name, region_id').eq('region_id', regionId).order('name');
+  const csel = document.getElementById('ebc-city');
+  csel.innerHTML = (cities || []).map(c => `<option value="${escB(c.name)}">${escB(c.name)}</option>`).join('')
+    || '<option value="">— no cities —</option>';
+  if (preselectName && [...csel.options].some(o => o.value === preselectName)) csel.value = preselectName;
+}
+
+async function saveBookingCity() {
+  if (!(await ensureSession())) return;
+  const errEl = document.getElementById('ebc-error');
+  errEl.style.display = 'none';
+  const regionId = document.getElementById('ebc-region').value;
+  const city = document.getElementById('ebc-city').value;
+  if (!regionId || !city) { errEl.style.display = 'block'; errEl.textContent = 'Pick a region and city.'; return; }
+
+  const { error } = await dbAdmin.from('bookings').update({ city_name: city, service_region_id: regionId }).eq('id', ebcBookingId);
+  if (error) { errEl.style.display = 'block'; errEl.textContent = error.message; return; }
+
+  logActivity('booking.city_edit', `Changed booking city to "${city}"`, 'booking', ebcBookingId);
   const el = document.getElementById('bk-city-display'); if (el) el.textContent = city;
-  if (window.__lastViewedBooking) window.__lastViewedBooking.city_name = city;
+  if (window.__lastViewedBooking) { window.__lastViewedBooking.city_name = city; window.__lastViewedBooking.service_region_id = regionId; }
+  closeModal('edit-booking-city-modal');
   showToast('Booking city updated', 'success');
   if (typeof loadBookings === 'function') loadBookings();
 }
