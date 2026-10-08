@@ -2321,7 +2321,7 @@ async function loadBookings() {
           ${(b.booking_items && b.booking_items.length)
             ? b.booking_items.map(it => `${it.product_model}${it.qty > 1 ? ` ×${it.qty}` : ''}`).join(', ')
             : (b.product_model ? `${b.product_model}${b.product_qty > 1 ? ` ×${b.product_qty}` : ''}` : '<span style="color:#B45309;">No product</span>')}
-          <button class="btn btn-ghost btn-sm" onclick="editBookingProduct('${b.id}')" style="padding:0 5px;font-size:11px;">✏️</button>
+          <button class="btn btn-ghost btn-sm" onclick="editBookingProduct('${b.id}')" style="padding:0 5px;font-size:11px;">${ICON_PENCIL}</button>
         </div>
       </td>
       <td data-label="City">${b.city_name || '—'}</td>
@@ -4182,7 +4182,7 @@ function renderPromoCodes() {
       <td><span class="status-badge" style="background:${st.bg};color:${st.color};">${st.label}</span></td>
       <td style="text-align:right;white-space:nowrap;">
         <button class="btn btn-sm btn-ghost" onclick="togglePromoActive('${p.id}')" title="${p.is_active ? 'Deactivate' : 'Activate'}">${p.is_active ? '⏸' : '▶'}</button>
-        <button class="btn btn-sm btn-ghost" onclick="openPromoModal('${p.id}')" title="Edit">✏️</button>
+        <button class="btn btn-sm btn-ghost" onclick="openPromoModal('${p.id}')" title="Edit">${ICON_PENCIL}</button>
         <button class="btn btn-sm btn-ghost" onclick="viewPromoUsage('${p.id}')" title="Who used it">👁</button>
         <button class="btn btn-sm btn-danger" onclick="deletePromo('${p.id}')" title="Delete">🗑</button>
       </td>
@@ -6733,7 +6733,7 @@ async function viewCustomerUnits(phone) {
       <div style="background:var(--bg);padding:16px;border-radius:12px;">
         <div style="display:flex;align-items:center;gap:8px;">
           <div style="font-weight:700;font-size:17px;">${W.esc(c.name || '—')}</div>
-          <button class="btn btn-ghost btn-sm" onclick="editCustomerName('${W.esc(c.phone)}')" style="padding:2px 8px;font-size:12px;">✏️ Edit name</button>
+          <button class="btn btn-ghost btn-sm" onclick="editCustomerName('${W.esc(c.phone)}')" style="padding:2px 8px;font-size:12px;">${ICON_PENCIL} Edit name</button>
         </div>
         <div style="font-size:13px;color:var(--muted);">${W.esc(c.phone)}${c.city ? ' · ' + W.esc(c.city) : ''}</div>
       </div>
@@ -7743,11 +7743,11 @@ function renderWarranties() {
               ${w.customers?.name
                 ? `<strong>${W.esc(w.customers.name)}</strong>`
                 : `<span style="color:#B45309;font-style:italic;font-size:12px;">No name</span>`}
-                ${w.customers?.phone ? `<button class="btn btn-ghost btn-sm" onclick="editCustomerName('${W.esc(w.customers.phone)}')" style="padding:1px 6px;font-size:11px;margin-left:4px;">✏️</button>` : ''}
+                ${w.customers?.phone ? `<button class="btn btn-ghost btn-sm" onclick="editCustomerName('${W.esc(w.customers.phone)}')" style="padding:1px 6px;font-size:11px;margin-left:4px;">${ICON_PENCIL}</button>` : ''}
                 <div style="font-size:11px;color:var(--muted);">${W.esc(w.customers?.phone || '')}${w.customers?.phone ? ` <button class="btn btn-ghost btn-sm" onclick="editCustomerPhone('${W.esc(w.customers.phone)}')" style="padding:0px 5px;font-size:10px;" title="Change phone number">📱</button>` : ''}</div>
                 ${w.customers?.city ? `<div style="font-size:11px;color:var(--muted);">📍 ${W.esc(w.customers.city)}</div>` : ''}</td>
             <td style="font-size:12px;">${W.esc(w.product_type)}${w.quantity > 1 ? ` ×${w.quantity}` : ''}
-              <button class="btn btn-ghost btn-sm" onclick="editWarrantyProduct('${w.id}')" title="Edit product / quantity" style="padding:0 5px;font-size:11px;">✏️</button></td>
+              <button class="btn btn-ghost btn-sm" onclick="editWarrantyProduct('${w.id}')" title="Edit product / quantity" style="padding:0 5px;font-size:11px;">${ICON_PENCIL}</button></td>
             <td>${pill(w.filter_expiry)}</td>
             <td>${pill(w.service_expiry)}</td>
             <td>${w.warranty_expiry ? pill(w.warranty_expiry) : `<span style="background:#FFEDD5;color:#C2410C;font-size:11px;font-weight:700;padding:3px 8px;border-radius:9px;white-space:nowrap;display:inline-block;" title="Warranty starts when the customer scans the QR">Not activated</span>`}</td>
@@ -7782,7 +7782,7 @@ async function viewWarrantyHistory(id) {
         <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Serial</div>
         <div style="font-weight:700;color:var(--water);font-size:17px;font-family:ui-monospace,Menlo,monospace;">${W.esc(w.qr_code)}</div>
         <div style="font-size:13px;margin-top:8px;">${W.esc(w.product_type)} · ${W.esc(w.customers?.name || '—')} · ${W.esc(w.customers?.phone || '')}
-          ${w.customers?.phone ? `<button class="btn btn-ghost btn-sm" onclick="editCustomerName('${W.esc(w.customers.phone)}')" style="padding:1px 7px;font-size:11px;margin-left:6px;">✏️</button>` : ''}</div>
+          ${w.customers?.phone ? `<button class="btn btn-ghost btn-sm" onclick="editCustomerName('${W.esc(w.customers.phone)}')" style="padding:1px 7px;font-size:11px;margin-left:6px;">${ICON_PENCIL}</button>` : ''}</div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         ${W.milestoneCard('Filter Replacement','Filter', w.filter_expiry, 90)}
@@ -8085,7 +8085,7 @@ function renderFollowupList() {
     const deleteFn = isLead ? 'deleteLeadFollowup' : 'deleteFollowup';
     const editBtn = isLead
       ? `<button class="btn btn-ghost btn-sm" onclick="openLeadFollowupModal('${x.lead_id}')">👁 View</button>`
-      : `<button class="btn btn-ghost btn-sm" onclick="openFollowupModal(null,'${x.id}')">✏️ Edit</button>`;
+      : `<button class="btn btn-ghost btn-sm" onclick="openFollowupModal(null,'${x.id}')">${ICON_PENCIL} Edit</button>`;
     return `
       <div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:10px;border-left:3px solid ${c.bar};">
         <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
