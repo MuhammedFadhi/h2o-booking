@@ -2023,7 +2023,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Overview and Bookings don't depend on each other — load together.
   await Promise.all([loadOverview(), loadBookings()]);
   setDefaultDate();
-  applyQuickFilterFromURL();
+  restorePanelFromURL();
 });
 
 function setDefaultDate() {
@@ -2055,14 +2055,29 @@ const panelTitles = {
   activity: ['Activity Log', 'Who did what, and when']
 };
 
+// Finds a nav item by the panel name in its onclick, for callers (URL
+// restore, programmatic navigation) that don't already have the element.
+function navElFor(name) {
+  return document.querySelector(`.nav-item[onclick*="showPanel('${name}'"]`);
+}
+
 function showPanel(name, el) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById(`panel-${name}`).classList.add('active');
-  el.classList.add('active');
+  (el || navElFor(name))?.classList.add('active');
   const [title, sub] = panelTitles[name];
   document.getElementById('topbar-title').textContent = title;
   document.getElementById('topbar-sub').textContent = sub;
+
+  // Remember which panel is open so refreshing the page lands back here
+  // instead of always resetting to Overview. qf (the Bookings quick-filter
+  // preset) only makes sense while on Bookings — drop it on any other panel.
+  const url = new URL(window.location.href);
+  if (name === 'overview') url.searchParams.delete('panel');
+  else url.searchParams.set('panel', name);
+  if (name !== 'bookings') url.searchParams.delete('qf');
+  history.replaceState({}, '', url);
 
   if (name === 'overview') loadOverview();
   if (name === 'analytics') loadAnalytics();
@@ -2161,17 +2176,21 @@ function applyBookingsQuickFilter(preset, pushUrl = true) {
   loadBookings();
 }
 
-// Restores a quick-filtered Bookings view from ?panel=bookings&qf=<preset> —
-// used on initial load and on browser back/forward.
-function applyQuickFilterFromURL() {
+// Restores whichever panel ?panel=<name> names (so refreshing, or sharing a
+// link, lands back on the same page instead of always resetting to
+// Overview), plus the Bookings quick-filter preset if ?qf=<preset> is also
+// there. Used on initial load and on browser back/forward.
+function restorePanelFromURL() {
   const params = new URLSearchParams(window.location.search);
+  const panel = params.get('panel');
+  if (!panel || panel === 'overview' || !panelTitles[panel]) return;
+  const el = navElFor(panel);
+  if (!el) return;
+  showPanel(panel, el);
   const qf = params.get('qf');
-  if (params.get('panel') !== 'bookings' || !qf) return;
-  const bookingsNav = document.querySelector(".nav-item[onclick*=\"showPanel('bookings'\"]");
-  if (bookingsNav) showPanel('bookings', bookingsNav);
-  applyBookingsQuickFilter(qf, false);
+  if (panel === 'bookings' && qf) applyBookingsQuickFilter(qf, false);
 }
-window.addEventListener('popstate', applyQuickFilterFromURL);
+window.addEventListener('popstate', restorePanelFromURL);
 
 async function loadBookings() {
   const container = document.getElementById('bookings-table');
