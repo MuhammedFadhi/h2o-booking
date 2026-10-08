@@ -3576,11 +3576,7 @@ async function viewBooking(bookingId) {
           <div><span style="color:var(--muted);">Mobile: </span><strong>${b.customer_phone}</strong>
             <button class="btn btn-ghost btn-sm" onclick="editCustomerPhone('${W.esc(b.customer_phone)}')" style="padding:2px 8px;font-size:12px;" title="Change number everywhere">📱 Change</button>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="color:var(--muted);">City: </span>
-            <strong id="bk-city-display">${W.esc(b.city_name)}</strong>
-            <button class="btn btn-ghost btn-sm" onclick="editBookingCity('${b.id}')" style="padding:2px 8px;font-size:12px;">✏️ Edit</button>
-          </div>
+          <div><span style="color:var(--muted);">City: </span><strong>${b.city_name}</strong></div>
           <div><span style="color:var(--muted);">Address: </span><strong>${b.location_address || '—'}</strong>
             ${b.location_updated_by === 'installer' ? ` <span style="font-size:11px;color:#166534;background:#DCFCE7;padding:1px 7px;border-radius:20px;">📍 GPS corrected on-site</span>` : ''}
           </div>
@@ -3704,22 +3700,6 @@ async function editBookingName(bookingId) {
   const el = document.getElementById('bk-name-display'); if (el) el.textContent = name;
   if (window.__lastViewedBooking) window.__lastViewedBooking.customer_name = name;
   showToast('Booking name updated', 'success');
-  if (typeof loadBookings === 'function') loadBookings();
-}
-
-async function editBookingCity(bookingId) {
-  if (!(await ensureSession())) return;
-  const cur = document.getElementById('bk-city-display')?.textContent || '';
-  const next = prompt('Edit the city on this booking only.\n(Does not change the customer record or other bookings.)', cur);
-  if (next == null) return;
-  const city = next.trim();
-  if (!city) { showToast('City cannot be empty', 'error'); return; }
-  const { error } = await dbAdmin.from('bookings').update({ city_name: city }).eq('id', bookingId);
-  if (error) { showToast(error.message, 'error'); return; }
-  logActivity('booking.city_edit', `Changed booking city to "${city}"`, 'booking', bookingId);
-  const el = document.getElementById('bk-city-display'); if (el) el.textContent = city;
-  if (window.__lastViewedBooking) window.__lastViewedBooking.city_name = city;
-  showToast('Booking city updated', 'success');
   if (typeof loadBookings === 'function') loadBookings();
 }
 
