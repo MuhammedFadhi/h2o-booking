@@ -183,6 +183,45 @@
       '</svg>';
   }
 
+  // Bigger, bolder arc for the customer portal's compact unit card (see
+  // unitCardCompact below) — same fuel-gauge semantics as gauge() (full arc
+  // = just reset, empties toward the due date) but sized and labelled like
+  // the smart-home dial reference: end labels (0 / total days) and a status
+  // word in place of a unit label.
+  function gaugeLarge(pct, color, bgColor, days, totalDays, statusWord) {
+    var R = 82, SW = 15;
+    var circ = Math.PI * R;
+    var dash = Math.max(0, Math.min(1, pct)) * circ;
+    var label = (days === null) ? '—' : (days < 0 ? '0' : String(days));
+    return '' +
+      '<svg viewBox="0 0 200 118" style="width:100%;max-width:230px;height:auto;display:block;margin:0 auto;">' +
+        '<path d="M 18 100 A ' + R + ' ' + R + ' 0 0 1 182 100" fill="none" stroke="' + bgColor + '" stroke-width="' + SW + '" stroke-linecap="round"/>' +
+        '<path d="M 18 100 A ' + R + ' ' + R + ' 0 0 1 182 100" fill="none" stroke="' + color + '" stroke-width="' + SW + '" ' +
+              'stroke-linecap="round" stroke-dasharray="' + dash.toFixed(1) + ' ' + circ.toFixed(1) + '"/>' +
+        '<text x="100" y="82" text-anchor="middle" style="font-size:32px;font-weight:800;fill:#1A2B47;">' + label + '</text>' +
+        '<text x="100" y="102" text-anchor="middle" style="font-size:11px;font-weight:700;fill:' + color + ';letter-spacing:.04em;">' + esc(statusWord) + '</text>' +
+        '<text x="18" y="116" text-anchor="start" style="font-size:10px;font-weight:700;fill:#90A4B7;">0</text>' +
+        '<text x="182" y="116" text-anchor="end" style="font-size:10px;font-weight:700;fill:#90A4B7;">' + totalDays + ' days</text>' +
+      '</svg>';
+  }
+
+  var STATUS_WORDS = { ok: 'On track', soon: 'Due soon', expired: 'Overdue', unknown: 'Not set' };
+
+  // Large-arc counterpart to milestoneCard(), used only by unitCardCompact.
+  function milestoneCardLarge(title, keyLabel, expiry, totalDays) {
+    var m = milestone(expiry, totalDays);
+    var st = statusOf(expiry);
+    var c = STATUS_COLORS[st];
+    return '' +
+      '<div style="background:#fff;border:1px solid var(--border,#E2E8F0);border-radius:16px;padding:16px;margin-bottom:10px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+          '<span style="font-size:13px;font-weight:700;color:var(--text,#1A2B47);">' + esc(title) + '</span>' +
+          '<span style="font-size:11px;color:var(--muted,#607D8B);">' + esc(keyLabel) + ' due ' + fmtDate(expiry) + '</span>' +
+        '</div>' +
+        gaugeLarge(m.pct, c.bar, '#EDF1F5', m.remaining, totalDays, m.unknown ? STATUS_WORDS.unknown : STATUS_WORDS[st]) +
+      '</div>';
+  }
+
   function milestoneCard(title, keyLabel, expiry, totalDays) {
     var m = milestone(expiry, totalDays);
     var st = statusOf(expiry);
@@ -262,10 +301,8 @@
       '<div style="margin-top:12px;font-size:15px;font-weight:800;color:var(--ocean,#0D3B6E);word-break:break-word;">' + esc(u.product_type) + '</div>' +
       '<div style="font-size:12px;color:' + wc.fg + ';font-weight:700;margin-top:2px;">' + statusLabel + '</div>' +
       '<div id="' + detailId + '" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border,#E2E8F0);">' +
-        '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:' + (isSelfReported ? '4px' : '12px') + ';">' +
-          milestoneCard('Filter Replacement', 'Filter', u.filter_expiry, TERMS.filter) +
-          milestoneCard('Annual RO Service', 'Service', u.service_expiry, TERMS.service) +
-        '</div>' +
+        milestoneCardLarge('Filter Replacement', 'Filter', u.filter_expiry, TERMS.filter) +
+        milestoneCardLarge('Annual RO Service', 'Service', u.service_expiry, TERMS.service) +
         (isSelfReported ? '<p style="font-size:10.5px;color:var(--muted,#607D8B);margin:0 0 12px;line-height:1.5;">Estimated from your last SA\'DA visit, not this unit\'s original install date.</p>' : '') +
         '<div style="background:var(--bg,#F8FAFC);border-radius:11px;padding:11px 13px;font-size:12px;">' +
           '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted,#607D8B);">' + (isSelfReported ? 'First serviced by SA\'DA' : 'Installed') + '</span><strong>' + fmtDate(u.registration_date) + '</strong></div>' +
@@ -371,6 +408,7 @@
     unitCardCompact: unitCardCompact,
     historyList: historyList,
     milestoneCard: milestoneCard,
+    milestoneCardLarge: milestoneCardLarge,
     toggle: toggle
   };
 })();
