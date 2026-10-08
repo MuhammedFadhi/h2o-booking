@@ -2020,10 +2020,19 @@ window.addEventListener('DOMContentLoaded', async () => {
   // per row from admins/salesUsers and an Assign Installer dropdown from
   // installers, so it still has to wait for all four to finish first.
   await Promise.all([loadCities(), loadInstallers(), loadAdmins(), loadSales()]);
-  // Overview and Bookings don't depend on each other — load together.
-  await Promise.all([loadOverview(), loadBookings()]);
+
+  // If the URL names a saved panel other than Overview, jump straight there
+  // instead of rendering Overview first and immediately replacing it — that
+  // "Overview" flash on every refresh was the actual bug being fixed here.
+  const savedPanel = new URLSearchParams(window.location.search).get('panel');
+  if (savedPanel && savedPanel !== 'overview' && panelTitles[savedPanel]) {
+    restorePanelFromURL();
+    if (savedPanel !== 'bookings') loadBookings(); // still needed in the background (KPI cards, global search)
+  } else {
+    // Overview and Bookings don't depend on each other — load together.
+    await Promise.all([loadOverview(), loadBookings()]);
+  }
   setDefaultDate();
-  restorePanelFromURL();
 });
 
 function setDefaultDate() {
