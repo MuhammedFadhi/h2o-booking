@@ -7744,7 +7744,7 @@ function renderWarranties() {
                 ? `<strong>${W.esc(w.customers.name)}</strong>`
                 : `<span style="color:#B45309;font-style:italic;font-size:12px;">No name</span>`}
                 ${w.customers?.phone ? `<button class="btn btn-ghost btn-sm" onclick="editCustomerName('${W.esc(w.customers.phone)}')" style="padding:1px 6px;font-size:11px;margin-left:4px;">${ICON_PENCIL}</button>` : ''}
-                <div style="font-size:11px;color:var(--muted);">${W.esc(w.customers?.phone || '')}${w.customers?.phone ? ` <button class="btn btn-ghost btn-sm" onclick="editCustomerPhone('${W.esc(w.customers.phone)}')" style="padding:0px 5px;font-size:10px;" title="Change phone number">📱</button>` : ''}</div>
+                <div style="font-size:11px;color:var(--muted);">${W.esc(w.customers?.phone || '')}${w.customers?.phone ? ` <button class="btn btn-ghost btn-sm" onclick="editCustomerPhone('${W.esc(w.customers.phone)}')" style="padding:0px 5px;font-size:10px;" title="Change phone number">${ICON_DEVICE_MOBILE}</button>` : ''}</div>
                 ${w.customers?.city ? `<div style="font-size:11px;color:var(--muted);">📍 ${W.esc(w.customers.city)}</div>` : ''}</td>
             <td style="font-size:12px;">${W.esc(w.product_type)}${w.quantity > 1 ? ` ×${w.quantity}` : ''}
               <button class="btn btn-ghost btn-sm" onclick="editWarrantyProduct('${w.id}')" title="Edit product / quantity" style="padding:0 5px;font-size:11px;">${ICON_PENCIL}</button></td>
