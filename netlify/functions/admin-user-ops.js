@@ -1,8 +1,12 @@
 // Netlify mirror of api/admin/user-ops
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ykgtrloptgazeqjgxney.supabase.co';
+// No hardcoded fallback — see api/admin/_auth.js for why (a prod default
+// here would silently point a misconfigured deploy at the wrong project).
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 async function requireAdmin(headers) {
+  if (!SUPABASE_URL) { const e = new Error('Server not configured (SUPABASE_URL missing)'); e.status = 500; throw e; }
+  if (!SERVICE_KEY) { const e = new Error('Server not configured (SUPABASE_SERVICE_ROLE_KEY missing)'); e.status = 500; throw e; }
   const auth = headers.authorization || headers.Authorization || '';
   const m = /^Bearer (.+)$/i.exec(auth);
   if (!m) { const e = new Error('Missing Bearer token'); e.status = 401; throw e; }
