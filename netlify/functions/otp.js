@@ -3,8 +3,7 @@ const crypto = require('crypto');
 const https = require('https');
 const { createClient } = require('@supabase/supabase-js');
 
-// No hardcoded fallback — see api/admin/_auth.js for why.
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ykgtrloptgazeqjgxney.supabase.co';
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const RELAY_HOST = '206.189.42.165';
 const RELAY_PATH = '/send';
@@ -61,8 +60,7 @@ exports.handler = async (event) => {
   };
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: cors, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
-  if (!SUPABASE_URL) return { statusCode: 500, headers: cors, body: JSON.stringify({ error: 'Server not configured (SUPABASE_URL missing)' }) };
-  if (!SRK) return { statusCode: 500, headers: cors, body: JSON.stringify({ error: 'Server not configured (SUPABASE_SERVICE_ROLE_KEY missing)' }) };
+  const admin = createClient(SUPABASE_URL, SRK, { auth: { persistSession: false } });
   const ip = (event.headers['x-forwarded-for'] || event.headers['client-ip'] || '').split(',')[0].trim() || 'unknown';
   let body; try { body = JSON.parse(event.body || '{}'); } catch { return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Bad JSON' }) }; }
   const { action, phone: rawPhone, code } = body;
@@ -70,7 +68,6 @@ exports.handler = async (event) => {
   if (!isSaudi(phone)) return { statusCode: 400, headers: cors, body: JSON.stringify({ error: 'Invalid Saudi mobile' }) };
 
   try {
-    const admin = createClient(SUPABASE_URL, SRK, { auth: { persistSession: false } });
     if (action === 'send') {
       if (tooManySends(ip)) return { statusCode: 429, headers: cors, body: JSON.stringify({ error: 'Too many attempts, wait a minute' }) };
       const codeGen = String(Math.floor(100000 + Math.random() * 900000));

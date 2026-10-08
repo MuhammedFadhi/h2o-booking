@@ -5,8 +5,7 @@
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
-// No hardcoded fallback — see api/admin/_auth.js for why.
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ykgtrloptgazeqjgxney.supabase.co';
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const RELAY_HOST = 'smsrelay.sadawater.com';
 const RELAY_PATH = '/send';
@@ -62,16 +61,13 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  if (!SUPABASE_URL) return res.status(500).json({ error: 'Server not configured (SUPABASE_URL missing)' });
-  if (!SRK) return res.status(500).json({ error: 'Server not configured (SUPABASE_SERVICE_ROLE_KEY missing)' });
-
+  const admin = createClient(SUPABASE_URL, SRK, { auth: { persistSession: false } });
   const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim() || 'unknown';
   const { action, phone: rawPhone, code } = req.body || {};
   const phone = formatSaudi(rawPhone);
   if (!isSaudi(phone)) return res.status(400).json({ error: 'Invalid Saudi mobile' });
 
   try {
-    const admin = createClient(SUPABASE_URL, SRK, { auth: { persistSession: false } });
     if (action === 'send') {
       if (tooManySends(ip)) return res.status(429).json({ error: 'Too many attempts, wait a minute' });
       const codeGen = String(Math.floor(100000 + Math.random() * 900000));

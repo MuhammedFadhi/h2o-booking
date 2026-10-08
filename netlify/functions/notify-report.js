@@ -1,13 +1,11 @@
 // Netlify mirror of /api/notify-report
 const https = require('https');
 const RELAY_HOST = '206.189.42.165', RELAY_PORT = 443, RELAY_TIMEOUT_MS = 30_000;
-// No hardcoded fallback — see api/admin/_auth.js for why.
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ykgtrloptgazeqjgxney.supabase.co';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const PORTAL_URL = 'https://booking.sadawater.com/customer/portal';
 
 async function sb(method, path) {
-  if (!SUPABASE_URL) throw new Error('SUPABASE_URL env missing');
   if (!SERVICE_KEY) throw new Error('SUPABASE_SERVICE_ROLE_KEY env missing');
   const r = await fetch(SUPABASE_URL + '/rest/v1' + path, { method, headers: { apikey: SERVICE_KEY, Authorization: 'Bearer ' + SERVICE_KEY } });
   const t = await r.text();
