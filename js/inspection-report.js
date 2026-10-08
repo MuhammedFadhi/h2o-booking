@@ -740,15 +740,17 @@ SADA.InspectionReport = (function () {
     }
   }
 
-  // Filter Change / Annual Service completed with no QR-registered unit —
-  // e.g. a customer whose only relationship with us is this one visit,
-  // possibly on a non-SA'DA unit. Creates (first visit) or renews (later
-  // visits) a `source:'self_reported'` warranty row so the customer portal's
-  // dedicated Service tab can still show a next-due date, honestly framed as
-  // estimated from our own visit rather than a real SA'DA install date.
-  // Never touches a real (source:'install') warranty — no QR is involved
-  // anywhere in this path. Never blocks completion on failure.
-  async function createOrUpdateSelfReportedWarranty(bookingId, jobType) {
+  // Filter Change / Annual Service completed — renews whichever warranty
+  // this customer actually has. A real (source:'install', QR-registered)
+  // unit takes priority: its own filter_expiry/service_expiry is pushed
+  // forward and the visit logged, exactly like an admin manually clicking
+  // "+Job" on it in the Services panel — so a real customer's due dates stay
+  // accurate without anyone having to do that by hand. Only when no real
+  // warranty exists does this fall back to creating/renewing a
+  // `source:'self_reported'` row, for a customer whose only relationship
+  // with us is this one visit, possibly on a non-SA'DA unit. Never blocks
+  // completion on failure.
+  async function renewOrCreateWarrantyOnServiceVisit(bookingId, jobType, installerName) {
     if (jobType !== 'quarterly_service' && jobType !== 'maintenance' && jobType !== 'annual_service') return;
     const { data: b } = await window.db.from('bookings')
       .select('id, customer_phone, product_model').eq('id', bookingId).maybeSingle();
@@ -760,6 +762,31 @@ SADA.InspectionReport = (function () {
     const todayIso = new Date().toISOString().slice(0, 10);
     const pushDate = (days) => { const x = new Date(); x.setDate(x.getDate() + days); return x.toISOString(); };
     const isAnnual = jobType === 'annual_service';
+    const performedBy = installerName ? `${installerName} (installer)` : 'installer';
+
+    // Prefer a real, QR-registered warranty. If the customer has more than
+    // one, only renew when the booking's product matches exactly one of
+    // them — guessing wrong would silently reset the wrong unit's clock.
+    const { data: realUnits } = await window.db.from('warranties')
+      .select('id, product_type').eq('customer_id', cid).eq('source', 'install');
+    let realWarrantyId = null;
+    if (realUnits && realUnits.length === 1) realWarrantyId = realUnits[0].id;
+    else if (realUnits && realUnits.length > 1) {
+      const match = realUnits.find(u => u.product_type === b.product_model);
+      if (match) realWarrantyId = match.id;
+    }
+
+    if (realWarrantyId) {
+      const patch = isAnnual ? { service_expiry: pushDate(365) } : { filter_expiry: pushDate(90) };
+      const upd = await window.db.from('warranties').update(patch).eq('id', realWarrantyId);
+      if (upd.error) { console.warn('[IR] real warranty renewal failed:', upd.error.message); return; }
+      const hist = await window.db.from('warranty_service_history').insert({
+        warranty_id: realWarrantyId, service_type: isAnnual ? 'service' : 'filter',
+        source: 'job', performed_on: todayIso, performed_by: performedBy
+      });
+      if (hist.error) console.warn('[IR] service history log failed:', hist.error.message);
+      return;
+    }
 
     const { data: existing } = await window.db.from('warranties')
       .select('id').eq('customer_id', cid).eq('source', 'self_reported').maybeSingle();
@@ -1048,7 +1075,7 @@ SADA.InspectionReport = (function () {
             await window.db.from('bookings').update(patch).eq('id', ctx.bookingId).eq('installer_id', ctx.installerId);
             try {
               if (isInstall) await createPendingWarranties(ctx.bookingId);
-              else await createOrUpdateSelfReportedWarranty(ctx.bookingId, jt);
+              else await renewOrCreateWarrantyOnServiceVisit(ctx.bookingId, jt, ctx.installerName);
             } catch (werr) { console.warn('[IR] warranty tracking update failed', werr); }
 
             // Fire-and-forget SMS (server checks sms_settings.inspection_report toggle)
