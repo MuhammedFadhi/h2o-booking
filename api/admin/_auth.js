@@ -2,7 +2,11 @@
 // Returns { userId, email, admin } on success; throws with .status on failure.
 const { createClient } = require('@supabase/supabase-js');
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ykgtrloptgazeqjgxney.supabase.co';
+// No hardcoded fallback: a dev deploy missing this env var must fail loudly,
+// not silently hit production's Supabase project with the dev service key
+// (or vice versa) — that mismatch is exactly what "Invalid API key... owned
+// by another Supabase project" means when it comes from Supabase itself.
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 async function sb(method, path, body, token) {
@@ -21,6 +25,7 @@ async function sb(method, path, body, token) {
 }
 
 async function requireAdmin(req) {
+  if (!SUPABASE_URL) { const e = new Error('Server not configured (SUPABASE_URL missing)'); e.status = 500; throw e; }
   if (!SERVICE_KEY) { const e = new Error('Server not configured (SUPABASE_SERVICE_ROLE_KEY missing)'); e.status = 500; throw e; }
   const auth = req.headers['authorization'] || req.headers['Authorization'] || '';
   const m = /^Bearer (.+)$/i.exec(auth);

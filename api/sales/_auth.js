@@ -3,7 +3,8 @@
 // Mirrors api/admin/_auth.js — sales users are Supabase Auth users whose id has
 // a row in sales_users (which only the service role can read).
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ykgtrloptgazeqjgxney.supabase.co';
+// No hardcoded fallback — see api/admin/_auth.js for why.
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 async function sb(method, path, body, token, extraHeaders) {
@@ -26,6 +27,7 @@ async function sb(method, path, body, token, extraHeaders) {
 function authError(status, message) { const e = new Error(message); e.status = status; e.expose = true; return e; }
 
 async function requireSales(req) {
+  if (!SUPABASE_URL) { const e = new Error('Server not configured (SUPABASE_URL missing)'); e.status = 500; throw e; }
   if (!SERVICE_KEY) { const e = new Error('Server not configured (SUPABASE_SERVICE_ROLE_KEY missing)'); e.status = 500; throw e; }
   const auth = req.headers['authorization'] || req.headers['Authorization'] || '';
   const m = /^Bearer (.+)$/i.exec(auth);

@@ -3,11 +3,13 @@
 // Skipped if sms_settings.inspection_report is disabled.
 const RELAY_HOST = 'smsrelay.sadawater.com';
 const RELAY_TIMEOUT_MS = 30_000;
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ykgtrloptgazeqjgxney.supabase.co';
+// No hardcoded fallback — see api/admin/_auth.js for why.
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const PORTAL_URL = 'https://booking.sadawater.com/customer/portal';
 
 async function sb(method, path) {
+  if (!SUPABASE_URL) throw new Error('SUPABASE_URL env missing');
   if (!SERVICE_KEY) throw new Error('SUPABASE_SERVICE_ROLE_KEY env missing');
   const r = await fetch(SUPABASE_URL + '/rest/v1' + path, {
     method, headers: { apikey: SERVICE_KEY, Authorization: 'Bearer ' + SERVICE_KEY }
