@@ -292,40 +292,6 @@ async function createLead(user, body) {
   return { ok: true, lead: row };
 }
 
-// ── update-lead ─────────────────────────────────────────────────────────────
-// Lets a sales user fix their own lead's name/phone/city after adding it —
-// same ownership check as mark-lead-lost. Not restricted to 'open' leads:
-// even a converted/lost one is still worth correcting for the record.
-async function updateLead(user, body) {
-  const leadId = clean(body.leadId, 40);
-  if (!UUID_RE.test(leadId)) throw bad(400, 'Unknown lead.');
-
-  const rows = await sb('GET', `/rest/v1/leads?id=eq.${leadId}&select=id,created_by_user`);
-  const lead = rows && rows[0];
-  if (!lead || lead.created_by_user !== user.userId) throw bad(404, 'Lead not found.');
-
-  const name = clean(body.name, 80);
-  const phone = normalizePhone(body.phone);
-  const regionId = clean(body.regionId, 40);
-  const cityName = clean(body.cityName, 80) || null;
-
-  if (!name) throw bad(400, 'Enter the lead\'s name.');
-  if (!phone) throw bad(400, 'That mobile number doesn\'t look right. Use a 10-digit Saudi mobile, e.g. 0558233001.');
-  if (regionId && !UUID_RE.test(regionId)) throw bad(400, 'Choose a valid region.');
-
-  await sb('PATCH', `/rest/v1/leads?id=eq.${leadId}`, {
-    name, phone, region_id: regionId || null, city_name: cityName, updated_at: new Date().toISOString()
-  });
-
-  await sb('POST', '/rest/v1/activity_log', {
-    actor: user.email, action: 'lead.update',
-    summary: `Sales (${user.name}) updated lead details: ${name} (${phone})`,
-    entity_type: 'lead', entity_id: String(leadId)
-  }).catch(() => {});
-
-  return { ok: true };
-}
-
 // ── mark-lead-lost ─────────────────────────────────────────────────────────
 async function markLeadLost(user, body) {
   const leadId = clean(body.leadId, 40);
@@ -429,7 +395,6 @@ module.exports = async function handler(req, res) {
       case 'my-bookings': return res.status(200).json(await myBookings(user));
       case 'my-leads': return res.status(200).json(await myLeads(user));
       case 'create-lead': return res.status(201).json(await createLead(user, body));
-      case 'update-lead': return res.status(200).json(await updateLead(user, body));
       case 'mark-lead-lost': return res.status(200).json(await markLeadLost(user, body));
       case 'my-lead-followups': return res.status(200).json(await myLeadFollowups(user));
       case 'add-lead-followup': return res.status(201).json(await addLeadFollowup(user, body));

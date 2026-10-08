@@ -394,22 +394,6 @@
   </div>
 </div>
 
-<!-- EDIT LEAD MODAL -->
-<div class="modal-overlay" id="el-modal">
-  <div class="modal-sheet">
-    <div class="modal-head">
-      <div class="nm">Edit lead</div>
-      <button class="modal-close" type="button" id="el-close-btn" aria-label="Close">&times;</button>
-    </div>
-    <div class="field"><label for="el-name">Full name</label><input id="el-name" autocomplete="off" maxlength="80"></div>
-    <div class="field"><label for="el-phone">Mobile number</label><input id="el-phone" type="tel" inputmode="numeric" placeholder="05XXXXXXXX" autocomplete="off" maxlength="16"></div>
-    <div class="field"><label for="el-region">Region <span class="opt">(optional)</span></label><select id="el-region"><option value="">— Not sure yet —</option></select></div>
-    <div class="field" style="margin-bottom:0"><label for="el-city">City <span class="opt">(optional)</span></label><select id="el-city"><option value="">— Not sure yet —</option></select></div>
-    <div class="err" id="el-err" role="alert"></div>
-    <button class="btn btn-primary" id="el-save-btn" type="button" style="margin-top:10px;">Save changes</button>
-  </div>
-</div>
-
 <script src="../shared/supabase.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
@@ -963,7 +947,6 @@
           ${l.status === 'open' ? `<button class="btn btn-primary btn-sm" data-convert="${esc(l.id)}">Convert to Booking</button>
           <button class="btn btn-ghost btn-sm" data-lost="${esc(l.id)}">Mark Lost</button>` : ''}
           <button class="btn btn-ghost btn-sm" data-followup="${esc(l.id)}">${FOLLOWUP_ICON_SVG} Follow-up</button>
-          <button class="btn btn-ghost btn-sm" data-edit="${esc(l.id)}">✏️ Edit</button>
         </div>
       </div>`;
     }).join('');
@@ -1144,8 +1127,6 @@
     if (l) return markLeadLost(l.dataset.lost);
     const f = e.target.closest('button[data-followup]');
     if (f) return openFollowupModal(f.dataset.followup);
-    const ed = e.target.closest('button[data-edit]');
-    if (ed) return openEditLeadModal(ed.dataset.edit);
   });
 
   function leadError(msg) { const el = $('lead-err'); el.textContent = msg; el.style.display = msg ? 'block' : 'none'; if (msg) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
@@ -1169,64 +1150,6 @@
   }
 
   function closeFollowupModal() { $('fup-modal').classList.remove('open'); currentFollowupLeadId = null; }
-
-  // ── edit lead (name/phone/region/city) ──────────────────────────────────
-  let currentEditLeadId = null;
-
-  function elError(msg) { const el = $('el-err'); el.textContent = msg || ''; el.style.display = msg ? 'block' : 'none'; }
-
-  async function onEditLeadRegionChange() {
-    const regionId = $('el-region').value;
-    const citySel = $('el-city');
-    if (!regionId) { citySel.innerHTML = '<option value="">— Not sure yet —</option>'; return; }
-    const { data } = await db.from('cities').select('id, name').eq('region_id', regionId).order('name');
-    citySel.innerHTML = '<option value="">— Not sure yet —</option>' + (data || []).map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
-  }
-
-  async function openEditLeadModal(leadId) {
-    const l = (leads || []).find((x) => x.id === leadId);
-    if (!l) return;
-    currentEditLeadId = leadId;
-    elError('');
-    $('el-name').value = l.name || '';
-    $('el-phone').value = (l.phone || '').replace(/^\+966/, '0');
-    $('el-region').innerHTML = '<option value="">— Not sure yet —</option>' +
-      regionsCache.map((r) => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
-    if (l.region_id && regionsCache.some((r) => r.id === l.region_id)) {
-      $('el-region').value = l.region_id;
-      await onEditLeadRegionChange();
-      if (l.city_name) $('el-city').value = l.city_name;
-    } else {
-      $('el-city').innerHTML = '<option value="">— Not sure yet —</option>';
-    }
-    $('el-modal').classList.add('open');
-  }
-
-  function closeEditLeadModal() { $('el-modal').classList.remove('open'); currentEditLeadId = null; }
-
-  async function saveLeadEdit() {
-    elError('');
-    const name = $('el-name').value.trim(), phone = $('el-phone').value.trim();
-    if (!name) return elError('Enter the lead’s name.');
-    if (!phone) return elError('Enter a mobile number.');
-    const btn = $('el-save-btn'); btn.disabled = true; btn.textContent = 'Saving…';
-    try {
-      await api('update-lead', {
-        leadId: currentEditLeadId, name, phone,
-        regionId: $('el-region').value, cityName: $('el-city').value
-      });
-      closeEditLeadModal();
-      toast('Lead updated');
-      await fetchLeads(true);
-      renderLeads();
-    } catch (e) { elError(e.message); }
-    finally { btn.disabled = false; btn.textContent = 'Save changes'; }
-  }
-
-  $('el-region').addEventListener('change', onEditLeadRegionChange);
-  $('el-save-btn').addEventListener('click', saveLeadEdit);
-  $('el-close-btn').addEventListener('click', closeEditLeadModal);
-  $('el-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeEditLeadModal(); });
 
   function renderFollowupModalList() {
     const el = $('fup-list');
