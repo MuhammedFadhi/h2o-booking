@@ -27,14 +27,14 @@
          button/link/action stays SADA blue (--water). Not a rebrand. */
       --dark-grad:linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%);}
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;padding-top:env(safe-area-inset-top);}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;}
 
     /* HEADER — a dark-gradient greeting card (accent only, see --dark-grad
        above) instead of a plain white bar. The avatar+name area is a button
-       that opens the Profile modal. Its own max-width/centering mirrors
-       .container (kept as a separate element, not moved into it) so it
-       reads as a card like the reference, not a sticky edge-to-edge bar. */
-    header{background:var(--dark-grad);border-radius:22px;padding:20px 20px;margin:16px auto 0;max-width:688px;width:calc(100% - 32px);display:flex;align-items:center;gap:13px;box-shadow:0 14px 30px -14px rgba(5,6,10,0.55);}
+       that opens the Profile modal. Flush to the top/left/right screen
+       edges (per reference), rounded only at the bottom corners — not an
+       inset floating card. */
+    header{background:var(--dark-grad);border-radius:0 0 26px 26px;padding:18px 20px 20px;padding-top:calc(18px + env(safe-area-inset-top));display:flex;align-items:center;gap:13px;box-shadow:0 14px 30px -14px rgba(5,6,10,0.45);}
     .header-profile-btn{display:flex;align-items:center;gap:13px;flex:1;min-width:0;background:none;border:none;padding:0;cursor:pointer;text-align:left;font-family:inherit;}
     .avatar-circle{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.35);color:white;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0;font-family:'DM Sans',sans-serif;}
     .greet-text{flex:1;min-width:0;}
@@ -212,7 +212,7 @@
       .time-grid{grid-template-columns:repeat(2,1fr);}
       .booking-actions{flex-direction:column;}
       .booking-actions a,.booking-actions button{width:100%;justify-content:center;text-align:center;}
-      header{padding:16px;}
+      header{padding:16px 16px 18px;padding-top:calc(16px + env(safe-area-inset-top));}
     }
     @media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}}
   </style>
