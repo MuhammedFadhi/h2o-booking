@@ -234,7 +234,7 @@
   var _gaugeUid = 0;
   function gaugeCircular(pct, color, days, statusWord) {
     var R = 72, CX = 90, CY = 90, SW = 14;
-    var startDeg = 135, sweepDeg = 270;
+    var startDeg = -45, sweepDeg = 270; // gap sits at the top, like the reference
     var toRad = function (d) { return d * Math.PI / 180; };
     var pt = function (deg, radius) {
       radius = radius || R;
