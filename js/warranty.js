@@ -279,7 +279,7 @@
         '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
           '<div style="font-size:40px;font-weight:800;color:var(--ocean,#0D3B6E);line-height:1;">' + label + '</div>' +
           '<div style="font-size:10px;font-weight:700;color:var(--muted,#607D8B);letter-spacing:.12em;margin-top:6px;">DAYS LEFT</div>' +
-          '<div style="margin-top:10px;background:' + color + '26;color:' + color + ';font-size:10px;font-weight:800;padding:4px 13px;border-radius:20px;letter-spacing:.04em;">' + esc(statusWord) + '</div>' +
+          '<div style="margin-top:8px;max-width:118px;background:' + color + '26;color:' + color + ';font-size:9px;font-weight:800;padding:4px 10px;border-radius:14px;letter-spacing:.02em;line-height:1.3;text-align:center;">' + esc(statusWord) + '</div>' +
         '</div>' +
       '</div>';
   }
