@@ -499,7 +499,7 @@ async function loadHome() {
         '<p style="font-size:13px;color:var(--muted);line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty, or book a Filter Change below.</p>' +
         '</div>';
     } else {
-      el.innerHTML = units.map((u, i) => SADA.Warranty.unitCard(u, i)).join('');
+      el.innerHTML = units.map((u, i) => SADA.Warranty.unitCard(u, i, 'circular')).join('');
     }
     const hasRealUnit = units.some(u => u.source !== 'self_reported');
     qaHost.innerHTML = hasRealUnit ? '' : `

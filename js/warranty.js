@@ -227,7 +227,55 @@
   }
 
   /** Full unit card for the customer portal. */
-  function unitCard(u, idx) {
+  // Dark full-ring gauge (per a reference temperature-gauge UI) for the
+  // customer portal's Filter/Service "days left" meters. admin/dashboard.html
+  // still uses the plain gauge()/milestoneCard() above via W.milestoneCard()
+  // directly (openJobOrder's modal) - untouched, this is additive only.
+  function gaugeCircular(pct, color, days, statusWord) {
+    var R = 72, CX = 90, CY = 90, SW = 14;
+    var startDeg = 135, sweepDeg = 270;
+    var toRad = function (d) { return d * Math.PI / 180; };
+    var pt = function (deg) { return { x: CX + R * Math.cos(toRad(deg)), y: CY + R * Math.sin(toRad(deg)) }; };
+    var s = pt(startDeg), e = pt(startDeg + sweepDeg);
+    var arcLen = R * toRad(sweepDeg);
+    var frac = Math.max(0, Math.min(1, pct));
+    var dash = frac * arcLen;
+    var knob = pt(startDeg + frac * sweepDeg);
+    var iconPt = pt(270); // straight up
+    var label = (days === null) ? '—' : (days < 0 ? '0' : String(days));
+    var bgPath = 'M ' + s.x.toFixed(1) + ' ' + s.y.toFixed(1) + ' A ' + R + ' ' + R + ' 0 1 1 ' + e.x.toFixed(1) + ' ' + e.y.toFixed(1);
+    return '' +
+      '<div style="position:relative;width:176px;height:176px;margin:0 auto;">' +
+        '<svg viewBox="0 0 180 180" style="width:176px;height:176px;">' +
+          '<circle cx="90" cy="90" r="88" fill="#14151B"/>' +
+          '<path d="' + bgPath + '" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="' + SW + '" stroke-linecap="round"/>' +
+          '<path d="' + bgPath + '" fill="none" stroke="' + color + '" stroke-width="' + SW + '" stroke-linecap="round" stroke-dasharray="' + dash.toFixed(1) + ' ' + arcLen.toFixed(1) + '"/>' +
+          '<circle cx="' + knob.x.toFixed(1) + '" cy="' + knob.y.toFixed(1) + '" r="7" fill="#fff"/>' +
+          '<circle cx="' + iconPt.x.toFixed(1) + '" cy="' + iconPt.y.toFixed(1) + '" r="13" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>' +
+          '<path d="M ' + iconPt.x.toFixed(1) + ' ' + (iconPt.y - 7).toFixed(1) + 'c-3 4 -5.5 6.8 -5.5 9.3a5.5 5.5 0 0 0 11 0c0-2.5-2.5-5.3-5.5-9.3z" fill="' + color + '"/>' +
+        '</svg>' +
+        '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:16px;">' +
+          '<div style="font-size:34px;font-weight:800;color:#fff;line-height:1;">' + label + '</div>' +
+          '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.5);letter-spacing:.1em;margin-top:5px;">DAYS LEFT</div>' +
+          '<div style="margin-top:10px;background:' + color + '26;color:' + color + ';font-size:10px;font-weight:800;padding:4px 13px;border-radius:20px;letter-spacing:.04em;">' + esc(statusWord) + '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function milestoneCardCircular(title, keyLabel, expiry, totalDays) {
+    var m = milestone(expiry, totalDays);
+    var st = statusOf(expiry);
+    var c = STATUS_COLORS[st];
+    var word = m.unknown ? 'NOT SET' : (st === 'ok' ? 'ON TRACK' : st === 'soon' ? 'DUE SOON' : 'OVERDUE');
+    return '' +
+      '<div style="flex:1 1 190px;max-width:220px;margin:0 auto 6px;">' +
+        '<div style="font-size:13px;font-weight:700;color:var(--text,#1A2B47);margin-bottom:10px;text-align:center;">' + esc(title) + '</div>' +
+        gaugeCircular(m.pct, c.bar, m.remaining, word) +
+        '<div style="text-align:center;font-size:11px;color:var(--muted,#607D8B);margin-top:9px;">' + esc(keyLabel) + ' due <strong style="color:' + c.fg + ';">' + fmtDate(expiry) + '</strong></div>' +
+      '</div>';
+  }
+
+  function unitCard(u, idx, gaugeStyle) {
     // A self-reported row (standalone service visit, no SA'DA install/QR) gets
     // honest framing instead of implying formal SA'DA product coverage: no
     // warranty badge/countdown, "first serviced" instead of "installed".
@@ -268,9 +316,14 @@
           statusBadge + '</span>' +
       '</div>' +
 
-      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:' + (isSelfReported ? '4px' : '12px') + ';">' +
-        milestoneCard('Filter Replacement', 'Filter', u.filter_expiry, TERMS.filter) +
-        milestoneCard('Annual RO Service', 'Service', u.service_expiry, TERMS.service) +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:' + (isSelfReported ? '4px' : '12px') + ';">' +
+        (gaugeStyle === 'circular' ? (
+          milestoneCardCircular('Filter Replacement', 'Filter', u.filter_expiry, TERMS.filter) +
+          milestoneCardCircular('Annual RO Service', 'Service', u.service_expiry, TERMS.service)
+        ) : (
+          milestoneCard('Filter Replacement', 'Filter', u.filter_expiry, TERMS.filter) +
+          milestoneCard('Annual RO Service', 'Service', u.service_expiry, TERMS.service)
+        )) +
       '</div>' +
       (isSelfReported ? '<p style="font-size:10.5px;color:var(--muted,#607D8B);margin:0 0 12px;line-height:1.5;">Estimated from your last SA\'DA visit, not this unit\'s original install date.</p>' : '') +
 
@@ -317,6 +370,8 @@
     unitCard: unitCard,
     historyList: historyList,
     milestoneCard: milestoneCard,
+    milestoneCardCircular: milestoneCardCircular,
+    gaugeCircular: gaugeCircular,
     toggle: toggle
   };
 })();
