@@ -231,32 +231,51 @@
   // customer portal's Filter/Service "days left" meters. admin/dashboard.html
   // still uses the plain gauge()/milestoneCard() above via W.milestoneCard()
   // directly (openJobOrder's modal) - untouched, this is additive only.
+  var _gaugeUid = 0;
   function gaugeCircular(pct, color, days, statusWord) {
     var R = 72, CX = 90, CY = 90, SW = 14;
     var startDeg = 135, sweepDeg = 270;
     var toRad = function (d) { return d * Math.PI / 180; };
-    var pt = function (deg) { return { x: CX + R * Math.cos(toRad(deg)), y: CY + R * Math.sin(toRad(deg)) }; };
+    var pt = function (deg, radius) {
+      radius = radius || R;
+      return { x: CX + radius * Math.cos(toRad(deg)), y: CY + radius * Math.sin(toRad(deg)) };
+    };
     var s = pt(startDeg), e = pt(startDeg + sweepDeg);
     var arcLen = R * toRad(sweepDeg);
     var frac = Math.max(0, Math.min(1, pct));
     var dash = frac * arcLen;
     var knob = pt(startDeg + frac * sweepDeg);
-    var iconPt = pt(270); // straight up
     var label = (days === null) ? '—' : (days < 0 ? '0' : String(days));
     var bgPath = 'M ' + s.x.toFixed(1) + ' ' + s.y.toFixed(1) + ' A ' + R + ' ' + R + ' 0 1 1 ' + e.x.toFixed(1) + ' ' + e.y.toFixed(1);
+    var gid = 'gaugeGrad' + (++_gaugeUid);
+
+    // Static decorative ring of dots around the outside — purely visual,
+    // full circle regardless of progress (the reference's "protection
+    // circle" look), independent of the actual progress arc inside it.
+    var dotR = R + 16, dots = [];
+    for (var i = 0; i < 40; i++) {
+      var dp = pt(i * 9, dotR);
+      dots.push('<circle cx="' + dp.x.toFixed(1) + '" cy="' + dp.y.toFixed(1) + '" r="1.4" fill="rgba(255,255,255,0.16)"/>');
+    }
+
     return '' +
-      '<div style="position:relative;width:176px;height:176px;margin:0 auto;">' +
-        '<svg viewBox="0 0 180 180" style="width:176px;height:176px;">' +
-          '<circle cx="90" cy="90" r="88" fill="#14151B"/>' +
-          '<path d="' + bgPath + '" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="' + SW + '" stroke-linecap="round"/>' +
-          '<path d="' + bgPath + '" fill="none" stroke="' + color + '" stroke-width="' + SW + '" stroke-linecap="round" stroke-dasharray="' + dash.toFixed(1) + ' ' + arcLen.toFixed(1) + '"/>' +
-          '<circle cx="' + knob.x.toFixed(1) + '" cy="' + knob.y.toFixed(1) + '" r="7" fill="#fff"/>' +
-          '<circle cx="' + iconPt.x.toFixed(1) + '" cy="' + iconPt.y.toFixed(1) + '" r="13" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>' +
-          '<path d="M ' + iconPt.x.toFixed(1) + ' ' + (iconPt.y - 7).toFixed(1) + 'c-3 4 -5.5 6.8 -5.5 9.3a5.5 5.5 0 0 0 11 0c0-2.5-2.5-5.3-5.5-9.3z" fill="' + color + '"/>' +
+      '<div style="position:relative;width:206px;height:206px;margin:0 auto;">' +
+        '<svg viewBox="0 0 220 220" style="width:206px;height:206px;">' +
+          '<defs><linearGradient id="' + gid + '" x1="0%" y1="0%" x2="100%" y2="100%">' +
+            '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.5"/>' +
+            '<stop offset="100%" stop-color="' + color + '"/>' +
+          '</linearGradient></defs>' +
+          '<g transform="translate(20,20)">' +
+            dots.join('') +
+            '<circle cx="90" cy="90" r="88" fill="#101115"/>' +
+            '<path d="' + bgPath + '" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="' + SW + '" stroke-linecap="round"/>' +
+            '<path d="' + bgPath + '" fill="none" stroke="url(#' + gid + ')" stroke-width="' + SW + '" stroke-linecap="round" stroke-dasharray="' + dash.toFixed(1) + ' ' + arcLen.toFixed(1) + '"/>' +
+            '<circle cx="' + knob.x.toFixed(1) + '" cy="' + knob.y.toFixed(1) + '" r="8" fill="#fff"/>' +
+          '</g>' +
         '</svg>' +
-        '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:16px;">' +
-          '<div style="font-size:34px;font-weight:800;color:#fff;line-height:1;">' + label + '</div>' +
-          '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.5);letter-spacing:.1em;margin-top:5px;">DAYS LEFT</div>' +
+        '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
+          '<div style="font-size:40px;font-weight:800;color:#fff;line-height:1;">' + label + '</div>' +
+          '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.5);letter-spacing:.12em;margin-top:6px;">DAYS LEFT</div>' +
           '<div style="margin-top:10px;background:' + color + '26;color:' + color + ';font-size:10px;font-weight:800;padding:4px 13px;border-radius:20px;letter-spacing:.04em;">' + esc(statusWord) + '</div>' +
         '</div>' +
       '</div>';
