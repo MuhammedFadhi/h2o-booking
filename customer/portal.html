@@ -34,9 +34,9 @@
        that opens the Profile modal. Flush to the top/left/right screen
        edges (per reference), rounded only at the bottom corners — not an
        inset floating card. */
-    header{background:var(--dark-grad);border-radius:0 0 26px 26px;padding:18px 20px 20px;padding-top:calc(18px + env(safe-area-inset-top));display:flex;align-items:center;gap:13px;box-shadow:0 14px 30px -14px rgba(5,6,10,0.45);}
+    header{background:var(--dark-grad);border-radius:0 0 26px 26px;padding:28px 20px 34px;padding-top:calc(28px + env(safe-area-inset-top));display:flex;align-items:center;gap:13px;box-shadow:0 14px 30px -14px rgba(5,6,10,0.45);}
     .header-profile-btn{display:flex;align-items:center;gap:13px;flex:1;min-width:0;background:none;border:none;padding:0;cursor:pointer;text-align:left;font-family:inherit;}
-    .avatar-circle{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.35);color:white;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0;font-family:'DM Sans',sans-serif;}
+    .avatar-circle{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.35);color:white;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;flex-shrink:0;font-family:'DM Sans',sans-serif;}
     .greet-text{flex:1;min-width:0;}
     .greet-hi{font-size:13px;color:rgba(255,255,255,0.75);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .greet-hello{font-size:23px;font-weight:800;color:#fff;line-height:1.25;margin:2px 0 4px;}
@@ -212,7 +212,7 @@
       .time-grid{grid-template-columns:repeat(2,1fr);}
       .booking-actions{flex-direction:column;}
       .booking-actions a,.booking-actions button{width:100%;justify-content:center;text-align:center;}
-      header{padding:16px 16px 18px;padding-top:calc(16px + env(safe-area-inset-top));}
+      header{padding:24px 16px 28px;padding-top:calc(24px + env(safe-area-inset-top));}
     }
     @media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}}
   </style>
