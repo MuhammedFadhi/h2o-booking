@@ -234,19 +234,18 @@
   var _gaugeUid = 0;
   function gaugeCircular(pct, color, days, statusWord) {
     var R = 72, CX = 90, CY = 90, SW = 14;
-    var startDeg = -45, sweepDeg = 270; // gap sits at the top, like the reference
     var toRad = function (d) { return d * Math.PI / 180; };
     var pt = function (deg, radius) {
       radius = radius || R;
       return { x: CX + radius * Math.cos(toRad(deg)), y: CY + radius * Math.sin(toRad(deg)) };
     };
-    var s = pt(startDeg), e = pt(startDeg + sweepDeg);
-    var arcLen = R * toRad(sweepDeg);
+    var circ = 2 * Math.PI * R;
     var frac = Math.max(0, Math.min(1, pct));
-    var dash = frac * arcLen;
-    var knob = pt(startDeg + frac * sweepDeg);
+    var dash = frac * circ;
+    // Full ring, no gap — progress starts at 12 o'clock (deg 270 in this
+    // x=cos/y=sin convention) and sweeps clockwise.
+    var knob = pt(270 + frac * 360);
     var label = (days === null) ? '—' : (days < 0 ? '0' : String(days));
-    var bgPath = 'M ' + s.x.toFixed(1) + ' ' + s.y.toFixed(1) + ' A ' + R + ' ' + R + ' 0 1 1 ' + e.x.toFixed(1) + ' ' + e.y.toFixed(1);
     var gid = 'gaugeGrad' + (++_gaugeUid);
 
     // Static decorative ring of dots around the outside — purely visual,
@@ -268,8 +267,10 @@
           '<g transform="translate(20,20)">' +
             dots.join('') +
             '<circle cx="90" cy="90" r="88" fill="#101115"/>' +
-            '<path d="' + bgPath + '" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="' + SW + '" stroke-linecap="round"/>' +
-            '<path d="' + bgPath + '" fill="none" stroke="url(#' + gid + ')" stroke-width="' + SW + '" stroke-linecap="round" stroke-dasharray="' + dash.toFixed(1) + ' ' + arcLen.toFixed(1) + '"/>' +
+            '<circle cx="90" cy="90" r="' + R + '" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="' + SW + '"/>' +
+            '<circle cx="90" cy="90" r="' + R + '" fill="none" stroke="url(#' + gid + ')" stroke-width="' + SW + '" ' +
+              'stroke-linecap="round" stroke-dasharray="' + dash.toFixed(1) + ' ' + circ.toFixed(1) + '" ' +
+              'transform="rotate(-90 90 90)"/>' +
             '<circle cx="' + knob.x.toFixed(1) + '" cy="' + knob.y.toFixed(1) + '" r="8" fill="#fff"/>' +
           '</g>' +
         '</svg>' +
