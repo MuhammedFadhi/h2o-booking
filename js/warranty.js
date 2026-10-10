@@ -254,7 +254,10 @@
     var dotR = R + 16, dots = [];
     for (var i = 0; i < 40; i++) {
       var dp = pt(i * 9, dotR);
-      dots.push('<circle cx="' + dp.x.toFixed(1) + '" cy="' + dp.y.toFixed(1) + '" r="1.4" fill="rgba(255,255,255,0.16)"/>');
+      // Sits outside the dark disc, on the card's light background — needs
+      // real contrast there, not the near-white the reference's dark page
+      // got away with.
+      dots.push('<circle cx="' + dp.x.toFixed(1) + '" cy="' + dp.y.toFixed(1) + '" r="1.6" fill="rgba(13,59,110,0.3)"/>');
     }
 
     return '' +
