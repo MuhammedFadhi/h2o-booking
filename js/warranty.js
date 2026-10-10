@@ -277,9 +277,9 @@
           '</g>' +
         '</svg>' +
         '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
-          '<div style="font-size:40px;font-weight:800;color:var(--ocean,#0D3B6E);line-height:1;">' + label + '</div>' +
-          '<div style="font-size:10px;font-weight:700;color:var(--muted,#607D8B);letter-spacing:.12em;margin-top:6px;">DAYS LEFT</div>' +
-          '<div style="margin-top:8px;max-width:118px;background:' + color + '26;color:' + color + ';font-size:9px;font-weight:800;padding:4px 10px;border-radius:14px;letter-spacing:.02em;line-height:1.3;text-align:center;">' + esc(statusWord) + '</div>' +
+          '<div style="font-size:36px;font-weight:800;color:var(--ocean,#0D3B6E);line-height:1;">' + label + '</div>' +
+          '<div style="font-size:9px;font-weight:700;color:var(--muted,#607D8B);letter-spacing:.1em;margin-top:4px;">DAYS LEFT</div>' +
+          '<div style="margin-top:5px;max-width:78px;background:' + color + '26;color:' + color + ';font-size:7.5px;font-weight:800;padding:3px 7px;border-radius:12px;letter-spacing:0;line-height:1.25;text-align:center;">' + esc(statusWord) + '</div>' +
         '</div>' +
       '</div>';
   }
