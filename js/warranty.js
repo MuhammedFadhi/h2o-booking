@@ -269,17 +269,16 @@
           '</linearGradient></defs>' +
           '<g transform="translate(20,20)">' +
             dots.join('') +
-            '<circle cx="90" cy="90" r="88" fill="#101115"/>' +
-            '<circle cx="90" cy="90" r="' + R + '" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="' + SW + '"/>' +
+            '<circle cx="90" cy="90" r="' + R + '" fill="none" stroke="var(--border,#E2E8F0)" stroke-width="' + SW + '"/>' +
             '<circle cx="90" cy="90" r="' + R + '" fill="none" stroke="url(#' + gid + ')" stroke-width="' + SW + '" ' +
               'stroke-linecap="round" stroke-dasharray="' + dash.toFixed(1) + ' ' + circ.toFixed(1) + '" ' +
               'transform="rotate(-90 90 90)"/>' +
-            '<circle cx="' + knob.x.toFixed(1) + '" cy="' + knob.y.toFixed(1) + '" r="8" fill="#fff"/>' +
+            '<circle cx="' + knob.x.toFixed(1) + '" cy="' + knob.y.toFixed(1) + '" r="8" fill="#fff" stroke="' + color + '" stroke-width="2.5"/>' +
           '</g>' +
         '</svg>' +
         '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
-          '<div style="font-size:40px;font-weight:800;color:#fff;line-height:1;">' + label + '</div>' +
-          '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.5);letter-spacing:.12em;margin-top:6px;">DAYS LEFT</div>' +
+          '<div style="font-size:40px;font-weight:800;color:var(--ocean,#0D3B6E);line-height:1;">' + label + '</div>' +
+          '<div style="font-size:10px;font-weight:700;color:var(--muted,#607D8B);letter-spacing:.12em;margin-top:6px;">DAYS LEFT</div>' +
           '<div style="margin-top:10px;background:' + color + '26;color:' + color + ';font-size:10px;font-weight:800;padding:4px 13px;border-radius:20px;letter-spacing:.04em;">' + esc(statusWord) + '</div>' +
         '</div>' +
       '</div>';
