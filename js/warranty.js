@@ -288,11 +288,10 @@
     var m = milestone(expiry, totalDays);
     var st = statusOf(expiry);
     var c = STATUS_COLORS[st];
-    var word = m.unknown ? 'NOT SET' : (st === 'ok' ? 'ON TRACK' : st === 'soon' ? 'DUE SOON' : 'OVERDUE');
     return '' +
       '<div style="flex:1 1 190px;max-width:220px;margin:0 auto 6px;">' +
         '<div style="font-size:13px;font-weight:700;color:var(--text,#1A2B47);margin-bottom:10px;text-align:center;">' + esc(title) + '</div>' +
-        gaugeCircular(m.pct, c.bar, m.remaining, word) +
+        gaugeCircular(m.pct, c.bar, m.remaining, title) +
         '<div style="text-align:center;font-size:11px;color:var(--muted,#607D8B);margin-top:9px;">' + esc(keyLabel) + ' due <strong style="color:' + c.fg + ';">' + fmtDate(expiry) + '</strong></div>' +
       '</div>';
   }
