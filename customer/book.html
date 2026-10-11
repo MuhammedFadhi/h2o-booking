@@ -33,7 +33,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#CFD8DC;--error:#B71C1C;--success:#15803D;}
+    :root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#CFD8DC;--error:#B71C1C;--success:#15803D;--dark-grad:linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%);}
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'DM Sans',sans-serif;background:linear-gradient(160deg,#0A1628 0%,#0D3B6E 50%,#1565C0 100%);min-height:100dvh;color:var(--text);}
     body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(30,136,229,0.15) 0%,transparent 60%);pointer-events:none;z-index:0;}
@@ -58,6 +58,28 @@
     select:disabled{background:var(--foam);color:var(--muted);cursor:not-allowed;}
     input:focus,select:focus,textarea:focus{border-color:var(--water);box-shadow:0 0 0 3px rgba(21,101,192,0.15);}
     .otp-info{background:var(--foam);border-radius:12px;padding:16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;}
+    /* STEP 1b (OTP verify) — SADA blue gradient with soft blurred "blob"
+       accents behind the content, instead of the plain white step
+       background every other step uses. Scoped to just this step. */
+    #step-1b{position:relative;background:var(--dark-grad);border-radius:0;margin:-40px -40px -32px;padding:40px 40px 32px;overflow:hidden;}
+    #step-1b::before,#step-1b::after{content:'';position:absolute;border-radius:50%;filter:blur(40px);pointer-events:none;}
+    #step-1b::before{width:220px;height:220px;background:radial-gradient(circle,rgba(91,127,219,0.55),transparent 70%);top:-60px;right:-60px;}
+    #step-1b::after{width:180px;height:180px;background:radial-gradient(circle,rgba(228,231,252,0.35),transparent 70%);bottom:-40px;left:-30px;}
+    #step-1b > *{position:relative;z-index:1;}
+    #step-1b .section-title,#step-1b .section-subtitle{color:#fff;}
+    #step-1b .section-subtitle{opacity:0.75;}
+    #step-1b .otp-info{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);}
+    #step-1b .otp-info > div{color:#fff !important;}
+    #step-1b .timer-text{color:rgba(255,255,255,0.65);}
+    #step-1b .timer-text span{color:#fff;}
+    #step-1b label{color:rgba(255,255,255,0.7);}
+    #step-1b .btn-back{color:rgba(255,255,255,0.75);}
+    #step-1b .resend-btn{color:#fff;}
+    #step-1b .resend-btn:disabled{color:rgba(255,255,255,0.4);}
+    /* 6-box OTP input, matching the reference's rounded-square digit boxes. */
+    .otp-box-row{display:flex;gap:10px;justify-content:center;margin:4px 0 6px;}
+    .otp-box{width:15%;max-width:48px;aspect-ratio:1;text-align:center;font-size:22px;font-weight:700;padding:0;border:1.5px solid rgba(255,255,255,0.3);border-radius:12px;background:rgba(255,255,255,0.12);color:#fff;}
+    .otp-box:focus{border-color:#fff;background:rgba(255,255,255,0.2);box-shadow:0 0 0 3px rgba(255,255,255,0.15);}
     .visit-type-list{display:flex;flex-direction:column;gap:10px;margin-top:8px;}
     .visit-type-btn{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border:1.5px solid var(--border);border-radius:16px;background:var(--white);cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
     .visit-type-btn:hover{border-color:var(--water);background:var(--foam);transform:translateY(-1px);box-shadow:0 4px 12px rgba(21,101,192,0.12);}
@@ -158,12 +180,20 @@
         <h1 class="section-title">Verify Your Number</h1>
         <p class="section-subtitle">Enter the 6-digit code sent to your mobile.</p>
         <div class="otp-info">
-          <div style="font-size:24px;">📱</div>
+          <div style="width:24px;height:24px;flex-shrink:0;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5z"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4h2M12 17v.01"/></svg></div>
           <div style="font-size:13px;color:var(--muted);line-height:1.5;">OTP sent to <strong id="otp-phone-display"></strong></div>
         </div>
         <div class="form-group">
           <label>Enter OTP</label>
-          <input type="number" id="otp-input" placeholder="000000" style="letter-spacing:8px;font-size:22px;font-weight:700;text-align:center;" oninput="if(this.value.length>6)this.value=this.value.slice(0,6)">
+          <div class="otp-box-row" id="otp-box-row">
+            <input type="text" inputmode="numeric" maxlength="1" class="otp-box" autocomplete="one-time-code">
+            <input type="text" inputmode="numeric" maxlength="1" class="otp-box">
+            <input type="text" inputmode="numeric" maxlength="1" class="otp-box">
+            <input type="text" inputmode="numeric" maxlength="1" class="otp-box">
+            <input type="text" inputmode="numeric" maxlength="1" class="otp-box">
+            <input type="text" inputmode="numeric" maxlength="1" class="otp-box">
+          </div>
+          <input type="hidden" id="otp-input">
           <div class="timer-row">
             <div class="timer-text" id="timer-text">Expires in <span id="timer-countdown">2:00</span></div>
             <button class="resend-btn" id="resend-btn" onclick="resendOTP()" disabled>Resend OTP</button>
@@ -491,6 +521,37 @@ async function sendSMS(to, body) {
   } catch(e) { console.error('SMS error:', e); return { ok: false }; }
 }
 
+// 6-box OTP input — keeps the real #otp-input (used by sendOTP/verifyOTP/
+// resendOTP below, unchanged) in sync as the single combined value.
+(function () {
+  const boxes = Array.from(document.querySelectorAll('.otp-box'));
+  const hidden = document.getElementById('otp-input');
+  function syncHidden() { hidden.value = boxes.map(b => b.value).join(''); }
+  boxes.forEach((box, i) => {
+    box.addEventListener('input', () => {
+      box.value = box.value.replace(/[^0-9]/g, '').slice(0, 1);
+      syncHidden();
+      if (box.value && i < boxes.length - 1) boxes[i + 1].focus();
+    });
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !box.value && i > 0) boxes[i - 1].focus();
+    });
+    box.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '').slice(0, boxes.length);
+      text.split('').forEach((ch, idx) => { if (boxes[idx]) boxes[idx].value = ch; });
+      syncHidden();
+      (boxes[Math.min(text.length, boxes.length - 1)] || boxes[boxes.length - 1]).focus();
+    });
+  });
+  window.resetOtpBoxes = function () {
+    boxes.forEach(b => { b.value = ''; b.disabled = false; });
+    syncHidden();
+    boxes[0] && boxes[0].focus();
+  };
+  window.disableOtpBoxes = function (disabled) { boxes.forEach(b => b.disabled = disabled); };
+})();
+
 async function sendOTP() {
   const phone = document.getElementById('phone-input').value.trim();
   const errEl = document.getElementById('step1-error');
@@ -551,6 +612,7 @@ async function sendOTP() {
   }
   document.getElementById('otp-phone-display').textContent=displayPhone(state.phone);
   showStep('1b');
+  window.resetOtpBoxes && window.resetOtpBoxes();
   startTimer();
   btn.disabled=false; btn.textContent='Send OTP →';
 }
@@ -574,8 +636,7 @@ async function resendOTP() {
   state.generatedOTP=otp;
   state.otpAttempts=0;
   document.getElementById('step1b-error').style.display='none';
-  document.getElementById('otp-input').value='';
-  document.getElementById('otp-input').disabled=false;
+  window.resetOtpBoxes && window.resetOtpBoxes();
   document.getElementById('timer-text').classList.remove('expired');
   const btn=document.getElementById('resend-btn');
   btn.disabled=true; btn.textContent='Sending...';
@@ -602,7 +663,7 @@ async function verifyOTP() {
   if(Date.now() - state.otpGeneratedAt > OTP_EXPIRY_MS) {
     errEl.style.display='block';
     errEl.textContent='OTP has expired. Please request a new one.';
-    document.getElementById('otp-input').disabled=true;
+    window.disableOtpBoxes && window.disableOtpBoxes(true);
     document.getElementById('resend-btn').disabled=false;
     return;
   }
@@ -611,7 +672,7 @@ async function verifyOTP() {
   if(state.otpAttempts > MAX_OTP_ATTEMPTS) {
     errEl.style.display='block';
     errEl.textContent='Too many incorrect attempts. Please request a new OTP.';
-    document.getElementById('otp-input').disabled=true;
+    window.disableOtpBoxes && window.disableOtpBoxes(true);
     document.getElementById('resend-btn').disabled=false;
     return;
   }
