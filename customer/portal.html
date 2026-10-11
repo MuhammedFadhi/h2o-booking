@@ -25,7 +25,8 @@
     :root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#E2E8F0;--bg:#F8FAFC;--green:#16A34A;--red:#DC2626;--amber:#D97706;
       /* Accent gradient for the greeting header + bottom nav only — every
          button/link/action stays SADA blue (--water). Not a rebrand. */
-      --dark-grad:linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%);}
+      --dark-grad:linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%);
+      --dark-grad-glass:linear-gradient(135deg,rgba(74,111,165,0.68) 0%,rgba(26,39,68,0.78) 55%,rgba(5,6,10,0.88) 100%);}
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;}
 
@@ -34,7 +35,7 @@
        that opens the Profile modal. Flush to the top/left/right screen
        edges (per reference), rounded only at the bottom corners — not an
        inset floating card. */
-    header{background:var(--dark-grad);border-radius:0 0 26px 26px;padding:28px 20px 34px;padding-top:calc(28px + env(safe-area-inset-top));display:flex;align-items:center;gap:13px;box-shadow:0 14px 30px -14px rgba(5,6,10,0.45);}
+    header{background:var(--dark-grad-glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,0.12);border-top:none;border-radius:0 0 26px 26px;padding:28px 20px 34px;padding-top:calc(28px + env(safe-area-inset-top));display:flex;align-items:center;gap:13px;box-shadow:0 14px 30px -14px rgba(5,6,10,0.45);}
     .header-profile-btn{display:flex;align-items:center;gap:13px;flex:1;min-width:0;background:none;border:none;padding:0;cursor:pointer;text-align:left;font-family:inherit;}
     .avatar-circle{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.35);color:white;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;flex-shrink:0;font-family:'DM Sans',sans-serif;}
     .greet-text{flex:1;min-width:0;}
@@ -62,7 +63,7 @@
        not an edge-to-edge white bar. .tab / .tabs classes are kept so
        switchTab()'s existing selectors (`.tab`, `el.classList`) need zero
        JS changes. */
-    .tabs{position:fixed;left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;background:var(--dark-grad);border-radius:20px;box-shadow:0 14px 30px -12px rgba(5,6,10,0.5);padding:7px;z-index:60;max-width:688px;margin:0 auto;}
+    .tabs{position:fixed;left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;background:var(--dark-grad-glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,0.12);border-radius:20px;box-shadow:0 14px 30px -12px rgba(5,6,10,0.5);padding:7px;z-index:60;max-width:688px;margin:0 auto;}
     .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:14px;border:none;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;cursor:pointer;color:rgba(255,255,255,0.55);background:none;transition:all 0.15s;}
     .tab svg{width:22px;height:22px;}
     .tab:hover:not(.active){color:rgba(255,255,255,0.85);}
