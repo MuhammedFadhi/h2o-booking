@@ -26,7 +26,7 @@
       /* Accent gradient for the greeting header + bottom nav only — every
          button/link/action stays SADA blue (--water). Not a rebrand. */
       --dark-grad:linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%);
-      --dark-grad-glass:linear-gradient(135deg,rgba(74,111,165,0.5) 0%,rgba(26,39,68,0.62) 55%,rgba(5,6,10,0.76) 100%);}
+      --dark-grad-glass:linear-gradient(135deg,rgba(74,111,165,0.38) 0%,rgba(26,39,68,0.48) 55%,rgba(5,6,10,0.62) 100%);}
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'DM Sans',sans-serif;background:var(--dark-grad);background-attachment:fixed;color:var(--text);min-height:100dvh;}
 
@@ -63,7 +63,7 @@
        not an edge-to-edge white bar. .tab / .tabs classes are kept so
        switchTab()'s existing selectors (`.tab`, `el.classList`) need zero
        JS changes. */
-    .tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--dark-grad-glass);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border:1px solid rgba(255,255,255,0.12);border-bottom:none;border-radius:20px 20px 0 0;box-shadow:0 14px 30px -12px rgba(5,6,10,0.5);padding:7px 7px calc(7px + env(safe-area-inset-bottom));z-index:60;max-width:720px;margin:0 auto;transition:transform .35s ease;}
+    .tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border:1px solid rgba(255,255,255,0.14);border-bottom:none;border-radius:20px 20px 0 0;box-shadow:0 14px 30px -12px rgba(5,6,10,0.5);padding:7px 7px calc(7px + env(safe-area-inset-bottom));z-index:60;max-width:720px;margin:0 auto;transition:transform .35s ease;}
     .tabs.nav-hidden{transform:translateY(100%);}
     .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:14px;border:none;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;cursor:pointer;color:rgba(255,255,255,0.55);background:none;transition:all 0.15s;}
     .tab svg{width:22px;height:22px;}
