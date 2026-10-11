@@ -376,8 +376,9 @@
       '</div>' +
 
       '<button onclick="SADA.Warranty.toggle(\'' + hid + '\',this)" ' +
-              'style="width:100%;margin-top:11px;background:none;border:1px solid ' + btnBorder + ';color:' + btnColor + ';padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">' +
-        '🛠️ Service history (' + (u.history ? u.history.length : 0) + ')</button>' +
+              'style="width:100%;margin-top:11px;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:1px solid ' + btnBorder + ';color:' + btnColor + ';padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 10h3v-3l-3.5-3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8z"/></svg>' +
+        'Service history (' + (u.history ? u.history.length : 0) + ')</button>' +
       '<div id="' + hid + '" style="display:none;background:' + infoBoxBg + ';color:' + infoBoxText + ';border-radius:11px;padding:5px 13px;margin-top:9px;">' + historyList(u.history, dark) + '</div>' +
 
       (desc ? '<details style="margin-top:9px;"><summary style="font-size:11px;color:' + mutedColor + ';cursor:pointer;">About this model</summary>' +
@@ -390,7 +391,10 @@
     if (!el) return;
     var open = el.style.display !== 'none';
     el.style.display = open ? 'none' : 'block';
-    if (btn) btn.style.background = open ? 'none' : '#F1F5F9';
+    // Neutral translucent highlight — reads fine as an "open" state on both
+    // the light contexts this is used from and the dark unit card, instead
+    // of a hardcoded light gray that turned into a white box there.
+    if (btn) btn.style.background = open ? 'none' : 'rgba(128,142,160,0.2)';
   }
 
   window.SADA = window.SADA || {};
