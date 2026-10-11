@@ -254,10 +254,7 @@
     var dotR = R + 16, dots = [];
     for (var i = 0; i < 40; i++) {
       var dp = pt(i * 9, dotR);
-      // Sits outside the dark disc, on the card's light background — needs
-      // real contrast there, not the near-white the reference's dark page
-      // got away with.
-      dots.push('<circle cx="' + dp.x.toFixed(1) + '" cy="' + dp.y.toFixed(1) + '" r="1.6" fill="rgba(13,59,110,0.3)"/>');
+      dots.push('<circle cx="' + dp.x.toFixed(1) + '" cy="' + dp.y.toFixed(1) + '" r="1.6" fill="rgba(255,255,255,0.22)"/>');
     }
 
     return '' +
@@ -269,7 +266,7 @@
           '</linearGradient></defs>' +
           '<g transform="translate(20,20)">' +
             dots.join('') +
-            '<circle cx="90" cy="90" r="' + R + '" fill="none" stroke="var(--border,#E2E8F0)" stroke-width="' + SW + '"/>' +
+            '<circle cx="90" cy="90" r="' + R + '" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="' + SW + '"/>' +
             '<circle cx="90" cy="90" r="' + R + '" fill="none" stroke="url(#' + gid + ')" stroke-width="' + SW + '" ' +
               'stroke-linecap="round" stroke-dasharray="' + dash.toFixed(1) + ' ' + circ.toFixed(1) + '" ' +
               'transform="rotate(-90 90 90)"/>' +
@@ -277,22 +274,26 @@
           '</g>' +
         '</svg>' +
         '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
-          '<div style="font-size:36px;font-weight:800;color:var(--ocean,#0D3B6E);line-height:1;">' + label + '</div>' +
-          '<div style="font-size:9px;font-weight:700;color:var(--muted,#607D8B);letter-spacing:.1em;margin-top:4px;">DAYS LEFT</div>' +
+          '<div style="font-size:36px;font-weight:800;color:#fff;line-height:1;">' + label + '</div>' +
+          '<div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.55);letter-spacing:.1em;margin-top:4px;">DAYS LEFT</div>' +
           '<div style="margin-top:5px;max-width:78px;background:' + color + '26;color:' + color + ';font-size:7.5px;font-weight:800;padding:3px 7px;border-radius:12px;letter-spacing:0;line-height:1.25;text-align:center;">' + esc(statusWord) + '</div>' +
         '</div>' +
       '</div>';
   }
+
+  // Same dark gradient the customer portal's header card uses (--dark-grad),
+  // with a literal fallback for any page that doesn't define it.
+  var DARK_CARD_BG = 'var(--dark-grad,linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%))';
 
   function milestoneCardCircular(title, keyLabel, expiry, totalDays) {
     var m = milestone(expiry, totalDays);
     var st = statusOf(expiry);
     var c = STATUS_COLORS[st];
     return '' +
-      '<div style="flex:1 1 190px;max-width:220px;margin:0 auto 6px;">' +
-        '<div style="font-size:13px;font-weight:700;color:var(--text,#1A2B47);margin-bottom:10px;text-align:center;">' + esc(title) + '</div>' +
+      '<div style="flex:1 1 230px;max-width:270px;margin:0 auto 14px;background:' + DARK_CARD_BG + ';border-radius:22px;padding:22px 18px;box-shadow:0 14px 30px -16px rgba(5,6,10,0.5);">' +
+        '<div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);margin-bottom:10px;text-align:center;">' + esc(title) + '</div>' +
         gaugeCircular(m.pct, c.bar, m.remaining, title) +
-        '<div style="text-align:center;font-size:11px;color:var(--muted,#607D8B);margin-top:9px;">' + esc(keyLabel) + ' due <strong style="color:' + c.fg + ';">' + fmtDate(expiry) + '</strong></div>' +
+        '<div style="text-align:center;font-size:11px;color:rgba(255,255,255,0.55);margin-top:9px;">' + esc(keyLabel) + ' due <strong style="color:' + c.bar + ';">' + fmtDate(expiry) + '</strong></div>' +
       '</div>';
   }
 
