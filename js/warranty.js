@@ -303,7 +303,7 @@
     var st = statusOf(expiry);
     var c = STATUS_COLORS[st];
     return '' +
-      '<div style="flex:1 1 220px;max-width:240px;margin:0 auto 14px;padding:10px 0;">' +
+      '<div style="flex:1 1 220px;max-width:240px;margin:0 auto;">' +
         gaugeCircular(m.pct, c.bar, m.remaining, title) +
         '<div style="text-align:center;font-size:11px;color:rgba(255,255,255,0.55);margin-top:9px;">' + esc(keyLabel) + ' due <strong style="color:#fff;">' + fmtDate(expiry) + '</strong></div>' +
       '</div>';
@@ -358,7 +358,7 @@
           statusBadge + '</span>' +
       '</div>' +
 
-      '<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:' + (isSelfReported ? '4px' : '12px') + ';">' +
+      '<div style="display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-bottom:' + (isSelfReported ? '4px' : '12px') + ';">' +
         (gaugeStyle === 'circular' ? (
           milestoneCardCircular('Filter Replacement', 'Filter', u.filter_expiry, TERMS.filter) +
           milestoneCardCircular('Annual RO Service', 'Service', u.service_expiry, TERMS.service)
