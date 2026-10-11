@@ -245,8 +245,8 @@
   // still uses the plain gauge()/milestoneCard() above via W.milestoneCard()
   // directly (openJobOrder's modal) - untouched, this is additive only.
   var _gaugeUid = 0;
-  function gaugeCircular(pct, color, days, statusWord) {
-    var R = 72, CX = 90, CY = 90, SW = 14;
+  function gaugeCircular(pct, color, days, statusWord, dueText) {
+    var R = 92, CX = 112, CY = 112, SW = 17;
     var toRad = function (d) { return d * Math.PI / 180; };
     var pt = function (deg, radius) {
       radius = radius || R;
@@ -264,32 +264,33 @@
     // Static decorative ring of dots around the outside — purely visual,
     // full circle regardless of progress (the reference's "protection
     // circle" look), independent of the actual progress arc inside it.
-    var dotR = R + 16, dots = [];
+    var dotR = R + 18, dots = [];
     for (var i = 0; i < 40; i++) {
       var dp = pt(i * 9, dotR);
-      dots.push('<circle cx="' + dp.x.toFixed(1) + '" cy="' + dp.y.toFixed(1) + '" r="1.6" fill="rgba(255,255,255,0.22)"/>');
+      dots.push('<circle cx="' + dp.x.toFixed(1) + '" cy="' + dp.y.toFixed(1) + '" r="1.8" fill="rgba(255,255,255,0.22)"/>');
     }
 
     return '' +
-      '<div style="position:relative;width:206px;height:206px;margin:0 auto;">' +
-        '<svg viewBox="0 0 220 220" style="width:206px;height:206px;">' +
+      '<div style="position:relative;width:248px;height:248px;margin:0 auto;">' +
+        '<svg viewBox="0 0 264 264" style="width:248px;height:248px;">' +
           '<defs><linearGradient id="' + gid + '" x1="0%" y1="0%" x2="100%" y2="100%">' +
             '<stop offset="0%" stop-color="#E4E7FC"/>' +
             '<stop offset="100%" stop-color="#5B7FDB"/>' +
           '</linearGradient></defs>' +
           '<g transform="translate(20,20)">' +
             dots.join('') +
-            '<circle cx="90" cy="90" r="' + R + '" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="' + SW + '"/>' +
-            '<circle cx="90" cy="90" r="' + R + '" fill="none" stroke="url(#' + gid + ')" stroke-width="' + SW + '" ' +
+            '<circle cx="' + CX + '" cy="' + CY + '" r="' + R + '" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="' + SW + '"/>' +
+            '<circle cx="' + CX + '" cy="' + CY + '" r="' + R + '" fill="none" stroke="url(#' + gid + ')" stroke-width="' + SW + '" ' +
               'stroke-linecap="round" stroke-dasharray="' + dash.toFixed(1) + ' ' + circ.toFixed(1) + '" ' +
-              'transform="rotate(-90 90 90)"/>' +
-            '<circle cx="' + knob.x.toFixed(1) + '" cy="' + knob.y.toFixed(1) + '" r="8" fill="#fff"/>' +
+              'transform="rotate(-90 ' + CX + ' ' + CY + ')"/>' +
+            '<circle cx="' + knob.x.toFixed(1) + '" cy="' + knob.y.toFixed(1) + '" r="10" fill="#fff"/>' +
           '</g>' +
         '</svg>' +
         '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
-          '<div style="font-size:36px;font-weight:800;color:#fff;line-height:1;">' + label + '</div>' +
-          '<div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.55);letter-spacing:.1em;margin-top:4px;">DAYS LEFT</div>' +
-          '<div style="margin-top:5px;max-width:78px;background:rgba(255,255,255,0.14);color:#fff;font-size:7.5px;font-weight:800;padding:3px 7px;border-radius:12px;letter-spacing:0;line-height:1.25;text-align:center;">' + esc(statusWord) + '</div>' +
+          '<div style="font-size:44px;font-weight:800;color:#fff;line-height:1;">' + label + '</div>' +
+          '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.55);letter-spacing:.1em;margin-top:5px;">DAYS LEFT</div>' +
+          '<div style="margin-top:6px;max-width:100px;background:rgba(255,255,255,0.14);color:#fff;font-size:9px;font-weight:800;padding:4px 9px;border-radius:13px;letter-spacing:0;line-height:1.25;text-align:center;">' + esc(statusWord) + '</div>' +
+          (dueText ? '<div style="margin-top:7px;max-width:108px;font-size:9px;line-height:1.3;text-align:center;color:rgba(255,255,255,0.5);">' + esc(dueText) + '</div>' : '') +
         '</div>' +
       '</div>';
   }
@@ -302,10 +303,10 @@
     var m = milestone(expiry, totalDays);
     var st = statusOf(expiry);
     var c = STATUS_COLORS[st];
+    var dueText = m.unknown ? '' : (keyLabel + ' due ' + fmtDate(expiry));
     return '' +
-      '<div style="flex:1 1 220px;max-width:240px;margin:0 auto;">' +
-        gaugeCircular(m.pct, c.bar, m.remaining, title) +
-        '<div style="text-align:center;font-size:11px;color:rgba(255,255,255,0.55);margin-top:9px;">' + esc(keyLabel) + ' due <strong style="color:#fff;">' + fmtDate(expiry) + '</strong></div>' +
+      '<div style="flex:1 1 260px;max-width:280px;margin:0 auto;">' +
+        gaugeCircular(m.pct, c.bar, m.remaining, title, dueText) +
       '</div>';
   }
 
