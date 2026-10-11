@@ -290,7 +290,7 @@
     var st = statusOf(expiry);
     var c = STATUS_COLORS[st];
     return '' +
-      '<div style="flex:1 1 230px;max-width:270px;margin:0 auto 14px;background:' + DARK_CARD_BG + ';border-radius:22px;padding:22px 18px;box-shadow:0 14px 30px -16px rgba(5,6,10,0.5);">' +
+      '<div style="flex:1 1 220px;max-width:240px;margin:0 auto 14px;padding:10px 0;">' +
         '<div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);margin-bottom:10px;text-align:center;">' + esc(title) + '</div>' +
         gaugeCircular(m.pct, c.bar, m.remaining, title) +
         '<div style="text-align:center;font-size:11px;color:rgba(255,255,255,0.55);margin-top:9px;">' + esc(keyLabel) + ' due <strong style="color:' + c.bar + ';">' + fmtDate(expiry) + '</strong></div>' +
