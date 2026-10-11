@@ -28,7 +28,7 @@
       --dark-grad:linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%);
       --dark-grad-glass:linear-gradient(135deg,rgba(74,111,165,0.5) 0%,rgba(26,39,68,0.62) 55%,rgba(5,6,10,0.76) 100%);}
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;}
+    body{font-family:'DM Sans',sans-serif;background:var(--dark-grad);background-attachment:fixed;color:var(--text);min-height:100dvh;}
 
     /* HEADER — a dark-gradient greeting card (accent only, see --dark-grad
        above) instead of a plain white bar. The avatar+name area is a button
@@ -195,6 +195,14 @@
     .empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
     .empty-icon{font-size:48px;margin-bottom:12px;opacity:0.5;}
     .loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px;color:var(--muted);}
+    /* body is the dark gradient; the Book/Profile sheet-modals keep their
+       own light background. These re-color just the tab-panel instances
+       (Home/Service/Bookings sit directly on body) — modal instances keep
+       the dark-on-light defaults above. */
+    #tab-home .section-title, #tab-service .section-title, #tab-bookings .section-title{color:#fff;}
+    #tab-home .section-sub, #tab-service .section-sub, #tab-bookings .section-sub{color:rgba(255,255,255,0.6);}
+    #tab-home .empty-state, #tab-service .empty-state, #tab-bookings .empty-state{color:rgba(255,255,255,0.6);}
+    #tab-home .loading, #tab-service .loading, #tab-bookings .loading{color:rgba(255,255,255,0.6);}
     .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--water);border-radius:50%;animation:spin 0.8s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg);}}
     .toast{position:fixed;bottom:calc(96px + env(safe-area-inset-bottom));right:24px;background:#1A2B47;color:white;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:500;z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,0.25);}
@@ -497,7 +505,7 @@ async function loadHome() {
       el.innerHTML =
         '<div class="empty-state"><div class="empty-icon">🛡️</div>' +
         '<p style="font-weight:700;margin-bottom:6px;">No units registered yet</p>' +
-        '<p style="font-size:13px;color:var(--muted);line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty, or book a Filter Change below.</p>' +
+        '<p style="font-size:13px;line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty, or book a Filter Change below.</p>' +
         '</div>';
     } else {
       el.innerHTML = units.map((u, i) => SADA.Warranty.unitCard(u, i, 'circular')).join('');
@@ -536,7 +544,7 @@ async function loadServiceHistory() {
       el.innerHTML =
         '<div class="empty-state"><div class="empty-icon">🔧</div>' +
         '<p style="font-weight:700;margin-bottom:6px;">Nothing here yet</p>' +
-        '<p style="font-size:13px;color:var(--muted);line-height:1.6;">Every installation and service visit we do for you will show up here.</p>' +
+        '<p style="font-size:13px;line-height:1.6;">Every installation and service visit we do for you will show up here.</p>' +
         '</div>';
       return;
     }
@@ -649,7 +657,7 @@ async function loadMyBookings() {
   const { data } = await db.from('bookings').select('*, installers(name)').eq('customer_phone', customer.phone).order('created_at', { ascending: false });
   renderHeroBanner(data || []);
   if (!data || !data.length) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px;">No bookings yet</p><p>Your installations will appear here after booking.</p></div>`;
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p style="font-size:16px;font-weight:600;margin-bottom:6px;">No bookings yet</p><p>Your installations will appear here after booking.</p></div>`;
     return;
   }
   // Book Again: pre-fill floor / flat from the most recent booking that has them
