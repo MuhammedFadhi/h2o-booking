@@ -17,7 +17,7 @@
 const { requireSales, sb } = require('./_auth');
 
 const ALLOWED_SOURCES = new Set([
-  'Phone Call', 'WhatsApp', 'Instagram', 'Snapchat', 'TikTok', 'Google Search',
+  'Phone Call', 'WhatsApp', 'Instagram', 'Facebook', 'Snapchat', 'TikTok', 'Google Search',
   'Friend / Family', 'Existing Customer', 'Direct Sales', 'Dammam Showroom', 'Khobar Showroom',
   'Lulu Kiosk', 'Exhibition / Event', 'Flyer / Billboard', 'Other'
 ]);
