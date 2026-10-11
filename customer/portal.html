@@ -724,7 +724,7 @@ function renderBookingCard(b) {
   // Inspection report — customers only see submitted reports
   const report = window._sadaReportsByBooking?.[b.id];
   if (report) {
-    actionsHTML = `<button class="btn-outline" onclick="viewInspectionReport('${report.id}')">📋 View Inspection Report</button>` + actionsHTML;
+    actionsHTML = `<button class="btn-outline" onclick="viewInspectionReport('${report.id}')" style="display:inline-flex;align-items:center;gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2m0 9l2 2l4-4"/></g></svg>View Inspection Report</button>` + actionsHTML;
   }
 
   // 'maintenance' is a legacy alias — the booking form now saves 'quarterly_service' (matches the admin side).
