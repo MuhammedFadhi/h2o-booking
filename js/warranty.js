@@ -371,6 +371,8 @@
       (isSelfReported ? '<p style="font-size:10.5px;color:' + mutedColor + ';margin:0 0 12px;line-height:1.5;">Estimated from your last SA\'DA visit, not this unit\'s original install date.</p>' : '') +
 
       '<div style="background:' + infoBoxBg + ';border-radius:11px;padding:11px 13px;font-size:12px;color:' + infoBoxText + ';">' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">Model No</span><strong style="color:' + infoBoxText + ';">' + esc(u.product_type) + '</strong></div>' +
+        (u.qr_code ? '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">Serial No</span><strong style="color:' + infoBoxText + ';font-family:ui-monospace,Menlo,monospace;font-size:11px;">' + esc(u.qr_code) + '</strong></div>' : '') +
         '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">' + (isSelfReported ? 'First serviced by SA\'DA' : 'Installed') + '</span><strong style="color:' + infoBoxText + ';">' + fmtDate(u.registration_date) + '</strong></div>' +
         (isSelfReported ? '' : '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">Warranty until</span><strong style="color:' + (dark ? '#fff' : wc.fg) + ';">' + fmtDate(u.warranty_expiry) + ' · ' + humanDays(u.warranty_expiry) + '</strong></div>') +
         (u.client_code ? '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">Client code</span><strong style="color:' + infoBoxText + ';">' + esc(u.client_code) + '</strong></div>' : '') +
