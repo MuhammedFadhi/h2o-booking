@@ -289,7 +289,7 @@
         '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
           '<div style="font-size:36px;font-weight:800;color:#fff;line-height:1;">' + label + '</div>' +
           '<div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.55);letter-spacing:.1em;margin-top:4px;">DAYS LEFT</div>' +
-          '<div style="margin-top:5px;max-width:78px;background:' + color + '26;color:' + color + ';font-size:7.5px;font-weight:800;padding:3px 7px;border-radius:12px;letter-spacing:0;line-height:1.25;text-align:center;">' + esc(statusWord) + '</div>' +
+          '<div style="margin-top:5px;max-width:78px;background:rgba(255,255,255,0.14);color:#fff;font-size:7.5px;font-weight:800;padding:3px 7px;border-radius:12px;letter-spacing:0;line-height:1.25;text-align:center;">' + esc(statusWord) + '</div>' +
         '</div>' +
       '</div>';
   }
@@ -305,7 +305,7 @@
     return '' +
       '<div style="flex:1 1 220px;max-width:240px;margin:0 auto 14px;padding:10px 0;">' +
         gaugeCircular(m.pct, c.bar, m.remaining, title) +
-        '<div style="text-align:center;font-size:11px;color:rgba(255,255,255,0.55);margin-top:9px;">' + esc(keyLabel) + ' due <strong style="color:' + c.bar + ';">' + fmtDate(expiry) + '</strong></div>' +
+        '<div style="text-align:center;font-size:11px;color:rgba(255,255,255,0.55);margin-top:9px;">' + esc(keyLabel) + ' due <strong style="color:#fff;">' + fmtDate(expiry) + '</strong></div>' +
       '</div>';
   }
 
@@ -371,7 +371,7 @@
 
       '<div style="background:' + infoBoxBg + ';border-radius:11px;padding:11px 13px;font-size:12px;color:' + infoBoxText + ';">' +
         '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">' + (isSelfReported ? 'First serviced by SA\'DA' : 'Installed') + '</span><strong style="color:' + infoBoxText + ';">' + fmtDate(u.registration_date) + '</strong></div>' +
-        (isSelfReported ? '' : '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">Warranty until</span><strong style="color:' + (dark ? wc.bar : wc.fg) + ';">' + fmtDate(u.warranty_expiry) + ' · ' + humanDays(u.warranty_expiry) + '</strong></div>') +
+        (isSelfReported ? '' : '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">Warranty until</span><strong style="color:' + (dark ? '#fff' : wc.fg) + ';">' + fmtDate(u.warranty_expiry) + ' · ' + humanDays(u.warranty_expiry) + '</strong></div>') +
         (u.client_code ? '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">Client code</span><strong style="color:' + infoBoxText + ';">' + esc(u.client_code) + '</strong></div>' : '') +
       '</div>' +
 
