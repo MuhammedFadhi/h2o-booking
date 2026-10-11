@@ -303,7 +303,7 @@
     var m = milestone(expiry, totalDays);
     var st = statusOf(expiry);
     var c = STATUS_COLORS[st];
-    var dueText = m.unknown ? '' : (keyLabel + ' due ' + fmtDate(expiry));
+    var dueText = m.unknown ? '' : fmtDate(expiry);
     return '' +
       '<div style="flex:1 1 260px;max-width:280px;margin:0 auto;">' +
         gaugeCircular(m.pct, c.bar, m.remaining, title, dueText) +
