@@ -339,7 +339,7 @@
     var cardBg = dark ? DARK_CARD_BG : 'var(--foam,#E3F2FD)';
     var titleColor = dark ? '#fff' : 'var(--ocean,#0D3B6E)';
     var mutedColor = dark ? 'rgba(255,255,255,0.55)' : 'var(--muted,#607D8B)';
-    var infoBoxBg = dark ? 'linear-gradient(135deg,rgba(21,101,192,0.4),rgba(13,59,110,0.55))' : '#fff';
+    var infoBoxBg = dark ? 'rgba(255,255,255,0.08)' : '#fff';
     var infoBoxText = dark ? '#fff' : 'var(--text,#1A2B47)';
     var btnBorder = dark ? 'rgba(255,255,255,0.25)' : 'var(--border,#CFD8DC)';
     var btnColor = dark ? '#fff' : 'var(--ocean,#0D3B6E)';

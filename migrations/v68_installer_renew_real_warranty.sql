@@ -53,3 +53,4 @@ CREATE POLICY wsh_installer_insert_real ON warranty_service_history FOR INSERT T
         AND b.installer_id = auth.uid()
     )
   );
+  
