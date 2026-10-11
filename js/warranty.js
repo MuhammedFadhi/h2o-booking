@@ -323,15 +323,23 @@
     // their panels coexist in the DOM at once (one just hidden), and
     // getElementById only ever finds the first match.
     var hid = 'wh-' + (u.id || idx);
+    var dark = gaugeStyle === 'circular';
+    var cardBg = dark ? DARK_CARD_BG : 'var(--foam,#E3F2FD)';
+    var titleColor = dark ? '#fff' : 'var(--ocean,#0D3B6E)';
+    var mutedColor = dark ? 'rgba(255,255,255,0.55)' : 'var(--muted,#607D8B)';
+    var infoBoxBg = dark ? 'rgba(255,255,255,0.08)' : '#fff';
+    var infoBoxText = dark ? '#fff' : 'var(--text,#1A2B47)';
+    var btnBorder = dark ? 'rgba(255,255,255,0.25)' : 'var(--border,#CFD8DC)';
+    var btnColor = dark ? '#fff' : 'var(--ocean,#0D3B6E)';
     return '' +
-    '<div style="background:var(--foam,#E3F2FD);border:1px solid var(--border,#CFD8DC);border-radius:16px;padding:16px;margin-bottom:14px;">' +
+    '<div style="background:' + cardBg + ';border:1px solid ' + (dark ? 'transparent' : 'var(--border,#CFD8DC)') + ';border-radius:16px;padding:16px;margin-bottom:14px;' + (dark ? 'box-shadow:0 14px 30px -16px rgba(5,6,10,0.5);' : '') + '">' +
       '<div style="display:flex;gap:13px;align-items:flex-start;margin-bottom:13px;">' +
         '<img src="' + esc(img) + '" alt="" loading="lazy" ' +
              'style="width:56px;height:56px;object-fit:contain;background:#fff;border-radius:11px;padding:5px;flex-shrink:0;" ' +
              'onerror="this.src=\'/assets/models/purifier-generic.png\'">' +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:15px;font-weight:800;color:var(--ocean,#0D3B6E);word-break:break-word;">' + esc(u.product_type) + '</div>' +
-          (u.qr_code ? '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--muted,#607D8B);word-break:break-all;margin-top:2px;">' + esc(u.qr_code) + '</div>' : '') +
+          '<div style="font-size:15px;font-weight:800;color:' + titleColor + ';word-break:break-word;">' + esc(u.product_type) + '</div>' +
+          (u.qr_code ? '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:' + mutedColor + ';word-break:break-all;margin-top:2px;">' + esc(u.qr_code) + '</div>' : '') +
           (u.quantity > 1 ? '<div style="font-size:10px;color:#92400E;background:#FEF3C7;display:inline-block;padding:2px 7px;border-radius:8px;margin-top:4px;font-weight:700;">×' + u.quantity + ' units on this record</div>' : '') +
         '</div>' +
         '<span style="background:' + wc.bg + ';color:' + wc.fg + ';font-size:10px;font-weight:800;padding:4px 9px;border-radius:10px;white-space:nowrap;">' +
@@ -347,21 +355,21 @@
           milestoneCard('Annual RO Service', 'Service', u.service_expiry, TERMS.service)
         )) +
       '</div>' +
-      (isSelfReported ? '<p style="font-size:10.5px;color:var(--muted,#607D8B);margin:0 0 12px;line-height:1.5;">Estimated from your last SA\'DA visit, not this unit\'s original install date.</p>' : '') +
+      (isSelfReported ? '<p style="font-size:10.5px;color:' + mutedColor + ';margin:0 0 12px;line-height:1.5;">Estimated from your last SA\'DA visit, not this unit\'s original install date.</p>' : '') +
 
-      '<div style="background:#fff;border-radius:11px;padding:11px 13px;font-size:12px;">' +
-        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted,#607D8B);">' + (isSelfReported ? 'First serviced by SA\'DA' : 'Installed') + '</span><strong>' + fmtDate(u.registration_date) + '</strong></div>' +
-        (isSelfReported ? '' : '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted,#607D8B);">Warranty until</span><strong style="color:' + wc.fg + ';">' + fmtDate(u.warranty_expiry) + ' · ' + humanDays(u.warranty_expiry) + '</strong></div>') +
-        (u.client_code ? '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted,#607D8B);">Client code</span><strong>' + esc(u.client_code) + '</strong></div>' : '') +
+      '<div style="background:' + infoBoxBg + ';border-radius:11px;padding:11px 13px;font-size:12px;color:' + infoBoxText + ';">' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">' + (isSelfReported ? 'First serviced by SA\'DA' : 'Installed') + '</span><strong style="color:' + infoBoxText + ';">' + fmtDate(u.registration_date) + '</strong></div>' +
+        (isSelfReported ? '' : '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">Warranty until</span><strong style="color:' + (dark ? wc.bar : wc.fg) + ';">' + fmtDate(u.warranty_expiry) + ' · ' + humanDays(u.warranty_expiry) + '</strong></div>') +
+        (u.client_code ? '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">Client code</span><strong style="color:' + infoBoxText + ';">' + esc(u.client_code) + '</strong></div>' : '') +
       '</div>' +
 
       '<button onclick="SADA.Warranty.toggle(\'' + hid + '\',this)" ' +
-              'style="width:100%;margin-top:11px;background:none;border:1px solid var(--border,#CFD8DC);color:var(--ocean,#0D3B6E);padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">' +
+              'style="width:100%;margin-top:11px;background:none;border:1px solid ' + btnBorder + ';color:' + btnColor + ';padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">' +
         '🛠️ Service history (' + (u.history ? u.history.length : 0) + ')</button>' +
-      '<div id="' + hid + '" style="display:none;background:#fff;border-radius:11px;padding:5px 13px;margin-top:9px;">' + historyList(u.history) + '</div>' +
+      '<div id="' + hid + '" style="display:none;background:' + infoBoxBg + ';color:' + infoBoxText + ';border-radius:11px;padding:5px 13px;margin-top:9px;">' + historyList(u.history) + '</div>' +
 
-      (desc ? '<details style="margin-top:9px;"><summary style="font-size:11px;color:var(--muted,#607D8B);cursor:pointer;">About this model</summary>' +
-              '<p style="font-size:11px;color:var(--muted,#607D8B);line-height:1.6;margin-top:7px;">' + esc(desc) + '</p></details>' : '') +
+      (desc ? '<details style="margin-top:9px;"><summary style="font-size:11px;color:' + mutedColor + ';cursor:pointer;">About this model</summary>' +
+              '<p style="font-size:11px;color:' + mutedColor + ';line-height:1.6;margin-top:7px;">' + esc(desc) + '</p></details>' : '') +
     '</div>';
   }
 
