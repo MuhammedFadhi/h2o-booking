@@ -212,19 +212,29 @@
     other:      { icon: '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></g></svg>', label: 'Note', color: '#607D8B' }
   };
 
-  function historyList(history) {
+  // dark=true (only unitCard's dark unit card passes this) renders white
+  // text/icons on a translucent divider instead of the per-type tinted
+  // labels on a light divider — admin's Services "+Job" modal and the
+  // customer portal's Service tab (both light backgrounds) call this
+  // without it and are unaffected.
+  function historyList(history, dark) {
     if (!history || !history.length) {
-      return '<div style="font-size:12px;color:var(--muted,#607D8B);padding:8px 0;">No service records yet.</div>';
+      return '<div style="font-size:12px;color:' + (dark ? 'rgba(255,255,255,0.5)' : 'var(--muted,#607D8B)') + ';padding:8px 0;">No service records yet.</div>';
     }
+    var labelColor = dark ? '#fff' : null;
+    var iconColor = dark ? '#fff' : null;
+    var noteColor = dark ? 'rgba(255,255,255,0.6)' : 'var(--muted,#607D8B)';
+    var dateColor = dark ? 'rgba(255,255,255,0.45)' : '#94A3B8';
+    var borderColor = dark ? 'rgba(255,255,255,0.15)' : '#F8FAFC';
     return history.map(function (h) {
       var t = TYPE_META[h.service_type] || TYPE_META.other;
-      return '<div style="display:flex;gap:9px;padding:8px 0;border-bottom:1px solid #F8FAFC;">' +
-          '<span style="display:inline-flex;align-items:center;color:' + t.color + ';flex-shrink:0;">' + t.icon + '</span>' +
+      return '<div style="display:flex;gap:9px;padding:8px 0;border-bottom:1px solid ' + borderColor + ';">' +
+          '<span style="display:inline-flex;align-items:center;color:' + (iconColor || t.color) + ';flex-shrink:0;">' + t.icon + '</span>' +
           '<div style="flex:1;min-width:0;">' +
-            '<div style="font-size:12px;font-weight:700;color:' + t.color + ';">' + t.label + '</div>' +
-            (h.notes ? '<div style="font-size:11px;color:var(--muted,#607D8B);word-break:break-word;">' + esc(h.notes) + '</div>' : '') +
+            '<div style="font-size:12px;font-weight:700;color:' + (labelColor || t.color) + ';">' + t.label + '</div>' +
+            (h.notes ? '<div style="font-size:11px;color:' + noteColor + ';word-break:break-word;">' + esc(h.notes) + '</div>' : '') +
           '</div>' +
-          '<span style="font-size:10px;color:#94A3B8;white-space:nowrap;">' + fmtDate(h.created_at) + '</span>' +
+          '<span style="font-size:10px;color:' + dateColor + ';white-space:nowrap;">' + fmtDate(h.created_at) + '</span>' +
         '</div>';
     }).join('');
   }
@@ -368,7 +378,7 @@
       '<button onclick="SADA.Warranty.toggle(\'' + hid + '\',this)" ' +
               'style="width:100%;margin-top:11px;background:none;border:1px solid ' + btnBorder + ';color:' + btnColor + ';padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">' +
         '🛠️ Service history (' + (u.history ? u.history.length : 0) + ')</button>' +
-      '<div id="' + hid + '" style="display:none;background:' + infoBoxBg + ';color:' + infoBoxText + ';border-radius:11px;padding:5px 13px;margin-top:9px;">' + historyList(u.history) + '</div>' +
+      '<div id="' + hid + '" style="display:none;background:' + infoBoxBg + ';color:' + infoBoxText + ';border-radius:11px;padding:5px 13px;margin-top:9px;">' + historyList(u.history, dark) + '</div>' +
 
       (desc ? '<details style="margin-top:9px;"><summary style="font-size:11px;color:' + mutedColor + ';cursor:pointer;">About this model</summary>' +
               '<p style="font-size:11px;color:' + mutedColor + ';line-height:1.6;margin-top:7px;">' + esc(desc) + '</p></details>' : '') +
