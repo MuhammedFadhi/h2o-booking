@@ -345,12 +345,7 @@
     var btnBorder = dark ? 'rgba(255,255,255,0.25)' : 'var(--border,#CFD8DC)';
     var btnColor = dark ? '#fff' : 'var(--ocean,#0D3B6E)';
     return '' +
-    // Outer card's dark gradient/border/shadow disabled per request — back
-    // to the plain light-foam card. Everything inside (gauges, info box,
-    // text colors) is still styled for the dark card, so this will likely
-    // look mismatched until that's addressed too.
-    // '<div style="background:' + cardBg + ';border:1px solid ' + (dark ? 'transparent' : 'var(--border,#CFD8DC)') + ';border-radius:16px;padding:16px;margin-bottom:14px;' + (dark ? 'box-shadow:0 14px 30px -16px rgba(5,6,10,0.5);' : '') + '">' +
-    '<div style="background:var(--foam,#E3F2FD);border:1px solid var(--border,#CFD8DC);border-radius:16px;padding:16px;margin-bottom:14px;">' +
+    '<div style="background:' + cardBg + ';border:1px solid ' + (dark ? 'transparent' : 'var(--border,#CFD8DC)') + ';border-radius:16px;padding:16px;margin-bottom:14px;' + (dark ? 'box-shadow:0 14px 30px -16px rgba(5,6,10,0.5);' : '') + '">' +
       '<div style="display:flex;gap:13px;align-items:flex-start;margin-bottom:13px;">' +
         '<img src="' + esc(img) + '" alt="" loading="lazy" ' +
              'style="width:56px;height:56px;object-fit:contain;background:#fff;border-radius:11px;padding:5px;flex-shrink:0;" ' +
