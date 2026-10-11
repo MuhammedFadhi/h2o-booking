@@ -291,7 +291,6 @@
     var c = STATUS_COLORS[st];
     return '' +
       '<div style="flex:1 1 220px;max-width:240px;margin:0 auto 14px;padding:10px 0;">' +
-        '<div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);margin-bottom:10px;text-align:center;">' + esc(title) + '</div>' +
         gaugeCircular(m.pct, c.bar, m.remaining, title) +
         '<div style="text-align:center;font-size:11px;color:rgba(255,255,255,0.55);margin-top:9px;">' + esc(keyLabel) + ' due <strong style="color:' + c.bar + ';">' + fmtDate(expiry) + '</strong></div>' +
       '</div>';
