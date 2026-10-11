@@ -59,13 +59,17 @@
     input:focus,select:focus,textarea:focus{border-color:var(--water);box-shadow:0 0 0 3px rgba(21,101,192,0.15);}
     .otp-info{background:var(--foam);border-radius:12px;padding:16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;}
     /* STEP 1b (OTP verify) — SADA blue gradient with soft blurred "blob"
-       accents behind the content, instead of the plain white step
-       background every other step uses. Scoped to just this step. */
-    #step-1b{position:relative;background:var(--dark-grad);border-radius:0;margin:-40px -40px -32px;padding:40px 40px 32px;overflow:hidden;}
-    #step-1b::before,#step-1b::after{content:'';position:absolute;border-radius:50%;filter:blur(40px);pointer-events:none;}
-    #step-1b::before{width:220px;height:220px;background:radial-gradient(circle,rgba(91,127,219,0.55),transparent 70%);top:-60px;right:-60px;}
-    #step-1b::after{width:180px;height:180px;background:radial-gradient(circle,rgba(228,231,252,0.35),transparent 70%);bottom:-40px;left:-30px;}
-    #step-1b > *{position:relative;z-index:1;}
+       accents, instead of the plain white card every other step uses.
+       Applied to .booking-card itself (toggled by showStep(), see JS)
+       rather than bled from the step's own padding box past the card's
+       padding — that left the card's real (white) rounded corner peeking
+       through at the bottom. This way the card's own border-radius +
+       overflow:hidden clips the gradient/blobs correctly with no seam. */
+    .booking-card.card-dark{position:relative;background:var(--dark-grad);}
+    .booking-card.card-dark::before,.booking-card.card-dark::after{content:'';position:absolute;z-index:0;border-radius:50%;filter:blur(40px);pointer-events:none;}
+    .booking-card.card-dark::before{width:220px;height:220px;background:radial-gradient(circle,rgba(91,127,219,0.55),transparent 70%);top:-60px;right:-60px;}
+    .booking-card.card-dark::after{width:180px;height:180px;background:radial-gradient(circle,rgba(228,231,252,0.35),transparent 70%);bottom:-40px;left:-30px;}
+    #step-1b{position:relative;z-index:1;}
     #step-1b .section-title,#step-1b .section-subtitle{color:#fff;}
     #step-1b .section-subtitle{opacity:0.75;}
     #step-1b .otp-info{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);}
@@ -76,6 +80,8 @@
     #step-1b .btn-back{color:rgba(255,255,255,0.75);}
     #step-1b .resend-btn{color:#fff;}
     #step-1b .resend-btn:disabled{color:rgba(255,255,255,0.4);}
+    #step-1b .error-msg{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.35);color:#FCA5A5;}
+    #step-1b .success-msg{background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.35);color:#86EFAC;}
     /* 6-box OTP input, matching the reference's rounded-square digit boxes. */
     .otp-box-row{display:flex;gap:10px;justify-content:center;margin:4px 0 6px;}
     .otp-box{width:15%;max-width:48px;aspect-ratio:1;text-align:center;font-size:22px;font-weight:700;padding:0;border:1.5px solid rgba(255,255,255,0.3);border-radius:12px;background:rgba(255,255,255,0.12);color:#fff;}
@@ -713,6 +719,15 @@ function showStep(step) {
   document.querySelectorAll('.form-section').forEach(s=>s.classList.remove('active'));
   const el = document.getElementById(`step-${step}`);
   if(el) el.classList.add('active');
+  // The OTP step is the only one styled dark - toggle it on the card itself
+  // rather than bleeding the step's own background past the card's padding,
+  // which left a sliver of the card's real (white) corner showing through.
+  const card = document.querySelector('.booking-card');
+  if (card) card.classList.toggle('card-dark', step === '1b');
+  // The progress bar's own light-foam background would otherwise show as a
+  // pale strip above the dark gradient.
+  const pbar = document.getElementById('progress-bar');
+  if (pbar) pbar.style.display = (step === '1b') ? 'none' : '';
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
