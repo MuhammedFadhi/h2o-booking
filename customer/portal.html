@@ -753,7 +753,7 @@ function renderBookingCard(b) {
           <div class="info-item"><label>City</label><span>${b.city_name || '—'}</span></div>
           <div class="info-item"><label>Address</label><span>${b.location_address || '—'}</span></div>
           ${flatLine(b) ? `<div class="info-item"><label>Floor / Flat</label><span>${flatLine(b)}</span></div>` : ''}
-          ${b.installers?.name ? `<div class="info-item"><label>Installer</label><span>👷 ${b.installers.name}</span></div>` : ''}
+          ${b.installers?.name ? `<div class="info-item"><label>Installer</label><span style="display:inline-flex;align-items:center;gap:5px;"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" style="flex-shrink:0;"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></g></svg>${b.installers.name}</span></div>` : ''}
           ${b.rescheduled_at ? `<div class="info-item"><label>Rescheduled</label><span>${formatDate(b.rescheduled_at.split('T')[0])}</span></div>` : ''}
         </div>
         ${actionsHTML ? `<div class="booking-actions">${actionsHTML}</div>` : ''}
