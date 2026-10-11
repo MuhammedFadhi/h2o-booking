@@ -261,8 +261,8 @@
       '<div style="position:relative;width:206px;height:206px;margin:0 auto;">' +
         '<svg viewBox="0 0 220 220" style="width:206px;height:206px;">' +
           '<defs><linearGradient id="' + gid + '" x1="0%" y1="0%" x2="100%" y2="100%">' +
-            '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.5"/>' +
-            '<stop offset="100%" stop-color="' + color + '"/>' +
+            '<stop offset="0%" stop-color="#E4E7FC"/>' +
+            '<stop offset="100%" stop-color="#5B7FDB"/>' +
           '</linearGradient></defs>' +
           '<g transform="translate(20,20)">' +
             dots.join('') +
@@ -270,7 +270,7 @@
             '<circle cx="90" cy="90" r="' + R + '" fill="none" stroke="url(#' + gid + ')" stroke-width="' + SW + '" ' +
               'stroke-linecap="round" stroke-dasharray="' + dash.toFixed(1) + ' ' + circ.toFixed(1) + '" ' +
               'transform="rotate(-90 90 90)"/>' +
-            '<circle cx="' + knob.x.toFixed(1) + '" cy="' + knob.y.toFixed(1) + '" r="8" fill="#fff" stroke="' + color + '" stroke-width="2.5"/>' +
+            '<circle cx="' + knob.x.toFixed(1) + '" cy="' + knob.y.toFixed(1) + '" r="8" fill="#fff"/>' +
           '</g>' +
         '</svg>' +
         '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
