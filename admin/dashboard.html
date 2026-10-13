@@ -2370,6 +2370,7 @@ async function loadBookings() {
         <div style="font-size:11px; color:var(--muted);">${b.booking_reference || ''}</div>
         <div style="margin-top:3px;">
           <span style="font-size:10px;font-weight:700;color:${tc.fg};background:${tc.bg};display:inline-block;padding:1px 7px;border-radius:8px;text-transform:uppercase;letter-spacing:0.3px;">${bookingTypeLabel(b.booking_type)}</span>
+          <button class="btn btn-ghost btn-sm" onclick="editBookingType('${b.id}','${b.booking_type || ''}')" style="padding:0 4px;font-size:10px;" title="Edit service type">${ICON_PENCIL}</button>
           ${b.promo_code ? `<span style="font-size:10px;font-weight:700;color:#9D174D;background:#FCE7F3;display:inline-block;padding:1px 7px;border-radius:8px;margin-left:4px;" title="${b.discount_amount ? `− SAR ${Number(b.discount_amount).toLocaleString('en-US')}` : 'Promo applied'}">🎟️ ${escB(b.promo_code)}</span>` : ''}
         </div>
         <div style="font-size:11px;color:#1565C0;margin-top:2px;">
@@ -3667,7 +3668,7 @@ async function viewBooking(bookingId) {
           <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Service</div>
           <div style="display:flex;align-items:center;gap:8px;">
             <strong id="bk-type-display">${bookingTypeLabel(b.booking_type)}</strong>
-            <button class="btn btn-ghost btn-sm" onclick="editBookingType('${b.id}')" style="padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">${ICON_PENCIL} Edit</button>
+            <button class="btn btn-ghost btn-sm" onclick="editBookingType('${b.id}','${b.booking_type || ''}')" style="padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">${ICON_PENCIL} Edit</button>
           </div>
         </div>
       </div>
@@ -3871,12 +3872,12 @@ async function saveBookingCity() {
 
 let ebtBookingId = null;
 
-async function editBookingType(bookingId) {
+async function editBookingType(bookingId, currentType) {
   if (!(await ensureSession())) return;
   ebtBookingId = bookingId;
-  const b = window.__lastViewedBooking;
+  const type = currentType || window.__lastViewedBooking?.booking_type;
   const sel = document.getElementById('ebt-type');
-  sel.value = (b?.booking_type && [...sel.options].some(o => o.value === b.booking_type)) ? b.booking_type : 'installation';
+  sel.value = (type && [...sel.options].some(o => o.value === type)) ? type : 'installation';
   document.getElementById('ebt-error').style.display = 'none';
   openModal('edit-booking-type-modal');
 }
