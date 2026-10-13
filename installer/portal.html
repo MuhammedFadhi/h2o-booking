@@ -815,6 +815,11 @@ function openProfileModal() {
   document.getElementById('profile-info-line').textContent =
     [nameEl ? nameEl.textContent : '', installerPhone].filter(Boolean).join(' · ');
 
+  // Show the modal FIRST — the canvas has no layout box (offsetWidth/Height
+  // read 0) while its overlay is still display:none, which left the pad a
+  // 0x0 drawing surface.
+  document.getElementById('profile-modal').style.display = 'flex';
+
   const cv = document.getElementById('profile-sig-pad');
   const ratio = Math.max(window.devicePixelRatio || 1, 1);
   cv.width = cv.offsetWidth * ratio;
@@ -822,8 +827,6 @@ function openProfileModal() {
   cv.getContext('2d').scale(ratio, ratio);
   profileSigPad = new window.SignaturePad(cv, { backgroundColor: 'rgba(255,255,255,0)', penColor: '#0A1628' });
   if (installerSavedSignature) { try { profileSigPad.fromDataURL(installerSavedSignature); } catch (_) {} }
-
-  document.getElementById('profile-modal').style.display = 'flex';
 }
 function closeProfileModal() {
   document.getElementById('profile-modal').style.display = 'none';
