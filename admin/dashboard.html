@@ -2344,6 +2344,16 @@ async function loadBookings() {
     );
   }
 
+  // City filter — client-side too, matched by name rather than city_id: most
+  // existing bookings carry city_id = null but DO have city_name set (it's
+  // free-text filled in at booking time), so an id-based filter would miss
+  // the majority of rows.
+  const cityId = document.getElementById('filter-city')?.value || '';
+  if (cityId) {
+    const cityName = (window.citiesData || []).find(c => String(c.id) === cityId)?.name || '';
+    if (cityName) filtered = filtered.filter(b => (b.city_name || '').trim().toLowerCase() === cityName.trim().toLowerCase());
+  }
+
   // Column sort (click a header) — client-side since it covers joined/computed
   // fields (installer name, created-by, sales agent) the query can't order by.
   const sortKey = (b) => {
