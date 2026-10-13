@@ -207,7 +207,11 @@ SADA.InspectionReport = (function () {
   function tplForm(booking, existing, ctx) {
     const b = booking || {};
     const r = existing || {};
-    const comp = r.components || {};
+    // Default every row to "Good" — the common case — so the installer only
+    // has to tap the rows that actually need Normal/Poor. A continued draft's
+    // real saved selections (including a deliberate "Good") still win.
+    const compDefaults = Object.fromEntries(CHECKLIST.map(i => [i.key, 'good']));
+    const comp = { ...compDefaults, ...(r.components || {}) };
     const remarks = r.component_remarks || {};
 
     const clientRows = `
