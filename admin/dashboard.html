@@ -876,6 +876,10 @@
               <span style="color:var(--muted); font-size:12px;">–</span>
               <input type="date" id="filter-date-to" onchange="loadBookings()" title="To date">
             </div>
+            <button class="btn btn-ghost btn-sm" onclick="loadBookings()" title="Refresh with current filters" style="display:inline-flex;align-items:center;gap:6px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"/></g></svg>
+              Refresh
+            </button>
         </div>
         <div id="bookings-table">
           <div class="loading"><div class="spinner"></div> Loading bookings...</div>
