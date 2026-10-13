@@ -50,6 +50,10 @@ SADA.InspectionReport = (function () {
 
   const LOGO_CANDIDATES = ['/assets/SADA_h2o_logo.png', '../assets/SADA_h2o_logo.png', 'assets/SADA_h2o_logo.png'];
 
+  // Iconify (tabler) icons — inline SVG, not emoji.
+  const ICON_CAMERA = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M5 7h1a2 2 0 0 0 2-2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2"/><circle cx="12" cy="13" r="3"/></g></svg>';
+  const ICON_PHOTO = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M15 8h.01"/><path d="M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6"/><path d="M3 16l5-5c.928-.893 2.072-.893 3 0l5 5"/><path d="M14 14l1-1c.928-.893 2.072-.893 3 0l3 3"/></g></svg>';
+
   // ------------------------------------------------------------- helpers
   const $  = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -324,23 +328,24 @@ SADA.InspectionReport = (function () {
       installation: 'Installation Photo', quarterly_service: 'Changed Filter Photo',
       maintenance: 'Changed Filter Photo', relocation: 'New Installed RO Photo', repair: 'Repaired Photo'
     };
+    const uploadBox = (boxId, inputBase, label) => `
+        <div class="sada-ir__upload" id="${boxId}">
+          <div class="sada-ir__upload-icon">🖼️</div>
+          <div class="sada-ir__upload-label">${esc(label)}</div>
+          <div class="sada-ir__upload-sub" id="${boxId}-sub">No photo yet</div>
+          <img id="${inputBase}-preview" class="sada-ir__upload-preview" style="display:none;">
+          <div class="sada-ir__upload-actions">
+            <label class="sada-ir__upload-btn" for="${inputBase}-camera">${ICON_CAMERA} Camera</label>
+            <label class="sada-ir__upload-btn" for="${inputBase}-gallery">${ICON_PHOTO} Gallery</label>
+          </div>
+        </div>
+        <input type="file" id="${inputBase}-camera" accept="image/*" capture="environment" style="display:none;">
+        <input type="file" id="${inputBase}-gallery" accept="image/*" style="display:none;">`;
+
     const photos = `
       <div class="sada-ir__uploads">
-        <label class="sada-ir__upload" for="ir-photo-input" id="ir-photo-box">
-          <div class="sada-ir__upload-icon">🖼️</div>
-          <div class="sada-ir__upload-label">${esc(PHOTO_LABEL_BY_TYPE[jt] || 'Completed Work Photo')}</div>
-          <div class="sada-ir__upload-sub">Tap to choose a photo</div>
-          <img id="ir-photo-preview" class="sada-ir__upload-preview" style="display:none;">
-        </label>
-        <input type="file" id="ir-photo-input" accept="image/*" style="display:none;">
-        ${isInstall ? `
-        <label class="sada-ir__upload" for="ir-qr-input" id="ir-qr-box">
-          <div class="sada-ir__upload-icon">🖼️</div>
-          <div class="sada-ir__upload-label">QR Sticker Photo</div>
-          <div class="sada-ir__upload-sub">Tap to choose a photo</div>
-          <img id="ir-qr-preview" class="sada-ir__upload-preview" style="display:none;">
-        </label>
-        <input type="file" id="ir-qr-input" accept="image/*" style="display:none;">` : ''}
+        ${uploadBox('ir-photo-box', 'ir-photo', PHOTO_LABEL_BY_TYPE[jt] || 'Completed Work Photo')}
+        ${isInstall ? uploadBox('ir-qr-box', 'ir-qr', 'QR Sticker Photo') : ''}
       </div>
       <div id="ir-unit-note" style="display:none;font-size:12.5px;color:#3730A3;background:#E0E7FF;border-radius:8px;padding:10px 12px;margin-top:10px;"></div>`;
 
@@ -853,14 +858,14 @@ SADA.InspectionReport = (function () {
     // submit — which is what was crashing low-RAM installer phones with
     // "Unable to complete previous operation due to low memory". Now there's
     // one decode total, and the preview + the upload share the same small file.
-    // No `capture` attribute on the input — tapping the box opens the normal
-    // photo picker (gallery-first on most phones) rather than forcing the
-    // camera open directly.
+    // Camera and Gallery are two separate inputs feeding the same slot — the
+    // camera one carries capture="environment" to jump straight to the camera
+    // app, the gallery one has no capture attribute so it opens the normal
+    // system picker instead.
     const photoSlot = { file: null, compressed: null };
     const qrSlot = { file: null, compressed: null };
 
-    const wirePreview = (slot, inputId, previewId, boxId) => {
-      const input = $(`#${inputId}`, root);
+    const wirePreview = (slot, inputBase, previewId, boxId) => {
       const img = $(`#${previewId}`, root);
       const box = $(`#${boxId}`, root);
       const subEl = box?.querySelector('.sada-ir__upload-sub');
@@ -872,7 +877,7 @@ SADA.InspectionReport = (function () {
         if (subEl) subEl.textContent = label;
       };
 
-      input?.addEventListener('change', async () => {
+      const handleFile = async (input) => {
         const f = input.files && input.files[0];
         if (!f) return;
         slot.file = f; slot.compressed = null;
@@ -897,10 +902,15 @@ SADA.InspectionReport = (function () {
           console.warn('[IR] preview failed:', e);
           attached(f, '✓ Photo attached (preview unavailable)');
         }
-      });
+      };
+
+      for (const suffix of ['camera', 'gallery']) {
+        const input = $(`#${inputBase}-${suffix}`, root);
+        input?.addEventListener('change', () => handleFile(input));
+      }
     };
-    wirePreview(photoSlot, 'ir-photo-input', 'ir-photo-preview', 'ir-photo-box');
-    wirePreview(qrSlot, 'ir-qr-input', 'ir-qr-preview', 'ir-qr-box');
+    wirePreview(photoSlot, 'ir-photo', 'ir-photo-preview', 'ir-photo-box');
+    wirePreview(qrSlot, 'ir-qr', 'ir-qr-preview', 'ir-qr-box');
 
     // Serialized-unit note — how many pending warranties this install will create.
     (async () => {
