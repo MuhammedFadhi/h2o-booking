@@ -3655,21 +3655,14 @@ async function viewBooking(bookingId) {
 
   document.getElementById('booking-detail-content').innerHTML = `
     <div style="display:grid; gap:12px;">
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
         <div style="background:var(--bg); padding:16px; border-radius:12px;">
           <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Booking Reference</div>
           <div style="font-weight:700; color:var(--water); font-size:18px;">${b.booking_reference}</div>
         </div>
         <div style="background:var(--bg); padding:16px; border-radius:12px;">
           <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Status</div>
-          <span class="status-badge status-${b.status}" id="bk-status-display">${getStatusLabel(b.status, b.booking_type)}</span>
-        </div>
-        <div style="background:var(--bg); padding:16px; border-radius:12px;">
-          <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Service</div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <strong id="bk-type-display">${bookingTypeLabel(b.booking_type)}</strong>
-            <button class="btn btn-ghost btn-sm" onclick="editBookingType('${b.id}','${b.booking_type || ''}')" style="padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">${ICON_PENCIL} Edit</button>
-          </div>
+          <span class="status-badge status-${b.status}">${getStatusLabel(b.status, b.booking_type)}</span>
         </div>
       </div>
       <div style="background:var(--bg); padding:16px; border-radius:12px;">
