@@ -1862,6 +1862,25 @@
   </div>
 </div>
 
+<!-- EDIT BOOKING ADDRESS MODAL -->
+<div class="modal-overlay" id="edit-booking-address-modal" style="display:none;">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header"><span class="modal-title">Edit Address</span>
+      <button class="modal-close" onclick="closeModal('edit-booking-address-modal')">&times;</button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">Type a plain address, or paste a Google Maps link / "latitude, longitude" — if it's a link or coordinates, the GPS pin used for Directions updates too.</div>
+      <div class="form-group"><label>Address</label>
+        <textarea class="form-input" id="eba-input" rows="3" placeholder="e.g. Building 12, Al Khobar — or a Google Maps link"></textarea>
+      </div>
+      <div id="eba-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="closeModal('edit-booking-address-modal')">Cancel</button>
+        <button class="btn btn-primary" id="eba-save" onclick="saveBookingAddress()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- RESCHEDULE MODAL -->
 <div class="modal-overlay" id="reschedule-modal" style="display:none;">
   <div class="modal" style="max-width:420px;">
@@ -3681,8 +3700,13 @@ async function viewBooking(bookingId) {
             <strong id="bk-city-display">${W.esc(b.city_name)}</strong>
             <button class="btn btn-ghost btn-sm" onclick="editBookingCity('${b.id}')" style="padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">${ICON_PENCIL} Edit</button>
           </div>
-          <div><span style="color:var(--muted);">Address: </span><strong>${b.location_address || '—'}</strong>
-            ${b.location_updated_by === 'installer' ? ` <span style="font-size:11px;color:#166534;background:#DCFCE7;padding:1px 7px;border-radius:20px;">📍 GPS corrected on-site</span>` : ''}
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <span style="color:var(--muted);">Address: </span>
+            <span style="flex:1;">
+              <strong id="bk-address-display">${b.location_address || '—'}</strong>
+              ${b.location_updated_by === 'installer' ? ` <span style="font-size:11px;color:#166534;background:#DCFCE7;padding:1px 7px;border-radius:20px;">📍 GPS corrected on-site</span>` : ''}
+            </span>
+            <button class="btn btn-ghost btn-sm" onclick="editBookingAddress('${b.id}')" style="padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">${ICON_PENCIL} Edit</button>
           </div>
           ${(b.floor_no || b.flat_no) ? `<div><span style="color:var(--muted);">Floor / Flat: </span><strong>${[b.floor_no ? 'Floor ' + W.esc(b.floor_no) : '', b.flat_no ? 'Flat ' + W.esc(b.flat_no) : ''].filter(Boolean).join(' · ')}</strong></div>` : ''}
           ${b.created_by === 'admin' ? `<div><span style="font-size:11px;color:#4338CA;background:#EEF2FF;padding:2px 9px;border-radius:20px;font-weight:700;">🏢 Booked by ${escB(b.created_by_name || 'office')}</span></div>` : ''}
@@ -3893,6 +3917,45 @@ async function saveBookingType() {
   }
   closeModal('edit-booking-type-modal');
   showToast('Service type updated', 'success');
+  if (typeof loadBookings === 'function') loadBookings();
+}
+
+let ebaBookingId = null;
+
+function editBookingAddress(bookingId) {
+  ebaBookingId = bookingId;
+  const b = window.__lastViewedBooking;
+  document.getElementById('eba-input').value = (b?.location_address && b.location_address !== '—') ? b.location_address : '';
+  document.getElementById('eba-error').style.display = 'none';
+  openModal('edit-booking-address-modal');
+}
+
+async function saveBookingAddress() {
+  if (!(await ensureSession())) return;
+  const errEl = document.getElementById('eba-error');
+  errEl.style.display = 'none';
+  const raw = document.getElementById('eba-input').value.trim();
+  if (!raw) { errEl.style.display = 'block'; errEl.textContent = 'Address cannot be empty.'; return; }
+
+  // Whatever's typed becomes the display address. If it also happens to be a
+  // Google Maps link or "lat, lng", the GPS pin (used by the installer's
+  // Directions button) is corrected too — same parsing openAdminProof uses.
+  const patch = { location_address: raw };
+  const loc = parseLocationInput(raw);
+  if (loc) {
+    patch.location_updated_by = 'admin';
+    patch.location_updated_at = new Date().toISOString();
+    if (loc.kind === 'coords') { patch.latitude = loc.lat; patch.longitude = loc.lng; }
+  }
+
+  const { error } = await dbAdmin.from('bookings').update(patch).eq('id', ebaBookingId);
+  if (error) { errEl.style.display = 'block'; errEl.textContent = error.message; return; }
+
+  logActivity('booking.address_edit', `Changed booking address`, 'booking', ebaBookingId);
+  if (window.__lastViewedBooking) Object.assign(window.__lastViewedBooking, patch);
+  closeModal('edit-booking-address-modal');
+  showToast('Address updated', 'success');
+  viewBooking(ebaBookingId);
   if (typeof loadBookings === 'function') loadBookings();
 }
 
