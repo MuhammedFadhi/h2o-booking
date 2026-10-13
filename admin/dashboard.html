@@ -1836,6 +1836,32 @@
   </div>
 </div>
 
+<!-- EDIT BOOKING SERVICE TYPE MODAL -->
+<div class="modal-overlay" id="edit-booking-type-modal" style="display:none;">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header"><span class="modal-title">Edit Service Type</span>
+      <button class="modal-close" onclick="closeModal('edit-booking-type-modal')">&times;</button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--muted);margin:-8px 0 14px;">Changes what this booking is filed as everywhere (dashboard, installer app, reports). The booking reference number keeps its original prefix — it's only assigned once, when the booking is created.</div>
+      <div class="form-group"><label>Service Type</label>
+        <select class="form-input" id="ebt-type">
+          <option value="installation">Installation</option>
+          <option value="repair">Repair</option>
+          <option value="quarterly_service">Filter Change</option>
+          <option value="annual_service">Annual Service</option>
+          <option value="relocation">Relocation</option>
+          <option value="inspection">Inspection</option>
+        </select>
+      </div>
+      <div id="ebt-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="closeModal('edit-booking-type-modal')">Cancel</button>
+        <button class="btn btn-primary" id="ebt-save" onclick="saveBookingType()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- RESCHEDULE MODAL -->
 <div class="modal-overlay" id="reschedule-modal" style="display:none;">
   <div class="modal" style="max-width:420px;">
@@ -3621,14 +3647,21 @@ async function viewBooking(bookingId) {
 
   document.getElementById('booking-detail-content').innerHTML = `
     <div style="display:grid; gap:12px;">
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
         <div style="background:var(--bg); padding:16px; border-radius:12px;">
           <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Booking Reference</div>
           <div style="font-weight:700; color:var(--water); font-size:18px;">${b.booking_reference}</div>
         </div>
         <div style="background:var(--bg); padding:16px; border-radius:12px;">
           <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Status</div>
-          <span class="status-badge status-${b.status}">${getStatusLabel(b.status, b.booking_type)}</span>
+          <span class="status-badge status-${b.status}" id="bk-status-display">${getStatusLabel(b.status, b.booking_type)}</span>
+        </div>
+        <div style="background:var(--bg); padding:16px; border-radius:12px;">
+          <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Service</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <strong id="bk-type-display">${bookingTypeLabel(b.booking_type)}</strong>
+            <button class="btn btn-ghost btn-sm" onclick="editBookingType('${b.id}')" style="padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">${ICON_PENCIL} Edit</button>
+          </div>
         </div>
       </div>
       <div style="background:var(--bg); padding:16px; border-radius:12px;">
@@ -3827,6 +3860,39 @@ async function saveBookingCity() {
   if (typeof allWarranties !== 'undefined') allWarranties = [];
   if (document.getElementById('panel-warranties')?.classList.contains('active')) loadWarranties();
   if (typeof loadCustomers === 'function' && document.getElementById('panel-customers')?.classList.contains('active')) loadCustomers();
+}
+
+let ebtBookingId = null;
+
+async function editBookingType(bookingId) {
+  if (!(await ensureSession())) return;
+  ebtBookingId = bookingId;
+  const b = window.__lastViewedBooking;
+  const sel = document.getElementById('ebt-type');
+  sel.value = (b?.booking_type && [...sel.options].some(o => o.value === b.booking_type)) ? b.booking_type : 'installation';
+  document.getElementById('ebt-error').style.display = 'none';
+  openModal('edit-booking-type-modal');
+}
+
+async function saveBookingType() {
+  if (!(await ensureSession())) return;
+  const errEl = document.getElementById('ebt-error');
+  errEl.style.display = 'none';
+  const type = document.getElementById('ebt-type').value;
+
+  const { error } = await dbAdmin.from('bookings').update({ booking_type: type }).eq('id', ebtBookingId);
+  if (error) { errEl.style.display = 'block'; errEl.textContent = error.message; return; }
+
+  logActivity('booking.type_edit', `Changed booking service type to "${bookingTypeLabel(type)}"`, 'booking', ebtBookingId);
+  const typeEl = document.getElementById('bk-type-display'); if (typeEl) typeEl.textContent = bookingTypeLabel(type);
+  if (window.__lastViewedBooking) {
+    window.__lastViewedBooking.booking_type = type;
+    const statusEl = document.getElementById('bk-status-display');
+    if (statusEl) statusEl.textContent = getStatusLabel(window.__lastViewedBooking.status, type);
+  }
+  closeModal('edit-booking-type-modal');
+  showToast('Service type updated', 'success');
+  if (typeof loadBookings === 'function') loadBookings();
 }
 
 // Edit the canonical customer name (used by warranties, portal, follow-ups).
