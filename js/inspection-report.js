@@ -1141,7 +1141,10 @@ SADA.InspectionReport = (function () {
     const root = openModal(tplForm(booking, existing, ctx));
     const el = root.firstElementChild;
     ctx.pads = initSignaturePads(el, {
-      tech: existing?.tech_signature,
+      // A draft's own saved tech signature wins if there is one; otherwise
+      // fall back to the installer's saved profile signature so they don't
+      // have to redraw it on every single job.
+      tech: existing?.tech_signature || opts.savedSignature || null,
       cust: existing?.customer_signature,
     });
     wireForm(el, ctx);

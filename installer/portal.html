@@ -168,6 +168,10 @@
   <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O">
   <div class="header-right">
     <div class="installer-chip"><div class="installer-dot"></div><span id="installer-name">Loading...</span></div>
+    <button class="logout-btn" onclick="openProfileModal()" title="My Profile" style="display:flex;align-items:center;gap:5px;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></g></svg>
+      Profile
+    </button>
     <button class="logout-btn" onclick="logout()">Sign Out</button>
   </div>
 </header>
@@ -195,6 +199,28 @@
   </div>
 </div>
 
+<!-- PROFILE MODAL — save a signature once, it auto-fills the technician
+     signature on every inspection report from then on (js/inspection-report.js). -->
+<div class="modal-overlay" id="profile-modal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-title">My Profile</div>
+    <div class="modal-sub" id="profile-info-line">—</div>
+    <div class="sada-ir__sig">
+      <div class="sada-ir__sig-head"><span>My Signature</span></div>
+      <div class="sada-ir__sig-body">
+        <canvas class="sada-ir__pad" id="profile-sig-pad"></canvas>
+        <div class="sada-ir__pad-actions">
+          <button type="button" onclick="clearProfileSignature()">Clear</button>
+          <span style="color:var(--muted,#64748b);">Used automatically on every inspection report</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-btns" style="margin-top:20px;">
+      <button type="button" class="btn-map" style="flex:1;justify-content:center;" onclick="closeProfileModal()">Cancel</button>
+      <button type="button" class="btn-complete" style="flex:1;" onclick="saveProfileSignature()">Save Signature</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // dev-booking.sadawater.com talks to a separate dev-only Supabase project so
@@ -237,6 +263,8 @@ function sortTodayThenDue(rows) {
 
 let installerId = null;
 let installerPhone = '';
+let installerSavedSignature = null;  // auto-fills the tech signature on every inspection report
+let profileSigPad = null;
 let myBookings = [];       // bookings assigned to me
 let availableBookings = []; // unassigned upcoming — pool for everyone
 let serviceRegions = [];    // [{id,name}] for the location filter
@@ -269,10 +297,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   const { data: { session } } = await db.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
   installerId = session.user.id;
-  const { data: inst } = await db.from('installers').select('name, phone').eq('id', installerId).maybeSingle();
+  const { data: inst } = await db.from('installers').select('name, phone, saved_signature').eq('id', installerId).maybeSingle();
   if (inst) {
     document.getElementById('installer-name').textContent = inst.name;
     installerPhone = inst.phone || '';
+    installerSavedSignature = inst.saved_signature || null;
   }
 
   requestNotificationPermission();
@@ -772,8 +801,43 @@ function openInspectionReport(bookingId) {
     installerName: nameEl ? nameEl.textContent : '',
     installerPhone: installerPhone,
     scannedSerial: bk ? (bk.proof_qr_code || '') : '',
+    savedSignature: installerSavedSignature,
     onSaved: () => loadAll()
   });
+}
+
+// ============================================================
+// PROFILE — save a signature once; it auto-fills the technician
+// signature pad on every inspection report from then on.
+// ============================================================
+function openProfileModal() {
+  const nameEl = document.getElementById('installer-name');
+  document.getElementById('profile-info-line').textContent =
+    [nameEl ? nameEl.textContent : '', installerPhone].filter(Boolean).join(' · ');
+
+  const cv = document.getElementById('profile-sig-pad');
+  const ratio = Math.max(window.devicePixelRatio || 1, 1);
+  cv.width = cv.offsetWidth * ratio;
+  cv.height = cv.offsetHeight * ratio;
+  cv.getContext('2d').scale(ratio, ratio);
+  profileSigPad = new window.SignaturePad(cv, { backgroundColor: 'rgba(255,255,255,0)', penColor: '#0A1628' });
+  if (installerSavedSignature) { try { profileSigPad.fromDataURL(installerSavedSignature); } catch (_) {} }
+
+  document.getElementById('profile-modal').style.display = 'flex';
+}
+function closeProfileModal() {
+  document.getElementById('profile-modal').style.display = 'none';
+}
+function clearProfileSignature() { profileSigPad?.clear(); }
+
+async function saveProfileSignature() {
+  if (!profileSigPad || profileSigPad.isEmpty()) { alert('Draw your signature first.'); return; }
+  const dataUrl = profileSigPad.toDataURL('image/png');
+  const { error } = await db.from('installers').update({ saved_signature: dataUrl }).eq('id', installerId);
+  if (error) { alert('Could not save signature: ' + error.message); return; }
+  installerSavedSignature = dataUrl;
+  closeProfileModal();
+  alert('Signature saved — it will fill in automatically on your next inspection report.');
 }
 async function logout() {
   if (realtimeChannel) realtimeChannel.unsubscribe();
