@@ -430,7 +430,11 @@ function filterTab(tab, el) {
   renderAppointments();
 }
 
-function whenBadge(slotDate) {
+function whenBadge(slotDate, status) {
+  // A finished job (done, or no longer actionable) isn't "overdue" just
+  // because its date is in the past — that badge only means something for
+  // jobs that still need to happen.
+  if (status === 'completed' || status === 'installed' || status === 'cancelled') return '';
   const today = new Date(); today.setHours(0,0,0,0);
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
   const d = new Date(slotDate + 'T00:00:00');
@@ -664,7 +668,7 @@ function renderAppointments() {
             <div class="appt-summary-top">
               <span class="appt-summary-name">${b.customer_name}</span>
             </div>
-            <div class="appt-summary-sub">${d.toLocaleDateString('en-US',{weekday:'short'})} · ${formatHour(b.slot_hour)} · ${b.city_name} ${whenBadge(b.slot_date)}</div>
+            <div class="appt-summary-sub">${d.toLocaleDateString('en-US',{weekday:'short'})} · ${formatHour(b.slot_hour)} · ${b.city_name} ${whenBadge(b.slot_date, b.status)}</div>
           </div>
           <div class="type-icon-btn" style="background:${jobTypeOf(b).bg};color:${jobTypeOf(b).fg};" title="${jobTypeOf(b).label}">
             ${jobTypeOf(b).icon}
