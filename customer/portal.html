@@ -118,6 +118,22 @@
     .sheet-modal-header h2{font-family:'Playfair Display',serif;font-size:19px;color:var(--deep);flex:1;}
     .sheet-modal-body{padding:20px 16px calc(32px + env(safe-area-inset-bottom));max-width:720px;margin:0 auto;}
 
+    /* BOOK AGAIN MODAL — dark glass, matching the rest of the redesign.
+       Scoped to #book-modal specifically: .sheet-modal/.sheet-modal-inner/
+       .sheet-modal-header/.form-group are shared with Profile and Reschedule,
+       which stay light for now. */
+    #book-modal .sheet-modal-inner{background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat, var(--dark-grad);}
+    #book-modal .sheet-modal-header{background:var(--dark-grad-glass);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border-bottom-color:rgba(255,255,255,0.12);}
+    #book-modal .sheet-modal-header h2{color:#fff;}
+    #book-modal .icon-btn{border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);}
+    #book-modal .icon-btn:hover{border-color:#fff;color:#fff;background:rgba(255,255,255,0.18);}
+    #book-modal .section-sub{color:rgba(255,255,255,0.65);}
+    #book-modal .form-group label{color:#fff;}
+    #book-modal .form-group input,#book-modal .form-group select{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.2);color:#fff;}
+    #book-modal .form-group input::placeholder{color:rgba(255,255,255,0.4);}
+    #book-modal .form-group select:disabled{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.4);}
+    #book-modal .form-group select option{color:#1A2B47;}
+
     /* Home quick-action card — non-SA'DA/self-reported customers get a
        one-tap shortcut into booking a Filter Change. */
     .quick-action-card{display:flex;align-items:center;gap:14px;background:white;border:1px solid var(--border);border-radius:16px;padding:16px;margin-top:14px;cursor:pointer;transition:all 0.15s;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
@@ -195,12 +211,12 @@
     /* BOOK AGAIN — quick-action icon grid, same visual language as a
        marketplace app's service-category picker. */
     .type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;}
-    .type-card{border:2px solid transparent;border-radius:16px;padding:14px 8px;cursor:pointer;text-align:center;transition:all 0.15s;background:white;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
-    .type-card:hover{box-shadow:0 4px 12px rgba(15,23,42,0.08);transform:translateY(-1px);}
-    .type-card.selected{border-color:var(--water);background:var(--foam);box-shadow:0 2px 8px rgba(21,101,192,0.15);}
-    .type-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:20px;}
+    .type-card{border:2px solid rgba(255,255,255,0.12);border-radius:16px;padding:14px 8px;cursor:pointer;text-align:center;transition:all 0.15s;background:linear-gradient(135deg,rgba(74,111,165,0.22),rgba(26,39,68,0.4));}
+    .type-card:hover{transform:translateY(-1px);}
+    .type-card.selected{border-color:var(--water);background:linear-gradient(135deg,var(--water),var(--ocean));}
+    .type-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:20px;background:rgba(255,255,255,0.14);color:#fff;}
     .type-icon svg{width:21px;height:21px;}
-    .type-name{font-size:11.5px;font-weight:700;color:var(--text);line-height:1.2;}
+    .type-name{font-size:11.5px;font-weight:700;color:#fff;line-height:1.2;}
     .type-desc{display:none;}
     .form-group{margin-bottom:16px;}
     .form-group label{display:block;font-size:12px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px;}
@@ -209,19 +225,19 @@
     .form-group select:disabled{background:var(--foam);color:var(--muted);cursor:not-allowed;}
 
     /* LOCATION (Book Again) */
-    .location-btn{width:100%;padding:12px;background:var(--foam);border:2px dashed var(--water);border-radius:10px;color:var(--water);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s;margin-top:8px;}
-    .location-btn:hover:not(:disabled){background:#DBEAFE;}
+    .location-btn{width:100%;padding:12px;background:rgba(255,255,255,0.08);border:2px dashed rgba(255,255,255,0.35);border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s;margin-top:8px;}
+    .location-btn:hover:not(:disabled){background:rgba(255,255,255,0.14);}
     .location-btn:disabled{opacity:0.75;cursor:progress;}
     .location-btn.got-location{background:#ECFDF5;border:2px solid #16A34A;color:#15803D;}
     .location-btn.error-location{background:#FEF2F2;border:2px solid #EF4444;color:#B71C1C;}
-    .location-hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;}
-    .location-hint.error{color:var(--red);}
-    #book-map{display:none;margin-top:10px;height:200px;border-radius:10px;overflow:hidden;border:1px solid var(--border);box-shadow:0 2px 8px rgba(15,23,42,0.05);}
+    .location-hint{font-size:12px;color:rgba(255,255,255,0.55);margin-top:6px;line-height:1.5;}
+    .location-hint.error{color:#FCA5A5;}
+    #book-map{display:none;margin-top:10px;height:200px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.2);box-shadow:0 2px 8px rgba(5,6,10,0.3);}
     #book-map.visible{display:block;}
-    .map-caption{font-size:12px;color:var(--muted);margin-top:6px;text-align:center;}
+    .map-caption{font-size:12px;color:rgba(255,255,255,0.55);margin-top:6px;text-align:center;}
 
     .date-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;}
-    .date-box{padding:12px 6px;border:2px solid var(--border);border-radius:12px;cursor:pointer;text-align:center;transition:all 0.15s;background:white;}
+    .date-box{padding:12px 6px;border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;text-align:center;transition:all 0.15s;background:rgba(255,255,255,0.07);color:#fff;}
     .date-box:hover:not(.disabled){border-color:var(--water);}
     .date-box.selected{border-color:var(--water);background:var(--water);color:white;box-shadow:0 4px 12px rgba(21,101,192,0.3);}
     .date-box.disabled{opacity:0.35;cursor:not-allowed;}
@@ -229,10 +245,10 @@
     .date-num{font-size:20px;font-weight:700;line-height:1.2;}
     .date-month{font-size:10px;opacity:0.7;}
     .time-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
-    .time-slot{padding:12px 8px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center;font-size:12px;font-weight:600;transition:all 0.15s;background:white;}
+    .time-slot{padding:12px 8px;border:2px solid rgba(255,255,255,0.15);border-radius:10px;cursor:pointer;text-align:center;font-size:12px;font-weight:600;transition:all 0.15s;background:rgba(255,255,255,0.07);color:#fff;}
     .time-slot:hover:not(.booked){border-color:var(--water);}
     .time-slot.selected{border-color:var(--water);background:var(--water);color:white;}
-    .time-slot.booked{background:var(--bg);color:var(--muted);cursor:not-allowed;text-decoration:line-through;}
+    .time-slot.booked{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.35);cursor:not-allowed;text-decoration:line-through;}
 
     /* PROFILE */
     .profile-card{background:white;border-radius:22px;border:1px solid var(--border);padding:24px;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
@@ -376,22 +392,22 @@
     <p class="section-sub">Choose a service type and select your slot.</p>
     <div class="type-grid">
       <div class="type-card selected" id="type-installation" onclick="selectType('installation')">
-        <div class="type-icon" style="background:#BDE0FE;color:#1C4F82;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 15 15"><path fill="currentColor" d="M13.792 3.262s-1.676 1.675-2.116 2.12a.3.3 0 0 1-.282.097c-.149-.023-.298-.038-.447-.056l-1.229-.146c-.069-.592-.14-1.172-.2-1.753c-.006-.055.033-.13.074-.172c.508-.513 1.927-1.928 2.134-2.136c-.45-.213-1.224-.297-1.8-.203a3.545 3.545 0 0 0-2.82 4.625c.037.115.013.182-.069.264q-2.771 2.766-5.539 5.535a3 3 0 0 0-.178.192a1.457 1.457 0 0 0 .298 2.102c.604.42 1.365.344 1.905-.195q2.78-2.778 5.556-5.56c.092-.092.165-.123.299-.078a3.4 3.4 0 0 0 1.888.089a3.544 3.544 0 0 0 2.655-4.304c-.031-.13-.078-.259-.13-.421"/></svg></div>
+        <div class="type-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 15 15"><path fill="currentColor" d="M13.792 3.262s-1.676 1.675-2.116 2.12a.3.3 0 0 1-.282.097c-.149-.023-.298-.038-.447-.056l-1.229-.146c-.069-.592-.14-1.172-.2-1.753c-.006-.055.033-.13.074-.172c.508-.513 1.927-1.928 2.134-2.136c-.45-.213-1.224-.297-1.8-.203a3.545 3.545 0 0 0-2.82 4.625c.037.115.013.182-.069.264q-2.771 2.766-5.539 5.535a3 3 0 0 0-.178.192a1.457 1.457 0 0 0 .298 2.102c.604.42 1.365.344 1.905-.195q2.78-2.778 5.556-5.56c.092-.092.165-.123.299-.078a3.4 3.4 0 0 0 1.888.089a3.544 3.544 0 0 0 2.655-4.304c-.031-.13-.078-.259-.13-.421"/></svg></div>
         <div class="type-name">Installation</div>
         <div class="type-desc">New RO filter setup</div>
       </div>
       <div class="type-card" id="type-quarterly_service" onclick="selectType('quarterly_service')">
-        <div class="type-icon" style="background:#FFC8DD;color:#BE185D;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m19 1l-1.26 2.75L15 5l2.74 1.26L19 9l1.25-2.74L23 5l-2.75-1.25M9 4L6.5 9.5L1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5M19 15l-1.26 2.74L15 19l2.74 1.25L19 23l1.25-2.75L23 19l-2.75-1.26"/></svg></div>
+        <div class="type-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m19 1l-1.26 2.75L15 5l2.74 1.26L19 9l1.25-2.74L23 5l-2.75-1.25M9 4L6.5 9.5L1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5M19 15l-1.26 2.74L15 19l2.74 1.25L19 23l1.25-2.75L23 19l-2.75-1.26"/></svg></div>
         <div class="type-name">Filter Change</div>
         <div class="type-desc">Regular service (3 months)</div>
       </div>
       <div class="type-card" id="type-repair" onclick="selectType('repair')">
-        <div class="type-icon" style="background:#FFD6A5;color:#9A3412;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 512 512"><path fill="currentColor" d="m241.406 21l-15.22 34.75a182 182 0 0 0-23.467 2.97l-23.282-30.064l-25.094 8.532l-.125 38.25c-10.63 5.464-20.817 12.07-30.44 19.78L88.313 79.25L70.156 98.563L88.312 133a180.6 180.6 0 0 0-15.218 26.094l-38.938 1.062l-7.906 25.28l31.438 23.158c-1.505 9.38-2.24 18.858-2.282 28.344L20.5 254.625l3.656 26.25l38.313 7.5a182 182 0 0 0 8.5 23.5L45.72 343.22l14.093 22.436l39.25-9.187a185 185 0 0 0 7.718 8.53a187 187 0 0 0 17.72 16.125l-7.625 39.313l22.938 13.25l29.968-26.094a179.4 179.4 0 0 0 26.407 8.312l9.782 38.406l26.405 2.157l15.875-36.22c10.97-.66 21.904-2.3 32.656-4.938l25.22 29.22l24.593-9.844l-.72-14.813l-57.406-43.53c-16.712 4.225-34.042 5.356-51.063 3.436c-31.754-3.58-62.27-17.92-86.218-42.686c-54.738-56.614-53.173-146.67 3.438-201.406c27.42-26.513 62.69-39.963 98-40.344c37.59-.406 75.214 13.996 103.438 43.187c45.935 47.512 52.196 118.985 19.562 173.095l31.97 24.25a181 181 0 0 0 10.75-19.375l38.655-1.063l7.906-25.28l-31.217-23a183 183 0 0 0 2.28-28.594l34.688-17.625l-3.655-26.25l-38.28-7.5a182 182 0 0 0-12.75-32.125l22.81-31.594l-15.25-21.657l-37.56 10.906c-.472-.5-.93-1.007-1.408-1.5a185 185 0 0 0-18.937-17.064l7.188-37.125L334 43.78l-28.5 24.814c-9.226-3.713-18.702-6.603-28.313-8.75l-9.343-36.688zM183.25 174.5c-10.344.118-20.597 2.658-30 7.28l45.22 34.314c13.676 10.376 17.555 30.095 7.06 43.937c-10.498 13.85-30.656 15.932-44.53 5.408l-45.188-34.282c-4.627 24.793 4.135 51.063 25.594 67.344c19.245 14.597 43.944 17.33 65.22 9.688l4.78-1.72l4.03 3.063l135.19 102.564l4.03 3.062l-.344 5.063c-1.637 22.55 7.59 45.61 26.844 60.217c21.46 16.28 49.145 17.63 71.78 6.5l-45.186-34.28c-13.874-10.526-17.282-30.506-6.78-44.344c10.5-13.84 30.537-15.405 44.217-5.032l45.188 34.283c4.616-24.784-4.11-51.067-25.563-67.344c-19.313-14.658-43.817-17.562-64.968-10.033l-4.75 1.688l-4.03-3.063l-135.19-102.562l-4.03-3.063l.344-5.03c1.55-22.387-7.85-45.194-27.157-59.845c-12.544-9.516-27.222-13.978-41.78-13.812zm43.563 90.25l163.875 124.344L379.406 404L215.5 279.625z"/></svg></div>
+        <div class="type-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 512 512"><path fill="currentColor" d="m241.406 21l-15.22 34.75a182 182 0 0 0-23.467 2.97l-23.282-30.064l-25.094 8.532l-.125 38.25c-10.63 5.464-20.817 12.07-30.44 19.78L88.313 79.25L70.156 98.563L88.312 133a180.6 180.6 0 0 0-15.218 26.094l-38.938 1.062l-7.906 25.28l31.438 23.158c-1.505 9.38-2.24 18.858-2.282 28.344L20.5 254.625l3.656 26.25l38.313 7.5a182 182 0 0 0 8.5 23.5L45.72 343.22l14.093 22.436l39.25-9.187a185 185 0 0 0 7.718 8.53a187 187 0 0 0 17.72 16.125l-7.625 39.313l22.938 13.25l29.968-26.094a179.4 179.4 0 0 0 26.407 8.312l9.782 38.406l26.405 2.157l15.875-36.22c10.97-.66 21.904-2.3 32.656-4.938l25.22 29.22l24.593-9.844l-.72-14.813l-57.406-43.53c-16.712 4.225-34.042 5.356-51.063 3.436c-31.754-3.58-62.27-17.92-86.218-42.686c-54.738-56.614-53.173-146.67 3.438-201.406c27.42-26.513 62.69-39.963 98-40.344c37.59-.406 75.214 13.996 103.438 43.187c45.935 47.512 52.196 118.985 19.562 173.095l31.97 24.25a181 181 0 0 0 10.75-19.375l38.655-1.063l7.906-25.28l-31.217-23a183 183 0 0 0 2.28-28.594l34.688-17.625l-3.655-26.25l-38.28-7.5a182 182 0 0 0-12.75-32.125l22.81-31.594l-15.25-21.657l-37.56 10.906c-.472-.5-.93-1.007-1.408-1.5a185 185 0 0 0-18.937-17.064l7.188-37.125L334 43.78l-28.5 24.814c-9.226-3.713-18.702-6.603-28.313-8.75l-9.343-36.688zM183.25 174.5c-10.344.118-20.597 2.658-30 7.28l45.22 34.314c13.676 10.376 17.555 30.095 7.06 43.937c-10.498 13.85-30.656 15.932-44.53 5.408l-45.188-34.282c-4.627 24.793 4.135 51.063 25.594 67.344c19.245 14.597 43.944 17.33 65.22 9.688l4.78-1.72l4.03 3.063l135.19 102.564l4.03 3.062l-.344 5.063c-1.637 22.55 7.59 45.61 26.844 60.217c21.46 16.28 49.145 17.63 71.78 6.5l-45.186-34.28c-13.874-10.526-17.282-30.506-6.78-44.344c10.5-13.84 30.537-15.405 44.217-5.032l45.188 34.283c4.616-24.784-4.11-51.067-25.563-67.344c-19.313-14.658-43.817-17.562-64.968-10.033l-4.75 1.688l-4.03-3.063l-135.19-102.562l-4.03-3.063l.344-5.03c1.55-22.387-7.85-45.194-27.157-59.845c-12.544-9.516-27.222-13.978-41.78-13.812zm43.563 90.25l163.875 124.344L379.406 404L215.5 279.625z"/></svg></div>
         <div class="type-name">Repair</div>
         <div class="type-desc">Fix an issue</div>
       </div>
       <div class="type-card" id="type-relocation" onclick="selectType('relocation')">
-        <div class="type-icon" style="background:#A2D2FF;color:#1E40AF;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M20.96 16.45c.01-.15.04-.3.04-.45v.5zM11 16c0 .71.15 1.39.42 2H6v1c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-8l2.08-6c.2-.58.76-1 1.42-1h11c.66 0 1.22.42 1.42 1L21 11v5c0-2.76-2.24-5-5-5s-5 2.24-5 5m-3-2.5c0-.83-.67-1.5-1.5-1.5S5 12.67 5 13.5S5.67 15 6.5 15S8 14.33 8 13.5M19 10l-1.5-4.5h-11L5 10zm3.87 11.19l-4.11-4.11c.41-1.04.18-2.26-.68-3.11c-.9-.91-2.25-1.09-3.34-.59l1.94 1.94l-1.35 1.36l-1.99-1.95c-.54 1.09-.29 2.44.59 3.35a2.91 2.91 0 0 0 3.12.68l4.11 4.1c.18.19.45.19.63 0l1.04-1.03c.22-.18.22-.5.04-.64"/></svg></div>
+        <div class="type-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M20.96 16.45c.01-.15.04-.3.04-.45v.5zM11 16c0 .71.15 1.39.42 2H6v1c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-8l2.08-6c.2-.58.76-1 1.42-1h11c.66 0 1.22.42 1.42 1L21 11v5c0-2.76-2.24-5-5-5s-5 2.24-5 5m-3-2.5c0-.83-.67-1.5-1.5-1.5S5 12.67 5 13.5S5.67 15 6.5 15S8 14.33 8 13.5M19 10l-1.5-4.5h-11L5 10zm3.87 11.19l-4.11-4.11c.41-1.04.18-2.26-.68-3.11c-.9-.91-2.25-1.09-3.34-.59l1.94 1.94l-1.35 1.36l-1.99-1.95c-.54 1.09-.29 2.44.59 3.35a2.91 2.91 0 0 0 3.12.68l4.11 4.1c.18.19.45.19.63 0l1.04-1.03c.22-.18.22-.5.04-.64"/></svg></div>
         <div class="type-name">Relocation</div>
         <div class="type-desc">Move to new address</div>
       </div>
@@ -399,9 +415,9 @@
     <div class="form-group" id="book-product-section">
       <label>Products</label>
       <div id="book-product-grid" style="display:grid;grid-template-columns:1fr;gap:8px;"></div>
-      <div id="book-basket-total" style="display:none;margin-top:10px;padding:10px 14px;background:#EFF6FF;border-radius:10px;font-weight:700;text-align:right;color:#1565C0;"></div>
+      <div id="book-basket-total" style="display:none;margin-top:10px;padding:10px 14px;background:rgba(255,255,255,0.1);border-radius:10px;font-weight:700;text-align:right;color:#fff;"></div>
       <div style="margin-top:10px;display:flex;gap:8px;">
-        <input type="text" id="book-promo-input" placeholder="Promo code (optional)" style="flex:1;text-transform:uppercase;padding:9px 11px;border:1.5px solid var(--border,#d5dde3);border-radius:9px;font-size:13px;">
+        <input type="text" id="book-promo-input" placeholder="Promo code (optional)" style="flex:1;text-transform:uppercase;padding:9px 11px;border:1.5px solid rgba(255,255,255,0.2);border-radius:9px;font-size:13px;background:rgba(255,255,255,0.08);color:#fff;">
         <button type="button" onclick="applyBookPromo()" style="padding:9px 16px;border:none;border-radius:9px;background:#0D3B6E;color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">Apply</button>
       </div>
       <div id="book-promo-msg" style="font-size:12px;margin-top:6px;display:none;"></div>
@@ -1084,34 +1100,36 @@ function renderBookProducts() {
 
     let imageBlock = '';
     if (isDisp) {
+      // Product photos stay on a white chip (true to the actual studio photos)
+      // even though the card around them is now dark glass.
       imageBlock = `<div style="display:flex;gap:10px;justify-content:center;margin:6px 0 10px;">
         ${BOOK_DISPENSER_COLORS.map(c => `
           <div onclick="pickBookDispenserColor('${enc}','${c.name}')" style="cursor:pointer;text-align:center;">
-            <div style="width:78px;height:78px;border-radius:10px;border:2px solid ${chosenColor===c.name ? '#1565C0' : 'var(--border,#e2e8f0)'};background:#fff url('${c.img}') center/contain no-repeat;box-shadow:${chosenColor===c.name ? '0 0 0 3px rgba(21,101,192,.15)' : 'none'};"></div>
-            <div style="font-size:10px;font-weight:700;margin-top:3px;color:${chosenColor===c.name ? '#1565C0' : 'var(--muted,#667)'};">${c.name}</div>
+            <div style="width:78px;height:78px;border-radius:10px;border:2px solid ${chosenColor===c.name ? '#64B5F6' : 'rgba(255,255,255,0.2)'};background:#fff url('${c.img}') center/contain no-repeat;box-shadow:${chosenColor===c.name ? '0 0 0 3px rgba(100,181,246,.25)' : 'none'};"></div>
+            <div style="font-size:10px;font-weight:700;margin-top:3px;color:${chosenColor===c.name ? '#64B5F6' : 'rgba(255,255,255,0.55)'};">${c.name}</div>
           </div>`).join('')}
       </div>`;
     } else {
       const imgSrc = (p.image_url && !/purifier-generic/.test(p.image_url)) ? p.image_url : BOOK_PRODUCT_IMAGES[p.model_name];
-      if (imgSrc) imageBlock = `<div style="height:96px;margin:4px 0 8px;background:#fff url('${imgSrc}') center/contain no-repeat;"></div>`;
+      if (imgSrc) imageBlock = `<div style="height:96px;margin:4px 0 8px;border-radius:8px;background:#fff url('${imgSrc}') center/contain no-repeat;"></div>`;
     }
 
     const outOfStock = p.in_stock === false;
 
-    return `<div style="border:2px solid ${qty ? '#1565C0' : 'var(--border,#ddd)'};border-radius:12px;padding:12px 14px;background:${outOfStock ? '#F8FAFC' : (qty ? '#EFF6FF' : '#fff')};transition:all .12s;${outOfStock ? 'opacity:0.65;' : ''}">
+    return `<div style="border:2px solid ${qty ? '#64B5F6' : 'rgba(255,255,255,0.15)'};border-radius:12px;padding:12px 14px;background:${outOfStock ? 'rgba(255,255,255,0.03)' : (qty ? 'rgba(21,101,192,0.22)' : 'rgba(255,255,255,0.07)')};transition:all .12s;${outOfStock ? 'opacity:0.6;' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-        <div style="font-weight:700;font-size:14px;">${p.model_name}${isDisp && qty ? ` <span style="font-size:11px;color:#1565C0;">· ${chosenColor}</span>` : ''}</div>
-        <div style="font-weight:800;font-size:14px;color:#1565C0;white-space:nowrap;">SAR ${Number(p.price_sar).toLocaleString('en-US')}</div>
+        <div style="font-weight:700;font-size:14px;color:#fff;">${p.model_name}${isDisp && qty ? ` <span style="font-size:11px;color:#64B5F6;">· ${chosenColor}</span>` : ''}</div>
+        <div style="font-weight:800;font-size:14px;color:#64B5F6;white-space:nowrap;">SAR ${Number(p.price_sar).toLocaleString('en-US')}</div>
       </div>
-      ${p.description ? `<div style="font-size:11px;color:var(--muted,#667);margin-top:4px;line-height:1.4;">${p.description}</div>` : ''}
+      ${p.description ? `<div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:4px;line-height:1.4;">${p.description}</div>` : ''}
       ${imageBlock}
       ${outOfStock
         ? `<div style="margin-top:6px;font-size:12px;font-weight:700;color:#B45309;background:#FEF3C7;display:inline-block;padding:4px 10px;border-radius:8px;">Out of Stock</div>`
         : `<div style="display:flex;align-items:center;gap:12px;margin-top:6px;">
-        <button type="button" onclick="bookBasketQty('${enc}',-1)" style="width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border,#ccc);background:#fff;font-size:18px;cursor:pointer;">−</button>
-        <span style="font-size:17px;font-weight:700;min-width:24px;text-align:center;">${qty}</span>
-        <button type="button" onclick="bookBasketQty('${enc}',1)" style="width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border,#ccc);background:#fff;font-size:18px;cursor:pointer;">+</button>
-        ${qty ? `<span style="font-size:12px;color:var(--muted,#667);margin-left:auto;">SAR ${(p.price_sar*qty).toLocaleString('en-US')}</span>` : ''}
+        <button type="button" onclick="bookBasketQty('${enc}',-1)" style="width:34px;height:34px;border-radius:9px;border:1.5px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.1);color:#fff;font-size:18px;cursor:pointer;">−</button>
+        <span style="font-size:17px;font-weight:700;min-width:24px;text-align:center;color:#fff;">${qty}</span>
+        <button type="button" onclick="bookBasketQty('${enc}',1)" style="width:34px;height:34px;border-radius:9px;border:1.5px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.1);color:#fff;font-size:18px;cursor:pointer;">+</button>
+        ${qty ? `<span style="font-size:12px;color:rgba(255,255,255,0.55);margin-left:auto;">SAR ${(p.price_sar*qty).toLocaleString('en-US')}</span>` : ''}
       </div>`}
     </div>`;
   }).join('');
