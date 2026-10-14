@@ -55,8 +55,8 @@
        until the real photo asset is dropped in — swap the `background`
        line on .home-hero for `background:url(...) center/cover` then. */
     .home-hero{display:none;background:
-        radial-gradient(120% 70% at 85% 0%, rgba(79,195,247,0.28) 0%, rgba(79,195,247,0) 55%),
-        radial-gradient(90% 60% at 10% 100%, rgba(21,101,192,0.35) 0%, rgba(21,101,192,0) 60%),
+        linear-gradient(180deg, rgba(5,8,16,0.15) 0%, rgba(5,8,16,0.55) 75%, rgba(5,8,16,0.75) 100%),
+        url('../assets/home-hero-bg.jpg') center/cover no-repeat,
         var(--dark-grad);
       border:1px solid rgba(255,255,255,0.12);border-top:none;border-radius:0 0 30px 30px;
       padding:calc(20px + env(safe-area-inset-top)) 22px 30px;box-shadow:0 14px 30px -14px rgba(5,6,10,0.45);}
