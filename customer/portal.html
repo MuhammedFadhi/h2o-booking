@@ -135,13 +135,18 @@
     .book-bar:hover{filter:brightness(0.95);}
     .book-bar svg{width:19px;height:19px;}
 
-    /* Service tab — flat history feed (reuses js/warranty.js historyList()). */
-    .history-card{background:white;border-radius:18px;border:1px solid var(--border);padding:6px 16px;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
+    /* Service tab — flat history feed (reuses js/warranty.js historyList(), dark=true). */
+    .history-card{background:linear-gradient(135deg,rgba(74,111,165,0.22),rgba(26,39,68,0.4));border-radius:18px;border:1px solid rgba(255,255,255,0.1);padding:6px 16px;}
 
-    /* BOOKING CARDS */
-    .booking-card{background:white;border-radius:20px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px;box-shadow:0 1px 3px rgba(15,23,42,0.04);transition:box-shadow 0.15s,transform 0.15s;}
-    .booking-card:hover{box-shadow:0 6px 20px rgba(15,23,42,0.08);transform:translateY(-1px);}
-    .booking-card-header{padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--border);}
+    /* BOOKING CARDS — dark glass, matching the rest of the redesign. Rather
+       than rewrite renderBookingCard()'s markup, redefine --text/--muted/
+       --border/--bg locally: every descendant (inline style or CSS class)
+       that reads var(--text) etc. picks up these dark-appropriate values
+       automatically, without touching the JS. */
+    .booking-card{background:linear-gradient(135deg,rgba(74,111,165,0.22),rgba(26,39,68,0.4));border-radius:20px;border:1px solid rgba(255,255,255,0.1);overflow:hidden;margin-bottom:16px;transition:transform 0.15s;
+      --text:#fff;--muted:rgba(255,255,255,0.55);--border:rgba(255,255,255,0.15);--bg:rgba(255,255,255,0.07);}
+    .booking-card:hover{transform:translateY(-1px);}
+    .booking-card-header{padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid rgba(255,255,255,0.12);}
     .booking-ref{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--water);}
     .booking-type-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.4px;}
     .type-installation{background:#EFF6FF;color:#1D4ED8;}
@@ -160,7 +165,7 @@
     .progress-step{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;}
     .progress-step:not(:last-child)::after{content:'';position:absolute;top:14px;left:50%;width:100%;height:2px;background:var(--border);z-index:0;}
     .progress-step.done:not(:last-child)::after{background:var(--green);}
-    .progress-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:white;display:flex;align-items:center;justify-content:center;font-size:12px;position:relative;z-index:1;transition:all 0.3s;}
+    .progress-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:var(--bg,white);display:flex;align-items:center;justify-content:center;font-size:12px;position:relative;z-index:1;transition:all 0.3s;}
     .progress-dot svg{width:14px;height:14px;}
     .progress-step.done .progress-dot{background:var(--green);border-color:var(--green);color:white;}
     .progress-step.active .progress-dot{background:var(--water);border-color:var(--water);color:white;}
@@ -173,6 +178,13 @@
     .btn-outline:hover{border-color:var(--water);color:var(--water);}
     .btn-danger{padding:9px 16px;border:1.5px solid #FECACA;border-radius:10px;background:white;color:var(--red);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;}
     .btn-danger:hover{background:#FEF2F2;}
+    /* booking-card sits on dark glass now — these two still hardcode a white
+       background (unlike btn-disabled, which already uses var(--bg)/(--border)
+       and inherits the dark override automatically). */
+    .booking-card .btn-outline{background:rgba(255,255,255,0.08);}
+    .booking-card .btn-outline:hover{border-color:#fff;color:#fff;}
+    .booking-card .btn-danger{background:rgba(255,255,255,0.08);}
+    .booking-card .btn-danger:hover{background:rgba(220,38,38,0.18);}
     .btn-primary{padding:9px 16px;background:linear-gradient(135deg,var(--ocean),var(--water));color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:filter 0.15s;}
     .btn-primary:hover{filter:brightness(0.92);}
     .btn-primary:disabled{opacity:0.55;cursor:not-allowed;}
@@ -676,7 +688,7 @@ async function loadServiceHistory() {
         '</div>';
       return;
     }
-    el.innerHTML = `<div class="history-card">${SADA.Warranty.historyList(allHistory)}</div>`;
+    el.innerHTML = `<div class="history-card">${SADA.Warranty.historyList(allHistory, true)}</div>`;
   } catch (e) {
     console.error('loadServiceHistory failed:', e);
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load your service history. Please refresh.</p></div>';
