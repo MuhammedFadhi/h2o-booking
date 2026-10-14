@@ -45,6 +45,14 @@
       50%{transform:scale(1.07) translate(-1.5%,-1%);}
       100%{transform:scale(1.03) translate(1.2%,1.6%);}
     }
+    /* iOS Safari (and some Android browsers) visibly jitter an animated
+       position:fixed layer during scroll/touch — a long-standing WebKit
+       compositing quirk, not specific to this animation. Touch/coarse-
+       pointer devices (hover:none) keep the static background instead;
+       desktop/mouse devices keep the drift. */
+    @media (hover:none) and (pointer:coarse){
+      #bg-anim, #book-modal .book-modal-bg{animation:none;}
+    }
 
     /* HEADER — a dark-gradient greeting card (accent only, see --dark-grad
        above) instead of a plain white bar. The avatar+name area is a button
