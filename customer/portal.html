@@ -124,6 +124,11 @@
        switchTab()'s existing selectors (`.tab`, `el.classList`) need zero
        JS changes. */
     .tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border:1px solid rgba(255,255,255,0.14);border-bottom:none;border-radius:20px 20px 0 0;box-shadow:0 14px 30px -12px rgba(5,6,10,0.5);padding:7px 7px calc(7px + env(safe-area-inset-bottom));z-index:60;max-width:720px;margin:0 auto;}
+    /* Raised above .sheet-modal (300) only while the Book Again modal is
+       open (toggled in openBookModal()/closeBookModal()) — not done as a
+       base z-index change, since that would also push it on top of the
+       Reschedule bottom-sheet and collide with its own buttons down there. */
+    .tabs.above-modal{z-index:400;}
     .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:14px;border:none;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;cursor:pointer;color:rgba(255,255,255,0.55);background:none;transition:all 0.15s;}
     .tab svg{width:22px;height:22px;}
     .tab:hover:not(.active){color:rgba(255,255,255,0.85);}
@@ -144,7 +149,13 @@
        Scoped to #book-modal specifically: .sheet-modal/.sheet-modal-inner/
        .sheet-modal-header/.form-group are shared with Profile and Reschedule,
        which stay light for now. */
-    #book-modal .sheet-modal-inner{background:var(--deep);}
+    /* z-index establishes a local stacking context here — without it,
+       .book-modal-bg's z-index:-1 escapes all the way to the page's root
+       stacking context (position:absolute alone doesn't create one) and
+       renders behind the ENTIRE page instead of just behind this modal's
+       own content, which is why it was invisible under the plain --deep
+       fallback. */
+    #book-modal .sheet-modal-inner{background:var(--deep);z-index:1;}
     /* Same animated-layer trick as #bg-anim, scoped to this modal since it's
        its own opaque overlay sitting above body. .sheet-modal-inner is
        position:absolute, so it's this div's z-index:-1 containing block —
@@ -154,6 +165,10 @@
       background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat;
       animation:bgDrift 26s ease-in-out infinite alternate;will-change:transform;}
     #book-modal .sheet-modal-header{background:var(--dark-grad-glass);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border-bottom-color:rgba(255,255,255,0.12);}
+    /* .tabs now floats on top of this modal (see .above-modal) — give the
+       bottom of the form the same clearance .container already uses, so
+       "Confirm Booking" isn't hidden under the nav bar. */
+    #book-modal .sheet-modal-body{padding-bottom:calc(90px + env(safe-area-inset-bottom));}
     #book-modal .sheet-modal-header h2{color:#fff;}
     #book-modal .icon-btn{border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);}
     #book-modal .icon-btn:hover{border-color:#fff;color:#fff;background:rgba(255,255,255,0.18);}
@@ -746,10 +761,12 @@ async function loadServiceHistory() {
 // BOOK AGAIN / PROFILE modals
 function openBookModal(presetType) {
   document.getElementById('book-modal').classList.add('open');
+  document.querySelector('.tabs')?.classList.add('above-modal');
   selectType(presetType || 'installation');
 }
 function closeBookModal() {
   document.getElementById('book-modal').classList.remove('open');
+  document.querySelector('.tabs')?.classList.remove('above-modal');
 }
 function openProfileModal() {
   document.getElementById('profile-modal').classList.add('open');
