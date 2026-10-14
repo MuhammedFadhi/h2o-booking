@@ -28,9 +28,23 @@
       --dark-grad:linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%);
       --dark-grad-glass:linear-gradient(135deg,rgba(74,111,165,0.38) 0%,rgba(26,39,68,0.48) 55%,rgba(5,6,10,0.62) 100%);}
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'DM Sans',sans-serif;
+    body{font-family:'DM Sans',sans-serif;background:var(--deep);color:var(--text);min-height:100dvh;}
+
+    /* Animated background — a dedicated fixed layer behind everything
+       (z-index:-1, sits behind body's normal-flow content automatically)
+       instead of animating background-position/size directly, which is
+       janky on mobile. Overscanned 6% on every side so the scale/pan
+       drift never reveals an edge. transform-only animation stays on the
+       GPU compositor. prefers-reduced-motion is already handled by the
+       blanket *{animation-duration:0.01ms!important} rule further down. */
+    #bg-anim{position:fixed;inset:-6%;z-index:-1;
       background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat;
-      background-attachment:fixed;color:var(--text);min-height:100dvh;}
+      animation:bgDrift 26s ease-in-out infinite alternate;will-change:transform;}
+    @keyframes bgDrift{
+      0%{transform:scale(1) translate(0,0);}
+      50%{transform:scale(1.07) translate(-1.5%,-1%);}
+      100%{transform:scale(1.03) translate(1.2%,1.6%);}
+    }
 
     /* HEADER — a dark-gradient greeting card (accent only, see --dark-grad
        above) instead of a plain white bar. The avatar+name area is a button
@@ -122,7 +136,15 @@
        Scoped to #book-modal specifically: .sheet-modal/.sheet-modal-inner/
        .sheet-modal-header/.form-group are shared with Profile and Reschedule,
        which stay light for now. */
-    #book-modal .sheet-modal-inner{background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat, var(--dark-grad);}
+    #book-modal .sheet-modal-inner{background:var(--deep);}
+    /* Same animated-layer trick as #bg-anim, scoped to this modal since it's
+       its own opaque overlay sitting above body. .sheet-modal-inner is
+       position:absolute, so it's this div's z-index:-1 containing block —
+       no need to touch .sheet-modal-body's stacking (.sheet-modal-header
+       already has z-index:5). */
+    #book-modal .book-modal-bg{position:fixed;inset:-6%;z-index:-1;pointer-events:none;
+      background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat;
+      animation:bgDrift 26s ease-in-out infinite alternate;will-change:transform;}
     #book-modal .sheet-modal-header{background:var(--dark-grad-glass);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border-bottom-color:rgba(255,255,255,0.12);}
     #book-modal .sheet-modal-header h2{color:#fff;}
     #book-modal .icon-btn{border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);}
@@ -293,6 +315,7 @@
   </style>
 </head>
 <body>
+<div id="bg-anim"></div>
 <header style="display:none;">
   <button class="header-profile-btn" onclick="openProfileModal()" title="My Profile">
     <div class="avatar-circle" id="header-avatar">?</div>
@@ -384,6 +407,7 @@
        Filter Change quick-action card, not a bottom-nav tab. -->
   <div class="sheet-modal" id="book-modal">
    <div class="sheet-modal-inner">
+    <div class="book-modal-bg"></div>
     <div class="sheet-modal-header">
       <button class="icon-btn" onclick="closeBookModal()" title="Close"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 6l-6 6l6 6"/></svg></button>
       <h2>New Booking</h2>
