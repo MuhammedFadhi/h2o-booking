@@ -28,7 +28,9 @@
       --dark-grad:linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%);
       --dark-grad-glass:linear-gradient(135deg,rgba(74,111,165,0.38) 0%,rgba(26,39,68,0.48) 55%,rgba(5,6,10,0.62) 100%);}
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'DM Sans',sans-serif;background:var(--dark-grad);background-attachment:fixed;color:var(--text);min-height:100dvh;}
+    body{font-family:'DM Sans',sans-serif;
+      background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat;
+      background-attachment:fixed;color:var(--text);min-height:100dvh;}
 
     /* HEADER — a dark-gradient greeting card (accent only, see --dark-grad
        above) instead of a plain white bar. The avatar+name area is a button
@@ -54,10 +56,10 @@
        rounded-bottom-corner treatment. Background is a placeholder gradient
        until the real photo asset is dropped in — swap the `background`
        line on .home-hero for `background:url(...) center/cover` then. */
-    .home-hero{display:none;background:
-        linear-gradient(180deg, rgba(5,8,16,0.15) 0%, rgba(5,8,16,0.55) 75%, rgba(5,8,16,0.75) 100%),
-        url('../assets/home-hero-bg.jpg') center/cover no-repeat,
-        var(--dark-grad);
+    /* No background-image of its own anymore — body now carries the same
+       photo for the whole page, and this just adds extra dark overlay on
+       top of it (for text contrast) rather than a second, misaligned copy. */
+    .home-hero{display:none;background:linear-gradient(180deg, rgba(5,8,16,0.1) 0%, rgba(5,8,16,0.5) 75%, rgba(5,8,16,0.7) 100%);
       border:1px solid rgba(255,255,255,0.12);border-top:none;border-radius:0 0 30px 30px;
       padding:calc(20px + env(safe-area-inset-top)) 22px 30px;box-shadow:0 14px 30px -14px rgba(5,6,10,0.45);}
     .home-hero.active{display:block;}
