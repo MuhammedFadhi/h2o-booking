@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     :root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#E2E8F0;--bg:#F8FAFC;--green:#16A34A;--red:#DC2626;--amber:#D97706;
       /* Accent gradient for the greeting header + bottom nav only — every
@@ -48,6 +48,41 @@
        own (near-invisible otherwise) contrast, not .icon-btn's white-bg look. */
     header .icon-btn{border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);}
     header .icon-btn:hover{border-color:#fff;color:#fff;background:rgba(255,255,255,0.18);}
+
+    /* HOME HERO — replaces the generic <header> only while the Home tab is
+       active (toggled in switchTab()). Full-bleed like <header>, same
+       rounded-bottom-corner treatment. Background is a placeholder gradient
+       until the real photo asset is dropped in — swap the `background`
+       line on .home-hero for `background:url(...) center/cover` then. */
+    .home-hero{display:none;background:
+        radial-gradient(120% 70% at 85% 0%, rgba(79,195,247,0.28) 0%, rgba(79,195,247,0) 55%),
+        radial-gradient(90% 60% at 10% 100%, rgba(21,101,192,0.35) 0%, rgba(21,101,192,0) 60%),
+        var(--dark-grad);
+      border:1px solid rgba(255,255,255,0.12);border-top:none;border-radius:0 0 30px 30px;
+      padding:calc(20px + env(safe-area-inset-top)) 22px 30px;box-shadow:0 14px 30px -14px rgba(5,6,10,0.45);}
+    .home-hero.active{display:block;}
+    .home-hero-topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;}
+    .home-hero-logo{height:42px;display:block;}
+    .home-hero-avatar{width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;flex-shrink:0;
+      background:linear-gradient(135deg,var(--water),var(--ocean));color:#fff;
+      display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px -4px rgba(21,101,192,0.6);}
+    .home-hero-avatar svg{width:24px;height:24px;}
+    .home-hero-greet{font-family:'Quicksand',sans-serif;font-weight:600;color:#fff;font-size:34px;line-height:1.18;margin-bottom:18px;}
+    .home-hero-greet span{display:block;}
+    .home-hero-status{font-family:'Quicksand',sans-serif;font-weight:500;color:rgba(255,255,255,0.88);font-size:18px;line-height:1.45;margin-bottom:20px;max-width:380px;}
+    .home-hero-cta{font-family:'Quicksand',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.5px;text-transform:uppercase;
+      color:#fff;border:none;cursor:pointer;padding:13px 26px;border-radius:12px;
+      background:linear-gradient(135deg,#8BC34A,#43A047);box-shadow:0 8px 18px -6px rgba(67,160,71,0.55);}
+
+    /* HOME ACTION CARDS — New Installation / Repair, sit on the page's own
+       dark gradient (body already carries --dark-grad), just below the hero. */
+    .home-actions{display:flex;flex-direction:column;gap:14px;margin-top:4px;}
+    .home-action-card{display:block;width:100%;text-align:left;border:1px solid rgba(255,255,255,0.1);border-radius:18px;padding:20px 22px;cursor:pointer;transition:transform 0.15s;}
+    .home-action-card:hover{transform:translateY(-1px);}
+    .home-action-card.dark{background:linear-gradient(135deg,rgba(74,111,165,0.22),rgba(26,39,68,0.4));}
+    .home-action-card.light{background:linear-gradient(135deg,var(--water),var(--ocean));border-color:transparent;}
+    .home-action-title{font-family:'Quicksand',sans-serif;font-weight:600;font-size:21px;color:#fff;margin-bottom:4px;}
+    .home-action-sub{font-family:'DM Sans',sans-serif;font-size:13px;color:rgba(255,255,255,0.65);}
 
     .container{max-width:720px;margin:0 auto;padding:20px 16px calc(90px + env(safe-area-inset-bottom));}
 
@@ -227,7 +262,7 @@
   </style>
 </head>
 <body>
-<header>
+<header style="display:none;">
   <button class="header-profile-btn" onclick="openProfileModal()" title="My Profile">
     <div class="avatar-circle" id="header-avatar">?</div>
     <div class="greet-text">
@@ -239,6 +274,21 @@
   <button class="icon-btn" onclick="logout()" title="Sign Out"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M14 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2"/><path d="M9 12h12l-3-3m0 6l3-3"/></g></svg></button>
 </header>
 
+<!-- HOME HERO — shown instead of <header> only while Home is the active tab
+     (see switchTab()). Background is a placeholder gradient; swap for the
+     real photo asset once it's in. -->
+<div class="home-hero active" id="home-hero">
+  <div class="home-hero-topbar">
+    <img class="home-hero-logo" src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O">
+    <button class="home-hero-avatar" onclick="openProfileModal()" title="My Profile">
+      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></g></svg>
+    </button>
+  </div>
+  <h1 class="home-hero-greet">Hello!<span id="home-hero-name">there!</span></h1>
+  <p class="home-hero-status" id="home-hero-status">Loading your unit status…</p>
+  <button class="home-hero-cta" onclick="switchTab('unit')">My Product</button>
+</div>
+
 <div class="container">
   <nav class="tabs">
     <button class="tab active" data-tab="home" onclick="switchTab('home')"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12H3l9-9l9 9h-2M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 21v-6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6"/></svg><span>Home</span></button>
@@ -247,11 +297,21 @@
     <button class="tab" data-tab="bookings" onclick="switchTab('bookings')"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.5 21H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6M16 3v4M8 3v4m-4 4h16m-5 8l2 2l4-4"/></svg><span>Bookings</span></button>
   </nav>
 
-  <!-- HOME (default) — placeholder pending the new home design (greeting +
-       status hero + New Installation / Repair quick-action cards). The unit
-       list that used to live here moved to the My Unit tab below. -->
+  <!-- HOME (default) — the hero (greeting + unit status + My Product) lives
+       in #home-hero above, outside .container, shown instead of <header>
+       while this tab is active. This panel just holds the two action cards
+       below it. The unit list that used to live here moved to My Unit. -->
   <div class="tab-panel active" id="tab-home">
-    <button class="book-bar" onclick="openBookModal()"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"/></svg> Book a Visit</button>
+    <div class="home-actions">
+      <button class="home-action-card dark" onclick="openBookModal('installation')">
+        <div class="home-action-title">New Installation</div>
+        <div class="home-action-sub">Buy &amp; install new SA'DA unit</div>
+      </button>
+      <button class="home-action-card light" onclick="openBookModal('repair')">
+        <div class="home-action-title">Repair/Fix Request</div>
+        <div class="home-action-sub">Get your present Unit fixed</div>
+      </button>
+    </div>
   </div>
 
   <!-- MY UNIT — what Home used to show: every unit (real SA'DA + self-reported), warranty/service status. -->
@@ -438,6 +498,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   updateAvatars();
   loadProfile();
   loadHome();
+  loadHomeHero();
   loadMyBookings();
   await loadBookRegionsAndCities();
   if (selectedType === 'installation') loadBookProducts();
@@ -487,6 +548,10 @@ function onBookRegionChange() {
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
+  // Home has its own hero (logo + greeting + status) instead of the generic
+  // <header> — swap between them instead of showing both.
+  document.querySelector('header').style.display = name === 'home' ? 'none' : 'flex';
+  document.getElementById('home-hero').classList.toggle('active', name === 'home');
   // Service is loaded lazily — most visits are about Home/Bookings, and this
   // saves a round trip on every portal open. Home loads eagerly on page load.
   if (name === 'service' && !serviceLoaded) loadServiceHistory();
@@ -529,6 +594,40 @@ async function loadHome() {
   } catch (e) {
     console.error('loadHome failed:', e);
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load your units. Please refresh.</p></div>';
+  }
+}
+
+// HOME HERO — greeting + a one-line summary of the featured (most recently
+// registered) unit's service status. Falls back gracefully with no unit, or
+// no service_expiry set yet.
+async function loadHomeHero() {
+  const nameEl = document.getElementById('home-hero-name');
+  const statusEl = document.getElementById('home-hero-status');
+  nameEl.textContent = (customer.name || 'there') + '!';
+
+  if (!window.SADA || !window.SADA.Warranty) { statusEl.textContent = ''; return; }
+  try {
+    const units = await SADA.Warranty.unitsForPhone(customer.phone);
+    if (!units.length) {
+      statusEl.textContent = "You don't have a registered unit yet — add one to track its health here.";
+      return;
+    }
+    const unit = units[0];
+    const W = SADA.Warranty;
+    const status = W.statusOf(unit.service_expiry);
+    const days = W.daysUntil(unit.service_expiry);
+    if (status === 'unknown') {
+      statusEl.textContent = "Keep track of your SA'DA unit's health here.";
+    } else if (status === 'expired') {
+      statusEl.textContent = `Your RO Unit's service is overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'}.`;
+    } else if (status === 'soon') {
+      statusEl.textContent = `Your RO Unit's service is due soon — in ${days} day${days === 1 ? '' : 's'}.`;
+    } else {
+      statusEl.textContent = `Your RO Unit is healthy and the service is due in ${days} days.`;
+    }
+  } catch (e) {
+    console.error('loadHomeHero failed:', e);
+    statusEl.textContent = '';
   }
 }
 
