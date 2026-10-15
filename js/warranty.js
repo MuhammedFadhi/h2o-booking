@@ -349,11 +349,11 @@
     var btnBorder = dark ? 'rgba(255,255,255,0.25)' : 'var(--border,#CFD8DC)';
     var btnColor = dark ? '#fff' : 'var(--ocean,#0D3B6E)';
     return '' +
-    // Dark theme: the page itself is already the dark gradient, so a
-    // separate card boundary around each unit is redundant - no
-    // background/border/shadow, just spacing between units.
+    // Dark theme: same dark-glass card treatment as .booking-card/
+    // .history-card elsewhere in the redesign, instead of sitting directly
+    // on the page background with no boundary of its own.
     (dark
-      ? '<div style="margin-bottom:28px;">'
+      ? '<div style="background:linear-gradient(135deg,rgba(74,111,165,0.22),rgba(26,39,68,0.4));border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:18px;margin-bottom:20px;">'
       : '<div style="background:' + cardBg + ';border:1px solid var(--border,#CFD8DC);border-radius:16px;padding:16px;margin-bottom:14px;">') +
       '<div style="display:flex;gap:13px;align-items:flex-start;margin-bottom:13px;">' +
         '<img src="' + esc(img) + '" alt="" loading="lazy" ' +
