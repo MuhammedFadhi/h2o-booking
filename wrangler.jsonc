@@ -6,5 +6,14 @@
   "assets": {
     "directory": "./",
     "binding": "ASSETS"
+  },
+  // SUPABASE_URL is a public project URL, not a secret — declaring it here
+  // means it deploys with the code every time, instead of only existing as
+  // a manually-typed dashboard entry that can go missing on a redeploy
+  // (which is what kept happening on every merge to main). The service
+  // role key stays a dashboard-managed secret, correctly — only this
+  // non-sensitive URL moves into version control.
+  "vars": {
+    "SUPABASE_URL": "https://ykgtrloptgazeqjgxney.supabase.co"
   }
 }
