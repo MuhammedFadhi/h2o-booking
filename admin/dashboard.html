@@ -925,6 +925,7 @@
           <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">From</label><input type="date" id="sr-from" class="form-input" onchange="renderSalesReport()"></div>
           <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">To</label><input type="date" id="sr-to" class="form-input" onchange="renderSalesReport()"></div>
           <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Sales agent</label><select id="sr-agent" class="form-input" onchange="renderSalesReport()"><option value="">All agents</option></select></div>
+          <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Product</label><select id="sr-product" class="form-input" onchange="renderSalesReport()"><option value="">All products</option></select></div>
           <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Status</label>
             <select id="sr-status" class="form-input" onchange="renderSalesReport()">
               <option value="">All statuses</option>
@@ -6287,6 +6288,15 @@ async function loadSalesReport() {
   agentSel.innerHTML = '<option value="">All agents</option>' + names.map(n => `<option value="${escB(n)}">${escB(n)}</option>`).join('');
   if (keepAgent && names.includes(keepAgent)) agentSel.value = keepAgent;
 
+  const productSel = document.getElementById('sr-product');
+  const keepProduct = productSel.value;
+  const products = [...new Set([
+    ...allLeads.map(l => l.product_interest),
+    ...salesReportBookings.map(b => b.product_model)
+  ].filter(Boolean))].sort();
+  productSel.innerHTML = '<option value="">All products</option>' + products.map(p => `<option value="${escB(p)}">${escB(p)}</option>`).join('');
+  if (keepProduct && products.includes(keepProduct)) productSel.value = keepProduct;
+
   renderSalesReport();
 }
 
@@ -6370,12 +6380,14 @@ function filteredSalesReportRows() {
   const from = document.getElementById('sr-from').value;
   const to = document.getElementById('sr-to').value;
   const agent = document.getElementById('sr-agent').value;
+  const product = document.getElementById('sr-product').value;
   const status = document.getElementById('sr-status').value;
   return salesReportRows().filter(r => {
     const d = localDateISO(new Date(r.createdAt));
     if (from && d < from) return false;
     if (to && d > to) return false;
     if (agent && r.agent !== agent) return false;
+    if (product && r.product !== product) return false;
     if (status && r.statusKey !== status) return false;
     return true;
   });
@@ -6488,6 +6500,7 @@ function downloadSalesReportPDF() {
   const { total, lead, booked, installed, lost } = salesReportKPIs(rows);
   const from = document.getElementById('sr-from').value, to = document.getElementById('sr-to').value;
   const agent = document.getElementById('sr-agent').value || 'All agents';
+  const product = document.getElementById('sr-product').value || 'All products';
   const status = document.getElementById('sr-status').selectedOptions[0].textContent;
   const rangeLabel = (from && to) ? `${salesReportFmtDate(from)} – ${salesReportFmtDate(to)}` : 'All time';
   const now = new Date();
@@ -6550,6 +6563,7 @@ function downloadSalesReportPDF() {
     <div class="info-bar">
       <div class="info-item"><span class="info-icon">📅</span><div><div class="info-label">Reporting period</div><div class="info-value">${escB(rangeLabel)}</div></div></div>
       <div class="info-item"><span class="info-icon">👤</span><div><div class="info-label">Agent</div><div class="info-value">${escB(agent)}</div></div></div>
+      <div class="info-item"><span class="info-icon">📦</span><div><div class="info-label">Product</div><div class="info-value">${escB(product)}</div></div></div>
       <div class="info-item"><span class="info-icon">🏷️</span><div><div class="info-label">Status</div><div class="info-value">${escB(status)}</div></div></div>
       <div class="info-item"><span class="info-icon">🕐</span><div><div class="info-label">Generated on</div><div class="info-value">${escB(generatedLabel)}</div></div></div>
     </div>
