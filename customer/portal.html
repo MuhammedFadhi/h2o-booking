@@ -45,14 +45,6 @@
       50%{transform:scale(1.07) translate(-1.5%,-1%);}
       100%{transform:scale(1.03) translate(1.2%,1.6%);}
     }
-    /* iOS Safari (and some Android browsers) visibly jitter an animated
-       position:fixed layer during scroll/touch — a long-standing WebKit
-       compositing quirk, not specific to this animation. Touch/coarse-
-       pointer devices (hover:none) keep the static background instead;
-       desktop/mouse devices keep the drift. */
-    @media (hover:none) and (pointer:coarse){
-      #bg-anim, #book-modal .book-modal-bg{animation:none;}
-    }
 
     /* HEADER — a dark-gradient greeting card (accent only, see --dark-grad
        above) instead of a plain white bar. The avatar+name area is a button
@@ -335,6 +327,23 @@
       header{padding:24px 16px 28px;padding-top:calc(24px + env(safe-area-inset-top));}
     }
     @media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}}
+
+    /* iOS Safari (and some Android browsers) visibly jitter ANY
+       position:fixed layer during scroll/touch, animated or not — a
+       long-standing WebKit compositing quirk. Disabling just the
+       animation wasn't enough, since plain fixed positioning itself is
+       the actual cause. Touch/coarse-pointer devices (hover:none) drop
+       the separate fixed layer entirely and get an ordinary background
+       that scrolls with the page instead (no shake, since it's not
+       fixed); desktop/mouse devices keep the fixed, animated layer.
+       Placed at the end of the stylesheet deliberately — same selector
+       specificity as the base #bg-anim/.sheet-modal-inner rules above,
+       so source order is what makes this one win. */
+    @media (hover:none) and (pointer:coarse){
+      #bg-anim, #book-modal .book-modal-bg{display:none;}
+      body{background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat, var(--deep);}
+      #book-modal .sheet-modal-inner{background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center top/cover no-repeat, var(--deep);}
+    }
   </style>
 </head>
 <body>
@@ -644,6 +653,12 @@ function onBookRegionChange() {
 }
 
 function switchTab(name) {
+  // Tapping a nav tab while a modal is open (Book Again / Profile) should
+  // navigate AND close it, like any normal app — otherwise the tab bar
+  // visibly updates but the modal keeps covering everything, which just
+  // looks like the tap did nothing.
+  if (document.getElementById('book-modal')?.classList.contains('open')) closeBookModal();
+  if (document.getElementById('profile-modal')?.classList.contains('open')) closeProfileModal();
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
   // Home has its own hero (logo + greeting + status) instead of the generic
