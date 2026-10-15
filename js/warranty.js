@@ -224,7 +224,7 @@
     var labelColor = dark ? '#fff' : null;
     var iconColor = dark ? '#fff' : null;
     var noteColor = dark ? 'rgba(255,255,255,0.6)' : 'var(--muted,#607D8B)';
-    var dateColor = dark ? 'rgba(255,255,255,0.45)' : '#94A3B8';
+    var dateColor = dark ? '#fff' : '#94A3B8';
     var borderColor = dark ? 'rgba(255,255,255,0.15)' : '#F8FAFC';
     return history.map(function (h) {
       var t = TYPE_META[h.service_type] || TYPE_META.other;
