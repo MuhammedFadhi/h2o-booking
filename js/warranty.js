@@ -231,10 +231,10 @@
       return '<div style="display:flex;gap:9px;padding:8px 0;border-bottom:1px solid ' + borderColor + ';">' +
           '<span style="display:inline-flex;align-items:center;color:' + (iconColor || t.color) + ';flex-shrink:0;">' + t.icon + '</span>' +
           '<div style="flex:1;min-width:0;">' +
-            '<div style="font-size:12px;font-weight:700;color:' + (labelColor || t.color) + ';">' + t.label + '</div>' +
-            (h.notes ? '<div style="font-size:11px;color:' + noteColor + ';word-break:break-word;">' + esc(h.notes) + '</div>' : '') +
+            '<div style="font-size:12px;font-weight:80;color:' + (labelColor || t.color) + ';">' + t.label + '</div>' +
+            (h.notes ? '<div style="font-size:11px;font-weight:22;color:' + noteColor + ';word-break:break-word;">' + esc(h.notes) + '</div>' : '') +
           '</div>' +
-          '<span style="font-size:10px;color:' + dateColor + ';white-space:nowrap;">' + fmtDate(h.created_at) + '</span>' +
+          '<span style="font-size:10px;font-weight:80;color:' + dateColor + ';white-space:nowrap;">' + fmtDate(h.created_at) + '</span>' +
         '</div>';
     }).join('');
   }
