@@ -270,9 +270,13 @@
       dots.push('<circle cx="' + dp.x.toFixed(1) + '" cy="' + dp.y.toFixed(1) + '" r="1.8" fill="rgba(255,255,255,0.22)"/>');
     }
 
+    // 288px (was 248) — viewBox stays 0 0 264 264, the SVG ring/dots/knob
+    // scale up with it automatically. The overlaid text is plain HTML, not
+    // part of that scaling, so its sizes are bumped by the same ~16% ratio
+    // to match.
     return '' +
-      '<div style="position:relative;width:248px;height:248px;margin:0 auto;">' +
-        '<svg viewBox="0 0 264 264" style="width:248px;height:248px;">' +
+      '<div style="position:relative;width:288px;height:288px;margin:0 auto;">' +
+        '<svg viewBox="0 0 264 264" style="width:288px;height:288px;">' +
           '<defs><linearGradient id="' + gid + '" x1="0%" y1="0%" x2="100%" y2="100%">' +
             '<stop offset="0%" stop-color="#E4E7FC"/>' +
             '<stop offset="100%" stop-color="#5B7FDB"/>' +
@@ -287,10 +291,10 @@
           '</g>' +
         '</svg>' +
         '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
-          '<div style="font-size:44px;font-weight:800;color:#fff;line-height:1;">' + label + '</div>' +
-          '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.55);letter-spacing:.1em;margin-top:5px;">DAYS LEFT</div>' +
-          '<div style="margin-top:6px;max-width:100px;background:rgba(255,255,255,0.14);color:#fff;font-size:9px;font-weight:800;padding:4px 9px;border-radius:13px;letter-spacing:0;line-height:1.25;text-align:center;">' + esc(statusWord) + '</div>' +
-          (dueText ? '<div style="margin-top:7px;max-width:108px;font-size:9px;line-height:1.3;text-align:center;color:rgba(255,255,255,0.5);">' + esc(dueText) + '</div>' : '') +
+          '<div style="font-size:51px;font-weight:800;color:#fff;line-height:1;">' + label + '</div>' +
+          '<div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.55);letter-spacing:.1em;margin-top:5px;">DAYS LEFT</div>' +
+          '<div style="margin-top:6px;max-width:116px;background:rgba(255,255,255,0.14);color:#fff;font-size:10px;font-weight:800;padding:4px 9px;border-radius:13px;letter-spacing:0;line-height:1.25;text-align:center;">' + esc(statusWord) + '</div>' +
+          (dueText ? '<div style="margin-top:7px;max-width:125px;font-size:10px;line-height:1.3;text-align:center;color:rgba(255,255,255,0.5);">' + esc(dueText) + '</div>' : '') +
         '</div>' +
       '</div>';
   }
@@ -305,7 +309,7 @@
     var c = STATUS_COLORS[st];
     var dueText = m.unknown ? '' : fmtDate(expiry);
     return '' +
-      '<div style="flex:1 1 260px;max-width:280px;margin:0 auto;">' +
+      '<div style="flex:1 1 300px;max-width:320px;margin:0 auto;">' +
         gaugeCircular(m.pct, c.bar, m.remaining, title, dueText) +
       '</div>';
   }
