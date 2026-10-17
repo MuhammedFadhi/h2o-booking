@@ -354,7 +354,7 @@
     // .history-card elsewhere in the redesign, instead of sitting directly
     // on the page background with no boundary of its own.
     (dark
-      ? '<div style="background:linear-gradient(135deg,rgba(74,111,165,0.22),rgba(26,39,68,0.4));border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:18px;margin-bottom:20px;">'
+      ? '<div style="background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border:1px solid rgba(255,255,255,0.14);border-radius:20px;padding:18px;margin-bottom:20px;">'
       : '<div style="background:' + cardBg + ';border:1px solid var(--border,#CFD8DC);border-radius:16px;padding:16px;margin-bottom:14px;">') +
       '<div style="display:flex;gap:13px;align-items:flex-start;margin-bottom:13px;">' +
         '<img src="' + esc(img) + '" alt="" loading="lazy" ' +
