@@ -226,9 +226,10 @@
     var noteColor = dark ? 'rgba(255,255,255,0.6)' : 'var(--muted,#607D8B)';
     var dateColor = dark ? '#fff' : '#94A3B8';
     var borderColor = dark ? 'rgba(255,255,255,0.15)' : '#F8FAFC';
-    return history.map(function (h) {
+    return history.map(function (h, i) {
       var t = TYPE_META[h.service_type] || TYPE_META.other;
-      return '<div style="display:flex;gap:9px;padding:8px 0;border-bottom:1px solid ' + borderColor + ';">' +
+      var border = (i < history.length - 1) ? ('border-bottom:1px solid ' + borderColor + ';') : '';
+      return '<div style="display:flex;gap:9px;padding:8px 0;' + border + '">' +
           '<span style="display:inline-flex;align-items:center;color:' + (iconColor || t.color) + ';flex-shrink:0;">' + t.icon + '</span>' +
           '<div style="flex:1;min-width:0;">' +
             '<div style="font-size:15px;font-weight:15;color:' + (labelColor || t.color) + ';">' + t.label + '</div>' +
