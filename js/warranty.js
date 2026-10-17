@@ -360,8 +360,8 @@
              'style="width:56px;height:56px;object-fit:contain;background:#fff;border-radius:11px;padding:5px;flex-shrink:0;" ' +
              'onerror="this.src=\'/assets/models/purifier-generic.png\'">' +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:15px;font-weight:800;color:' + titleColor + ';word-break:break-word;">' + esc(u.product_type) + '</div>' +
-          (u.qr_code ? '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:' + mutedColor + ';word-break:break-all;margin-top:2px;">' + esc(u.qr_code) + '</div>' : '') +
+          '<div style="font-size:15px;font-weight:500;color:' + titleColor + ';word-break:break-word;">' + esc(u.product_type) + '</div>' +
+          (u.qr_code ? '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:500;color:' + mutedColor + ';word-break:break-all;margin-top:2px;">' + esc(u.qr_code) + '</div>' : '') +
           (u.quantity > 1 ? '<div style="font-size:10px;color:#92400E;background:#FEF3C7;display:inline-block;padding:2px 7px;border-radius:8px;margin-top:4px;font-weight:700;">×' + u.quantity + ' units on this record</div>' : '') +
         '</div>' +
         '<span style="background:' + wc.bg + ';color:' + wc.fg + ';font-size:10px;font-weight:800;padding:4px 9px;border-radius:10px;white-space:nowrap;">' +
