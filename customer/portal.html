@@ -51,18 +51,12 @@
        that opens the Profile modal. Flush to the top/left/right screen
        edges (per reference), rounded only at the bottom corners — not an
        inset floating card. */
-    header{background:var(--dark-grad-glass);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border:1px solid rgba(255,255,255,0.12);border-top:none;border-radius:0 0 26px 26px;padding:28px 20px 34px;padding-top:calc(28px + env(safe-area-inset-top));display:flex;align-items:center;gap:13px;box-shadow:0 14px 30px -14px rgba(5,6,10,0.45);}
-    .header-profile-btn{display:flex;align-items:center;gap:13px;flex:1;min-width:0;background:none;border:none;padding:0;cursor:pointer;text-align:left;font-family:inherit;}
-    .avatar-circle{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,0.14);border:1.5px solid rgba(255,255,255,0.35);color:white;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;flex-shrink:0;font-family:'DM Sans',sans-serif;}
-    .greet-text{flex:1;min-width:0;}
-    .greet-hi{font-size:13px;color:rgba(255,255,255,0.75);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .greet-hello{font-size:23px;font-weight:800;color:#fff;line-height:1.25;margin:2px 0 4px;}
+    /* Just the profile-icon button now (no name/greeting card) — same look
+       as .home-hero-avatar on the Home hero, no background/blur/shadow of
+       its own since there's no card left to give it one. */
+    header{padding:16px 20px;padding-top:calc(16px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:flex-end;}
     .icon-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:white;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;flex-shrink:0;transition:all 0.15s;}
     .icon-btn:hover{border-color:var(--red);color:var(--red);background:#FEF2F2;}
-    /* Same button, but sitting on the header's dark gradient — needs its
-       own (near-invisible otherwise) contrast, not .icon-btn's white-bg look. */
-    header .icon-btn{border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);}
-    header .icon-btn:hover{border-color:#fff;color:#fff;background:rgba(255,255,255,0.18);}
 
     /* HOME HERO — replaces the generic <header> only while the Home tab is
        active (toggled in switchTab()). Full-bleed like <header>, same
@@ -326,7 +320,7 @@
       .time-grid{grid-template-columns:repeat(2,1fr);}
       .booking-actions{flex-direction:column;}
       .booking-actions a,.booking-actions button{width:100%;justify-content:center;text-align:center;}
-      header{padding:24px 16px 28px;padding-top:calc(24px + env(safe-area-inset-top));}
+      header{padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));}
     }
     @media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}}
 
@@ -351,14 +345,9 @@
 <body>
 <div id="bg-anim"></div>
 <header style="display:none;">
-  <button class="header-profile-btn" onclick="openProfileModal()" title="My Profile">
-    <div class="avatar-circle" id="header-avatar">?</div>
-    <div class="greet-text">
-      <div class="greet-hi">Hi <span id="user-name-header">there</span></div>
-      <div class="greet-hello" id="greet-time">Good Morning</div>
-    </div>
+  <button class="home-hero-avatar" onclick="openProfileModal()" title="My Profile">
+    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></g></svg>
   </button>
-  <button class="icon-btn" onclick="logout()" title="Sign Out"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M14 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2"/><path d="M9 12h12l-3-3m0 6l3-3"/></g></svg></button>
 </header>
 
 <!-- HOME HERO — shown instead of <header> only while Home is the active tab
@@ -536,6 +525,7 @@
       <div class="form-group"><label>Address</label><input type="text" id="profile-address" placeholder="Your address"></div>
       <div class="form-group"><label>Phone (cannot be changed)</label><input type="text" id="profile-phone" disabled style="background:var(--bg);color:var(--muted);"></div>
       <button class="btn-primary" onclick="saveProfile()" style="width:100%;padding:14px;">Save Changes</button>
+      <button class="btn-outline" onclick="logout()" style="width:100%;padding:14px;margin-top:10px;color:var(--red);border-color:#FECACA;">Sign Out</button>
     </div>
    </div>
    </div>
@@ -601,8 +591,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   const { data: stillExists } = await db.from('customers').select('id').eq('phone', customer.phone).maybeSingle();
   if (!stillExists) { logout(); return; }
 
-  document.getElementById('user-name-header').textContent = customer.name || customer.phone;
-  setGreetTime();
   updateAvatars();
   loadProfile();
   loadHome();
@@ -820,16 +808,10 @@ async function loadProfile() {
   updateAvatars();
 }
 
-function setGreetTime() {
-  const h = new Date().getHours();
-  const el = document.getElementById('greet-time');
-  if (el) el.textContent = h < 12 ? 'Good Morning' : h < 17 ? 'Good Afternoon' : 'Good Evening';
-}
-
-// Both header + profile-tab avatar circles show the same initial.
+// The profile-tab avatar circle shows the customer's initial. The header no
+// longer has its own name/avatar display — just the profile icon button.
 function updateAvatars() {
   const initial = (customer.name || customer.phone || '?').trim().charAt(0).toUpperCase();
-  const h = document.getElementById('header-avatar'); if (h) h.textContent = initial;
   const p = document.getElementById('profile-avatar'); if (p) p.textContent = initial;
 }
 
@@ -840,7 +822,6 @@ async function saveProfile() {
   await db.from('customers').upsert({ phone: customer.phone, name, city, address, updated_at: new Date().toISOString() }, { onConflict: 'phone' });
   customer = { ...customer, name, city, address };
   localStorage.setItem('sada_customer', JSON.stringify(customer));
-  document.getElementById('user-name-header').textContent = name || customer.phone;
   document.getElementById('profile-name-display').textContent = name || 'My Account';
   updateAvatars();
   showToast('Profile saved!');
