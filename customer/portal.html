@@ -1238,7 +1238,9 @@ function bookBasketTotal() { return bookBasketLines().reduce((s, l) => s + l.pri
 // naturally proportional to quantity already, since it's a % of that line's
 // own subtotal. Each line's discount is capped at that line's own value.
 function bookPromoDiscountFor(lines, promo) {
+  const restrict = promo.applicable_products && promo.applicable_products.length ? new Set(promo.applicable_products) : null;
   return lines.reduce((sum, l) => {
+    if (restrict && !restrict.has(l.model)) return sum;
     const lineSubtotal = l.price * l.qty;
     let d = promo.discount_type === 'percent'
       ? lineSubtotal * (Number(promo.discount_value) / 100)
@@ -1279,7 +1281,11 @@ async function applyBookPromo() {
   bookPromo = data;
   updateBookBasketTotal();
   const off = bookPromo.discount_type === 'percent' ? `${bookPromo.discount_value}% off` : `SAR ${bookPromo.discount_value} off`;
-  show(`✓ Code applied — ${off}!`, true);
+  if (bookPromoDiscountFor(bookBasketLines(), bookPromo) <= 0 && bookBasketLines().length) {
+    show(`Code applied, but it doesn’t cover any product in your basket.`, false);
+  } else {
+    show(`✓ Code applied — ${off}!`, true);
+  }
 }
 
 async function loadBookDates() {
