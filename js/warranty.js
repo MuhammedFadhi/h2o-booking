@@ -291,10 +291,10 @@
           '</g>' +
         '</svg>' +
         '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
-          '<div style="font-size:51px;font-weight:800;color:#fff;line-height:1;">' + label + '</div>' +
-          '<div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.55);letter-spacing:.1em;margin-top:5px;">DAYS LEFT</div>' +
-          '<div style="margin-top:6px;max-width:116px;background:rgba(255,255,255,0.14);color:#fff;font-size:10px;font-weight:800;padding:4px 9px;border-radius:13px;letter-spacing:0;line-height:1.25;text-align:center;">' + esc(statusWord) + '</div>' +
-          (dueText ? '<div style="margin-top:7px;max-width:125px;font-size:10px;line-height:1.3;text-align:center;color:rgba(255,255,255,0.5);">' + esc(dueText) + '</div>' : '') +
+          '<div style="font-size:51px;font-weight:500;color:#fff;line-height:1;">' + label + '</div>' +
+          '<div style="font-size:12px;font-weight:500;color:rgba(255,255,255,0.55);letter-spacing:.1em;margin-top:5px;">DAYS LEFT</div>' +
+          '<div style="margin-top:6px;max-width:116px;background:rgba(255,255,255,0.14);color:#fff;font-size:10px;font-weight:500;padding:4px 9px;border-radius:13px;letter-spacing:0;line-height:1.25;text-align:center;">' + esc(statusWord) + '</div>' +
+          (dueText ? '<div style="margin-top:7px;max-width:125px;font-size:10px;font-weight:500;line-height:1.3;text-align:center;color:rgba(255,255,255,0.5);">' + esc(dueText) + '</div>' : '') +
         '</div>' +
       '</div>';
   }
