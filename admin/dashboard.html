@@ -17,7 +17,8 @@
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
   <link rel="stylesheet" href="../css/inspection-report.css">
   <script defer src="../js/inspection-report.js?v=4"></script>
-  <script defer src="../js/warranty.js"></script>
+  <script defer src="../js/warr
+  anty.js"></script>
   <script defer src="../js/warranty-certificate.js"></script>
   <script defer src="../js/city-normalize.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1764,6 +1765,12 @@
         </label>
       </div>
       <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="promo-all-products" checked style="width:auto;" onchange="promoAllProductsToggle()"> Applies to all products
+        </label>
+        <div id="promo-products-list" style="display:none;margin-top:8px;max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:10px 12px;"></div>
+      </div>
+      <div class="form-group">
         <label>Notes <span style="color:var(--muted);font-weight:400;">(internal, optional)</span></label>
         <input class="form-input" id="promo-notes" placeholder="e.g. Ramadan campaign">
       </div>
@@ -3193,7 +3200,9 @@ function abRenderBasket() {
 // Mirrors promoDiscountFor() in customer/book.html — kept as a separate copy since these
 // are independent static pages with no shared JS module.
 function abPromoDiscountFor(lines, promo) {
+  const restrict = promo.applicable_products && promo.applicable_products.length ? new Set(promo.applicable_products) : null;
   return lines.reduce((sum, l) => {
+    if (restrict && !restrict.has(l.model)) return sum;
     const lineSubtotal = (l.unit_price || 0) * l.qty;
     let d = promo.discount_type === 'percent'
       ? lineSubtotal * (Number(promo.discount_value) / 100)
@@ -3221,7 +3230,11 @@ async function abApplyPromo() {
   abPromo = data;
   abRenderBasket();
   const off = abPromo.discount_type === 'percent' ? `${abPromo.discount_value}% off` : `SAR ${abPromo.discount_value} off`;
-  show(`✓ Code applied — ${off}!`, true);
+  if (abPromoDiscountFor(abBasket, abPromo) <= 0 && abBasket.length) {
+    show(`Code applied, but it doesn’t cover any product in this basket.`, false);
+  } else {
+    show(`✓ Code applied — ${off}!`, true);
+  }
 }
 
 async function abBasketAdd() {
@@ -4081,7 +4094,9 @@ let basketEditState = { bookingId: null, lines: [], promo: null };
 // naturally proportional to quantity already, since it's a % of that line's
 // own subtotal. Each line's discount is capped at that line's own value.
 function basketPromoDiscountFor(lines, promo) {
+  const restrict = promo.applicable_products && promo.applicable_products.length ? new Set(promo.applicable_products) : null;
   return lines.reduce((sum, l) => {
+    if (restrict && !restrict.has(l.model)) return sum;
     const lineSubtotal = (l.unit_price || 0) * l.qty;
     let d = promo.discount_type === 'percent'
       ? lineSubtotal * (Number(promo.discount_value) / 100)
@@ -4108,7 +4123,11 @@ async function applyBasketPromo() {
   basketEditState.promo = data;
   renderBasketLines();
   const off = data.discount_type === 'percent' ? `${data.discount_value}% off` : `SAR ${data.discount_value} off`;
-  show(`✓ Code applied — ${off}!`, true);
+  if (basketPromoDiscountFor(basketEditState.lines, data) <= 0 && basketEditState.lines.length) {
+    show(`Code applied, but it doesn’t cover any product in this basket.`, false);
+  } else {
+    show(`✓ Code applied — ${off}!`, true);
+  }
 }
 
 function removeBasketPromo() {
@@ -4358,7 +4377,7 @@ function renderPromoCodes() {
       ? `${p.valid_from ? formatDateShort(p.valid_from) : '—'} → ${p.valid_until ? formatDateShort(p.valid_until) : '—'}`
       : 'No limit';
     return `<tr>
-      <td><strong style="font-family:monospace;font-size:14px;letter-spacing:.5px;">${escB(p.code)}</strong>${p.notes ? `<div style="font-size:11px;color:var(--muted);">${escB(p.notes)}</div>` : ''}</td>
+      <td><strong style="font-family:monospace;font-size:14px;letter-spacing:.5px;">${escB(p.code)}</strong>${p.notes ? `<div style="font-size:11px;color:var(--muted);">${escB(p.notes)}</div>` : ''}${p.applicable_products && p.applicable_products.length ? `<div style="font-size:11px;color:var(--muted);" title="${escB(p.applicable_products.join(', '))}">🎯 ${p.applicable_products.length} product${p.applicable_products.length !== 1 ? 's' : ''}</div>` : ''}</td>
       <td><strong>${offer}</strong> off</td>
       <td style="font-size:12px;">${validity}</td>
       <td style="text-align:center;"><strong style="font-size:16px;">${p.usage_count || 0}</strong><div style="font-size:10px;color:var(--muted);">uses</div></td>
@@ -4381,7 +4400,7 @@ function promoTypeHint() {
   document.getElementById('promo-value-hint').textContent = t === 'percent' ? '(%)' : '(SAR)';
 }
 
-function openPromoModal(id) {
+async function openPromoModal(id) {
   const p = id ? allPromoCodes.find(x => x.id === id) : null;
   document.getElementById('promo-modal-title').textContent = p ? 'Edit Promo Code' : 'New Promo Code';
   document.getElementById('promo-id').value = p ? p.id : '';
@@ -4393,8 +4412,29 @@ function openPromoModal(id) {
   document.getElementById('promo-active').checked = p ? p.is_active : true;
   document.getElementById('promo-notes').value = p && p.notes ? p.notes : '';
   document.getElementById('promo-error').style.display = 'none';
+  const restricted = !!(p && p.applicable_products && p.applicable_products.length);
+  document.getElementById('promo-all-products').checked = !restricted;
+  await renderPromoProductsList(restricted ? p.applicable_products : []);
+  promoAllProductsToggle();
   promoTypeHint();
   openModal('promo-modal');
+}
+
+function promoAllProductsToggle() {
+  const all = document.getElementById('promo-all-products').checked;
+  document.getElementById('promo-products-list').style.display = all ? 'none' : 'block';
+}
+
+// Checkbox list of catalogue products the admin can restrict a code to.
+async function renderPromoProductsList(selected) {
+  const cat = await getCatalogue();
+  const sellable = cat.filter(p => p.is_catalogue);
+  const list = sellable.length ? sellable : cat;
+  const sel = new Set(selected || []);
+  const host = document.getElementById('promo-products-list');
+  host.innerHTML = list.map(p => `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;">
+    <input type="checkbox" class="promo-product-cb" value="${escB(p.model_name)}" ${sel.has(p.model_name) ? 'checked' : ''} style="width:auto;"> ${escB(p.model_name)}
+  </label>`).join('');
 }
 
 async function savePromo() {
@@ -4408,16 +4448,19 @@ async function savePromo() {
   const until = document.getElementById('promo-until').value || null;
   const active = document.getElementById('promo-active').checked;
   const notes = (document.getElementById('promo-notes').value || '').trim() || null;
+  const allProducts = document.getElementById('promo-all-products').checked;
+  const applicable_products = allProducts ? null : Array.from(document.querySelectorAll('.promo-product-cb:checked')).map(cb => cb.value);
 
   const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
   if (!code) return fail('Enter a code.');
   if (!(value >= 0) || isNaN(value)) return fail('Enter a valid discount value.');
   if (type === 'percent' && value > 100) return fail('Percentage can\u2019t exceed 100%.');
   if (from && until && until < from) return fail('“Valid Until” is before “Valid From”.');
+  if (!allProducts && applicable_products.length === 0) return fail('Select at least one product, or uncheck “Applies to all products”.');
 
   const btn = document.getElementById('promo-save');
   btn.disabled = true; btn.textContent = 'Saving…';
-  const payload = { code, discount_type: type, discount_value: value, valid_from: from, valid_until: until, is_active: active, notes, updated_at: new Date().toISOString() };
+  const payload = { code, discount_type: type, discount_value: value, valid_from: from, valid_until: until, is_active: active, notes, applicable_products, updated_at: new Date().toISOString() };
   let error;
   if (id) ({ error } = await dbAdmin.from('promo_codes').update(payload).eq('id', id));
   else ({ error } = await dbAdmin.from('promo_codes').insert(payload));
