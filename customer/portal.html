@@ -164,6 +164,24 @@
     #book-modal .form-group select:disabled{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.4);}
     #book-modal .form-group select option{color:#1A2B47;}
 
+    /* PROFILE MODAL — same dark-glass treatment as #book-modal, in Inter
+       instead of the app-wide DM Sans/Playfair mix. */
+    #profile-modal .sheet-modal-inner{background:var(--deep);z-index:1;}
+    #profile-modal .book-modal-bg{position:fixed;inset:-6%;z-index:-1;pointer-events:none;
+      background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat;
+      animation:bgDrift 26s ease-in-out infinite alternate;will-change:transform;}
+    #profile-modal .sheet-modal-header{background:var(--dark-grad-glass);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border-bottom-color:rgba(255,255,255,0.12);}
+    #profile-modal .icon-btn{border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);}
+    #profile-modal .icon-btn:hover{border-color:#fff;color:#fff;background:rgba(255,255,255,0.18);}
+    #profile-modal #profile-phone-display{color:rgba(255,255,255,0.65);}
+    #profile-modal .form-group label{color:#fff;}
+    #profile-modal .form-group input{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.2);color:#fff;}
+    #profile-modal .form-group input::placeholder{color:rgba(255,255,255,0.4);}
+    #profile-modal .form-group input:disabled{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.4);}
+    #profile-modal, #profile-modal input, #profile-modal button{font-family:'Inter',sans-serif;}
+    #profile-modal .sheet-modal-header h2{font-family:'Inter',sans-serif;font-weight:500;color:#fff;}
+    #profile-modal .section-title{font-family:'Inter',sans-serif;font-weight:500;color:#fff;}
+
     /* Home quick-action card — non-SA'DA/self-reported customers get a
        one-tap shortcut into booking a Filter Change. */
     .quick-action-card{display:flex;align-items:center;gap:14px;background:white;border:1px solid var(--border);border-radius:16px;padding:16px;margin-top:14px;cursor:pointer;transition:all 0.15s;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
@@ -336,9 +354,10 @@
        specificity as the base #bg-anim/.sheet-modal-inner rules above,
        so source order is what makes this one win. */
     @media (hover:none) and (pointer:coarse){
-      #bg-anim, #book-modal .book-modal-bg{display:none;}
+      #bg-anim, #book-modal .book-modal-bg, #profile-modal .book-modal-bg{display:none;}
       body{background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat, var(--deep);}
       #book-modal .sheet-modal-inner{background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center top/cover no-repeat, var(--deep);}
+      #profile-modal .sheet-modal-inner{background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center top/cover no-repeat, var(--deep);}
     }
   </style>
 </head>
@@ -511,6 +530,7 @@
   <!-- MY PROFILE — a modal now, opened by tapping the header avatar/name. -->
   <div class="sheet-modal" id="profile-modal">
    <div class="sheet-modal-inner">
+    <div class="book-modal-bg"></div>
     <div class="sheet-modal-header">
       <button class="icon-btn" onclick="closeProfileModal()" title="Close"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 6l-6 6l6 6"/></svg></button>
       <h2>My Profile</h2>
