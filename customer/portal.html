@@ -356,8 +356,15 @@
        specificity as the base #bg-anim/.sheet-modal-inner rules above,
        so source order is what makes this one win. */
     @media (hover:none) and (pointer:coarse){
-      #bg-anim, #book-modal .book-modal-bg, #profile-modal .book-modal-bg{display:none;}
-      body{background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat, var(--deep);}
+      /* position:fixed itself jitters here (see note above) — instead of
+         hiding the layer, keep #bg-anim in normal flow (position:absolute,
+         no animation) and let the scroll listener below pin it to the
+         viewport via transform:translateY(scrollY). That avoids the native
+         fixed-position repaint bug while still giving the "background
+         stays put, card scrolls over it" effect the blur needs to be
+         visible. */
+      #bg-anim{position:absolute;inset:0 0 auto 0;height:100vh;height:100dvh;animation:none;}
+      #book-modal .book-modal-bg, #profile-modal .book-modal-bg{display:none;}
       #book-modal .sheet-modal-inner{background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center top/cover no-repeat, var(--deep);}
       #profile-modal .sheet-modal-inner{background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center top/cover no-repeat, var(--deep);}
     }
@@ -599,6 +606,24 @@ let bookMap = null, bookMarker = null;
 let bookRegionId = null;
 let regionsCache = [];
 let citiesCache = [];
+
+// Touch devices get #bg-anim as position:absolute instead of fixed (see the
+// @media(hover:none) rule) to dodge iOS Safari's fixed-position scroll
+// jitter. That alone would just scroll the background away with the page,
+// so this keeps it visually pinned to the viewport by translating it by the
+// current scroll offset every frame — same end result as position:fixed,
+// without the repaint bug.
+if (window.matchMedia('(hover:none) and (pointer:coarse)').matches) {
+  const bg = document.getElementById('bg-anim');
+  if (bg) {
+    let ticking = false;
+    const pin = () => { bg.style.transform = `translateY(${window.scrollY}px)`; ticking = false; };
+    window.addEventListener('scroll', () => {
+      if (!ticking) { requestAnimationFrame(pin); ticking = true; }
+    }, { passive: true });
+    pin();
+  }
+}
 
 window.addEventListener('DOMContentLoaded', async () => {
   const stored = localStorage.getItem('sada_customer');
