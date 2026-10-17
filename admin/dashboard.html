@@ -2039,8 +2039,8 @@ const dbAdmin = db;
 let installers = [];
 
 // Bookings table column sort — click a header to sort by it, click again to
-// flip direction. Default matches the query's own slot_date/slot_hour asc.
-let bookingSort = { col: 'schedule', dir: 'asc' };
+// flip direction. Default: newest (soonest/most recent) schedule date first.
+let bookingSort = { col: 'schedule', dir: 'desc' };
 function sortBookings(col) {
   if (bookingSort.col === col) bookingSort.dir = bookingSort.dir === 'asc' ? 'desc' : 'asc';
   else { bookingSort.col = col; bookingSort.dir = 'asc'; }
