@@ -6301,7 +6301,7 @@ async function loadSalesReport() {
   await dbAdmin.auth.getSession();
   const [{ data, error }, { data: bks, error: bErr }, { data: regions }] = await Promise.all([
     dbAdmin.from('leads').select('*').order('created_at', { ascending: false }).limit(2000),
-    dbAdmin.from('bookings').select('id, status, booking_type, customer_name, customer_phone, created_at, created_by_name, sales_agent, service_region_id, product_model'),
+    dbAdmin.from('bookings').select('id, status, booking_type, customer_name, customer_phone, created_at, created_by_name, sales_agent, service_region_id, product_model, product_qty, booking_items(product_model, qty)'),
     dbAdmin.from('service_regions').select('id, name')
   ]);
   if (error) { host.innerHTML = `<div class="empty-state">⚠️ Failed to load leads: ${escB(error.message)}</div>`; return; }
@@ -6334,7 +6334,7 @@ async function loadSalesReport() {
   const keepProduct = productSel.value;
   const products = [...new Set([
     ...allLeads.map(l => l.product_interest),
-    ...salesReportBookings.map(b => b.product_model)
+    ...salesReportBookings.flatMap(b => salesReportBookingItemsList(b).map(it => it.product_model))
   ].filter(Boolean))].sort();
   productSel.innerHTML = '<option value="">All products</option>' + products.map(p => `<option value="${escB(p)}">${escB(p)}</option>`).join('');
   if (keepProduct && products.includes(keepProduct)) productSel.value = keepProduct;
@@ -6397,21 +6397,42 @@ function salesReportStatusKey(l) {
 // common for admin-created bookings credited to a sales agent). Without this,
 // a sales agent's directly-booked jobs (Upcoming/Installed) never show up,
 // since the report used to read only the leads table.
+// A booking's full product list ([{product_model, qty}]) — from booking_items
+// when it has any (a multi-product sale), falling back to the booking's own
+// product_model/product_qty for older rows that predate booking_items or a
+// single-product sale that never got a line item of its own.
+function salesReportBookingItemsList(b) {
+  if (b && b.booking_items && b.booking_items.length) return b.booking_items;
+  return b && b.product_model ? [{ product_model: b.product_model, qty: b.product_qty || 1 }] : [];
+}
+
 function salesReportRows() {
   const linkedIds = new Set(allLeads.map(l => l.converted_booking_id).filter(Boolean));
   const bookingTypeById = {};
-  salesReportBookings.forEach(b => { bookingTypeById[b.id] = b.booking_type; });
-  const leadRows = allLeads.map(l => ({
-    name: l.name, phone: l.phone, createdAt: l.created_at, agent: l.created_by_name,
-    region: salesReportRegionName[l.region_id] || '—', product: l.product_interest || '—',
-    bookingType: bookingTypeById[l.converted_booking_id] || 'installation',
-    statusKey: salesReportStatusKey(l)
-  }));
+  const bookingsById = {};
+  salesReportBookings.forEach(b => { bookingTypeById[b.id] = b.booking_type; bookingsById[b.id] = b; });
+  // Every product a row sold, as a display string (joined, with ×qty) and a
+  // plain name list (for the Product filter, which needs to match a single
+  // product even when the booking had several).
+  const productFields = (items) => ({
+    products: items.map(it => it.product_model),
+    product: items.length ? items.map(it => `${it.product_model}${it.qty > 1 ? ` ×${it.qty}` : ''}`).join(', ') : '—'
+  });
+  const leadRows = allLeads.map(l => {
+    const linkedBooking = l.converted_booking_id ? bookingsById[l.converted_booking_id] : null;
+    const items = linkedBooking ? salesReportBookingItemsList(linkedBooking) : (l.product_interest ? [{ product_model: l.product_interest, qty: 1 }] : []);
+    return {
+      name: l.name, phone: l.phone, createdAt: l.created_at, agent: l.created_by_name,
+      region: salesReportRegionName[l.region_id] || '—', ...productFields(items),
+      bookingType: bookingTypeById[l.converted_booking_id] || 'installation',
+      statusKey: salesReportStatusKey(l)
+    };
+  });
   const directRows = salesReportBookings
     .filter(b => !linkedIds.has(b.id))
     .map(b => ({
       name: b.customer_name, phone: b.customer_phone, createdAt: b.created_at, agent: b.sales_agent || b.created_by_name,
-      region: salesReportRegionName[b.service_region_id] || '—', product: b.product_model || '—',
+      region: salesReportRegionName[b.service_region_id] || '—', ...productFields(salesReportBookingItemsList(b)),
       bookingType: b.booking_type || 'installation',
       statusKey: salesReportBookingOnlyStatus(b.status)
     }));
@@ -6429,7 +6450,7 @@ function filteredSalesReportRows() {
     if (from && d < from) return false;
     if (to && d > to) return false;
     if (agent && r.agent !== agent) return false;
-    if (product && r.product !== product) return false;
+    if (product && !r.products.includes(product)) return false;
     if (status && r.statusKey !== status) return false;
     return true;
   });
