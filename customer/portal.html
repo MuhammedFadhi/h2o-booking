@@ -86,9 +86,9 @@
     /* HOME ACTION CARDS — New Installation / Repair, sit on the page's own
        dark gradient (body already carries --dark-grad), just below the hero. */
     .home-actions{display:flex;flex-direction:column;gap:14px;margin-top:28px;}
-    .home-action-card{display:flex;align-items:center;gap:16px;width:100%;text-align:left;border:1px solid rgba(255,255,255,0.1);border-radius:18px;padding:18px 22px;cursor:pointer;transition:transform 0.15s;}
+    .home-action-card{display:flex;align-items:center;gap:16px;width:100%;text-align:left;border:1px solid rgba(255,255,255,0.14);border-radius:18px;padding:18px 22px;cursor:pointer;transition:transform 0.15s;}
     .home-action-card:hover{transform:translateY(-1px);}
-    .home-action-card.dark{background:linear-gradient(135deg,rgba(74,111,165,0.22),rgba(26,39,68,0.4));}
+    .home-action-card.dark{background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);}
     .home-action-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;background:rgba(255,255,255,0.14);color:#fff;}
     .home-action-text{flex:1;min-width:0;}
     .home-action-title{font-family:'Inter',sans-serif;font-weight:260;font-size:21px;color:#fff;margin-bottom:4px;}
@@ -202,14 +202,14 @@
     .book-bar svg{width:19px;height:19px;}
 
     /* Service tab — flat history feed (reuses js/warranty.js historyList(), dark=true). */
-    .history-card{background:linear-gradient(135deg,rgba(74,111,165,0.22),rgba(26,39,68,0.4));border-radius:18px;border:1px solid rgba(255,255,255,0.1);padding:6px 16px;}
+    .history-card{background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border-radius:18px;border:1px solid rgba(255,255,255,0.14);padding:6px 16px;}
 
     /* BOOKING CARDS — dark glass, matching the rest of the redesign. Rather
        than rewrite renderBookingCard()'s markup, redefine --text/--muted/
        --border/--bg locally: every descendant (inline style or CSS class)
        that reads var(--text) etc. picks up these dark-appropriate values
        automatically, without touching the JS. */
-    .booking-card{background:linear-gradient(135deg,rgba(74,111,165,0.22),rgba(26,39,68,0.4));border-radius:20px;border:1px solid rgba(255,255,255,0.1);overflow:hidden;margin-bottom:16px;transition:transform 0.15s;
+    .booking-card{background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border-radius:20px;border:1px solid rgba(255,255,255,0.14);overflow:hidden;margin-bottom:16px;transition:transform 0.15s;
       --text:#fff;--muted:rgba(255,255,255,0.55);--border:rgba(255,255,255,0.15);--bg:rgba(255,255,255,0.07);}
     .booking-card:hover{transform:translateY(-1px);}
     .booking-card-header{padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid rgba(255,255,255,0.12);}
@@ -261,7 +261,7 @@
     /* BOOK AGAIN — quick-action icon grid, same visual language as a
        marketplace app's service-category picker. */
     .type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;}
-    .type-card{border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:14px 8px;cursor:pointer;text-align:center;transition:all 0.15s;background:linear-gradient(135deg,rgba(74,111,165,0.22),rgba(26,39,68,0.4));}
+    .type-card{border:1px solid rgba(255,255,255,0.14);border-radius:16px;padding:14px 8px;cursor:pointer;text-align:center;transition:all 0.15s;background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);}
     .type-card:hover{transform:translateY(-1px);}
     .type-card.selected{border-color:var(--water);background:linear-gradient(135deg,var(--water),var(--ocean));}
     .type-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:20px;background:rgba(255,255,255,0.14);color:#fff;}
