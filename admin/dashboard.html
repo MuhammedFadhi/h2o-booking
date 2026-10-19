@@ -2043,7 +2043,10 @@ let installers = [];
 let bookingSort = { col: 'schedule', dir: 'desc' };
 function sortBookings(col) {
   if (bookingSort.col === col) bookingSort.dir = bookingSort.dir === 'asc' ? 'desc' : 'asc';
-  else { bookingSort.col = col; bookingSort.dir = 'asc'; }
+  // Booking ID's first click should land on newest-first (matching Schedule's
+  // own default), not the ascending-first behavior that makes sense for an
+  // alphabetical column like Customer/City.
+  else { bookingSort.col = col; bookingSort.dir = (col === 'reference') ? 'desc' : 'asc'; }
   loadBookings();
 }
 
