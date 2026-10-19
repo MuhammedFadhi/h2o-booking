@@ -703,11 +703,22 @@ async function loadHome() {
   try {
     const units = await SADA.Warranty.unitsForPhone(customer.phone);
     if (!units.length) {
-      el.innerHTML =
-        '<div class="empty-state"><div class="empty-icon">🛡️</div>' +
-        '<p style="font-weight:700;margin-bottom:6px;">No units registered yet</p>' +
-        '<p style="font-size:13px;line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty, or book a Filter Change below.</p>' +
-        '</div>';
+      // No warranty registered at all yet (not even pending) — if there's a
+      // real booking behind this customer, let them self-activate in-app
+      // instead of only offering the physical QR-sticker scan. Mirrors the
+      // same "any booking, any status, non-dispenser item" eligibility the
+      // activate_pending_warranty RPC itself already uses for a QR scan.
+      const eligible = await findActivatableBooking();
+      if (eligible) {
+        el.innerHTML = renderActivateCard(eligible.booking.booking_reference, eligible.productLabel, eligible.productModel);
+        switchTab('unit');
+      } else {
+        el.innerHTML =
+          '<div class="empty-state"><div class="empty-icon">🛡️</div>' +
+          '<p style="font-weight:700;margin-bottom:6px;">No units registered yet</p>' +
+          '<p style="font-size:13px;line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty, or book a Filter Change below.</p>' +
+          '</div>';
+      }
     } else {
       el.innerHTML = units.map((u, i) => SADA.Warranty.unitCard(u, i, 'circular')).join('');
     }
@@ -725,6 +736,88 @@ async function loadHome() {
     console.error('loadHome failed:', e);
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load your units. Please refresh.</p></div>';
   }
+}
+
+// IN-APP WARRANTY SELF-ACTIVATION — an alternative to the physical QR-sticker
+// scan (warranty/claim.html), for a customer who's logged into the portal but
+// hasn't scanned anything yet. Reuses the exact same activate_pending_warranty
+// RPC the sticker flow calls; the only difference is the serial is generated
+// here instead of being printed on a sticker, since there's no physical code
+// to read. The sticker flow itself is untouched by any of this.
+
+// Newest booking with at least one real (non-dispenser, serialized) product —
+// dispensers never get a warranty (same rule admin's own activation flow
+// uses), and status isn't gated the same way activate_pending_warranty's own
+// "any booking" eligibility isn't either.
+async function findActivatableBooking() {
+  const { data: bookings } = await db.from('bookings')
+    .select('booking_reference, product_model, product_qty, created_at, booking_items(product_model, qty, is_serialized)')
+    .eq('customer_phone', customer.phone)
+    .order('created_at', { ascending: false });
+  for (const b of (bookings || [])) {
+    const items = (b.booking_items && b.booking_items.length)
+      ? b.booking_items
+      : (b.product_model ? [{ product_model: b.product_model, is_serialized: true }] : []);
+    const real = items.filter(it => it.is_serialized !== false && !isBookDispenser(it.product_model));
+    if (real.length) return { booking: b, productLabel: real.map(it => it.product_model).join(', '), productModel: real[0].product_model };
+  }
+  return null;
+}
+
+// The product's own short code (e.g. "7 stage RO - A100" -> "A100") when the
+// model name ends in one, otherwise a derived one from its letters+digits —
+// this becomes the generated serial's prefix, same idea as a real unit's
+// manufacturer-printed serial always starting with its model code.
+function warrantySerialPrefix(modelName) {
+  const m = (modelName || '').match(/-\s*([A-Za-z0-9]{3,6})\s*$/);
+  if (m) return m[1].toUpperCase();
+  const digits = ((modelName || '').match(/\d+/) || [''])[0];
+  const letters = (modelName || '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
+  return (letters + digits).slice(0, 6) || 'RO';
+}
+
+// Avoids ambiguous-looking characters (0/O, 1/I) in the generated portion.
+function randomSerialSuffix(len) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+function renderActivateCard(bookingRef, productLabel, productModel) {
+  const encModel = escHtml(productModel || '');
+  return `<div style="background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border:1px solid rgba(255,255,255,0.14);border-radius:20px;padding:26px 22px;text-align:center;">
+    <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--water),var(--ocean));display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 8px 18px -6px rgba(21,101,192,0.55);">
+      <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"><g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 8.5-8 10c-4.5-1.5-8-5-8-10V7z"/><path d="M9 12l2 2l4-4"/></g></svg>
+    </div>
+    <p style="font-family:'Inter',sans-serif;font-weight:500;font-size:18px;color:#fff;margin-bottom:6px;">Activate Your Warranty</p>
+    <p style="font-size:13px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:18px;">Your purifier is installed — activate now to start your 2-year coverage.</p>
+    <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;margin-bottom:18px;text-align:left;">
+      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Booking</span><strong style="color:#fff;">${escHtml(bookingRef || '—')}</strong></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;"><span style="color:rgba(255,255,255,0.55);">Unit</span><strong style="color:#fff;">${escHtml(productLabel || '—')}</strong></div>
+    </div>
+    <div id="activate-card-action">
+      <button class="btn-primary" style="width:100%;padding:14px;" onclick="activateMyWarranty('${escHtml(bookingRef || '')}','${encModel}')">Activate Warranty</button>
+    </div>
+  </div>`;
+}
+
+async function activateMyWarranty(bookingRef, productModel) {
+  const host = document.getElementById('activate-card-action');
+  if (host) host.innerHTML = '<div class="loading" style="padding:14px 0;"><div class="spinner"></div> Activating your warranty…</div>';
+
+  const serial = warrantySerialPrefix(productModel) + randomSerialSuffix(8);
+  const { data, error } = await db.rpc('activate_pending_warranty', { p_phone: customer.phone, p_serial: serial });
+
+  if (error || !data || !data.ok) {
+    showToast('Could not activate — please try again.');
+    if (host) host.innerHTML = `<button class="btn-primary" style="width:100%;padding:14px;" onclick="activateMyWarranty('${escHtml(bookingRef || '')}','${escHtml(productModel || '')}')">Try Again</button>`;
+    return;
+  }
+
+  if (host) host.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;color:#4ADE80;font-family:\'Inter\',sans-serif;font-weight:500;font-size:14px;padding:4px 0;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="m5 12l5 5L20 7"/></svg> Warranty Activated!</div>';
+  showToast('Warranty activated — your unit is now covered.');
+  setTimeout(() => { loadHome(); loadHomeHero(); }, 1400);
 }
 
 // HOME HERO — greeting + a one-line summary of the featured (most recently
