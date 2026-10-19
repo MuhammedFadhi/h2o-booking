@@ -3111,7 +3111,7 @@ async function openAdminBookingModal() {
   const cat = await getCatalogue();
   const sellable = cat.filter(p=>p.is_catalogue);
   document.getElementById('ab-add-select').innerHTML = (sellable.length?sellable:cat).map(p =>
-    `<option value="${escB(p.model_name)}">${escB(p.model_name)}${p.price_sar?` — SAR ${Number(p.price_sar).toLocaleString('en-US')}`:''}${p.in_stock===false?' (Out of Stock)':''}</option>`).join('');
+    `<option value="${escB(p.model_name)}">${escB(p.model_name)}${p.price_sar?` — SAR ${Number(p.price_sar).toLocaleString('en-US')}`:''}</option>`).join('');
   abRenderBasket();
   ['ab-name','ab-phone','ab-address','ab-floor','ab-flat'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ab-status').value = 'upcoming';
@@ -4208,7 +4208,7 @@ async function editBookingProduct(bookingId) {
   const sel = document.getElementById('basket-add-select');
   const sellable = cat.filter(p => p.is_catalogue);
   sel.innerHTML = (sellable.length ? sellable : cat)
-    .map(p => `<option value="${escB(p.model_name)}">${escB(p.model_name)}${p.price_sar ? ` — SAR ${Number(p.price_sar).toLocaleString('en-US')}` : ''}${p.in_stock===false?' (Out of Stock)':''}</option>`).join('');
+    .map(p => `<option value="${escB(p.model_name)}">${escB(p.model_name)}${p.price_sar ? ` — SAR ${Number(p.price_sar).toLocaleString('en-US')}` : ''}</option>`).join('');
 
   document.getElementById('basket-error').style.display = 'none';
   renderBasketLines();
