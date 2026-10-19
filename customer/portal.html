@@ -798,6 +798,12 @@ function randomSerialSuffix(len) {
 function renderActivateCard(bookingRef, productLabel, productModel, bookingId) {
   const encModel = escHtml(productModel || '');
   const encId = escHtml(bookingId || '');
+  // Generated up front (not at click time) so the serial shown in the
+  // preview is the exact one that gets saved — activateMyWarranty() below
+  // reuses this same value rather than rolling a new one.
+  const serial = warrantySerialPrefix(productModel) + randomSerialSuffix(8);
+  const encSerial = escHtml(serial);
+  const todayLabel = SADA.Warranty.fmtDate(new Date());
   return `<div style="background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border:1px solid rgba(255,255,255,0.14);border-radius:20px;padding:26px 22px;text-align:center;">
     <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--water),var(--ocean));display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 8px 18px -6px rgba(21,101,192,0.55);">
       <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"><g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 8.5-8 10c-4.5-1.5-8-5-8-10V7z"/><path d="M9 12l2 2l4-4"/></g></svg>
@@ -805,25 +811,26 @@ function renderActivateCard(bookingRef, productLabel, productModel, bookingId) {
     <p style="font-family:'Inter',sans-serif;font-weight:500;font-size:18px;color:#fff;margin-bottom:6px;">Activate Your Warranty</p>
     <p style="font-size:13px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:18px;">Your purifier is installed — activate now to start your 2-year coverage.</p>
     <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;margin-bottom:18px;text-align:left;">
-      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Booking</span><strong style="color:#fff;">${escHtml(bookingRef || '—')}</strong></div>
-      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;"><span style="color:rgba(255,255,255,0.55);">Unit</span><strong style="color:#fff;">${escHtml(productLabel || '—')}</strong></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Booking ID</span><strong style="color:#fff;">${escHtml(bookingRef || '—')}</strong></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Model No</span><strong style="color:#fff;">${escHtml(productLabel || '—')}</strong></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Serial No</span><strong style="color:#fff;">${encSerial}</strong></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;"><span style="color:rgba(255,255,255,0.55);">Installed</span><strong style="color:#fff;">${todayLabel}</strong></div>
     </div>
     <div id="activate-card-action">
-      <button class="btn-primary" style="width:100%;padding:14px;" onclick="activateMyWarranty('${escHtml(bookingRef || '')}','${encModel}','${encId}')">Activate Warranty</button>
+      <button class="btn-primary" style="width:100%;padding:14px;" onclick="activateMyWarranty('${escHtml(bookingRef || '')}','${encId}','${encSerial}')">Activate Warranty</button>
     </div>
   </div>`;
 }
 
-async function activateMyWarranty(bookingRef, productModel, bookingId) {
+async function activateMyWarranty(bookingRef, bookingId, serial) {
   const host = document.getElementById('activate-card-action');
   if (host) host.innerHTML = '<div class="loading" style="padding:14px 0;"><div class="spinner"></div> Activating your warranty…</div>';
 
-  const serial = warrantySerialPrefix(productModel) + randomSerialSuffix(8);
   const { data, error } = await db.rpc('activate_pending_warranty', { p_phone: customer.phone, p_serial: serial, p_booking_id: bookingId || null });
 
   if (error || !data || !data.ok) {
     showToast('Could not activate — please try again.');
-    if (host) host.innerHTML = `<button class="btn-primary" style="width:100%;padding:14px;" onclick="activateMyWarranty('${escHtml(bookingRef || '')}','${escHtml(productModel || '')}','${escHtml(bookingId || '')}')">Try Again</button>`;
+    if (host) host.innerHTML = `<button class="btn-primary" style="width:100%;padding:14px;" onclick="activateMyWarranty('${escHtml(bookingRef || '')}','${escHtml(bookingId || '')}','${escHtml(serial || '')}')">Try Again</button>`;
     return;
   }
 
