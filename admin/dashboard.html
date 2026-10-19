@@ -2371,10 +2371,13 @@ async function loadBookings() {
       case 'customer': return (b.customer_name || '').toLowerCase();
       case 'city': return (b.city_name || '').toLowerCase();
       case 'schedule': return `${b.slot_date || ''} ${String(b.slot_hour ?? '').padStart(2, '0')}`;
-      // The leading number in "SW-<n>..." is a single globally-incrementing
-      // sequence (see migrations/v55) — always higher for a newer booking,
-      // regardless of type, so this doubles as a "newest first" sort.
-      case 'reference': return parseInt((b.booking_reference || '').match(/\d+/)?.[0] || '0', 10);
+      // Sort by actual creation time rather than parsing the reference text —
+      // legacy bookings (before migrations/v55 introduced the SW-<n> global
+      // sequence) kept their old "SW-YYYYMMDD-XXXXXX" format, and that
+      // embedded date would misparse as a huge sequence number, wrongly
+      // sorting an old booking above real SW-<n> ones. created_at always
+      // matches true booking order, old or new format alike.
+      case 'reference': return new Date(b.created_at || 0).getTime();
       case 'created_by': return (b.created_by_name || (b.created_by === 'customer' ? 'Customer' : '')).toLowerCase();
       case 'sales_agent': return (b.sales_agent || '').toLowerCase();
       case 'installer': return (b.installers?.name || '').toLowerCase();
