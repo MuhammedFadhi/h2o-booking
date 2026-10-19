@@ -3261,7 +3261,9 @@ async function abBasketAdd() {
   if (!name) return;
   const cat = await getCatalogue();
   const p = cat.find(x => x.model_name === name);
-  if (p?.in_stock === false) { showToast(`${name} is out of stock`, 'error'); return; }
+  // Out-of-stock only blocks the customer-facing booking flow — admin can
+  // still add one here (e.g. a pre-order, or stock that's physically on
+  // hand but not yet flagged back in).
   const isDisp = isDispenserName(name);
   // If same product+colour already present, bump qty. For dispensers, a new add defaults to Black
   // and is treated as a separate colour line only if a different colour is chosen later.
@@ -4256,7 +4258,9 @@ function basketAddLine() {
   if (!name) return;
   const cat = window.__catalogue || [];
   const match = cat.find(p => p.model_name === name);
-  if (match?.in_stock === false) { showToast(`${name} is out of stock`, 'error'); return; }
+  // Out-of-stock only blocks the customer-facing booking flow — admin can
+  // still add one here (e.g. a pre-order, or stock that's physically on
+  // hand but not yet flagged back in).
   // If this product is already a line, just bump its qty.
   const existing = basketEditState.lines.find(l => l.model === name);
   if (existing) { existing.qty += 1; renderBasketLines(); return; }
