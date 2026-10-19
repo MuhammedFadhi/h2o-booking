@@ -2368,6 +2368,10 @@ async function loadBookings() {
       case 'customer': return (b.customer_name || '').toLowerCase();
       case 'city': return (b.city_name || '').toLowerCase();
       case 'schedule': return `${b.slot_date || ''} ${String(b.slot_hour ?? '').padStart(2, '0')}`;
+      // The leading number in "SW-<n>..." is a single globally-incrementing
+      // sequence (see migrations/v55) — always higher for a newer booking,
+      // regardless of type, so this doubles as a "newest first" sort.
+      case 'reference': return parseInt((b.booking_reference || '').match(/\d+/)?.[0] || '0', 10);
       case 'created_by': return (b.created_by_name || (b.created_by === 'customer' ? 'Customer' : '')).toLowerCase();
       case 'sales_agent': return (b.sales_agent || '').toLowerCase();
       case 'installer': return (b.installers?.name || '').toLowerCase();
@@ -2404,10 +2408,10 @@ async function loadBookings() {
   const rows = filtered.map((b, i) => { const tc = bookingTypeColor(b.booking_type); return `
     <tr>
       <td data-label="#" style="text-align:center;color:var(--muted);font-size:12px;">${i + 1}</td>
+      <td data-label="Booking ID" style="font-size:12px;color:var(--muted);white-space:nowrap;">${b.booking_reference || '—'}</td>
       <td data-label="Customer">
         <div style="font-weight:600;">${b.customer_name}</div>
         <div style="font-size:12px; color:var(--muted);">${b.customer_phone}</div>
-        <div style="font-size:11px; color:var(--muted);">${b.booking_reference || ''}</div>
         <div style="margin-top:3px;">
           <span style="font-size:10px;font-weight:700;color:${tc.fg};background:${tc.bg};display:inline-block;padding:1px 7px;border-radius:8px;text-transform:uppercase;letter-spacing:0.3px;">${bookingTypeLabel(b.booking_type)}</span>
           <button class="btn btn-ghost btn-sm" onclick="editBookingType('${b.id}','${b.booking_type || ''}')" style="padding:0 4px;font-size:10px;" title="Edit service type">${ICON_PENCIL}</button>
@@ -2466,6 +2470,7 @@ async function loadBookings() {
       <thead>
         <tr>
           <th style="width:34px;text-align:center;color:var(--muted);">#</th>
+          ${thSort('Booking ID', 'reference')}
           ${thSort('Customer', 'customer')}
           ${thSort('City', 'city')}
           ${thSort('Schedule', 'schedule')}
