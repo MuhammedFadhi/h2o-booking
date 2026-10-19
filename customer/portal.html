@@ -718,7 +718,7 @@ async function loadHome() {
     const eligible = await findActivatableBooking(units);
     const unitCardsHtml = units.map((u, i) => SADA.Warranty.unitCard(u, i, 'circular')).join('');
     const activateCardHtml = eligible
-      ? renderActivateCard(eligible.booking.booking_reference, eligible.productLabel, eligible.productModel, eligible.booking.id)
+      ? renderActivateCard(eligible.booking.booking_reference, eligible.productLabel, eligible.productModel, eligible.booking.id, eligible.unitIndex, eligible.unitTotal)
       : '';
     if (!units.length && !eligible) {
       el.innerHTML =
@@ -754,27 +754,38 @@ async function loadHome() {
 // here instead of being printed on a sticker, since there's no physical code
 // to read. The sticker flow itself is untouched by any of this.
 
-// Newest booking that (a) has at least one real (non-dispenser, serialized)
-// product — dispensers never get a warranty, same rule admin's own
-// activation flow uses — and (b) isn't already linked to one of this
-// customer's existing warranties via booking_id. (b) is what lets a
-// customer with two or more installations still get offered activation for
-// a later one, instead of the prompt disappearing forever after their
-// first. Status isn't gated here either, matching activate_pending_
+// Newest booking that still needs a warranty — (a) has at least one real
+// (non-dispenser, serialized) product, dispensers never getting a warranty
+// like admin's own activation flow, and (b) has fewer existing warranties
+// linked to it (via booking_id) than its serialized quantity calls for. A
+// "7 stage RO - A100 ×2" line needs TWO warranties — one per physical
+// unit — so a booking isn't done after just one; this is also what lets a
+// customer with multiple separate installations keep getting offered the
+// next one. Status isn't gated here either, matching activate_pending_
 // warranty's own "any booking" eligibility.
 async function findActivatableBooking(units) {
-  const linkedBookingIds = new Set((units || []).map(u => u.booking_id).filter(Boolean));
+  const countByBooking = {};
+  (units || []).forEach(u => { if (u.booking_id) countByBooking[u.booking_id] = (countByBooking[u.booking_id] || 0) + 1; });
   const { data: bookings } = await db.from('bookings')
     .select('id, booking_reference, product_model, product_qty, created_at, booking_items(product_model, qty, is_serialized)')
     .eq('customer_phone', customer.phone)
     .order('created_at', { ascending: false });
   for (const b of (bookings || [])) {
-    if (linkedBookingIds.has(b.id)) continue;
     const items = (b.booking_items && b.booking_items.length)
       ? b.booking_items
-      : (b.product_model ? [{ product_model: b.product_model, is_serialized: true }] : []);
+      : (b.product_model ? [{ product_model: b.product_model, qty: b.product_qty || 1, is_serialized: true }] : []);
     const real = items.filter(it => it.is_serialized !== false && !isBookDispenser(it.product_model));
-    if (real.length) return { booking: b, productLabel: real.map(it => it.product_model).join(', '), productModel: real[0].product_model };
+    const targetQty = real.reduce((s, it) => s + (it.qty || 1), 0);
+    const already = countByBooking[b.id] || 0;
+    if (real.length && already < targetQty) {
+      return {
+        booking: b,
+        productLabel: real.map(it => it.product_model).join(', '),
+        productModel: real[0].product_model,
+        unitIndex: already + 1,
+        unitTotal: targetQty
+      };
+    }
   }
   return null;
 }
@@ -799,7 +810,7 @@ function randomSerialSuffix(len) {
   return s;
 }
 
-function renderActivateCard(bookingRef, productLabel, productModel, bookingId) {
+function renderActivateCard(bookingRef, productLabel, productModel, bookingId, unitIndex, unitTotal) {
   const encModel = escHtml(productModel || '');
   const encId = escHtml(bookingId || '');
   // Generated up front (not at click time) so the serial shown in the
@@ -808,15 +819,20 @@ function renderActivateCard(bookingRef, productLabel, productModel, bookingId) {
   const serial = warrantySerialPrefix(productModel) + randomSerialSuffix(8);
   const encSerial = escHtml(serial);
   const todayLabel = SADA.Warranty.fmtDate(new Date());
+  // A "7 stage RO - A100 ×2" booking is two physical units needing two
+  // separate warranties — flag which one this card is for so it's clear
+  // why the prompt shows again right after activating the first.
+  const multi = unitTotal > 1;
+  const modelRow = multi ? `${escHtml(productLabel || '—')} <span style="color:rgba(255,255,255,0.5);font-weight:400;">(Unit ${unitIndex} of ${unitTotal})</span>` : escHtml(productLabel || '—');
   return `<div style="background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border:1px solid rgba(255,255,255,0.14);border-radius:20px;padding:26px 22px;text-align:center;">
     <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--water),var(--ocean));display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 8px 18px -6px rgba(21,101,192,0.55);">
       <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"><g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 8.5-8 10c-4.5-1.5-8-5-8-10V7z"/><path d="M9 12l2 2l4-4"/></g></svg>
     </div>
-    <p style="font-family:'Inter',sans-serif;font-weight:500;font-size:18px;color:#fff;margin-bottom:6px;">Activate Your Warranty</p>
-    <p style="font-size:13px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:18px;">Your purifier is installed — activate now to start your 2-year coverage.</p>
+    <p style="font-family:'Inter',sans-serif;font-weight:500;font-size:18px;color:#fff;margin-bottom:6px;">Activate Your Warranty${multi ? ` (${unitIndex}/${unitTotal})` : ''}</p>
+    <p style="font-size:13px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:18px;">${multi ? 'This booking has multiple units — activate them one at a time.' : 'Your purifier is installed — activate now to start your 2-year coverage.'}</p>
     <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;margin-bottom:18px;text-align:left;">
       <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Booking ID</span><strong style="color:#fff;">${escHtml(bookingRef || '—')}</strong></div>
-      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Model No</span><strong style="color:#fff;">${escHtml(productLabel || '—')}</strong></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Model No</span><strong style="color:#fff;">${modelRow}</strong></div>
       <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Serial No</span><strong style="color:#fff;">${encSerial}</strong></div>
       <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;"><span style="color:rgba(255,255,255,0.55);">Installed</span><strong style="color:#fff;">${todayLabel}</strong></div>
     </div>
