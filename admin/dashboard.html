@@ -3777,6 +3777,7 @@ async function viewBooking(bookingId) {
           <div><span style="color:var(--muted);">Time: </span><strong>${formatHour(b.slot_hour)}</strong></div>
           <div><span style="color:var(--muted);">Assigned to: </span><strong>${b.installers?.name || 'Unassigned'}</strong></div>
           ${b.rescheduled_at ? `<div><span style="color:var(--muted);">Rescheduled: </span><strong>${formatDateTime(b.rescheduled_at)}</strong></div>` : ''}
+          ${b.notes ? `<div><span style="color:var(--muted);">Notes: </span><strong>${W.esc(b.notes)}</strong></div>` : ''}
         </div>
       </div>
       ${proofHtml}

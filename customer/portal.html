@@ -495,6 +495,10 @@
       </div>
       <div id="book-promo-msg" style="font-size:12px;margin-top:6px;display:none;"></div>
     </div>
+    <div class="form-group" id="book-unit-section" style="display:none;">
+      <label>Which Unit?</label>
+      <select id="book-unit-select"></select>
+    </div>
     <div class="form-group">
       <label>Region</label>
       <select id="book-region" onchange="onBookRegionChange()"><option value="">Loading regions…</option></select>
@@ -1241,6 +1245,28 @@ function selectType(type) {
   const showProducts = type === 'installation';
   document.getElementById('book-product-section').style.display = showProducts ? '' : 'none';
   if (showProducts && !bookProductsLoaded) loadBookProducts();
+
+  // Filter Change / Repair are for an EXISTING unit, but previously had no
+  // way to say which one — a customer with 2+ registered units just booked
+  // a generic visit with no unit reference at all. Offer a picker only when
+  // it's actually ambiguous (more than one unit); hidden for exactly one.
+  document.getElementById('book-unit-section').style.display = 'none';
+  if (type === 'quarterly_service' || type === 'repair') loadBookUnitPicker();
+  else bookUnitsCache = [];
+}
+
+let bookUnitsCache = [];
+async function loadBookUnitPicker() {
+  const section = document.getElementById('book-unit-section');
+  const sel = document.getElementById('book-unit-select');
+  if (!window.SADA || !window.SADA.Warranty) { bookUnitsCache = []; return; }
+  const units = await SADA.Warranty.unitsForPhone(customer.phone);
+  bookUnitsCache = units;
+  if (units.length <= 1) return;
+  sel.innerHTML = units.map(u =>
+    `<option value="${escHtml(u.id)}">${escHtml(u.product_type || 'Unit')}${u.qr_code ? ' — ' + escHtml(u.qr_code) : ''}</option>`
+  ).join('');
+  section.style.display = '';
 }
 
 // ── PRODUCTS + PROMO (Installation only) — mirrors book.html's basket/promo logic ──
@@ -1518,6 +1544,11 @@ async function submitNewBooking() {
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
   const discount = (lines.length && bookPromo) ? bookPromoDiscountFor(lines, bookPromo) : 0;
   const primary = lines.length ? lines.slice().sort((a, b) => (b.price*b.qty) - (a.price*a.qty))[0] : null;
+  // "Which unit?" picker — only present (and only matters) for Filter
+  // Change/Repair with 2+ registered units.
+  const selectedUnit = (document.getElementById('book-unit-section').style.display !== 'none')
+    ? bookUnitsCache.find(u => u.id === document.getElementById('book-unit-select').value)
+    : null;
 
   const { data: booking, error } = await db.from('bookings').insert({
     customer_name: customer.name, customer_email: '', customer_phone: customer.phone,
@@ -1530,6 +1561,10 @@ async function submitNewBooking() {
       order_total: subtotal,
       promo_code: bookPromo ? bookPromo.code : null,
       discount_amount: discount || null
+    } : {}),
+    ...(selectedUnit ? {
+      product_model: selectedUnit.product_type, product_qty: 1,
+      notes: `For unit: ${selectedUnit.product_type}${selectedUnit.qr_code ? ' (Serial ' + selectedUnit.qr_code + ')' : ''}`
     } : {})
   }).select().maybeSingle();
   if (error || !booking) {
@@ -1551,6 +1586,12 @@ async function submitNewBooking() {
       unit_price: l.price, is_serialized: l.is_serialized
     })));
     // Promo usage is counted when the admin marks the job completed, not here.
+  } else if (selectedUnit) {
+    // Keeps the Bookings table / Sales Report's existing booking_items-first
+    // display logic working the same way it already does for Installation.
+    await db.from('booking_items').insert([{
+      booking_id: booking.id, product_model: selectedUnit.product_type, qty: 1, is_serialized: true
+    }]);
   }
   // Persist region so next Book Again pre-fills.
   customer.regionId = bookRegionId; customer.city = cityName;
