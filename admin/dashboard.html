@@ -2371,7 +2371,15 @@ async function loadBookings() {
     switch (bookingSort.col) {
       case 'customer': return (b.customer_name || '').toLowerCase();
       case 'city': return (b.city_name || '').toLowerCase();
-      case 'schedule': return `${b.slot_date || ''} ${String(b.slot_hour ?? '').padStart(2, '0')}`;
+      // With the "All time" default range filter, plain ascending-by-date
+      // would put the OLDEST past booking at the very top instead of
+      // today's — bucket past-vs-upcoming first so today/future always
+      // sorts ahead of any past booking, then order chronologically within
+      // each bucket.
+      case 'schedule': {
+        const bucket = (b.slot_date || '') < localDateISO(new Date()) ? '1' : '0';
+        return `${bucket}${b.slot_date || ''} ${String(b.slot_hour ?? '').padStart(2, '0')}`;
+      }
       // Sort by actual creation time rather than parsing the reference text —
       // legacy bookings (before migrations/v55 introduced the SW-<n> global
       // sequence) kept their old "SW-YYYYMMDD-XXXXXX" format, and that
