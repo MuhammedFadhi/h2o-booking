@@ -702,25 +702,30 @@ async function loadHome() {
   }
   try {
     const units = await SADA.Warranty.unitsForPhone(customer.phone);
-    if (!units.length) {
-      // No warranty registered at all yet (not even pending) — if there's a
-      // real booking behind this customer, let them self-activate in-app
-      // instead of only offering the physical QR-sticker scan. Mirrors the
-      // same "any booking, any status, non-dispenser item" eligibility the
-      // activate_pending_warranty RPC itself already uses for a QR scan.
-      const eligible = await findActivatableBooking();
-      if (eligible) {
-        el.innerHTML = renderActivateCard(eligible.booking.booking_reference, eligible.productLabel, eligible.productModel);
-        switchTab('unit');
-      } else {
-        el.innerHTML =
-          '<div class="empty-state"><div class="empty-icon">🛡️</div>' +
-          '<p style="font-weight:700;margin-bottom:6px;">No units registered yet</p>' +
-          '<p style="font-size:13px;line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty, or book a Filter Change below.</p>' +
-          '</div>';
-      }
+    // Any booking that still needs its warranty activated — checked against
+    // EVERY existing warranty's own booking_id (not just "does the customer
+    // have zero warranties total"), so a customer with two or more
+    // installations still gets offered activation for a later one even
+    // after an earlier one is already done. If there's a real booking
+    // behind this customer, let them self-activate in-app instead of only
+    // offering the physical QR-sticker scan. Mirrors the same "any booking,
+    // any status, non-dispenser item" eligibility the activate_pending_
+    // warranty RPC itself already uses for a QR scan.
+    const eligible = await findActivatableBooking(units);
+    const unitCardsHtml = units.map((u, i) => SADA.Warranty.unitCard(u, i, 'circular')).join('');
+    const activateCardHtml = eligible
+      ? renderActivateCard(eligible.booking.booking_reference, eligible.productLabel, eligible.productModel, eligible.booking.id)
+      : '';
+    if (!units.length && !eligible) {
+      el.innerHTML =
+        '<div class="empty-state"><div class="empty-icon">🛡️</div>' +
+        '<p style="font-weight:700;margin-bottom:6px;">No units registered yet</p>' +
+        '<p style="font-size:13px;line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty, or book a Filter Change below.</p>' +
+        '</div>';
     } else {
-      el.innerHTML = units.map((u, i) => SADA.Warranty.unitCard(u, i, 'circular')).join('');
+      // Activation prompt first (most actionable), existing units below.
+      el.innerHTML = activateCardHtml + (activateCardHtml && unitCardsHtml ? '<div style="height:16px;"></div>' : '') + unitCardsHtml;
+      if (eligible) switchTab('unit');
     }
     const hasRealUnit = units.some(u => u.source !== 'self_reported');
     qaHost.innerHTML = hasRealUnit ? '' : `
@@ -745,16 +750,22 @@ async function loadHome() {
 // here instead of being printed on a sticker, since there's no physical code
 // to read. The sticker flow itself is untouched by any of this.
 
-// Newest booking with at least one real (non-dispenser, serialized) product —
-// dispensers never get a warranty (same rule admin's own activation flow
-// uses), and status isn't gated the same way activate_pending_warranty's own
-// "any booking" eligibility isn't either.
-async function findActivatableBooking() {
+// Newest booking that (a) has at least one real (non-dispenser, serialized)
+// product — dispensers never get a warranty, same rule admin's own
+// activation flow uses — and (b) isn't already linked to one of this
+// customer's existing warranties via booking_id. (b) is what lets a
+// customer with two or more installations still get offered activation for
+// a later one, instead of the prompt disappearing forever after their
+// first. Status isn't gated here either, matching activate_pending_
+// warranty's own "any booking" eligibility.
+async function findActivatableBooking(units) {
+  const linkedBookingIds = new Set((units || []).map(u => u.booking_id).filter(Boolean));
   const { data: bookings } = await db.from('bookings')
-    .select('booking_reference, product_model, product_qty, created_at, booking_items(product_model, qty, is_serialized)')
+    .select('id, booking_reference, product_model, product_qty, created_at, booking_items(product_model, qty, is_serialized)')
     .eq('customer_phone', customer.phone)
     .order('created_at', { ascending: false });
   for (const b of (bookings || [])) {
+    if (linkedBookingIds.has(b.id)) continue;
     const items = (b.booking_items && b.booking_items.length)
       ? b.booking_items
       : (b.product_model ? [{ product_model: b.product_model, is_serialized: true }] : []);
@@ -784,8 +795,9 @@ function randomSerialSuffix(len) {
   return s;
 }
 
-function renderActivateCard(bookingRef, productLabel, productModel) {
+function renderActivateCard(bookingRef, productLabel, productModel, bookingId) {
   const encModel = escHtml(productModel || '');
+  const encId = escHtml(bookingId || '');
   return `<div style="background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border:1px solid rgba(255,255,255,0.14);border-radius:20px;padding:26px 22px;text-align:center;">
     <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--water),var(--ocean));display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 8px 18px -6px rgba(21,101,192,0.55);">
       <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"><g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 8.5-8 10c-4.5-1.5-8-5-8-10V7z"/><path d="M9 12l2 2l4-4"/></g></svg>
@@ -797,21 +809,21 @@ function renderActivateCard(bookingRef, productLabel, productModel) {
       <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;"><span style="color:rgba(255,255,255,0.55);">Unit</span><strong style="color:#fff;">${escHtml(productLabel || '—')}</strong></div>
     </div>
     <div id="activate-card-action">
-      <button class="btn-primary" style="width:100%;padding:14px;" onclick="activateMyWarranty('${escHtml(bookingRef || '')}','${encModel}')">Activate Warranty</button>
+      <button class="btn-primary" style="width:100%;padding:14px;" onclick="activateMyWarranty('${escHtml(bookingRef || '')}','${encModel}','${encId}')">Activate Warranty</button>
     </div>
   </div>`;
 }
 
-async function activateMyWarranty(bookingRef, productModel) {
+async function activateMyWarranty(bookingRef, productModel, bookingId) {
   const host = document.getElementById('activate-card-action');
   if (host) host.innerHTML = '<div class="loading" style="padding:14px 0;"><div class="spinner"></div> Activating your warranty…</div>';
 
   const serial = warrantySerialPrefix(productModel) + randomSerialSuffix(8);
-  const { data, error } = await db.rpc('activate_pending_warranty', { p_phone: customer.phone, p_serial: serial });
+  const { data, error } = await db.rpc('activate_pending_warranty', { p_phone: customer.phone, p_serial: serial, p_booking_id: bookingId || null });
 
   if (error || !data || !data.ok) {
     showToast('Could not activate — please try again.');
-    if (host) host.innerHTML = `<button class="btn-primary" style="width:100%;padding:14px;" onclick="activateMyWarranty('${escHtml(bookingRef || '')}','${escHtml(productModel || '')}')">Try Again</button>`;
+    if (host) host.innerHTML = `<button class="btn-primary" style="width:100%;padding:14px;" onclick="activateMyWarranty('${escHtml(bookingRef || '')}','${escHtml(productModel || '')}','${escHtml(bookingId || '')}')">Try Again</button>`;
     return;
   }
 
