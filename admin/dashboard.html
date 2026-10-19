@@ -2039,13 +2039,14 @@ const dbAdmin = db;
 let installers = [];
 
 // Bookings table column sort — click a header to sort by it, click again to
-// flip direction. Default: newest (soonest/most recent) schedule date first.
-let bookingSort = { col: 'schedule', dir: 'desc' };
+// flip direction. Default: soonest schedule date first (today's jobs on top).
+let bookingSort = { col: 'schedule', dir: 'asc' };
 function sortBookings(col) {
   if (bookingSort.col === col) bookingSort.dir = bookingSort.dir === 'asc' ? 'desc' : 'asc';
-  // Booking ID's first click should land on newest-first (matching Schedule's
-  // own default), not the ascending-first behavior that makes sense for an
-  // alphabetical column like Customer/City.
+  // Booking ID's first click lands on newest-first (unlike Schedule's
+  // soonest-first default) since a booking ID has no "upcoming" meaning —
+  // newest-created is the useful direction there, same as an alphabetical
+  // column like Customer/City defaults to ascending.
   else { bookingSort.col = col; bookingSort.dir = (col === 'reference') ? 'desc' : 'asc'; }
   loadBookings();
 }
