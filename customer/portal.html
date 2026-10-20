@@ -1579,7 +1579,7 @@ async function submitNewBooking() {
       discount_amount: discount || null
     } : {}),
     ...(selectedUnit ? {
-      product_model: selectedUnit.product_type, product_qty: 1,
+      product_model: selectedUnit.product_type, product_qty: 1, warranty_id: selectedUnit.id,
       notes: `For unit: ${selectedUnit.product_type}${selectedUnit.qr_code ? ' (Serial ' + selectedUnit.qr_code + ')' : ''}`
     } : {})
   }).select().maybeSingle();
