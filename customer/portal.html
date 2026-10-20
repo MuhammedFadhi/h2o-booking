@@ -850,7 +850,8 @@ async function activateMyWarranty(bookingRef, bookingId, serial) {
 
   // Dispensers never get a warranty — the eligibility check on My Unit
   // already keeps this card from offering one, but the RPC enforces it too
-  // (v77), so this is a "nothing to do here" case, not a failure to retry.
+  // (v77/v78, via product_models.is_serialized), so this is a "nothing to
+  // do here" case, not a failure to retry.
   if (data?.reason === 'dispenser') {
     showToast('Dispensers don’t need a warranty — nothing to activate.');
     loadHome();
