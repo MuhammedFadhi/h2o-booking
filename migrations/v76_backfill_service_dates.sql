@@ -19,9 +19,11 @@
 -- so a date that's already correct, or newer than this would compute, is
 -- left untouched.
 --
--- RUN THE PREVIEW QUERY FIRST (read-only, no writes). Review its output —
--- booking reference, current due date, and what it would become — before
--- running the BACKFILL block below it.
+-- RUN THE PREVIEW QUERY FIRST (read-only, no writes). It lists exactly the
+-- customers this will touch — name, phone, booking, serial, current due
+-- date, new due date — and only those; anyone the backfill would skip
+-- (repair-only, ambiguous multi-unit, or already up to date) never appears
+-- in this list at all. Review it, then run the BACKFILL block below it.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -59,15 +61,20 @@ computed AS (
   FROM latest_per_warranty l
 )
 SELECT
+  cust.name AS customer_name, cust.phone AS customer_phone,
   c.booking_reference, c.booking_type, c.completed_at::date AS completed_on,
   w.qr_code AS serial, w.product_type,
   c.service_type,
   CASE WHEN c.service_type = 'filter' THEN w.filter_expiry ELSE w.service_expiry END AS current_due,
-  c.new_due,
-  (c.new_due > COALESCE(CASE WHEN c.service_type = 'filter' THEN w.filter_expiry ELSE w.service_expiry END, '-infinity'::timestamptz)) AS will_update
+  c.new_due
 FROM computed c
 JOIN warranties w ON w.id = c.warranty_id
-ORDER BY will_update DESC, c.completed_at DESC;
+JOIN customers cust ON cust.id = w.customer_id
+-- Only the customers the backfill below will actually touch — everyone
+-- else (repair-only, ambiguous multi-unit, or already up to date) is left
+-- out of this list entirely, not just flagged.
+WHERE c.new_due > COALESCE(CASE WHEN c.service_type = 'filter' THEN w.filter_expiry ELSE w.service_expiry END, '-infinity'::timestamptz)
+ORDER BY c.completed_at DESC;
 
 -- ---------------------------------------------------------------------------
 -- 2) BACKFILL — writes. Only run after reviewing the preview above.
