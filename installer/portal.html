@@ -571,7 +571,13 @@ function equipmentPanel(b) {
   const items = itemsByBooking[b.id] || [];
   let lines;
   if (items.length) {
-    lines = items.map(it => ({ name: it.product_model, qty: it.qty || 1 }));
+    // Collapse duplicate rows for the same product into one line — these
+    // are redundant copies of a single item (e.g. a double-submitted add),
+    // not separate units, so the higher of their qtys is kept rather than
+    // summed (which would wrongly inflate a 1-unit booking into "× 2").
+    const byName = {};
+    items.forEach(it => { byName[it.product_model] = Math.max(byName[it.product_model] || 0, it.qty || 1); });
+    lines = Object.keys(byName).map(name => ({ name, qty: byName[name] }));
   } else if (b.product_model) {
     lines = [{ name: b.product_model, qty: b.product_qty || 1 }];
   } else {
