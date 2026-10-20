@@ -760,37 +760,43 @@ async function loadHome() {
 // booking_type at all default to installation, same convention used
 // elsewhere), (b) has at least one real (non-dispenser, serialized)
 // product, dispensers never getting a warranty like admin's own activation
-// flow, and (c) has fewer existing warranties linked to it (via
-// booking_id) than its serialized quantity calls for. A "7 stage RO - A100
-// ×2" line needs TWO warranties — one per physical unit — so a booking
-// isn't done after just one; this is also what lets a customer with
-// multiple separate installations keep getting offered the next one.
-// Status isn't gated here either, matching activate_pending_warranty's own
-// "any booking" eligibility.
+// flow.
+//
+// Eligibility is based on TOTALS, not a booking_id link: how many real
+// units has this customer ever bought across all their Installation
+// bookings, vs. how many warranties do they already have (any status
+// besides deactivated, linked to a booking or not). A warranty created
+// before booking_id existed — or activated directly by admin — has no
+// link to any specific booking, so matching per-booking alone would wrongly
+// re-offer activation for a unit that's already covered. Credits existing
+// warranties to the OLDEST installations first, so "which booking still
+// needs one" falls out of the running total rather than a direct link.
 async function findActivatableBooking(units) {
-  const countByBooking = {};
-  (units || []).forEach(u => { if (u.booking_id) countByBooking[u.booking_id] = (countByBooking[u.booking_id] || 0) + 1; });
+  const existingCount = (units || []).filter(u => u.status !== 'deactivated' && !isBookDispenser(u.product_type)).length;
+
   const { data: bookings } = await db.from('bookings')
     .select('id, booking_reference, booking_type, product_model, product_qty, created_at, booking_items(product_model, qty, is_serialized)')
     .eq('customer_phone', customer.phone)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: true });
+
+  let covered = 0;
   for (const b of (bookings || [])) {
     if (b.booking_type && b.booking_type !== 'installation') continue;
     const items = (b.booking_items && b.booking_items.length)
       ? b.booking_items
       : (b.product_model ? [{ product_model: b.product_model, qty: b.product_qty || 1, is_serialized: true }] : []);
     const real = items.filter(it => it.is_serialized !== false && !isBookDispenser(it.product_model));
+    if (!real.length) continue;
     const targetQty = real.reduce((s, it) => s + (it.qty || 1), 0);
-    const already = countByBooking[b.id] || 0;
-    if (real.length && already < targetQty) {
-      return {
-        booking: b,
-        productLabel: real.map(it => it.product_model).join(', '),
-        productModel: real[0].product_model,
-        unitIndex: already + 1,
-        unitTotal: targetQty
-      };
-    }
+    if (covered + targetQty <= existingCount) { covered += targetQty; continue; }
+    const already = Math.max(0, existingCount - covered);
+    return {
+      booking: b,
+      productLabel: real.map(it => it.product_model).join(', '),
+      productModel: real[0].product_model,
+      unitIndex: already + 1,
+      unitTotal: targetQty
+    };
   }
   return null;
 }
