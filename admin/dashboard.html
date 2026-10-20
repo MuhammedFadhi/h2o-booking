@@ -2768,6 +2768,7 @@ async function sbLookup() {
         .select('id, product_type, qr_code, status, filter_expiry, service_expiry')
         .eq('customer_id', sbCustomer.id).neq('status','deactivated');
       units = (warrs || []).map(w => ({
+        id: w.id,
         label: `${w.product_type || 'RO unit'}${w.qr_code ? ' · ' + w.qr_code : ''}`,
         product: w.product_type, serial: w.qr_code,
         filter: w.filter_expiry, service: w.service_expiry
@@ -3041,6 +3042,7 @@ async function submitServiceBooking() {
       sales_agent: document.getElementById('sb-sales-agent').value || null,
       product_model: unit ? unit.product : (sbCustomer.product_model || null),
       product_qty: 1,
+      warranty_id: unit?.id || null,
       notes: [notes, unit?.serial ? `Unit serial: ${unit.serial}` : ''].filter(Boolean).join(' · ') || null
     };
     if (charge !== null) patch.order_total = charge;
@@ -3777,6 +3779,7 @@ async function viewBooking(bookingId) {
           <div><span style="color:var(--muted);">Time: </span><strong>${formatHour(b.slot_hour)}</strong></div>
           <div><span style="color:var(--muted);">Assigned to: </span><strong>${b.installers?.name || 'Unassigned'}</strong></div>
           ${b.rescheduled_at ? `<div><span style="color:var(--muted);">Rescheduled: </span><strong>${formatDateTime(b.rescheduled_at)}</strong></div>` : ''}
+          ${b.notes ? `<div><span style="color:var(--muted);">Notes: </span><strong>${W.esc(b.notes)}</strong></div>` : ''}
         </div>
       </div>
       ${proofHtml}
