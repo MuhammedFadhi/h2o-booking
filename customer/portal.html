@@ -848,6 +848,15 @@ async function activateMyWarranty(bookingRef, bookingId, serial) {
 
   const { data, error } = await db.rpc('activate_pending_warranty', { p_phone: customer.phone, p_serial: serial, p_booking_id: bookingId || null });
 
+  // Dispensers never get a warranty — the eligibility check on My Unit
+  // already keeps this card from offering one, but the RPC enforces it too
+  // (v77), so this is a "nothing to do here" case, not a failure to retry.
+  if (data?.reason === 'dispenser') {
+    showToast('Dispensers don’t need a warranty — nothing to activate.');
+    loadHome();
+    return;
+  }
+
   if (error || !data || !data.ok) {
     showToast('Could not activate — please try again.');
     if (host) host.innerHTML = `<button class="btn-primary" style="width:100%;padding:14px;" onclick="activateMyWarranty('${escHtml(bookingRef || '')}','${escHtml(bookingId || '')}','${escHtml(serial || '')}')">Try Again</button>`;
