@@ -3768,7 +3768,11 @@ async function viewBooking(bookingId) {
             </span>
             <button class="btn btn-ghost btn-sm" onclick="editBookingAddress('${b.id}')" style="padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">${ICON_PENCIL} Edit</button>
           </div>
-          ${(b.floor_no || b.flat_no) ? `<div><span style="color:var(--muted);">Floor / Flat: </span><strong>${[b.floor_no ? 'Floor ' + W.esc(b.floor_no) : '', b.flat_no ? 'Flat ' + W.esc(b.flat_no) : ''].filter(Boolean).join(' · ')}</strong></div>` : ''}
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="color:var(--muted);">Floor / Flat: </span>
+            <strong id="bk-floorflat-display">${[b.floor_no ? 'Floor ' + W.esc(b.floor_no) : '', b.flat_no ? 'Flat ' + W.esc(b.flat_no) : ''].filter(Boolean).join(' · ') || '—'}</strong>
+            <button class="btn btn-ghost btn-sm" onclick="editBookingFloorFlat('${b.id}')" style="padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">${ICON_PENCIL} Edit</button>
+          </div>
           ${b.created_by === 'admin' ? `<div><span style="font-size:11px;color:#4338CA;background:#EEF2FF;padding:2px 9px;border-radius:20px;font-weight:700;">🏢 Booked by ${escB(b.created_by_name || 'office')}</span></div>` : ''}
         </div>
       </div>
@@ -3889,6 +3893,25 @@ async function editBookingName(bookingId) {
   const el = document.getElementById('bk-name-display'); if (el) el.textContent = name;
   if (window.__lastViewedBooking) window.__lastViewedBooking.customer_name = name;
   showToast('Booking name updated', 'success');
+  if (typeof loadBookings === 'function') loadBookings();
+}
+
+async function editBookingFloorFlat(bookingId) {
+  if (!(await ensureSession())) return;
+  const b = window.__lastViewedBooking;
+  const floorIn = prompt('Floor number (leave blank for none):', b?.floor_no || '');
+  if (floorIn == null) return;
+  const flatIn = prompt('Flat number (leave blank for none):', b?.flat_no || '');
+  if (flatIn == null) return;
+  const floor_no = floorIn.trim() || null;
+  const flat_no = flatIn.trim() || null;
+  const { error } = await dbAdmin.from('bookings').update({ floor_no, flat_no }).eq('id', bookingId);
+  if (error) { showToast(error.message, 'error'); return; }
+  logActivity('booking.floorflat', `Set Floor/Flat to "${[floor_no ? 'Floor ' + floor_no : '', flat_no ? 'Flat ' + flat_no : ''].filter(Boolean).join(' · ') || '—'}"`, 'booking', bookingId);
+  if (window.__lastViewedBooking) { window.__lastViewedBooking.floor_no = floor_no; window.__lastViewedBooking.flat_no = flat_no; }
+  const el = document.getElementById('bk-floorflat-display');
+  if (el) el.textContent = [floor_no ? 'Floor ' + floor_no : '', flat_no ? 'Flat ' + flat_no : ''].filter(Boolean).join(' · ') || '—';
+  showToast('Floor / Flat updated', 'success');
   if (typeof loadBookings === 'function') loadBookings();
 }
 
