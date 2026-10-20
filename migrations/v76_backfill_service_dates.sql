@@ -30,7 +30,7 @@
 -- 1) PREVIEW — read-only, run this first
 -- ---------------------------------------------------------------------------
 WITH customer_sole_warranty AS (
-  SELECT c.phone, MIN(w.id) AS warranty_id
+  SELECT c.phone, (array_agg(w.id))[1] AS warranty_id
   FROM warranties w JOIN customers c ON c.id = w.customer_id
   WHERE w.status <> 'deactivated'
   GROUP BY c.phone
@@ -81,7 +81,7 @@ ORDER BY c.completed_at DESC;
 --    Only touches rows the preview marked will_update = true.
 -- ---------------------------------------------------------------------------
 WITH customer_sole_warranty AS (
-  SELECT c.phone, MIN(w.id) AS warranty_id
+  SELECT c.phone, (array_agg(w.id))[1] AS warranty_id
   FROM warranties w JOIN customers c ON c.id = w.customer_id
   WHERE w.status <> 'deactivated'
   GROUP BY c.phone
