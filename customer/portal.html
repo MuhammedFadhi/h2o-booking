@@ -754,23 +754,28 @@ async function loadHome() {
 // here instead of being printed on a sticker, since there's no physical code
 // to read. The sticker flow itself is untouched by any of this.
 
-// Newest booking that still needs a warranty — (a) has at least one real
-// (non-dispenser, serialized) product, dispensers never getting a warranty
-// like admin's own activation flow, and (b) has fewer existing warranties
-// linked to it (via booking_id) than its serialized quantity calls for. A
-// "7 stage RO - A100 ×2" line needs TWO warranties — one per physical
-// unit — so a booking isn't done after just one; this is also what lets a
-// customer with multiple separate installations keep getting offered the
-// next one. Status isn't gated here either, matching activate_pending_
-// warranty's own "any booking" eligibility.
+// Newest booking that still needs a warranty — (a) is an Installation (a
+// Repair/Filter Change/Relocation visit is for a unit that should already
+// be covered, never a trigger to activate a NEW one — legacy rows with no
+// booking_type at all default to installation, same convention used
+// elsewhere), (b) has at least one real (non-dispenser, serialized)
+// product, dispensers never getting a warranty like admin's own activation
+// flow, and (c) has fewer existing warranties linked to it (via
+// booking_id) than its serialized quantity calls for. A "7 stage RO - A100
+// ×2" line needs TWO warranties — one per physical unit — so a booking
+// isn't done after just one; this is also what lets a customer with
+// multiple separate installations keep getting offered the next one.
+// Status isn't gated here either, matching activate_pending_warranty's own
+// "any booking" eligibility.
 async function findActivatableBooking(units) {
   const countByBooking = {};
   (units || []).forEach(u => { if (u.booking_id) countByBooking[u.booking_id] = (countByBooking[u.booking_id] || 0) + 1; });
   const { data: bookings } = await db.from('bookings')
-    .select('id, booking_reference, product_model, product_qty, created_at, booking_items(product_model, qty, is_serialized)')
+    .select('id, booking_reference, booking_type, product_model, product_qty, created_at, booking_items(product_model, qty, is_serialized)')
     .eq('customer_phone', customer.phone)
     .order('created_at', { ascending: false });
   for (const b of (bookings || [])) {
+    if (b.booking_type && b.booking_type !== 'installation') continue;
     const items = (b.booking_items && b.booking_items.length)
       ? b.booking_items
       : (b.product_model ? [{ product_model: b.product_model, qty: b.product_qty || 1, is_serialized: true }] : []);
