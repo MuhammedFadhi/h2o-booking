@@ -731,8 +731,11 @@ async function loadHome() {
       el.innerHTML = activateCardHtml + (activateCardHtml && unitCardsHtml ? '<div style="height:16px;"></div>' : '') + unitCardsHtml;
       if (eligible) switchTab('unit');
     }
-    const hasRealUnit = units.some(u => u.source !== 'self_reported');
-    qaHost.innerHTML = hasRealUnit ? '' : `
+    // Only the shortcut's reason for existing — helping a customer with
+    // NOTHING tracked yet get started — once they have any unit at all
+    // (self-reported counts too, now that it actually gets created) the
+    // prompt is redundant with the unit card(s) already shown above it.
+    qaHost.innerHTML = units.length ? '' : `
       <div class="quick-action-card" onclick="openBookModal('quarterly_service')">
         <div class="quick-action-icon">${FILTER_ICON_SVG}</div>
         <div class="quick-action-text">
