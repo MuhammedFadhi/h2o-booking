@@ -184,7 +184,7 @@
       <!-- STEP 1b: OTP Verify -->
       <div class="form-section" id="step-1b">
         <h1 class="section-title">Verify Your Number</h1>
-        <p class="section-subtitle">Enter the 6-digit code sent to your mobile.</p>
+        <p class="section-subtitle">Enter the 4-digit code sent to your mobile.</p>
         <div class="otp-info">
           <div style="width:24px;height:24px;flex-shrink:0;"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5z"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4h2M12 17v.01"/></svg></div>
           <div style="font-size:13px;color:var(--muted);line-height:1.5;">OTP sent to <strong id="otp-phone-display"></strong></div>
@@ -193,8 +193,6 @@
           <label>Enter OTP</label>
           <div class="otp-box-row" id="otp-box-row">
             <input type="text" inputmode="numeric" maxlength="1" class="otp-box" autocomplete="one-time-code">
-            <input type="text" inputmode="numeric" maxlength="1" class="otp-box">
-            <input type="text" inputmode="numeric" maxlength="1" class="otp-box">
             <input type="text" inputmode="numeric" maxlength="1" class="otp-box">
             <input type="text" inputmode="numeric" maxlength="1" class="otp-box">
             <input type="text" inputmode="numeric" maxlength="1" class="otp-box">
@@ -527,7 +525,7 @@ async function sendSMS(to, body) {
   } catch(e) { console.error('SMS error:', e); return { ok: false }; }
 }
 
-// 6-box OTP input — keeps the real #otp-input (used by sendOTP/verifyOTP/
+// 4-box OTP input — keeps the real #otp-input (used by sendOTP/verifyOTP/
 // resendOTP below, unchanged) in sync as the single combined value.
 (function () {
   const boxes = Array.from(document.querySelectorAll('.otp-box'));
@@ -605,7 +603,7 @@ async function sendOTP() {
     }
   }
 
-  const otp = Math.floor(100000+Math.random()*900000).toString();
+  const otp = Math.floor(1000+Math.random()*9000).toString();
   state.generatedOTP = otp;
   state.otpGeneratedAt = Date.now();
   state.otpAttempts = 0;
@@ -638,7 +636,7 @@ function startTimer() {
 }
 
 async function resendOTP() {
-  const otp=Math.floor(100000+Math.random()*900000).toString();
+  const otp=Math.floor(1000+Math.random()*9000).toString();
   state.generatedOTP=otp;
   state.otpAttempts=0;
   document.getElementById('step1b-error').style.display='none';
@@ -663,7 +661,7 @@ async function resendOTP() {
 async function verifyOTP() {
   const entered=document.getElementById('otp-input').value.trim();
   const errEl=document.getElementById('step1b-error');
-  if(!entered||entered.length!==6){errEl.style.display='block';errEl.textContent='Please enter the 6-digit OTP.';return;}
+  if(!entered||entered.length!==4){errEl.style.display='block';errEl.textContent='Please enter the 4-digit OTP.';return;}
 
   // Check OTP expiry
   if(Date.now() - state.otpGeneratedAt > OTP_EXPIRY_MS) {
