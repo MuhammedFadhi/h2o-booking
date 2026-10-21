@@ -35,8 +35,13 @@
   <style>
     :root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#CFD8DC;--error:#B71C1C;--success:#15803D;--dark-grad:linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%);}
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'DM Sans',sans-serif;background:linear-gradient(160deg,#0A1628 0%,#0D3B6E 50%,#1565C0 100%);min-height:100dvh;color:var(--text);}
-    body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(30,136,229,0.15) 0%,transparent 60%);pointer-events:none;z-index:0;}
+    /* Dark glossy backdrop with two glowing blue ring arcs (top-right,
+       bottom-right), matching the reference login screen — replaces the
+       flat blue gradient page background. */
+    body{font-family:'DM Sans',sans-serif;background:radial-gradient(ellipse at 70% 30%,#0D1F3D 0%,#050810 55%,#020309 100%);min-height:100dvh;color:var(--text);overflow-x:hidden;}
+    body::before,body::after{content:'';position:fixed;border-radius:50%;pointer-events:none;z-index:0;}
+    body::before{width:760px;height:760px;right:-320px;top:-220px;border:34px solid rgba(37,99,235,0.45);box-shadow:0 0 110px 16px rgba(37,99,235,0.3);}
+    body::after{width:520px;height:520px;right:-180px;bottom:-260px;border:24px solid rgba(37,99,235,0.3);box-shadow:0 0 80px 10px rgba(37,99,235,0.2);}
     .page-wrapper{position:relative;z-index:1;min-height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
     header{padding:24px 32px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(255,255,255,0.08);}
     header a{display:flex;align-items:center;}
@@ -67,10 +72,9 @@
        peeking through at the bottom. This way the card's own
        border-radius + overflow:hidden clips the gradient/blobs correctly
        with no seam. */
-    .booking-card.card-dark{position:relative;background:var(--dark-grad);}
-    .booking-card.card-dark::before,.booking-card.card-dark::after{content:'';position:absolute;z-index:0;border-radius:50%;filter:blur(40px);pointer-events:none;}
-    .booking-card.card-dark::before{width:220px;height:220px;background:radial-gradient(circle,rgba(91,127,219,0.55),transparent 70%);top:-60px;right:-60px;}
-    .booking-card.card-dark::after{width:180px;height:180px;background:radial-gradient(circle,rgba(228,231,252,0.35),transparent 70%);bottom:-40px;left:-30px;}
+    /* Glassy, not filled — lets the page's own glowing rings behind it show
+       through, matching the reference's bordered/translucent login card. */
+    .booking-card.card-dark{position:relative;background:rgba(13,18,33,0.6);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:1px solid rgba(255,255,255,0.14);}
     #step-1,#step-1b{position:relative;z-index:1;}
     #step-1 .section-title,#step-1b .section-title,#step-1 .section-subtitle,#step-1b .section-subtitle{color:#fff;}
     #step-1b .section-subtitle{opacity:0.75;}
@@ -84,11 +88,18 @@
     #step-1b .resend-btn:disabled{color:rgba(255,255,255,0.4);}
     #step-1 .error-msg,#step-1b .error-msg{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.35);color:#FCA5A5;}
     #step-1b .success-msg{background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.35);color:#86EFAC;}
-    #step-1 input{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.25);color:#fff;}
+    /* Pill-shaped, bordered-only inputs (no heavy fill) — matches the
+       reference's "Username"/"password" field style. */
+    #step-1 input{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.3);border-radius:999px;padding:14px 20px;color:#fff;}
     #step-1 input::placeholder{color:rgba(255,255,255,0.4);}
     #step-1 input:focus{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,0.15);}
-    .booking-card.card-dark #progress-bar{background:rgba(255,255,255,0.08);border-bottom:1px solid rgba(255,255,255,0.12);}
+    .booking-card.card-dark #progress-bar{background:rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.12);}
     .booking-card.card-dark .progress-track{background:rgba(255,255,255,0.15);}
+    /* White pill button on the dark card, matching the reference's
+       high-contrast "Login" button instead of the blue gradient used
+       everywhere else. */
+    .booking-card.card-dark .btn-primary{background:#fff;color:var(--deep);border-radius:999px;}
+    .booking-card.card-dark .btn-primary:hover{background:#f0f0f0;}
     /* 6-box OTP input, matching the reference's rounded-square digit boxes. */
     .otp-box-row{display:flex;gap:10px;justify-content:center;margin:4px 0 6px;}
     .otp-box{width:15%;max-width:48px;aspect-ratio:1;text-align:center;font-size:22px;font-weight:700;padding:0;border:1.5px solid rgba(255,255,255,0.3);border-radius:12px;background:rgba(255,255,255,0.12);color:#fff;}
@@ -172,7 +183,7 @@
     <a href="https://h2o.sadawater.com" target="_blank"><img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O"></a>
   </header>
   <main>
-    <div class="booking-card">
+    <div class="booking-card card-dark">
       <div class="progress-bar" id="progress-bar">
         <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
       </div>
