@@ -84,8 +84,15 @@
     /* Glassy, not filled — lets the page's own glowing rings behind it show
        through, matching the reference's bordered/translucent login card. */
     .booking-card.card-dark{position:relative;background:rgba(13,18,33,0.6);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:1px solid rgba(255,255,255,0.14);}
-    #step-1,#step-1b{position:relative;z-index:1;}
-    #step-1 .section-title,#step-1b .section-title,#step-1 .section-subtitle,#step-1b .section-subtitle{color:#fff;}
+    #step-1,#step-1b,#step-type{position:relative;z-index:1;}
+    #step-1 .section-title,#step-1b .section-title,#step-type .section-title,#step-1 .section-subtitle,#step-1b .section-subtitle,#step-type .section-subtitle{color:#fff;}
+    /* "How can we help?" visit-type list — same glass treatment as the
+       inputs, keeping each option's own colored icon badge unchanged. */
+    #step-type .visit-type-btn{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.18);}
+    #step-type .visit-type-btn:hover{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.35);box-shadow:none;}
+    #step-type .visit-type-label{color:#fff;}
+    #step-type .visit-type-sub{color:rgba(255,255,255,0.55);}
+    #step-type .visit-type-arrow{color:rgba(255,255,255,0.55);}
     #step-1b .section-subtitle{opacity:0.75;}
     #step-1 .otp-info,#step-1b .otp-info{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);}
     #step-1 .otp-info > div,#step-1b .otp-info > div{color:#fff !important;}
@@ -741,13 +748,17 @@ function showStep(step) {
   document.querySelectorAll('.form-section').forEach(s=>s.classList.remove('active'));
   const el = document.getElementById(`step-${step}`);
   if(el) el.classList.add('active');
-  // Phone entry + OTP are the dark steps — toggle it on the card itself
-  // rather than bleeding the step's own background past the card's padding,
-  // which left a sliver of the card's real (white) corner showing through.
+  // Phone entry, OTP, and the service-type picker are the dark steps —
+  // toggle it on the card itself rather than bleeding the step's own
+  // background past the card's padding, which left a sliver of the card's
+  // real (white) corner showing through.
   const card = document.querySelector('.booking-card');
-  const isShortStep = step === '1' || step === '1b';
-  if (card) card.classList.toggle('card-dark', isShortStep);
-  document.documentElement.classList.toggle('no-scroll', isShortStep);
+  const isDarkStep = step === '1' || step === '1b' || step === 'type';
+  if (card) card.classList.toggle('card-dark', isDarkStep);
+  // Only phone entry/OTP are short enough to lock the viewport on — the
+  // service-type picker has 6 options and genuinely needs to scroll on a
+  // small screen.
+  document.documentElement.classList.toggle('no-scroll', step === '1' || step === '1b');
   // The progress bar's own light-foam background would otherwise show as a
   // pale strip above the dark gradient.
   const pbar = document.getElementById('progress-bar');
