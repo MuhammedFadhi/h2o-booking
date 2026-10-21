@@ -334,8 +334,11 @@
       if (st === 'deactivated') { wc = STATUS_COLORS.expired; statusBadge = 'NOT COVERED'; }
       else if (st === 'paused') { wc = STATUS_COLORS.soon; statusBadge = 'SUSPENDED'; }
     }
-    var img = (u.product_models && u.product_models.image_url) || '/assets/models/purifier-generic.png';
-    var desc = (u.product_models && u.product_models.description) || '';
+    // Never show a real SA'DA product photo for a self-reported row, even if
+    // its free-text product_type happens to match a real catalogue model
+    // name — it isn't actually that product, just tracked alongside it.
+    var img = (!isSelfReported && u.product_models && u.product_models.image_url) || '/assets/models/purifier-generic.png';
+    var desc = (!isSelfReported && u.product_models && u.product_models.description) || '';
     // Keyed by the warranty's own id (not the loop index) so it stays unique
     // even when My Units and the Service tab both render a card at index 0 —
     // their panels coexist in the DOM at once (one just hidden), and
