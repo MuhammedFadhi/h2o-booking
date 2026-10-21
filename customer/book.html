@@ -43,10 +43,10 @@
     body::before{width:760px;height:760px;right:-320px;top:-220px;border:34px solid rgba(37,99,235,0.45);box-shadow:0 0 110px 16px rgba(37,99,235,0.3);}
     body::after{width:520px;height:520px;right:-180px;bottom:-260px;border:24px solid rgba(37,99,235,0.3);box-shadow:0 0 80px 10px rgba(37,99,235,0.2);}
     .page-wrapper{position:relative;z-index:1;min-height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
-    header{padding:24px 32px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid rgba(255,255,255,0.08);}
-    header a{display:flex;align-items:center;}
-    header img{height:100px;}
     main{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 16px;}
+    .card-logo{display:flex;justify-content:center;padding:24px 0 4px;}
+    .card-logo a{display:flex;align-items:center;}
+    .card-logo img{height:64px;}
     .booking-card{background:var(--white);border-radius:24px;width:100%;max-width:600px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,0.45),0 2px 8px rgba(0,0,0,0.2);}
     .progress-bar{background:var(--foam);padding:16px 32px;border-bottom:1px solid var(--border);}
     .progress-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
@@ -98,8 +98,7 @@
     /* White pill button on the dark card, matching the reference's
        high-contrast "Login" button instead of the blue gradient used
        everywhere else. */
-    .booking-card.card-dark .btn-primary{background:#fff;color:var(--deep);border-radius:999px;}
-    .booking-card.card-dark .btn-primary:hover{background:#f0f0f0;}
+    .booking-card.card-dark .btn-primary{border-radius:999px;}
     /* 6-box OTP input, matching the reference's rounded-square digit boxes. */
     .otp-box-row{display:flex;gap:10px;justify-content:center;margin:4px 0 6px;}
     .otp-box{width:15%;max-width:48px;aspect-ratio:1;text-align:center;font-size:22px;font-weight:700;padding:0;border:1.5px solid rgba(255,255,255,0.3);border-radius:12px;background:rgba(255,255,255,0.12);color:#fff;}
@@ -173,20 +172,18 @@
     .success-msg{background:#ECFDF5;border:1px solid #BBF7D0;color:#166534;padding:12px 16px;border-radius:10px;font-size:13px;margin-top:12px;display:none;}
     .empty-msg{text-align:center;padding:32px;color:var(--muted);font-size:14px;}
     .card-footer{padding:16px 40px;background:var(--foam);border-top:1px solid var(--border);text-align:center;font-size:12px;color:var(--muted);}
-    @media(max-width:480px){header img{height:70px;}.form-section{padding:28px 20px 24px;}.date-grid{gap:6px;}.date-box{padding:10px 4px;}.date-num{font-size:18px;}.time-grid{grid-template-columns:repeat(2,1fr);}.section-title{font-size:22px;}}
+    @media(max-width:480px){.card-logo img{height:48px;}.form-section{padding:28px 20px 24px;}.date-grid{gap:6px;}.date-box{padding:10px 4px;}.date-num{font-size:18px;}.time-grid{grid-template-columns:repeat(2,1fr);}.section-title{font-size:22px;}}
   </style>
 <script defer src="../js/city-normalize.js"></script>
 </head>
 <body>
 <div class="page-wrapper">
-  <header>
-    <a href="https://h2o.sadawater.com" target="_blank"><img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O"></a>
-  </header>
   <main>
     <div class="booking-card card-dark">
       <div class="progress-bar" id="progress-bar">
         <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
       </div>
+      <div class="card-logo"><a href="https://h2o.sadawater.com" target="_blank"><img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O"></a></div>
 
       <!-- STEP 1: Phone + OTP -->
       <div class="form-section active" id="step-1">
