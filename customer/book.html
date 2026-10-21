@@ -84,8 +84,8 @@
     /* Glassy, not filled — lets the page's own glowing rings behind it show
        through, matching the reference's bordered/translucent login card. */
     .booking-card.card-dark{position:relative;background:rgba(13,18,33,0.6);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:1px solid rgba(255,255,255,0.14);}
-    #step-1,#step-1b,#step-type{position:relative;z-index:1;}
-    #step-1 .section-title,#step-1b .section-title,#step-type .section-title,#step-1 .section-subtitle,#step-1b .section-subtitle,#step-type .section-subtitle{color:#fff;}
+    #step-1,#step-1b,#step-type,#step-2{position:relative;z-index:1;}
+    #step-1 .section-title,#step-1b .section-title,#step-type .section-title,#step-2 .section-title,#step-1 .section-subtitle,#step-1b .section-subtitle,#step-type .section-subtitle,#step-2 .section-subtitle{color:#fff;}
     /* "How can we help?" visit-type list — same glass treatment as the
        inputs, keeping each option's own colored icon badge unchanged. */
     #step-type .visit-type-btn{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.18);}
@@ -98,11 +98,29 @@
     #step-1 .otp-info > div,#step-1b .otp-info > div{color:#fff !important;}
     #step-1b .timer-text{color:rgba(255,255,255,0.65);}
     #step-1b .timer-text span{color:#fff;}
-    #step-1 label,#step-1b label{color:rgba(255,255,255,0.7);}
+    #step-1 label,#step-1b label,#step-2 label{color:rgba(255,255,255,0.7);}
     #step-1b .btn-back{color:rgba(255,255,255,0.75);}
     #step-1b .resend-btn{color:#fff;}
     #step-1b .resend-btn:disabled{color:rgba(255,255,255,0.4);}
-    #step-1 .error-msg,#step-1b .error-msg{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.35);color:#FCA5A5;}
+    #step-1 .error-msg,#step-1b .error-msg,#step-2 .error-msg{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.35);color:#FCA5A5;}
+    /* STEP 2 (Your Details) — same glass treatment, regular (not pill)
+       inputs since this is a dense multi-field form rather than a single
+       login-style field. */
+    #step-2 input,#step-2 select,#step-2 textarea{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.2);color:#fff;}
+    #step-2 input::placeholder,#step-2 textarea::placeholder{color:rgba(255,255,255,0.4);}
+    #step-2 input:focus,#step-2 select:focus,#step-2 textarea:focus{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,0.15);}
+    #step-2 select:disabled{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.4);}
+    #step-2 select option{color:#0F172A;}
+    #step-2 .chosen-type-chip{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);}
+    #step-2 .chosen-type-chip-label{color:#fff;}
+    #step-2 .chosen-type-chip-change{color:rgba(255,255,255,0.85);}
+    #step-2 .region-hint,#step-2 #region-hint{color:rgba(255,255,255,0.55);}
+    #step-2 .location-btn{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.35);color:#fff;}
+    #step-2 .location-btn:hover:not(:disabled){background:rgba(255,255,255,0.14);}
+    #step-2 .location-hint{color:rgba(255,255,255,0.55);}
+    #step-2 .location-btn.got-location{background:rgba(34,197,94,0.15);border-color:#4ADE80;color:#86EFAC;}
+    #step-2 .location-btn.error-location{background:rgba(239,68,68,0.15);border-color:#F87171;color:#FCA5A5;}
+    #step-2 .map-caption{color:rgba(255,255,255,0.55);}
     #step-1b .success-msg{background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.35);color:#86EFAC;}
     /* Pill-shaped, bordered-only inputs (no heavy fill) — matches the
        reference's "Username"/"password" field style. */
@@ -516,8 +534,8 @@ async function selectVisitType(t) {
   state.visitType = t;
   const isInstall = t === 'installation';
   const meta = VISIT_TYPE_CHIP[t];
-  document.getElementById('chosen-type-icon').style.background = meta.bg;
-  document.getElementById('chosen-type-icon').style.color = meta.fg;
+  document.getElementById('chosen-type-icon').style.background = 'rgba(255,255,255,0.14)';
+  document.getElementById('chosen-type-icon').style.color = '#fff';
   document.getElementById('chosen-type-icon').innerHTML = meta.icon;
   document.getElementById('chosen-type-label').textContent = VISIT_TYPE_LABELS[t];
   document.getElementById('unit-brand-group').style.display = isInstall ? 'none' : 'block';
@@ -753,7 +771,7 @@ function showStep(step) {
   // background past the card's padding, which left a sliver of the card's
   // real (white) corner showing through.
   const card = document.querySelector('.booking-card');
-  const isDarkStep = step === '1' || step === '1b' || step === 'type';
+  const isDarkStep = step === '1' || step === '1b' || step === 'type' || step === 2;
   if (card) card.classList.toggle('card-dark', isDarkStep);
   // Only phone entry/OTP are short enough to lock the viewport on — the
   // service-type picker has 6 options and genuinely needs to scroll on a
