@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="no-scroll">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -42,6 +42,11 @@
        root element's own background past the body's edge, which is white
        by default and shows as a flash at the top/bottom while scrolling. */
     html{background:#020309;}
+    /* Phone entry + OTP are short enough to fit one screen — lock the
+       viewport instead of letting it scroll (and rubber-band bounce) on
+       mobile, toggled off again by showStep() once a longer step (address,
+       date picker, etc.) actually needs to scroll. */
+    html.no-scroll,html.no-scroll body{height:100dvh;overflow:hidden;}
     body{font-family:'DM Sans',sans-serif;background:radial-gradient(ellipse at 70% 30%,#0D1F3D 0%,#050810 55%,#020309 100%);min-height:100dvh;color:var(--text);overflow-x:hidden;}
     body::before,body::after{content:'';position:fixed;border-radius:50%;pointer-events:none;z-index:0;}
     body::before{width:760px;height:760px;right:-320px;top:-220px;border:34px solid rgba(37,99,235,0.45);box-shadow:0 0 110px 16px rgba(37,99,235,0.3);}
@@ -740,7 +745,9 @@ function showStep(step) {
   // rather than bleeding the step's own background past the card's padding,
   // which left a sliver of the card's real (white) corner showing through.
   const card = document.querySelector('.booking-card');
-  if (card) card.classList.toggle('card-dark', step === '1' || step === '1b');
+  const isShortStep = step === '1' || step === '1b';
+  if (card) card.classList.toggle('card-dark', isShortStep);
+  document.documentElement.classList.toggle('no-scroll', isShortStep);
   // The progress bar's own light-foam background would otherwise show as a
   // pale strip above the dark gradient.
   const pbar = document.getElementById('progress-bar');
