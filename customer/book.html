@@ -37,7 +37,11 @@
     *{box-sizing:border-box;margin:0;padding:0;}
     /* Dark glossy backdrop with two glowing blue ring arcs (top-right,
        bottom-right), matching the reference login screen — replaces the
-       flat blue gradient page background. */
+       flat blue gradient page background. Also set on <html> itself, not
+       just <body> — iOS Safari's rubber-band overscroll bounce reveals the
+       root element's own background past the body's edge, which is white
+       by default and shows as a flash at the top/bottom while scrolling. */
+    html{background:#020309;}
     body{font-family:'DM Sans',sans-serif;background:radial-gradient(ellipse at 70% 30%,#0D1F3D 0%,#050810 55%,#020309 100%);min-height:100dvh;color:var(--text);overflow-x:hidden;}
     body::before,body::after{content:'';position:fixed;border-radius:50%;pointer-events:none;z-index:0;}
     body::before{width:760px;height:760px;right:-320px;top:-220px;border:34px solid rgba(37,99,235,0.45);box-shadow:0 0 110px 16px rgba(37,99,235,0.3);}
