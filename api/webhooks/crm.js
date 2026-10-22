@@ -60,15 +60,20 @@ function verifySignature(raw, header, secret) {
   return expBuf.length === gotBuf.length && crypto.timingSafeEqual(expBuf, gotBuf);
 }
 
-// Mirrors api/sales/ops.js's normalizePhone — duplicated for the same
-// isolation reason as the rest of this file.
+// Unlike api/sales/ops.js's normalizePhone (Saudi-only, since the sales
+// portal only ever deals with Saudi customers), a lead synced from the CRM
+// can come from a WhatsApp/Instagram contact in any country — so this
+// accepts any plausible E.164 number, keeping the same Saudi-specific
+// shortcuts (bare 05.../5......... /00966.../966...) as convenience cases
+// rather than the only accepted format.
 function normalizePhone(raw) {
   let p = String(raw || '').replace(/[\s()-]/g, '');
-  if (p.startsWith('00966')) p = '+' + p.slice(2);
+  if (p.startsWith('00')) p = '+' + p.slice(2);
   else if (p.startsWith('966')) p = '+' + p;
   else if (p.startsWith('05')) p = '+966' + p.slice(1);
   else if (/^5\d{8}$/.test(p)) p = '+966' + p;
-  return /^\+9665\d{8}$/.test(p) ? p : null;
+  else if (!p.startsWith('+')) p = '+' + p;
+  return /^\+[1-9]\d{7,14}$/.test(p) ? p : null;
 }
 
 const CHANNEL_BY_TABLE = {
@@ -80,8 +85,13 @@ const CHANNEL_BY_TABLE = {
 async function handleLeadCreated(data) {
   const name = String(data.client_name || '').trim().slice(0, 80);
   const phone = normalizePhone(data.client_phone);
-  if (!name || !phone) {
-    const e = new Error('lead.created payload missing client_name or a valid client_phone');
+  if (!name) {
+    const e = new Error('lead.created payload missing client_name');
+    e.status = 400;
+    throw e;
+  }
+  if (!phone) {
+    const e = new Error(`lead.created payload has an invalid client_phone: "${data.client_phone}"`);
     e.status = 400;
     throw e;
   }
