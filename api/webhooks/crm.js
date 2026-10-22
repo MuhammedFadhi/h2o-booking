@@ -85,12 +85,18 @@ const CHANNEL_BY_TABLE = {
 async function handleLeadCreated(data) {
   const name = String(data.client_name || '').trim().slice(0, 80);
   const phone = normalizePhone(data.client_phone);
+  const source = data.source ? String(data.source).trim().slice(0, 40) : 'CRM';
+  // Instagram DMs are identified by handle/name, not a phone number — the
+  // CRM legitimately sends no client_phone for these, so don't reject them.
+  // Every other source still requires a valid phone, same as before.
+  const isInstagram = source.toLowerCase().includes('instagram');
+
   if (!name) {
     const e = new Error('lead.created payload missing client_name');
     e.status = 400;
     throw e;
   }
-  if (!phone) {
+  if (!phone && !isInstagram) {
     const e = new Error(`lead.created payload has an invalid client_phone: "${data.client_phone}"`);
     e.status = 400;
     throw e;
@@ -103,10 +109,10 @@ async function handleLeadCreated(data) {
 
   const row = {
     name,
-    phone,
+    phone: phone || null,
     email: data.client_email ? String(data.client_email).trim().slice(0, 120) : null,
     city_name: data.city ? String(data.city).trim().slice(0, 80) : null,
-    source: data.source ? String(data.source).trim().slice(0, 40) : 'CRM',
+    source,
     notes: noteParts.join(' | ').slice(0, 500) || null,
     status: 'open',
     created_by_name: 'CRM Sync',
