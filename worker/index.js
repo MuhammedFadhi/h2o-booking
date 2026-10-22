@@ -22,6 +22,7 @@ const ROUTE_LOADERS = {
   '/api/admin/slots': () => require('../api/admin/slots.js'),
   '/api/admin/installers': () => require('../api/admin/installers.js'),
   '/api/admin/user-ops': () => require('../api/admin/user-ops.js'),
+  '/api/admin/crm-chat': () => require('../api/admin/crm-chat.js'),
   '/api/sales/ops': () => require('../api/sales/ops.js'),
   '/api/webhooks/crm': () => require('../api/webhooks/crm.js')
 };

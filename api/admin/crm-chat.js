@@ -1,0 +1,90 @@
+// /api/admin/crm-chat — server-side proxy to the external CRM's WhatsApp
+// chat API, so the CRM's bearer token never reaches the browser.
+// Actions: get-messages | send-message
+// Auth: caller must present a Bearer token whose email is in admin_emails
+// (same as every other /api/admin/* route — see ./_auth).
+//
+// The browser only ever sends us a leadId, never a raw conversation id —
+// we look whatsapp_conversation_id up ourselves from OUR OWN leads table.
+// That's a deliberate narrowing: it means an admin session can only ever
+// reach a conversation that's actually attached to one of our leads, not
+// any arbitrary conversation id on the CRM's side.
+const { requireAdmin, SUPABASE_URL, SERVICE_KEY } = require('./_auth');
+
+const CRM_BASE_URL = process.env.CRM_API_BASE_URL || 'https://crm.a3sixty.com';
+const CRM_API_TOKEN = process.env.CRM_API_TOKEN || '';
+
+async function sbService(method, path) {
+  const r = await fetch(SUPABASE_URL + path, {
+    method,
+    headers: { apikey: SERVICE_KEY, Authorization: 'Bearer ' + SERVICE_KEY, 'Content-Type': 'application/json' }
+  });
+  const txt = await r.text();
+  if (!r.ok) { const e = new Error(txt || r.statusText); e.status = r.status; throw e; }
+  return txt ? JSON.parse(txt) : null;
+}
+
+async function conversationIdForLead(leadId) {
+  const rows = await sbService('GET', `/rest/v1/leads?id=eq.${encodeURIComponent(leadId)}&select=whatsapp_conversation_id`);
+  const convoId = rows?.[0]?.whatsapp_conversation_id;
+  if (!convoId) { const e = new Error('This lead has no WhatsApp conversation linked.'); e.status = 404; throw e; }
+  return convoId;
+}
+
+async function crmFetch(path, options) {
+  const r = await fetch(CRM_BASE_URL + path, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${CRM_API_TOKEN}`,
+      'Content-Type': 'application/json',
+      ...(options?.headers || {})
+    }
+  });
+  const txt = await r.text();
+  let json;
+  try { json = txt ? JSON.parse(txt) : null; } catch { json = null; }
+  if (!r.ok) {
+    const e = new Error((json && json.message) || txt || r.statusText);
+    e.status = r.status;
+    throw e;
+  }
+  return json;
+}
+
+module.exports = async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  if (!CRM_API_TOKEN) return res.status(500).json({ error: 'Server not configured (CRM_API_TOKEN missing)' });
+
+  try {
+    await requireAdmin(req);
+    const { action, leadId, body } = req.body || {};
+    if (!leadId) return res.status(400).json({ error: 'leadId required' });
+
+    const convoId = await conversationIdForLead(leadId);
+
+    if (action === 'get-messages') {
+      const result = await crmFetch(`/api/v1/whatsapp/conversations/${encodeURIComponent(convoId)}/messages`, { method: 'GET' });
+      return res.status(200).json(result);
+    }
+
+    if (action === 'send-message') {
+      const text = String(body || '').trim();
+      if (!text) return res.status(400).json({ error: 'Message body required' });
+      const result = await crmFetch(`/api/v1/whatsapp/conversations/${encodeURIComponent(convoId)}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ body: text })
+      });
+      return res.status(200).json(result);
+    }
+
+    return res.status(400).json({ error: `Unknown action "${action}"` });
+  } catch (err) {
+    const status = err.status && err.status < 500 ? err.status : 500;
+    return res.status(status).json({ error: err.status ? err.message : 'Server error' });
+  }
+};

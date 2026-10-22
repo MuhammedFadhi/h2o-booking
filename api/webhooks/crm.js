@@ -111,7 +111,8 @@ async function handleLeadCreated(data) {
     status: 'open',
     created_by_name: 'CRM Sync',
     external_system: 'crm',
-    external_id: data.id != null ? String(data.id) : null
+    external_id: data.id != null ? String(data.id) : null,
+    whatsapp_conversation_id: data.whatsapp_conversation_id != null ? String(data.whatsapp_conversation_id) : null
   };
 
   // Upsert on (external_system, external_id) so a retried/duplicate delivery

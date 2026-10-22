@@ -1431,6 +1431,26 @@
   </div>
 </div>
 
+<!-- LEAD WHATSAPP CHAT — proxies to the external CRM's WhatsApp API via
+     /api/admin/crm-chat (see that file for why the bearer token stays
+     server-side). Only reachable from leads that have a
+     whatsapp_conversation_id (see leadSourceCell()). -->
+<div class="modal-overlay" id="lead-chat-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">WhatsApp — <span id="chat-lead-name"></span></span>
+      <button class="modal-close" onclick="closeLeadChatModal()">&times;</button></div>
+    <div class="modal-body">
+      <div id="chat-lead-phone" style="font-size:12px;color:var(--muted);margin:-8px 0 14px;"></div>
+      <div id="chat-messages" style="height:360px;overflow-y:auto;background:var(--bg);border-radius:12px;padding:14px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;"></div>
+      <div id="chat-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="chat-input" class="form-input" placeholder="Type a reply…" autocomplete="off" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();sendLeadChatMessage();}">
+        <button class="btn btn-primary" id="chat-send-btn" onclick="sendLeadChatMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- CUSTOMER FOLLOW-UPS (same list+add view as lead follow-ups above, scoped
      to one customer — opened from Services/Warranties rows and anywhere else
      a specific customer is already in hand, e.g. not via the combobox picker
@@ -6121,7 +6141,7 @@ function renderLeadsAdminTable() {
           <td><div style="font-weight:600;">${escB(l.name)}</div><div style="font-size:11px;color:var(--muted);">${escB(l.phone)}</div></td>
           <td>${escB(l.city_name || '—')}</td>
           <td>${escB(l.product_interest || '—')}</td>
-          <td>${leadSourceCell(l.source)}</td>
+          <td>${leadSourceCell(l)}</td>
           <td style="max-width:220px;font-size:12px;color:var(--muted);">${escB(l.notes || '—')}${l.status === 'lost' && l.lost_reason ? `<br><em>Lost: ${escB(l.lost_reason)}</em>` : ''}</td>
           <td>${escB(l.created_by_name || '—')}</td>
           <td style="font-size:12px;color:var(--muted);">${new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
@@ -8310,7 +8330,12 @@ const LEAD_SOURCE_ICONS = {
 // insensitive for the CRM's own values (WhatsApp/Instagram/Messenger), with
 // everything else (the sales portal's Lulu Kiosk, Flyer/Billboard, Phone
 // Call, etc.) falling back to a generic globe rather than going unlabeled.
-function leadSourceCell(source) {
+// Takes the whole lead row (not just the source string) because a WhatsApp
+// lead with a linked conversation renders as a clickable chat button —
+// Instagram/Messenger stay plain labels since the CRM only gave us a chat
+// API for WhatsApp.
+function leadSourceCell(l) {
+  const source = l.source;
   if (!source) return '—';
   const s = source.toLowerCase();
   const key = s.includes('whatsapp') ? 'whatsapp'
@@ -8318,7 +8343,105 @@ function leadSourceCell(source) {
     : s.includes('messenger') || s === 'facebook' ? 'messenger'
     : s === 'manual' ? 'manual'
     : 'other';
-  return `<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">${LEAD_SOURCE_ICONS[key]} ${escB(source)}</span>`;
+  const label = `<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">${LEAD_SOURCE_ICONS[key]} ${escB(source)}</span>`;
+  if (key === 'whatsapp' && l.whatsapp_conversation_id) {
+    return `<button class="btn btn-ghost btn-sm" onclick="openLeadChatModal('${l.id}')" title="Open WhatsApp chat" style="border:none;background:none;padding:2px 8px;cursor:pointer;">${label}</button>`;
+  }
+  return label;
+}
+
+// ============================================================
+// LEAD WHATSAPP CHAT — proxies to the external CRM's own WhatsApp API via
+// /api/admin/crm-chat. Polls every 5s while the modal is open; no push/
+// real-time needed for a first version.
+// ============================================================
+let currentChatLeadId = null;
+let chatPollInterval = null;
+
+async function openLeadChatModal(leadId) {
+  currentChatLeadId = leadId;
+  const lead = allLeads.find(x => x.id === leadId);
+  document.getElementById('chat-lead-name').textContent = lead?.name || '—';
+  document.getElementById('chat-lead-phone').textContent = lead?.phone || '';
+  document.getElementById('chat-messages').innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+  document.getElementById('chat-error').style.display = 'none';
+  document.getElementById('chat-input').value = '';
+  document.getElementById('lead-chat-modal').style.display = 'flex';
+  await loadLeadChatMessages();
+  if (chatPollInterval) clearInterval(chatPollInterval);
+  chatPollInterval = setInterval(loadLeadChatMessages, 5000);
+}
+
+function closeLeadChatModal() {
+  if (chatPollInterval) { clearInterval(chatPollInterval); chatPollInterval = null; }
+  currentChatLeadId = null;
+  closeModal('lead-chat-modal');
+}
+
+async function crmChatCall(action, extra) {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) throw new Error('Session expired. Please sign in again.');
+  const res = await fetch('/api/admin/crm-chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ action, leadId: currentChatLeadId, ...(extra || {}) })
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Request failed.');
+  return body;
+}
+
+function renderChatMessages(messages) {
+  const el = document.getElementById('chat-messages');
+  if (!messages || !messages.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px;">No messages yet.</div>';
+    return;
+  }
+  // Preserve scroll position unless already at the bottom, so polling
+  // doesn't yank the view away from a message someone's reading mid-scroll.
+  const wasAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  el.innerHTML = messages.map(m => {
+    const out = m.direction === 'outbound';
+    const time = m.sent_at ? new Date(m.sent_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    const body = m.body ? escB(m.body)
+      : m.media_url ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener" style="color:inherit;">[${escB(m.message_type || 'attachment')}]</a>`
+      : '';
+    return `<div style="align-self:${out ? 'flex-end' : 'flex-start'};max-width:75%;">
+        <div style="background:${out ? 'var(--water)' : 'var(--white)'};color:${out ? '#fff' : 'var(--text)'};border:${out ? 'none' : '1px solid var(--border)'};padding:8px 12px;border-radius:14px;font-size:13px;white-space:pre-wrap;word-break:break-word;">${body}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;text-align:${out ? 'right' : 'left'};">${time}</div>
+      </div>`;
+  }).join('');
+  if (wasAtBottom) el.scrollTop = el.scrollHeight;
+}
+
+async function loadLeadChatMessages() {
+  if (!currentChatLeadId) return;
+  try {
+    const result = await crmChatCall('get-messages');
+    renderChatMessages(result?.data?.messages || []);
+  } catch (err) {
+    document.getElementById('chat-error').style.display = 'block';
+    document.getElementById('chat-error').textContent = err.message;
+  }
+}
+
+async function sendLeadChatMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  const btn = document.getElementById('chat-send-btn');
+  btn.disabled = true;
+  document.getElementById('chat-error').style.display = 'none';
+  try {
+    await crmChatCall('send-message', { body: text });
+    input.value = '';
+    await loadLeadChatMessages();
+  } catch (err) {
+    document.getElementById('chat-error').style.display = 'block';
+    document.getElementById('chat-error').textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 /** Colour for a follow-up: done = grey, overdue = red, today/soon = amber, else green. */
