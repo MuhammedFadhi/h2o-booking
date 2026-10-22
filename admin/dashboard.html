@@ -1437,7 +1437,7 @@
      whatsapp_conversation_id (see leadSourceCell()). -->
 <div class="modal-overlay" id="lead-chat-modal" style="display:none;">
   <div class="modal">
-    <div class="modal-header"><span class="modal-title">WhatsApp — <span id="chat-lead-name"></span></span>
+    <div class="modal-header"><span class="modal-title">Chat — <span id="chat-lead-name"></span></span>
       <button class="modal-close" onclick="closeLeadChatModal()">&times;</button></div>
     <div class="modal-body">
       <div id="chat-lead-phone" style="font-size:12px;color:var(--muted);margin:-8px 0 14px;"></div>
@@ -8344,16 +8344,18 @@ function leadSourceCell(l) {
     : s === 'manual' ? 'manual'
     : 'other';
   const label = `<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">${LEAD_SOURCE_ICONS[key]} ${escB(source)}</span>`;
-  if (key === 'whatsapp' && l.whatsapp_conversation_id) {
-    return `<button class="btn btn-ghost btn-sm" onclick="openLeadChatModal('${l.id}')" title="Open WhatsApp chat" style="border:none;background:none;padding:2px 8px;cursor:pointer;">${label}</button>`;
+  const hasChat = (key === 'whatsapp' && l.whatsapp_conversation_id) || (key === 'instagram' && l.instagram_conversation_id);
+  if (hasChat) {
+    return `<button class="btn btn-ghost btn-sm" onclick="openLeadChatModal('${l.id}')" title="Open ${key === 'whatsapp' ? 'WhatsApp' : 'Instagram'} chat" style="border:none;background:none;padding:2px 8px;cursor:pointer;">${label}</button>`;
   }
   return label;
 }
 
 // ============================================================
-// LEAD WHATSAPP CHAT — proxies to the external CRM's own WhatsApp API via
-// /api/admin/crm-chat. Polls every 5s while the modal is open; no push/
-// real-time needed for a first version.
+// LEAD CHAT (WhatsApp/Instagram) — proxies to the external CRM's own chat
+// API via /api/admin/crm-chat, which resolves the right channel itself.
+// Polls every 5s while the modal is open; no push/real-time needed for a
+// first version.
 // ============================================================
 let currentChatLeadId = null;
 let chatPollInterval = null;

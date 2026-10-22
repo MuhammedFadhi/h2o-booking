@@ -1,18 +1,33 @@
-// /api/admin/crm-chat — server-side proxy to the external CRM's WhatsApp
-// chat API, so the CRM's bearer token never reaches the browser.
+// /api/admin/crm-chat — server-side proxy to the external CRM's chat API
+// (WhatsApp and, assumed to follow the same URL shape, Instagram), so the
+// CRM's bearer token never reaches the browser.
 // Actions: get-messages | send-message
 // Auth: caller must present a Bearer token whose email is in admin_emails
 // (same as every other /api/admin/* route — see ./_auth).
 //
 // The browser only ever sends us a leadId, never a raw conversation id —
-// we look whatsapp_conversation_id up ourselves from OUR OWN leads table.
+// we look the right conversation id up ourselves from OUR OWN leads table,
+// and resolve which channel's API path to call from WHICH id column is
+// populated (not from the lead's free-text `source`, which is looser).
 // That's a deliberate narrowing: it means an admin session can only ever
 // reach a conversation that's actually attached to one of our leads, not
 // any arbitrary conversation id on the CRM's side.
+//
+// NOTE: the Instagram path (/api/v1/instagram/conversations/{id}/messages)
+// is an assumption mirroring the documented WhatsApp one
+// (/api/v1/whatsapp/conversations/{id}/messages) — unconfirmed with
+// whoever maintains crm.a3sixty.com. If it 404s, that's why.
 const { requireAdmin, SUPABASE_URL, SERVICE_KEY } = require('./_auth');
 
 const CRM_BASE_URL = process.env.CRM_API_BASE_URL || 'https://crm.a3sixty.com';
 const CRM_API_TOKEN = process.env.CRM_API_TOKEN || '';
+
+// channel name here doubles as the CRM's URL path segment
+// (/api/v1/{channel}/conversations/...).
+const CONVERSATION_COLUMN_BY_CHANNEL = {
+  whatsapp: 'whatsapp_conversation_id',
+  instagram: 'instagram_conversation_id'
+};
 
 async function sbService(method, path) {
   const r = await fetch(SUPABASE_URL + path, {
@@ -24,11 +39,15 @@ async function sbService(method, path) {
   return txt ? JSON.parse(txt) : null;
 }
 
-async function conversationIdForLead(leadId) {
-  const rows = await sbService('GET', `/rest/v1/leads?id=eq.${encodeURIComponent(leadId)}&select=whatsapp_conversation_id`);
-  const convoId = rows?.[0]?.whatsapp_conversation_id;
-  if (!convoId) { const e = new Error('This lead has no WhatsApp conversation linked.'); e.status = 404; throw e; }
-  return convoId;
+async function conversationForLead(leadId) {
+  const rows = await sbService('GET', `/rest/v1/leads?id=eq.${encodeURIComponent(leadId)}&select=whatsapp_conversation_id,instagram_conversation_id`);
+  const lead = rows?.[0];
+  for (const [channel, column] of Object.entries(CONVERSATION_COLUMN_BY_CHANNEL)) {
+    if (lead?.[column]) return { channel, convoId: lead[column] };
+  }
+  const e = new Error('This lead has no linked chat conversation.');
+  e.status = 404;
+  throw e;
 }
 
 async function crmFetch(path, options) {
@@ -65,20 +84,18 @@ module.exports = async function handler(req, res) {
     const { action, leadId, body } = req.body || {};
     if (!leadId) return res.status(400).json({ error: 'leadId required' });
 
-    const convoId = await conversationIdForLead(leadId);
+    const { channel, convoId } = await conversationForLead(leadId);
+    const path = `/api/v1/${channel}/conversations/${encodeURIComponent(convoId)}/messages`;
 
     if (action === 'get-messages') {
-      const result = await crmFetch(`/api/v1/whatsapp/conversations/${encodeURIComponent(convoId)}/messages`, { method: 'GET' });
+      const result = await crmFetch(path, { method: 'GET' });
       return res.status(200).json(result);
     }
 
     if (action === 'send-message') {
       const text = String(body || '').trim();
       if (!text) return res.status(400).json({ error: 'Message body required' });
-      const result = await crmFetch(`/api/v1/whatsapp/conversations/${encodeURIComponent(convoId)}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ body: text })
-      });
+      const result = await crmFetch(path, { method: 'POST', body: JSON.stringify({ body: text }) });
       return res.status(200).json(result);
     }
 
