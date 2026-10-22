@@ -22,12 +22,14 @@ const ROUTE_LOADERS = {
   '/api/admin/slots': () => require('../api/admin/slots.js'),
   '/api/admin/installers': () => require('../api/admin/installers.js'),
   '/api/admin/user-ops': () => require('../api/admin/user-ops.js'),
-  '/api/sales/ops': () => require('../api/sales/ops.js')
+  '/api/sales/ops': () => require('../api/sales/ops.js'),
+  '/api/webhooks/crm': () => require('../api/webhooks/crm.js')
 };
 
-// auth-sms-hook verifies an HMAC over the exact raw bytes Supabase sent, so it
-// must not be JSON-parsed — matches its `config.api.bodyParser = false` intent.
-const RAW_BODY_ROUTES = new Set(['/api/auth-sms-hook']);
+// auth-sms-hook and webhooks/crm both verify an HMAC over the exact raw
+// bytes the sender sent, so neither must be JSON-parsed — matches their own
+// `config.api.bodyParser = false` intent.
+const RAW_BODY_ROUTES = new Set(['/api/auth-sms-hook', '/api/webhooks/crm']);
 
 function createRes() {
   const state = { statusCode: 200, headers: {}, body: undefined };
