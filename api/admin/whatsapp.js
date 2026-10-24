@@ -5,10 +5,16 @@
 // Auth: caller must present a Bearer token whose email is in admin_emails
 // (same as every other /api/admin/* route — see ./_auth).
 const { requireAdmin, SUPABASE_URL, SERVICE_KEY } = require('./_auth');
-const { remuxOpusWebmToOgg } = require('./_webmToOgg.js');
+// _webmToOgg.js (a pure WebM->Ogg Opus remux) is NOT used here — it's
+// spec-valid (confirmed byte-exact and CRC-correct against what Meta
+// actually served back) but Ogg Opus has poor native decode support on
+// iOS specifically, so real voice notes sent that way silently failed to
+// play on iPhones while working fine on Android. Left in the repo as a
+// reference/fallback for a future provider that only speaks Ogg.
 
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || '';
 const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
+const CLOUDCONVERT_API_KEY = process.env.CLOUDCONVERT_API_KEY || '';
 const GRAPH_VERSION = 'v21.0';
 
 // Meta's send-message API only accepts these exact audio mime types.
@@ -49,16 +55,60 @@ function waTypeForMime(mime) {
 }
 
 // Converts an unsupported audio file (webm from browser recording, almost
-// always) to ogg — a pure container remux (see _webmToOgg.js), not a
-// re-encode: WebM and Ogg can both hold the same compressed Opus data, so
-// this is just extracting and re-wrapping it. No external service, no
-// network round-trip, no conversion-service account to maintain.
-function convertAudioToOgg(buffer, filename) {
-  try {
-    return { buffer: remuxOpusWebmToOgg(buffer), mimeType: 'audio/ogg', filename: (filename || 'voice-note').replace(/\.[^.]+$/, '') + '.ogg' };
-  } catch (err) {
-    throw bad(422, 'Could not convert this audio recording: ' + err.message);
+// always) to AAC via CloudConvert. A pure container remux to Ogg Opus was
+// tried first (see _webmToOgg.js) and is spec-valid — confirmed byte-exact
+// and CRC-correct against what Meta actually served back — but Ogg Opus
+// has poor native decode support on iOS specifically, so real voice notes
+// sent that way silently failed to play on iPhones while working fine on
+// Android. AAC is directly on Meta's accepted mime list and is what
+// WhatsApp's own voice notes use, so this needs genuine transcoding
+// (decode + re-encode), not just repackaging — hence back to an external
+// conversion service. import/base64 keeps this to one job-creation call
+// rather than a separate upload step; short voice notes convert in a few
+// seconds, so polling (not a webhook) is fine here.
+async function convertAudioToAac(buffer, filename) {
+  if (!CLOUDCONVERT_API_KEY) throw bad(500, 'Server not configured (CLOUDCONVERT_API_KEY missing) — needed to convert this audio format for WhatsApp.');
+
+  const jobRes = await fetch('https://api.cloudconvert.com/v2/jobs', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${CLOUDCONVERT_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tasks: {
+        'import-1': { operation: 'import/base64', file: buffer.toString('base64'), filename: filename || 'voice-note.webm' },
+        'convert-1': { operation: 'convert', input: 'import-1', output_format: 'aac' },
+        'export-1': { operation: 'export/url', input: 'convert-1' }
+      }
+    })
+  });
+  const jobJson = await jobRes.json().catch(() => ({}));
+  if (!jobRes.ok) throw bad(jobRes.status, jobJson?.message || 'CloudConvert job creation failed.');
+  let job = jobJson?.data;
+  if (!job?.id) throw bad(502, 'CloudConvert did not return a job id.');
+
+  for (let i = 0; i < 20 && job.status !== 'finished' && job.status !== 'error'; i++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const pollRes = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.id}`, {
+      headers: { Authorization: `Bearer ${CLOUDCONVERT_API_KEY}` }
+    });
+    const pollJson = await pollRes.json().catch(() => ({}));
+    job = pollJson?.data || job;
   }
+  if (job.status !== 'finished') {
+    const failedTask = (job.tasks || []).find((t) => t.status === 'error');
+    throw bad(504, failedTask ? `Audio conversion failed: ${failedTask.message}` : 'Audio conversion timed out.');
+  }
+
+  const exportTask = (job.tasks || []).find((t) => t.operation === 'export/url' && t.status === 'finished');
+  const fileInfo = exportTask?.result?.files?.[0];
+  if (!fileInfo?.url) throw bad(502, 'CloudConvert did not return a converted file.');
+
+  const convertedRes = await fetch(fileInfo.url);
+  if (!convertedRes.ok) throw bad(502, 'Could not download the converted audio.');
+  return {
+    buffer: Buffer.from(await convertedRes.arrayBuffer()),
+    mimeType: 'audio/aac',
+    filename: fileInfo.filename || 'voice-note.aac'
+  };
 }
 
 // Shared by the file-attach/voice-note path and the quick-reply-with-image
@@ -72,7 +122,7 @@ async function sendMediaMessage({ conversationId, buffer, mimeType, filename, ca
 
   const baseMime = mimeType.split(';')[0].trim().toLowerCase();
   if (baseMime.startsWith('audio/') && !META_ACCEPTED_AUDIO_TYPES.has(baseMime)) {
-    const converted = await convertAudioToOgg(buffer, filename);
+    const converted = await convertAudioToAac(buffer, filename);
     buffer = converted.buffer;
     mimeType = converted.mimeType;
     filename = converted.filename;
