@@ -958,7 +958,7 @@
               <button class="btn btn-ghost" id="wa-mic-btn" onclick="startWaRecording()" title="Record a voice note" style="display:none;padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5a3 3 0 0 1 3-3a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3a3 3 0 0 1-3-3z"/><path d="M5 10a7 7 0 0 0 14 0M8 21h8m-4-4v4"/></g></svg></button>
               <div style="position:relative;flex:1;">
                 <div id="wa-template-dropdown" style="display:none;position:absolute;bottom:100%;left:0;right:0;margin-bottom:6px;background:var(--white);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);max-height:200px;overflow-y:auto;z-index:20;"></div>
-                <input type="text" id="wa-thread-input" class="form-input" placeholder="Type a reply… (/ for templates)" autocomplete="off" style="width:100%;" oninput="onWaTemplateInput()" onkeydown="handleWaInputKeydown(event)" onblur="setTimeout(closeWaTemplateDropdown, 150)">
+                <input type="text" id="wa-thread-input" class="form-input" placeholder="Type a reply… (/ for templates)" autocomplete="off" style="width:100%;" oninput="onWaTemplateInput()" onkeydown="handleWaInputKeydown(event)" onblur="setTimeout(closeWaTemplateDropdown, 150)" onpaste="handleWaInputPaste(event)">
               </div>
               <button class="btn btn-primary" id="wa-thread-send-btn" onclick="sendWhatsappMessage()">Send</button>
             </div>
@@ -8693,6 +8693,15 @@ async function sendWhatsappMessage() {
 async function sendWaMedia() {
   const fileInput = document.getElementById('wa-file-input');
   const file = fileInput.files[0];
+  await sendWaMediaFile(file);
+  fileInput.value = '';
+}
+
+// Shared by the file-picker attach button and pasting an image straight
+// into the reply box (Ctrl/Cmd+V — see the wa-thread-input paste listener)
+// — same WhatsApp-desktop-style convenience, just an image on the
+// clipboard instead of a saved file.
+async function sendWaMediaFile(file) {
   if (!file || !waCurrentConversationId) return;
   const attachBtn = document.getElementById('wa-attach-btn');
   attachBtn.disabled = true;
@@ -8716,7 +8725,18 @@ async function sendWaMedia() {
     document.getElementById('wa-thread-error').textContent = err.message;
   } finally {
     attachBtn.disabled = false;
-    fileInput.value = '';
+  }
+}
+
+function handleWaInputPaste(event) {
+  const items = event.clipboardData?.items || [];
+  for (const item of items) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) {
+      event.preventDefault(); // don't also paste a filename/garbage as text
+      const file = item.getAsFile();
+      if (file) sendWaMediaFile(file);
+      return;
+    }
   }
 }
 
