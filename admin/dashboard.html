@@ -698,6 +698,10 @@
     <div class="nav-item" onclick="showPanel('leads', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><g fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m16.719 19.752l-.64-5.124A3 3 0 0 0 13.101 12h-2.204a3 3 0 0 0-2.976 2.628l-.641 5.124A2 2 0 0 0 9.266 22h5.468a2 2 0 0 0 1.985-2.248"/><circle cx="12" cy="5" r="3"/><circle cx="4" cy="9" r="2"/><circle cx="20" cy="9" r="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 14h-.306a2 2 0 0 0-1.973 1.671l-.333 2A2 2 0 0 0 3.361 20H7m13-6h.306a2 2 0 0 1 1.973 1.671l.333 2A2 2 0 0 1 20.639 20H17"/></g></svg></span> Leads
     </div>
+    <div class="nav-item" onclick="showPanel('whatsapp', this)">
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m3 21l1.65-3.8a9 9 0 1 1 3.4 2.9z"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0za5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/></g></svg></span> WhatsApp
+      <span id="badge-whatsapp" style="display:none;background:#16A34A;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;margin-left:auto;"></span>
+    </div>
     <div class="nav-item" onclick="showPanel('salesreport', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2m5 6h-2.5a1.5 1.5 0 0 0 0 3h1a1.5 1.5 0 0 1 0 3H10m2 0v1m0-8v1"/></g></svg></span> Sales Report
     </div>
@@ -911,6 +915,33 @@
         <div style="font-size:12px;color:var(--muted);margin:-4px 0 12px;">Added by the sales team — an open lead becomes a booking (and drops off this list) when a sales user converts it.</div>
         <div id="leads-table-count" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
         <div id="leads-table"><div class="loading"><div class="spinner"></div> Loading leads...</div></div>
+      </div>
+    </div>
+
+    <!-- WHATSAPP PANEL — direct Meta Cloud API inbox, no CRM relay. -->
+    <div class="panel" id="panel-whatsapp">
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="display:flex;height:calc(100vh - 180px);min-height:520px;">
+          <div style="width:300px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;">
+            <div style="padding:14px;border-bottom:1px solid var(--border);">
+              <span class="search-wrap" style="display:block;"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="wa-convo-search" placeholder="Search by name or phone..." oninput="renderWhatsappConversationList()" style="width:100%;" autocomplete="off"></span>
+            </div>
+            <div id="wa-convo-list" style="flex:1;overflow-y:auto;"></div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+            <div id="wa-thread-header" style="display:none;padding:14px 18px;border-bottom:1px solid var(--border);">
+              <div id="wa-thread-name" style="font-weight:700;font-size:14px;"></div>
+              <div id="wa-thread-phone" style="font-size:12px;color:var(--muted);"></div>
+            </div>
+            <div id="wa-thread-empty" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;text-align:center;padding:20px;">Select a conversation to view messages</div>
+            <div id="wa-thread-messages" style="display:none;flex:1;overflow-y:auto;padding:18px;flex-direction:column;gap:10px;background:var(--bg);"></div>
+            <div id="wa-thread-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;margin:10px 18px 0;border-radius:8px;font-size:13px;"></div>
+            <div id="wa-thread-composer" style="display:none;padding:12px 18px;border-top:1px solid var(--border);gap:8px;">
+              <input type="text" id="wa-thread-input" class="form-input" placeholder="Type a reply…" autocomplete="off" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();sendWhatsappMessage();}">
+              <button class="btn btn-primary" id="wa-thread-send-btn" onclick="sendWhatsappMessage()">Send</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2151,6 +2182,7 @@ const panelTitles = {
   analytics: ['Analytics', 'Business performance at a glance'],
   bookings: ['All Bookings', 'Manage and assign installation appointments'],
   leads: ['Leads', 'Contacts sales has added, before they become a booking'],
+  whatsapp: ['WhatsApp', 'Direct conversations with customers via WhatsApp'],
   salesreport: ['Sales Report', 'Leads and bookings by sales agent — filter and export'],
   slots: ['Availability Slots', 'Control which time slots customers can book'],
   installers: ['User Management', 'Add, remove and manage installers and admin users'],
@@ -2174,6 +2206,12 @@ function navElFor(name) {
 }
 
 function showPanel(name, el) {
+  // The WhatsApp panel polls (conversation list + open thread) while it's
+  // visible — stop both the moment we navigate away, or they'd keep firing
+  // in the background for the rest of the session.
+  if (waCurrentPanelActive && name !== 'whatsapp') stopWhatsappPolling();
+  waCurrentPanelActive = (name === 'whatsapp');
+
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById(`panel-${name}`).classList.add('active');
@@ -2199,6 +2237,7 @@ function showPanel(name, el) {
   if (name === 'passwords') populatePasswordInstallers();
   if (name === 'bookings') loadBookings();
   if (name === 'leads') loadLeadsAdmin();
+  if (name === 'whatsapp') loadWhatsappConversations();
   if (name === 'salesreport') loadSalesReport();
   if (name === 'sms-settings') loadSMSSettings();
   if (name === 'customers') loadCustomers();
@@ -8373,6 +8412,178 @@ function leadSourceCell(l) {
   // the backend proxy (api/admin/crm-chat.js) are all still intact for
   // whenever this gets repointed or the toggle gets flipped back.
   return label;
+}
+
+// ============================================================
+// WHATSAPP PANEL — direct Meta Cloud API inbox (/api/admin/whatsapp,
+// backed by /api/webhooks/whatsapp). Replaces the CRM-relay chat below for
+// WhatsApp specifically; no AI auto-reply, receive/store/manual-reply only.
+// Conversation list polls every 10s while the panel is open; an open
+// thread polls every 5s on top of that — both stop the moment showPanel()
+// navigates away (see the stopWhatsappPolling() call in showPanel()).
+// ============================================================
+let waConversations = [];
+let waCurrentConversationId = null;
+let waMessages = [];
+let waPollInterval = null;
+let waListPollInterval = null;
+let waCurrentPanelActive = false;
+
+async function waCall(action, extra) {
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) throw new Error('Session expired. Please sign in again.');
+  const res = await fetch('/api/admin/whatsapp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+    body: JSON.stringify({ action, ...(extra || {}) })
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Request failed.');
+  return body;
+}
+
+function stopWhatsappPolling() {
+  if (waPollInterval) { clearInterval(waPollInterval); waPollInterval = null; }
+  if (waListPollInterval) { clearInterval(waListPollInterval); waListPollInterval = null; }
+}
+
+async function loadWhatsappConversations() {
+  const listEl = document.getElementById('wa-convo-list');
+  if (!waConversations.length) listEl.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+  try {
+    const result = await waCall('list-conversations');
+    waConversations = result?.conversations || [];
+    renderWhatsappConversationList();
+  } catch (err) {
+    listEl.innerHTML = `<div class="empty-state">⚠️ ${escB(err.message)}</div>`;
+  }
+  if (waListPollInterval) clearInterval(waListPollInterval);
+  waListPollInterval = setInterval(async () => {
+    try {
+      const result = await waCall('list-conversations');
+      waConversations = result?.conversations || [];
+      renderWhatsappConversationList();
+    } catch { /* a transient poll failure isn't worth interrupting the admin with */ }
+  }, 10000);
+}
+
+function renderWhatsappConversationList() {
+  const q = (document.getElementById('wa-convo-search')?.value || '').trim().toLowerCase();
+  let rows = waConversations;
+  if (q) rows = rows.filter(c => (c.contact_name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q));
+  const el = document.getElementById('wa-convo-list');
+  if (!rows.length) { el.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px;">No conversations yet.</div>'; return; }
+  el.innerHTML = rows.map(c => `
+    <div onclick="selectWhatsappConversation('${c.id}')" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escB(c.contact_name || c.phone)}</div>
+        ${c.unread_count > 0 ? `<span style="background:#16A34A;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;flex-shrink:0;">${c.unread_count}</span>` : ''}
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px;">${escB(c.phone)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escB(c.last_message_preview || '—')}</div>
+    </div>`).join('');
+
+  const totalUnread = waConversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+  const badge = document.getElementById('badge-whatsapp');
+  if (badge) { badge.textContent = totalUnread > 99 ? '99+' : String(totalUnread); badge.style.display = totalUnread > 0 ? 'inline-block' : 'none'; }
+}
+
+async function selectWhatsappConversation(id) {
+  waCurrentConversationId = id;
+  const convo = waConversations.find(c => c.id === id);
+  renderWhatsappConversationList(); // re-render to show the selection highlight
+  document.getElementById('wa-thread-header').style.display = 'block';
+  document.getElementById('wa-thread-name').textContent = convo?.contact_name || convo?.phone || '—';
+  document.getElementById('wa-thread-phone').textContent = convo?.phone || '';
+  document.getElementById('wa-thread-empty').style.display = 'none';
+  document.getElementById('wa-thread-messages').style.display = 'flex';
+  document.getElementById('wa-thread-composer').style.display = 'flex';
+  document.getElementById('wa-thread-messages').innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+  document.getElementById('wa-thread-error').style.display = 'none';
+  document.getElementById('wa-thread-input').value = '';
+
+  await loadWhatsappMessages();
+
+  if (convo && convo.unread_count > 0) {
+    convo.unread_count = 0;
+    renderWhatsappConversationList();
+    waCall('mark-read', { conversationId: id }).catch(() => {});
+  }
+
+  if (waPollInterval) clearInterval(waPollInterval);
+  waPollInterval = setInterval(loadWhatsappMessages, 5000);
+}
+
+async function loadWhatsappMessages() {
+  if (!waCurrentConversationId) return;
+  try {
+    const result = await waCall('get-messages', { conversationId: waCurrentConversationId });
+    waMessages = result?.messages || [];
+    renderWhatsappMessages(waMessages);
+  } catch (err) {
+    document.getElementById('wa-thread-error').style.display = 'block';
+    document.getElementById('wa-thread-error').textContent = err.message;
+  }
+}
+
+// Reuses chatStatusIcon() (the delivery-tick renderer) — it's a pure
+// function of a status string, nothing CRM-specific about it.
+function renderWhatsappMessages(messages) {
+  const el = document.getElementById('wa-thread-messages');
+  if (!messages || !messages.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px;">No messages yet.</div>';
+    return;
+  }
+  const wasAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  el.innerHTML = messages.map(m => {
+    const out = m.direction === 'outbound';
+    const time = m.sent_at ? new Date(m.sent_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    const isAudio = m.media_url && /audio|voice/i.test(m.message_type || '');
+    const isImage = m.media_url && /image/i.test(m.message_type || '');
+    const caption = m.body ? `<div style="margin-top:4px;">${escB(m.body)}</div>` : '';
+    const body = isAudio
+      ? `<audio controls src="${escB(m.media_url)}" style="max-width:220px;height:34px;"></audio>${caption}`
+      : isImage
+      ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener"><img src="${escB(m.media_url)}" style="max-width:220px;max-height:220px;border-radius:8px;display:block;"></a>${caption}`
+      : m.media_url ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener" style="color:inherit;">[${escB(m.message_type || 'attachment')}]</a>${caption}`
+      : m.body ? escB(m.body)
+      : '';
+    const status = out ? `<span style="display:inline-flex;align-items:center;">${chatStatusIcon(m.status)}</span>` : '';
+    return `<div style="align-self:${out ? 'flex-end' : 'flex-start'};max-width:65%;">
+        <div style="background:${out ? 'var(--water)' : 'var(--white)'};color:${out ? '#fff' : 'var(--text)'};border:${out ? 'none' : '1px solid var(--border)'};padding:8px 12px;border-radius:14px;font-size:13px;white-space:pre-wrap;word-break:break-word;">${body}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;text-align:${out ? 'right' : 'left'};display:flex;align-items:center;justify-content:${out ? 'flex-end' : 'flex-start'};gap:4px;">${time}${status}</div>
+      </div>`;
+  }).join('');
+  if (wasAtBottom) el.scrollTop = el.scrollHeight;
+}
+
+async function sendWhatsappMessage() {
+  const input = document.getElementById('wa-thread-input');
+  const text = input.value.trim();
+  if (!text || !waCurrentConversationId) return;
+  const btn = document.getElementById('wa-thread-send-btn');
+  btn.disabled = true;
+  document.getElementById('wa-thread-error').style.display = 'none';
+  input.value = '';
+
+  // Optimistic echo — same reasoning as the CRM chat's send path: don't
+  // make every send wait on a second round-trip before showing anything.
+  waMessages = [...waMessages, { direction: 'outbound', body: text, sent_at: new Date().toISOString(), status: 'sent', _optimistic: true }];
+  renderWhatsappMessages(waMessages);
+
+  try {
+    await waCall('send-message', { conversationId: waCurrentConversationId, body: text });
+    const convo = waConversations.find(c => c.id === waCurrentConversationId);
+    if (convo) { convo.last_message_preview = text; convo.last_message_at = new Date().toISOString(); renderWhatsappConversationList(); }
+  } catch (err) {
+    waMessages = waMessages.filter(m => !m._optimistic);
+    renderWhatsappMessages(waMessages);
+    input.value = text;
+    document.getElementById('wa-thread-error').style.display = 'block';
+    document.getElementById('wa-thread-error').textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ============================================================
