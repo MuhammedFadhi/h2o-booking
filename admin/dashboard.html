@@ -8570,9 +8570,12 @@ function renderChatMessages(messages) {
     // real media_url, and checking body first was hiding the actual
     // playable file behind that label entirely.
     const isAudio = m.media_url && /audio|voice/i.test(m.message_type || '');
+    const isImage = m.media_url && /image|photo|picture/i.test(m.message_type || '');
     const caption = m.body && m.body.trim() && !/^🎙️?\s*voice note$/i.test(m.body.trim()) ? `<div style="margin-top:4px;">${escB(m.body)}</div>` : '';
     const body = isAudio
       ? `<audio controls src="${escB(m.media_url)}" style="max-width:220px;height:34px;"></audio>${caption}`
+      : isImage
+      ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener"><img src="${escB(m.media_url)}" style="max-width:220px;max-height:220px;border-radius:8px;display:block;"></a>${caption}`
       : m.media_url ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener" style="color:inherit;">[${escB(m.message_type || 'attachment')}]</a>${caption}`
       : m.body ? escB(m.body)
       : '';
