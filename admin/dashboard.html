@@ -8588,11 +8588,14 @@ function renderChatMessages(messages) {
   if (wasAtBottom) el.scrollTop = el.scrollHeight;
 }
 
+let chatCurrentMessages = [];
+
 async function loadLeadChatMessages() {
   if (!currentChatLeadId) return;
   try {
     const result = await crmChatCall('get-messages');
-    renderChatMessages(result?.data?.messages || []);
+    chatCurrentMessages = result?.data?.messages || [];
+    renderChatMessages(chatCurrentMessages);
   } catch (err) {
     document.getElementById('chat-error').style.display = 'block';
     document.getElementById('chat-error').textContent = err.message;
@@ -8606,19 +8609,32 @@ async function sendLeadChatMessage() {
   const btn = document.getElementById('chat-send-btn');
   btn.disabled = true;
   document.getElementById('chat-error').style.display = 'none';
+
+  const pendingMedia = chatPendingTemplateMedia;
+  input.value = '';
+  clearChatTemplateMedia();
+  closeChatTemplateDropdown();
+
+  // Show it immediately instead of waiting on a second round-trip (a full
+  // GET re-fetch) after the POST completes — that double hop through our
+  // proxy to the CRM is what made sending feel slow. The next 5s poll
+  // replaces this with the CRM's authoritative copy (real id, delivery
+  // ticks), so this doesn't need to be exact.
+  chatCurrentMessages = [...chatCurrentMessages, { direction: 'outbound', body: text, sent_at: new Date().toISOString(), status: 'sent', _optimistic: true }];
+  renderChatMessages(chatCurrentMessages);
+
   try {
-    // A template picked with a media_url attaches that file alongside the
-    // message as its caption, instead of sending plain text.
-    if (chatPendingTemplateMedia) {
-      await crmChatCall('send-template-media', { mediaUrl: chatPendingTemplateMedia, body: text });
+    if (pendingMedia) {
+      await crmChatCall('send-template-media', { mediaUrl: pendingMedia, body: text });
     } else {
       await crmChatCall('send-message', { body: text });
     }
-    input.value = '';
-    clearChatTemplateMedia();
-    closeChatTemplateDropdown();
-    await loadLeadChatMessages();
   } catch (err) {
+    // It never actually sent — roll back the optimistic echo and give the
+    // text back rather than silently losing it.
+    chatCurrentMessages = chatCurrentMessages.filter(m => !m._optimistic);
+    renderChatMessages(chatCurrentMessages);
+    input.value = text;
     document.getElementById('chat-error').style.display = 'block';
     document.getElementById('chat-error').textContent = err.message;
   } finally {
