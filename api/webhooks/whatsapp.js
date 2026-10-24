@@ -83,7 +83,10 @@ async function uploadToStorage(path, buffer, contentType) {
 // Meta's media URLs expire within minutes, so every inbound attachment is
 // downloaded and re-hosted in our own storage immediately — anything we
 // deferred would be a broken link by the time someone opens the inbox.
-async function fetchAndStoreMedia(mediaId, messageType) {
+// niceFilename (WhatsApp's own document.filename, when the message carries
+// one) gets folded into the storage path so the UI can show a real
+// filename instead of just the opaque media id — see renderWhatsappMessages.
+async function fetchAndStoreMedia(mediaId, messageType, niceFilename) {
   const info = await (await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${mediaId}`, {
     headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}` }
   })).json();
@@ -94,7 +97,8 @@ async function fetchAndStoreMedia(mediaId, messageType) {
   const buffer = Buffer.from(await fileRes.arrayBuffer());
 
   const ext = (info.mime_type || '').split('/')[1]?.split(';')[0] || messageType;
-  const path = `${mediaId}.${ext}`;
+  const safeName = niceFilename ? String(niceFilename).replace(/[^a-zA-Z0-9._-]/g, '_') : null;
+  const path = safeName ? `${mediaId}_${safeName}` : `${mediaId}.${ext}`;
   return uploadToStorage(path, buffer, info.mime_type);
 }
 
@@ -124,9 +128,9 @@ async function findOrCreateConversation(phone, contactName) {
 
 function messageBodyAndType(message) {
   const type = message.type || 'text';
-  if (type === 'text') return { type, body: message.text?.body || null, mediaId: null };
+  if (type === 'text') return { type, body: message.text?.body || null, mediaId: null, filename: null };
   const media = message[type]; // image/audio/video/document all carry { id, mime_type, caption?, ... }
-  return { type, body: media?.caption || null, mediaId: media?.id || null };
+  return { type, body: media?.caption || null, mediaId: media?.id || null, filename: media?.filename || null };
 }
 
 async function handleInboundMessage(message, contact) {
@@ -134,10 +138,10 @@ async function handleInboundMessage(message, contact) {
   if (!phone) return; // can't file it anywhere sensible without a phone
   const conversationId = await findOrCreateConversation(phone, contact?.profile?.name);
 
-  const { type, body, mediaId } = messageBodyAndType(message);
+  const { type, body, mediaId, filename } = messageBodyAndType(message);
   let mediaUrl = null;
   if (mediaId) {
-    try { mediaUrl = await fetchAndStoreMedia(mediaId, type); }
+    try { mediaUrl = await fetchAndStoreMedia(mediaId, type, filename); }
     catch (err) { console.error('whatsapp media fetch failed:', mediaId, err.message); }
   }
 

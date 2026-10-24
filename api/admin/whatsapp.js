@@ -152,6 +152,7 @@ async function sendMediaMessage({ conversationId, buffer, mimeType, filename, ca
 
   const mediaObject = { id: metaMediaId };
   if (caption && waType !== 'audio') mediaObject.caption = String(caption); // audio has no caption field in the API
+  if (waType === 'document' && filename) mediaObject.filename = String(filename); // shown to the recipient as the file's name
 
   const sendRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WHATSAPP_PHONE_NUMBER_ID}/messages`, {
     method: 'POST',
@@ -162,8 +163,10 @@ async function sendMediaMessage({ conversationId, buffer, mimeType, filename, ca
   if (!sendRes.ok) throw bad(sendRes.status, sendJson?.error?.message || 'WhatsApp send failed.');
 
   const ext = (mimeType.split('/')[1] || '').split(';')[0] || waType;
+  const safeName = filename ? String(filename).replace(/[^a-zA-Z0-9._-]/g, '_') : null;
+  const storagePath = safeName ? `${metaMediaId}_${safeName}` : `${metaMediaId}.${ext}`;
   let mediaUrl = null;
-  try { mediaUrl = await uploadToStorage(`${metaMediaId}.${ext}`, buffer, mimeType); }
+  try { mediaUrl = await uploadToStorage(storagePath, buffer, mimeType); }
   catch (err) { console.error('whatsapp outbound media re-host failed:', err.message); }
 
   const waMessageId = sendJson?.messages?.[0]?.id || null;

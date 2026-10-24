@@ -8604,6 +8604,21 @@ async function loadWhatsappMessages() {
 
 // Reuses chatStatusIcon() (the delivery-tick renderer) — it's a pure
 // function of a status string, nothing CRM-specific about it.
+// Storage paths are written as "{id}_{original-filename}" (see
+// fetchAndStoreMedia in the webhook and sendMediaMessage in the admin API)
+// specifically so this can recover a real, readable filename from the URL
+// alone — strips the leading numeric media-id prefix when present, falls
+// back to the raw last path segment otherwise.
+function waFilenameFromUrl(url) {
+  try {
+    const last = decodeURIComponent(new URL(url).pathname.split('/').pop() || '');
+    const m = /^\d+_(.+)$/.exec(last);
+    return m ? m[1] : (last || 'attachment');
+  } catch {
+    return 'attachment';
+  }
+}
+
 function renderWhatsappMessages(messages) {
   const el = document.getElementById('wa-thread-messages');
   if (!messages || !messages.length) {
@@ -8621,7 +8636,10 @@ function renderWhatsappMessages(messages) {
       ? `<audio controls src="${escB(m.media_url)}" style="max-width:220px;height:34px;"></audio>${caption}`
       : isImage
       ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener"><img src="${escB(m.media_url)}" style="max-width:220px;max-height:220px;border-radius:8px;display:block;"></a>${caption}`
-      : m.media_url ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener" style="color:inherit;">[${escB(m.message_type || 'attachment')}]</a>${caption}`
+      : m.media_url ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="1.4em" height="1.4em" viewBox="0 0 24 24" style="flex-shrink:0;"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2M9 9h1m-1 4h6m-6 4h6"/></g></svg>
+            <span style="overflow-wrap:anywhere;">${escB(waFilenameFromUrl(m.media_url))}</span>
+          </a>${caption}`
       : m.body ? escB(m.body)
       : '';
     const status = out ? `<span style="display:inline-flex;align-items:center;">${chatStatusIcon(m.status)}</span>` : '';
