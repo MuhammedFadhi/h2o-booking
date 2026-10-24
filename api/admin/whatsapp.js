@@ -94,8 +94,12 @@ async function convertAudioToAac(buffer, filename) {
     job = pollJson?.data || job;
   }
   if (job.status !== 'finished') {
-    const failedTask = (job.tasks || []).find((t) => t.status === 'error');
-    throw bad(504, failedTask ? `Audio conversion failed: ${failedTask.message}` : 'Audio conversion timed out.');
+    // Prefer the task that failed for its OWN reason over one that's just
+    // cascading "my input failed" — e.g. convert-1 reporting
+    // INPUT_TASK_FAILED when the real problem is on import-1 upstream.
+    const failedTasks = (job.tasks || []).filter((t) => t.status === 'error');
+    const rootTask = failedTasks.find((t) => t.code !== 'INPUT_TASK_FAILED') || failedTasks[0];
+    throw bad(504, rootTask ? `Audio conversion failed (${rootTask.name}): ${rootTask.code || ''} ${rootTask.message || ''}`.trim() : 'Audio conversion timed out.');
   }
 
   const exportTask = (job.tasks || []).find((t) => t.operation === 'export/url' && t.status === 'finished');
