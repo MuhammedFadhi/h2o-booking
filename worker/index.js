@@ -32,6 +32,11 @@ const ROUTE_LOADERS = {
 // `config.api.bodyParser = false` intent.
 const RAW_BODY_ROUTES = new Set(['/api/auth-sms-hook', '/api/webhooks/crm']);
 
+// Routes that accept a multipart/form-data upload (a media attachment) and
+// need the parsed FormData itself, not text/JSON — see RAW_BODY_ROUTES
+// above for why text() can't come first for these either.
+const MULTIPART_ROUTES = new Set(['/api/admin/crm-chat']);
+
 function createRes() {
   const state = { statusCode: 200, headers: {}, body: undefined };
   const res = {
@@ -53,11 +58,16 @@ async function runHandler(handler, request, url) {
   const query = Object.fromEntries(url.searchParams);
 
   let body;
+  const ct = headers['content-type'] || '';
   if (RAW_BODY_ROUTES.has(url.pathname)) {
     body = await request.text();
+  } else if (MULTIPART_ROUTES.has(url.pathname) && ct.includes('multipart/form-data')) {
+    // request.formData() reads the body directly off the stream — must not
+    // go through request.text() first (that would UTF-8-decode the raw
+    // bytes and corrupt any binary file content before we ever see it).
+    body = await request.formData();
   } else if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
     const text = await request.text();
-    const ct = headers['content-type'] || '';
     if (text && ct.includes('application/json')) {
       try { body = JSON.parse(text); } catch { body = text; }
     } else if (text) {

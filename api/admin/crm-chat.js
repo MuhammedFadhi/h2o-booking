@@ -1,7 +1,9 @@
 // /api/admin/crm-chat — server-side proxy to the external CRM's chat API
 // (WhatsApp and, assumed to follow the same URL shape, Instagram), so the
 // CRM's bearer token never reaches the browser.
-// Actions: get-messages | send-message
+// Actions: get-messages | send-message | set-ai-paused
+// A multipart/form-data POST (not JSON) is handled as a media upload
+// instead — see handleSendMedia().
 // Auth: caller must present a Bearer token whose email is in admin_emails
 // (same as every other /api/admin/* route — see ./_auth).
 //
@@ -70,6 +72,48 @@ async function crmFetch(path, options) {
   return json;
 }
 
+// Media upload: deliberately NOT using crmFetch — a multipart body must not
+// get a manually-set Content-Type, or the request loses its boundary and
+// the CRM can't parse the form fields. Letting fetch derive it from the
+// FormData body is the only correct way to send this.
+async function crmFetchMultipart(path, formData) {
+  const r = await fetch(CRM_BASE_URL + path, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${CRM_API_TOKEN}` },
+    body: formData
+  });
+  const txt = await r.text();
+  let json;
+  try { json = txt ? JSON.parse(txt) : null; } catch { json = null; }
+  if (!r.ok) {
+    const e = new Error((json && json.message) || txt || r.statusText);
+    e.status = r.status;
+    throw e;
+  }
+  return json;
+}
+
+// A multipart/form-data POST is always a media upload — distinct from the
+// JSON actions below, since FormData can't carry an `action` field the way
+// the other actions expect. Fields: leadId, file, caption (optional).
+async function handleSendMedia(req, res) {
+  await requireAdmin(req);
+  const form = req.body; // FormData, parsed by worker/index.js's MULTIPART_ROUTES branch
+  const leadId = form.get('leadId');
+  const file = form.get('file');
+  const caption = form.get('caption');
+  if (!leadId) return res.status(400).json({ error: 'leadId required' });
+  if (!file || typeof file === 'string') return res.status(400).json({ error: 'file required' });
+
+  const { channel, convoId } = await conversationForLead(leadId);
+  const outForm = new FormData();
+  outForm.append('file', file, file.name);
+  if (caption) outForm.append('caption', String(caption));
+
+  const result = await crmFetchMultipart(`/api/v1/${channel}/conversations/${encodeURIComponent(convoId)}/media`, outForm);
+  return res.status(200).json(result);
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -80,22 +124,32 @@ module.exports = async function handler(req, res) {
   if (!CRM_API_TOKEN) return res.status(500).json({ error: 'Server not configured (CRM_API_TOKEN missing)' });
 
   try {
+    const contentType = req.headers['content-type'] || '';
+    if (contentType.includes('multipart/form-data')) {
+      return await handleSendMedia(req, res);
+    }
+
     await requireAdmin(req);
-    const { action, leadId, body } = req.body || {};
+    const { action, leadId, body, aiPaused } = req.body || {};
     if (!leadId) return res.status(400).json({ error: 'leadId required' });
 
     const { channel, convoId } = await conversationForLead(leadId);
-    const path = `/api/v1/${channel}/conversations/${encodeURIComponent(convoId)}/messages`;
+    const conversationPath = `/api/v1/${channel}/conversations/${encodeURIComponent(convoId)}`;
 
     if (action === 'get-messages') {
-      const result = await crmFetch(path, { method: 'GET' });
+      const result = await crmFetch(`${conversationPath}/messages`, { method: 'GET' });
       return res.status(200).json(result);
     }
 
     if (action === 'send-message') {
       const text = String(body || '').trim();
       if (!text) return res.status(400).json({ error: 'Message body required' });
-      const result = await crmFetch(path, { method: 'POST', body: JSON.stringify({ body: text }) });
+      const result = await crmFetch(`${conversationPath}/messages`, { method: 'POST', body: JSON.stringify({ body: text }) });
+      return res.status(200).json(result);
+    }
+
+    if (action === 'set-ai-paused') {
+      const result = await crmFetch(conversationPath, { method: 'PATCH', body: JSON.stringify({ ai_paused: !!aiPaused }) });
       return res.status(200).json(result);
     }
 

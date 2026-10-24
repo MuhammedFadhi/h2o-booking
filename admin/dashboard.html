@@ -1438,12 +1438,18 @@
 <div class="modal-overlay" id="lead-chat-modal" style="display:none;">
   <div class="modal">
     <div class="modal-header"><span class="modal-title">Chat — <span id="chat-lead-name"></span></span>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;margin-left:auto;margin-right:10px;" title="Pause the CRM's auto-reply bot for this conversation while you're replying">
+        <input type="checkbox" id="chat-ai-pause-toggle" onchange="toggleChatAiPaused()"> AI paused
+      </label>
       <button class="modal-close" onclick="closeLeadChatModal()">&times;</button></div>
     <div class="modal-body">
       <div id="chat-lead-phone" style="font-size:12px;color:var(--muted);margin:-8px 0 14px;"></div>
+      <div id="chat-window-warning" style="display:none;background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:10px;">This customer hasn't messaged in over 24 hours — WhatsApp only allows pre-approved templates now, a free-form reply here may silently fail to deliver.</div>
       <div id="chat-messages" style="height:360px;overflow-y:auto;background:var(--bg);border-radius:12px;padding:14px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;"></div>
       <div id="chat-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:10px;"></div>
       <div style="display:flex;gap:8px;">
+        <input type="file" id="chat-file-input" style="display:none;" onchange="sendLeadChatMedia()">
+        <button class="btn btn-ghost" id="chat-attach-btn" onclick="document.getElementById('chat-file-input').click()" title="Attach a file" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg></button>
         <input type="text" id="chat-input" class="form-input" placeholder="Type a reply…" autocomplete="off" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();sendLeadChatMessage();}">
         <button class="btn btn-primary" id="chat-send-btn" onclick="sendLeadChatMessage()">Send</button>
       </div>
@@ -8367,7 +8373,13 @@ async function openLeadChatModal(leadId) {
   document.getElementById('chat-lead-phone').textContent = lead?.phone || '';
   document.getElementById('chat-messages').innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
   document.getElementById('chat-error').style.display = 'none';
+  document.getElementById('chat-window-warning').style.display = 'none';
   document.getElementById('chat-input').value = '';
+  // The CRM's GET response doesn't confirm the conversation's current
+  // ai_paused state, so this starts unchecked (assume the bot is live)
+  // rather than guessing — it only reflects what's actually been toggled
+  // in this session.
+  document.getElementById('chat-ai-pause-toggle').checked = false;
   document.getElementById('lead-chat-modal').style.display = 'flex';
   await loadLeadChatMessages();
   if (chatPollInterval) clearInterval(chatPollInterval);
@@ -8393,8 +8405,20 @@ async function crmChatCall(action, extra) {
   return body;
 }
 
+// WhatsApp only delivers free-form replies within 24h of the customer's
+// last inbound message — outside that window only pre-approved templates
+// go through (same rule the CRM's own UI already warns about). No inbound
+// message at all is treated the same as "too old" — nothing to reply
+// within a window of yet.
+function updateChatWindowWarning(messages) {
+  const lastInbound = (messages || []).filter(m => m.direction === 'inbound' && m.sent_at).pop();
+  const stale = !lastInbound || (Date.now() - new Date(lastInbound.sent_at).getTime()) > 24 * 60 * 60 * 1000;
+  document.getElementById('chat-window-warning').style.display = stale ? 'block' : 'none';
+}
+
 function renderChatMessages(messages) {
   const el = document.getElementById('chat-messages');
+  updateChatWindowWarning(messages);
   if (!messages || !messages.length) {
     el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px;">No messages yet.</div>';
     return;
@@ -8443,6 +8467,49 @@ async function sendLeadChatMessage() {
     document.getElementById('chat-error').textContent = err.message;
   } finally {
     btn.disabled = false;
+  }
+}
+
+async function sendLeadChatMedia() {
+  const fileInput = document.getElementById('chat-file-input');
+  const file = fileInput.files[0];
+  if (!file) return;
+  const attachBtn = document.getElementById('chat-attach-btn');
+  attachBtn.disabled = true;
+  document.getElementById('chat-error').style.display = 'none';
+  try {
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) throw new Error('Session expired. Please sign in again.');
+    const form = new FormData();
+    form.append('leadId', currentChatLeadId);
+    form.append('file', file);
+    const res = await fetch('/api/admin/crm-chat', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${session.access_token}` }, // no Content-Type — browser sets the multipart boundary
+      body: form
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'Upload failed.');
+    await loadLeadChatMessages();
+  } catch (err) {
+    document.getElementById('chat-error').style.display = 'block';
+    document.getElementById('chat-error').textContent = err.message;
+  } finally {
+    attachBtn.disabled = false;
+    fileInput.value = '';
+  }
+}
+
+async function toggleChatAiPaused() {
+  const toggle = document.getElementById('chat-ai-pause-toggle');
+  const wanted = toggle.checked;
+  document.getElementById('chat-error').style.display = 'none';
+  try {
+    await crmChatCall('set-ai-paused', { aiPaused: wanted });
+  } catch (err) {
+    toggle.checked = !wanted; // revert — the CRM never confirmed the change
+    document.getElementById('chat-error').style.display = 'block';
+    document.getElementById('chat-error').textContent = err.message;
   }
 }
 
