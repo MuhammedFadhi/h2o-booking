@@ -63,7 +63,11 @@ function waTypeForMime(mime) {
 // Android. AAC is directly on Meta's accepted mime list and is what
 // WhatsApp's own voice notes use, so this needs genuine transcoding
 // (decode + re-encode), not just repackaging — hence back to an external
-// conversion service. import/base64 keeps this to one job-creation call
+// conversion service. Targets m4a (AAC-in-MP4), not bare/raw .aac (ADTS) —
+// confirmed live that ffmpeg's raw-ADTS writer rejects this source's
+// codec parameters ("Could not write header incorrect codec parameters"),
+// while m4a is both more broadly compatible and what WhatsApp's own voice
+// notes actually use. import/base64 keeps this to one job-creation call
 // rather than a separate upload step; short voice notes convert in a few
 // seconds, so polling (not a webhook) is fine here.
 async function convertAudioToAac(buffer, filename) {
@@ -75,7 +79,7 @@ async function convertAudioToAac(buffer, filename) {
     body: JSON.stringify({
       tasks: {
         'import-1': { operation: 'import/base64', file: buffer.toString('base64'), filename: filename || 'voice-note.webm' },
-        'convert-1': { operation: 'convert', input: 'import-1', output_format: 'aac' },
+        'convert-1': { operation: 'convert', input: 'import-1', output_format: 'm4a' },
         'export-1': { operation: 'export/url', input: 'convert-1' }
       }
     })
@@ -110,8 +114,8 @@ async function convertAudioToAac(buffer, filename) {
   if (!convertedRes.ok) throw bad(502, 'Could not download the converted audio.');
   return {
     buffer: Buffer.from(await convertedRes.arrayBuffer()),
-    mimeType: 'audio/aac',
-    filename: fileInfo.filename || 'voice-note.aac'
+    mimeType: 'audio/mp4',
+    filename: fileInfo.filename || 'voice-note.m4a'
   };
 }
 
