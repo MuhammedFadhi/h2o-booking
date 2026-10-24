@@ -931,10 +931,19 @@
           </div>
           <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
             <div id="wa-thread-header" style="display:none;padding:14px 18px;border-bottom:1px solid var(--border);">
-              <div id="wa-thread-name" style="font-weight:700;font-size:14px;"></div>
-              <div id="wa-thread-phone" style="font-size:12px;color:var(--muted);"></div>
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+                <div>
+                  <div id="wa-thread-name" style="font-weight:700;font-size:14px;"></div>
+                  <div id="wa-thread-phone" style="font-size:12px;color:var(--muted);"></div>
+                </div>
+                <div id="wa-thread-controls" style="display:flex;align-items:center;gap:6px;flex-shrink:0;"></div>
+              </div>
             </div>
             <div id="wa-thread-empty" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;text-align:center;padding:20px;">Select a conversation to view messages</div>
+            <div id="wa-thread-ni-banner" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:#F3F4F6;border:1px solid #E5E7EB;color:#6B7280;padding:10px 14px;margin:10px 18px 0;border-radius:8px;font-size:13px;">
+              <span>Marked as not interested — the chat below is blurred.</span>
+              <button class="btn btn-ghost btn-sm" onclick="unmarkWaNotInterested()">Reopen</button>
+            </div>
             <div id="wa-thread-messages" style="display:none;flex:1;overflow-y:auto;padding:18px;flex-direction:column;gap:10px;background:var(--bg);"></div>
             <div id="wa-thread-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;margin:10px 18px 0;border-radius:8px;font-size:13px;"></div>
             <div id="wa-record-bar" style="display:none;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:8px 12px;margin:10px 18px 0;">
@@ -1478,6 +1487,33 @@
         <div style="display:flex;gap:10px;justify-content:flex-end;">
           <button class="btn btn-ghost" onclick="closeModal('lead-followup-modal')">Close</button>
           <button class="btn btn-primary" id="lfup-save" onclick="saveLeadFollowup()">Add follow-up</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WHATSAPP CONVERSATION FOLLOW-UPS — same list+add pattern as the lead
+     follow-up modal above, scoped to a whatsapp_conversations row instead of
+     a lead. Adding one here also flips that conversation's status to
+     "follow-up" automatically — see saveWaFollowup(). -->
+<div class="modal-overlay" id="wa-followup-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Follow-ups — <span id="wfup-contact-name"></span></span>
+      <button class="modal-close" onclick="closeModal('wa-followup-modal')">&times;</button></div>
+    <div class="modal-body">
+      <div id="wfup-list" style="margin-bottom:16px;"></div>
+      <div style="border-top:1px solid var(--border);padding-top:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Add a follow-up</div>
+        <div class="form-group"><label>Follow-up date</label>
+          <input type="date" id="wfup-date" class="form-input"></div>
+        <div class="form-group"><label>Note</label>
+          <textarea id="wfup-note" class="form-input" rows="3" placeholder="What needs following up?" autocomplete="off" data-lpignore="true" data-1p-ignore></textarea>
+        </div>
+        <div id="wfup-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button class="btn btn-ghost" onclick="closeModal('wa-followup-modal')">Close</button>
+          <button class="btn btn-primary" id="wfup-save" onclick="saveWaFollowup()">Add follow-up</button>
         </div>
       </div>
     </div>
@@ -8488,6 +8524,8 @@ let waQuickReplies = [];
 let waTemplateDropdownItems = [];
 let waTemplateDropdownIndex = -1;
 let waPendingTemplateMedia = null;
+let allWaFollowups = [];
+let currentWaFollowupConversationId = null;
 
 async function waCall(action, extra) {
   const { data: { session } } = await db.auth.getSession();
@@ -8539,6 +8577,40 @@ async function loadWaQuickReplies() {
   }
 }
 
+// ── Conversation pipeline status (v89) ─────────────────────────────────────
+// 'follow_up' is deliberately never offered as a manual choice (see
+// waStatusSelect) — it only ever gets set by saveWaFollowup(), and only ever
+// gets cleared by setWaFollowupStatus('done'), so it always corresponds to a
+// real pending whatsapp_followups row.
+const WA_STATUS_META = {
+  new:            { label: 'New',            bg: '#E5E7EB', fg: '#374151' },
+  not_interested: { label: 'Not interested',  bg: '#E5E7EB', fg: '#6B7280' },
+  lead:           { label: 'Lead',            bg: '#EDE9FE', fg: '#6D28D9' },
+  follow_up:      { label: 'Follow-up',       bg: '#FEF3C7', fg: '#B45309' },
+  converted:      { label: 'Converted',       bg: '#DCFCE7', fg: '#15803D' }
+};
+
+function waStatusSelect(c) {
+  const current = c.status || 'new';
+  const opts = Object.entries(WA_STATUS_META)
+    .filter(([k]) => k !== 'follow_up' || current === 'follow_up')
+    .map(([k, m]) => `<option value="${k}" ${k === 'follow_up' ? 'disabled' : ''} ${current === k ? 'selected' : ''}>${m.label}</option>`)
+    .join('');
+  const meta = WA_STATUS_META[current] || WA_STATUS_META.new;
+  return `<select onclick="event.stopPropagation()" onchange="event.stopPropagation();changeWaConversationStatus('${c.id}', this.value)"
+      style="font-size:10px;font-weight:700;border:none;border-radius:8px;padding:3px 6px;background:${meta.bg};color:${meta.fg};cursor:pointer;flex-shrink:0;">${opts}</select>`;
+}
+
+// Set once — the first admin to reply "owns" the conversation, no reassignment UI.
+function waAssignedPill(c) {
+  if (!c.assigned_admin_name) return '';
+  return `<span title="Assigned to ${escB(c.assigned_admin_name)}" style="font-size:10px;font-weight:700;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;padding:2px 7px;border-radius:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px;flex-shrink:1;">${escB(c.assigned_admin_name)}</span>`;
+}
+
+function waFollowupBtn(c) {
+  return `<button onclick="event.stopPropagation();openWaFollowupModal('${c.id}')" title="Follow-up" class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:12px;line-height:1;flex-shrink:0;">${FOLLOWUP_ICON_SVG}</button>`;
+}
+
 function renderWhatsappConversationList() {
   const q = (document.getElementById('wa-convo-search')?.value || '').trim().toLowerCase();
   let rows = waConversations;
@@ -8546,18 +8618,221 @@ function renderWhatsappConversationList() {
   const el = document.getElementById('wa-convo-list');
   if (!rows.length) { el.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px;">No conversations yet.</div>'; return; }
   el.innerHTML = rows.map(c => `
-    <div onclick="selectWhatsappConversation('${c.id}')" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};">
+    <div onclick="selectWhatsappConversation('${c.id}')" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};${c.status === 'not_interested' ? 'opacity:0.55;filter:grayscale(0.6);' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
         <div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escB(c.contact_name || c.phone)}</div>
         ${c.unread_count > 0 ? `<span style="background:#16A34A;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;flex-shrink:0;">${c.unread_count}</span>` : ''}
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:2px;">${escB(c.phone)}</div>
       <div style="font-size:12px;color:var(--muted);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escB(c.last_message_preview || '—')}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;">
+        ${waAssignedPill(c)}${waStatusSelect(c)}${waFollowupBtn(c)}
+      </div>
     </div>`).join('');
 
   const totalUnread = waConversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
   const badge = document.getElementById('badge-whatsapp');
   if (badge) { badge.textContent = totalUnread > 99 ? '99+' : String(totalUnread); badge.style.display = totalUnread > 0 ? 'inline-block' : 'none'; }
+
+  // Keep the open thread's header controls + not-interested blur in sync —
+  // this runs after every list load/poll/local status change, so it's the
+  // one place that needs to stay current rather than wiring it separately
+  // into each call site.
+  if (waCurrentConversationId) {
+    const current = waConversations.find(c => c.id === waCurrentConversationId);
+    if (current) applyWaThreadStatusUI(current);
+  }
+}
+
+function applyWaThreadStatusUI(convo) {
+  const controls = document.getElementById('wa-thread-controls');
+  if (controls) controls.innerHTML = waAssignedPill(convo) + waStatusSelect(convo) + waFollowupBtn(convo);
+  const notInterested = convo.status === 'not_interested';
+  const banner = document.getElementById('wa-thread-ni-banner');
+  const messagesEl = document.getElementById('wa-thread-messages');
+  if (banner) banner.style.display = notInterested ? 'flex' : 'none';
+  if (messagesEl) messagesEl.style.filter = notInterested ? 'blur(3px)' : 'none';
+}
+
+function unmarkWaNotInterested() {
+  if (waCurrentConversationId) changeWaConversationStatus(waCurrentConversationId, 'new');
+}
+
+async function changeWaConversationStatus(conversationId, status) {
+  if (status === 'follow_up') return; // not directly selectable — see WA_STATUS_META
+  const convo = waConversations.find(c => c.id === conversationId);
+  if (!convo) return;
+  const prevStatus = convo.status;
+  convo.status = status; // optimistic
+  renderWhatsappConversationList();
+
+  const { error } = await dbAdmin.from('whatsapp_conversations').update({ status }).eq('id', conversationId);
+  if (error) {
+    convo.status = prevStatus;
+    renderWhatsappConversationList();
+    showToast('Failed to update status: ' + error.message, 'error');
+    return;
+  }
+
+  if (status === 'lead') await ensureWaLead(convo);
+  if (status === 'converted') openWaConvertModal(conversationId);
+}
+
+// Converting to "lead" status creates a real Leads-page row so it enters the
+// normal sales follow-up pipeline — deduped via leads.whatsapp_conversation_id
+// (added in v83 for the old CRM-relay feature, reused here) so re-selecting
+// "lead" after it's already been created doesn't spawn a duplicate.
+async function ensureWaLead(convo) {
+  const { data: existing, error: exErr } = await dbAdmin.from('leads').select('id').eq('whatsapp_conversation_id', convo.id).limit(1);
+  if (exErr) { showToast('Could not check for an existing lead: ' + exErr.message, 'error'); return; }
+  if (existing && existing.length) return;
+  const { error } = await dbAdmin.from('leads').insert({
+    name: convo.contact_name || convo.phone,
+    phone: convo.phone,
+    source: 'WhatsApp',
+    status: 'open',
+    priority: 'warm',
+    created_by_name: currentAdminDisplayName(),
+    whatsapp_conversation_id: convo.id
+  });
+  if (error) { showToast('Could not create a lead: ' + error.message, 'error'); return; }
+  logActivity('lead.create', `Created lead from WhatsApp conversation with ${convo.contact_name || convo.phone}`, 'lead', null);
+  showToast('Lead created from this conversation', 'success');
+}
+
+// "Converted" opens the same admin booking flow already used elsewhere,
+// prefilled with this contact's name/phone — same booking page, just a
+// shortcut into it from the chat instead of the Bookings tab.
+async function openWaConvertModal(conversationId) {
+  const convo = waConversations.find(c => c.id === conversationId);
+  if (!convo) return;
+  await openAdminBookingModal();
+  document.getElementById('ab-name').value = convo.contact_name || '';
+  document.getElementById('ab-phone').value = convo.phone || '';
+}
+
+// First admin to send a reply in a conversation "owns" it — permanent,
+// no reassignment UI (see waStatusSelect's sibling, the assigned pill).
+async function assignWaConversationIfUnassigned(conversationId) {
+  const convo = waConversations.find(c => c.id === conversationId);
+  if (!convo || convo.assigned_admin_name) return;
+  const name = currentAdminDisplayName();
+  if (!name) return;
+  const { error } = await dbAdmin.from('whatsapp_conversations').update({ assigned_admin_name: name }).eq('id', conversationId);
+  if (!error) { convo.assigned_admin_name = name; renderWhatsappConversationList(); }
+}
+
+// ── Conversation follow-ups (v89) — same list+add pattern as the lead
+// follow-up modal, scoped to a whatsapp_conversations row. ──────────────────
+async function openWaFollowupModal(conversationId) {
+  currentWaFollowupConversationId = conversationId;
+  const convo = waConversations.find(c => c.id === conversationId);
+  document.getElementById('wfup-contact-name').textContent = convo?.contact_name || convo?.phone || '—';
+  document.getElementById('wfup-date').value = window.SADA.Warranty.localDateISO(new Date());
+  document.getElementById('wfup-note').value = '';
+  document.getElementById('wfup-error').style.display = 'none';
+
+  const { data: fups, error } = await dbAdmin.from('whatsapp_followups')
+    .select('*').eq('conversation_id', conversationId).order('followup_date', { ascending: true });
+  if (!error) allWaFollowups = allWaFollowups.filter(f => f.conversation_id !== conversationId).concat(fups || []);
+
+  renderWaFollowupModalList();
+  document.getElementById('wa-followup-modal').style.display = 'flex';
+}
+
+function renderWaFollowupModalList() {
+  const W = window.SADA.Warranty;
+  const el = document.getElementById('wfup-list');
+  const rows = allWaFollowups.filter(f => f.conversation_id === currentWaFollowupConversationId)
+    .slice().sort((a, b) => a.followup_date.localeCompare(b.followup_date));
+  if (!rows.length) { el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0;">No follow-ups yet.</div>'; return; }
+  el.innerHTML = rows.map(x => {
+    const c = followupColor(x);
+    return `
+      <div style="background:var(--bg);border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:3px solid ${c.bar};">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
+          <span style="background:${c.bg};color:${c.fg};font-size:11px;font-weight:700;padding:3px 9px;border-radius:9px;white-space:nowrap;">
+            ${W.fmtDate(x.followup_date)} · ${x.status === 'done' ? 'DONE' : W.humanDays(x.followup_date)}</span>
+        </div>
+        ${x.note ? `<div style="font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word;">${W.esc(x.note)}</div>` : ''}
+        <div style="font-size:10px;color:var(--muted);margin-top:6px;">${x.created_by ? 'By ' + W.esc(x.created_by) + ' · ' : ''}${W.fmtDate(x.created_at)}</div>
+        <div style="display:flex;gap:7px;margin-top:8px;flex-wrap:wrap;">
+          ${x.status === 'pending'
+            ? `<button class="btn btn-primary btn-sm" onclick="setWaFollowupStatus('${x.id}','done')"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12l5 5l10 -10"/></svg> Mark Done</button>`
+            : `<button class="btn btn-ghost btn-sm" onclick="setWaFollowupStatus('${x.id}','pending')"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13l-4 -4l4 -4m-4 4h11a4 4 0 0 1 0 8h-1"/></svg> Reopen</button>`}
+          <button class="btn btn-ghost btn-sm" onclick="deleteWaFollowup('${x.id}')"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg> Delete</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function saveWaFollowup() {
+  if (!(await ensureSession())) return;
+  const date = document.getElementById('wfup-date').value;
+  const note = document.getElementById('wfup-note').value.trim();
+  const errEl = document.getElementById('wfup-error');
+  const btn = document.getElementById('wfup-save');
+  const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
+  errEl.style.display = 'none';
+  if (!date) return fail('A follow-up date is required.');
+
+  btn.disabled = true; btn.textContent = 'Saving...';
+  const { data: { session } } = await dbAdmin.auth.getSession();
+  const { error } = await dbAdmin.from('whatsapp_followups').insert({
+    conversation_id: currentWaFollowupConversationId, followup_date: date, note: note || null,
+    created_by: session?.user?.email || null, status: 'pending'
+  });
+  btn.disabled = false; btn.textContent = 'Add follow-up';
+  if (error) return fail(error.message);
+
+  // Adding a follow-up puts the conversation into the "follow-up" pipeline
+  // stage automatically — see WA_STATUS_META for why it's never manually set.
+  await dbAdmin.from('whatsapp_conversations').update({ status: 'follow_up' }).eq('id', currentWaFollowupConversationId);
+  const convo = waConversations.find(c => c.id === currentWaFollowupConversationId);
+  if (convo) convo.status = 'follow_up';
+
+  logActivity('whatsapp.followup_add', `Added follow-up for WhatsApp conversation with ${convo?.contact_name || convo?.phone || ''} (${date})`, 'whatsapp_conversation', currentWaFollowupConversationId);
+  document.getElementById('wfup-note').value = '';
+
+  const { data: fups } = await dbAdmin.from('whatsapp_followups').select('*').eq('conversation_id', currentWaFollowupConversationId).order('followup_date', { ascending: true });
+  allWaFollowups = allWaFollowups.filter(f => f.conversation_id !== currentWaFollowupConversationId).concat(fups || []);
+
+  showToast('Follow-up added', 'success');
+  renderWaFollowupModalList();
+  renderWhatsappConversationList();
+}
+
+async function setWaFollowupStatus(id, status) {
+  if (!(await ensureSession())) return;
+  const fup = allWaFollowups.find(f => f.id === id);
+  const { error } = await dbAdmin.from('whatsapp_followups').update({ status }).eq('id', id);
+  if (error) { showToast(error.message, 'error'); return; }
+  if (fup) fup.status = status;
+
+  // Marking a follow-up done means it's been worked — move the conversation
+  // on to "lead" (and make sure that Leads-page row exists). Reopening it
+  // back to pending doesn't reverse this; only an explicit status change does.
+  if (status === 'done' && fup) {
+    const convo = waConversations.find(c => c.id === fup.conversation_id);
+    if (convo) {
+      await dbAdmin.from('whatsapp_conversations').update({ status: 'lead' }).eq('id', fup.conversation_id);
+      convo.status = 'lead';
+      await ensureWaLead(convo);
+    }
+  }
+
+  renderWaFollowupModalList();
+  renderWhatsappConversationList();
+}
+
+async function deleteWaFollowup(id) {
+  if (!(await ensureSession())) return;
+  if (!confirm('Delete this follow-up? This cannot be undone.')) return;
+  const { error } = await dbAdmin.from('whatsapp_followups').delete().eq('id', id);
+  if (error) { showToast(error.message, 'error'); return; }
+  allWaFollowups = allWaFollowups.filter(f => f.id !== id);
+  showToast('Follow-up deleted', 'success');
+  renderWaFollowupModalList();
 }
 
 async function selectWhatsappConversation(id) {
@@ -8679,6 +8954,7 @@ async function sendWhatsappMessage() {
     }
     const convo = waConversations.find(c => c.id === waCurrentConversationId);
     if (convo) { convo.last_message_preview = text; convo.last_message_at = new Date().toISOString(); renderWhatsappConversationList(); }
+    assignWaConversationIfUnassigned(waCurrentConversationId);
   } catch (err) {
     waMessages = waMessages.filter(m => !m._optimistic);
     renderWhatsappMessages(waMessages);
@@ -8720,6 +8996,7 @@ async function sendWaMediaFile(file) {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || 'Upload failed.');
     await loadWhatsappMessages();
+    assignWaConversationIfUnassigned(waCurrentConversationId);
   } catch (err) {
     document.getElementById('wa-thread-error').style.display = 'block';
     document.getElementById('wa-thread-error').textContent = err.message;
@@ -8825,6 +9102,7 @@ async function sendWaVoiceNote() {
     if (!res.ok) throw new Error(body.error || 'Could not send the voice note.');
     resetWaRecordBar();
     await loadWhatsappMessages();
+    assignWaConversationIfUnassigned(waCurrentConversationId);
   } catch (err) {
     document.getElementById('wa-thread-error').style.display = 'block';
     document.getElementById('wa-thread-error').textContent = err.message;
