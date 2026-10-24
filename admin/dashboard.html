@@ -6149,14 +6149,14 @@ function renderLeadsAdminTable() {
 
   container.innerHTML = `
     <table>
-      <thead><tr><th>Lead</th><th>Where</th><th>Interest</th><th>Source</th><th>Notes</th><th>Added by</th><th>Added</th><th>Priority</th><th>Status</th><th>Follow-up</th></tr></thead>
+      <thead><tr><th>Lead</th><th>Where</th><th>Interest</th><th>Source</th><th style="display:none;">Notes</th><th>Added by</th><th>Added</th><th>Priority</th><th>Status</th><th>Follow-up</th></tr></thead>
       <tbody>${rows.map(l => `
         <tr>
           <td><div style="font-weight:600;">${escB(l.name)}</div><div style="font-size:11px;color:var(--muted);">${escB(l.phone)}</div></td>
           <td>${escB(l.city_name || '—')}</td>
           <td>${escB(l.product_interest || '—')}</td>
           <td>${leadSourceCell(l)}</td>
-          <td style="max-width:220px;font-size:12px;color:var(--muted);">${escB(l.notes || '—')}${l.status === 'lost' && l.lost_reason ? `<br><em>Lost: ${escB(l.lost_reason)}</em>` : ''}</td>
+          <td style="display:none;max-width:220px;font-size:12px;color:var(--muted);">${escB(l.notes || '—')}${l.status === 'lost' && l.lost_reason ? `<br><em>Lost: ${escB(l.lost_reason)}</em>` : ''}</td>
           <td>${escB(l.created_by_name || '—')}</td>
           <td style="font-size:12px;color:var(--muted);">${new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
           <td>${priorityPill(l.priority)}</td>
