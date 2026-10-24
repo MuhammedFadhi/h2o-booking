@@ -535,11 +535,14 @@
   // multiplies by that line's quantity (SADA96 on qty 3 of one product = 288
   // off that line); a percent code is naturally proportional to quantity
   // already. Each line's discount is capped at that line's own value, so no
-  // line can go negative. Mirrors the server's promoDiscount() in
+  // line can go negative. A promo with an applicable_products list only
+  // discounts lines in that list. Mirrors the server's promoDiscount() in
   // api/sales/ops.js — this copy is display-only, the server re-prices for real.
   function discountFor(lines) {
     if (!promo) return 0;
+    const restrict = promo.applicable_products && promo.applicable_products.length ? new Set(promo.applicable_products) : null;
     return lines.reduce((sum, l) => {
+      if (restrict && !restrict.has(l.model)) return sum;
       const lineSubtotal = l.unit * l.qty;
       let d = promo.discount_type === 'percent' ? lineSubtotal * (promo.discount_value / 100) : promo.discount_value * l.qty;
       d = Math.round(d * 100) / 100;
@@ -556,7 +559,7 @@
       const p = catalogue.find((x) => x.model_name === l.model);
       const unit = p && p.price_sar ? Number(p.price_sar) : 0;
       total += unit * l.qty;
-      lineData.push({ unit, qty: l.qty });
+      lineData.push({ unit, qty: l.qty, model: l.model });
       const colour = isDispenser(l.model)
         ? `<select data-color="${i}" aria-label="Colour">${COLORS.map((c) => `<option${c === l.color ? ' selected' : ''}>${c}</option>`).join('')}</select>` : '';
       return `<div class="line">
@@ -579,6 +582,13 @@
     const el = $('promo-msg'); el.hidden = !text; el.textContent = text || ''; el.style.color = ok ? 'var(--ok)' : 'var(--danger)';
   }
 
+  function currentLineData() {
+    return basket.map((l) => {
+      const p = catalogue.find((x) => x.model_name === l.model);
+      return { unit: p && p.price_sar ? Number(p.price_sar) : 0, qty: l.qty, model: l.model };
+    });
+  }
+
   async function applyPromo() {
     const code = $('f-promo').value.trim();
     if (!code) { promo = null; promoMsg(''); renderBasket(); return; }
@@ -586,7 +596,12 @@
     try {
       promo = await api('check-promo', { code });
       $('f-promo').value = promo.code;
-      promoMsg('✓ Code applied — ' + (promo.discount_type === 'percent' ? promo.discount_value + '% off' : money(promo.discount_value) + ' off'), true);
+      const off = promo.discount_type === 'percent' ? promo.discount_value + '% off' : money(promo.discount_value) + ' off';
+      if (basket.length && discountFor(currentLineData()) <= 0) {
+        promoMsg('Code applied, but it doesn’t cover any product in this basket.', false);
+      } else {
+        promoMsg('✓ Code applied — ' + off, true);
+      }
     } catch (e) { promo = null; promoMsg(e.message, false); }
     finally { btn.disabled = false; renderBasket(); }
   }
