@@ -1539,8 +1539,14 @@
         <div class="form-group"><label>Message</label>
           <textarea id="wa-template-message" class="form-input" rows="3" placeholder="The full reply text" autocomplete="off"></textarea>
         </div>
-        <div class="form-group"><label>Image URL <span style="color:var(--muted,#94a3b8);font-weight:400;">(optional)</span></label>
-          <input type="text" id="wa-template-media-url" class="form-input" placeholder="https://..." autocomplete="off"></div>
+        <div class="form-group"><label>Image <span style="color:var(--muted,#94a3b8);font-weight:400;">(optional)</span></label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="wa-template-media-url" class="form-input" placeholder="https://... or upload from device" style="flex:1;" autocomplete="off" oninput="updateWaTemplateMediaPreview()">
+            <input type="file" id="wa-template-file-input" accept="image/*" style="display:none;" onchange="uploadWaTemplateImage()">
+            <button type="button" class="btn btn-ghost" id="wa-template-upload-btn" onclick="document.getElementById('wa-template-file-input').click()" style="flex-shrink:0;">Upload from device</button>
+          </div>
+          <div id="wa-template-media-preview" style="display:none;margin-top:8px;"><img style="max-width:120px;max-height:120px;border-radius:8px;border:1px solid var(--border);"></div>
+        </div>
         <div id="wa-template-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;">
           <button class="btn btn-ghost" id="wa-template-cancel-btn" onclick="resetWaTemplateForm()" style="display:none;">Cancel edit</button>
@@ -8893,6 +8899,7 @@ function editWaTemplate(id) {
   document.getElementById('wa-template-form-title').textContent = 'Edit template';
   document.getElementById('wa-template-cancel-btn').style.display = '';
   document.getElementById('wa-template-error').style.display = 'none';
+  updateWaTemplateMediaPreview();
 }
 
 function resetWaTemplateForm() {
@@ -8903,6 +8910,50 @@ function resetWaTemplateForm() {
   document.getElementById('wa-template-form-title').textContent = 'Add a template';
   document.getElementById('wa-template-cancel-btn').style.display = 'none';
   document.getElementById('wa-template-error').style.display = 'none';
+  updateWaTemplateMediaPreview();
+}
+
+function updateWaTemplateMediaPreview() {
+  const url = document.getElementById('wa-template-media-url').value.trim();
+  const previewEl = document.getElementById('wa-template-media-preview');
+  if (url) {
+    previewEl.querySelector('img').src = url;
+    previewEl.style.display = 'block';
+  } else {
+    previewEl.style.display = 'none';
+  }
+}
+
+// Uploads directly to the whatsapp-media bucket from the browser, same
+// client-side upload()+getPublicUrl() convention as installation-proofs
+// (js/inspection-report.js) — no server round-trip needed, the bucket's
+// own RLS policy already allows any authenticated (admin) write.
+async function uploadWaTemplateImage() {
+  const fileInput = document.getElementById('wa-template-file-input');
+  const file = fileInput.files[0];
+  if (!file) return;
+  const btn = document.getElementById('wa-template-upload-btn');
+  const errEl = document.getElementById('wa-template-error');
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  const originalLabel = btn.textContent;
+  btn.textContent = 'Uploading…';
+  try {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `templates/${Date.now()}_${safeName}`;
+    const { error } = await db.storage.from('whatsapp-media').upload(path, file, { upsert: true });
+    if (error) throw new Error(error.message);
+    const { data } = db.storage.from('whatsapp-media').getPublicUrl(path);
+    document.getElementById('wa-template-media-url').value = data.publicUrl;
+    updateWaTemplateMediaPreview();
+  } catch (err) {
+    errEl.style.display = 'block';
+    errEl.textContent = 'Upload failed: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+    fileInput.value = '';
+  }
 }
 
 async function saveWaTemplate() {
