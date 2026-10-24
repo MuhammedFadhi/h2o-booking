@@ -1447,9 +1447,17 @@
       <div id="chat-window-warning" style="display:none;background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:10px;">This customer hasn't messaged in over 24 hours — WhatsApp only allows pre-approved templates now, a free-form reply here may silently fail to deliver.</div>
       <div id="chat-messages" style="height:360px;overflow-y:auto;background:var(--bg);border-radius:12px;padding:14px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;"></div>
       <div id="chat-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:10px;"></div>
+      <div id="chat-record-bar" style="display:none;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:8px 12px;margin-bottom:8px;">
+        <span id="chat-record-status" style="font-size:13px;color:var(--text);flex:1;"></span>
+        <audio id="chat-record-preview" controls style="display:none;height:32px;max-width:180px;"></audio>
+        <button class="btn btn-ghost btn-sm" id="chat-record-discard-btn" onclick="discardChatRecording()" style="display:none;" title="Discard"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg></button>
+        <button class="btn btn-primary btn-sm" id="chat-record-send-btn" onclick="sendChatVoiceNote()" style="display:none;">Send</button>
+        <button class="btn btn-danger btn-sm" id="chat-record-stop-btn" onclick="stopChatRecording()" title="Stop recording"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M17 4H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3"/></svg></button>
+      </div>
       <div style="display:flex;gap:8px;">
         <input type="file" id="chat-file-input" style="display:none;" onchange="sendLeadChatMedia()">
         <button class="btn btn-ghost" id="chat-attach-btn" onclick="document.getElementById('chat-file-input').click()" title="Attach a file" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg></button>
+        <button class="btn btn-ghost" id="chat-mic-btn" onclick="startChatRecording()" title="Record a voice note" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5a3 3 0 0 1 3-3a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3a3 3 0 0 1-3-3z"/><path d="M5 10a7 7 0 0 0 14 0M8 21h8m-4-4v4"/></g></svg></button>
         <input type="text" id="chat-input" class="form-input" placeholder="Type a reply…" autocomplete="off" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();sendLeadChatMessage();}">
         <button class="btn btn-primary" id="chat-send-btn" onclick="sendLeadChatMessage()">Send</button>
       </div>
@@ -8388,6 +8396,8 @@ async function openLeadChatModal(leadId) {
 
 function closeLeadChatModal() {
   if (chatPollInterval) { clearInterval(chatPollInterval); chatPollInterval = null; }
+  if (chatMediaRecorder && chatMediaRecorder.state !== 'inactive') stopChatRecording();
+  resetChatRecordBar();
   currentChatLeadId = null;
   closeModal('lead-chat-modal');
 }
@@ -8510,6 +8520,109 @@ async function toggleChatAiPaused() {
     toggle.checked = !wanted; // revert — the CRM never confirmed the change
     document.getElementById('chat-error').style.display = 'block';
     document.getElementById('chat-error').textContent = err.message;
+  }
+}
+
+// ── Voice notes ──────────────────────────────────────────────────────────
+// Record → preview → send-or-discard, rather than sending the instant
+// recording stops — a misclick shouldn't fire off a voice note nobody
+// meant to send.
+let chatMediaRecorder = null;
+let chatRecordingStream = null;
+let chatRecordedChunks = [];
+let chatRecordedBlob = null;
+
+function pickRecorderMimeType() {
+  const candidates = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+  for (const type of candidates) {
+    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return '';
+}
+
+async function startChatRecording() {
+  document.getElementById('chat-error').style.display = 'none';
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    document.getElementById('chat-error').style.display = 'block';
+    document.getElementById('chat-error').textContent = "Couldn't access your microphone — check the browser's permission for this site.";
+    return;
+  }
+  chatRecordingStream = stream;
+  chatRecordedChunks = [];
+  const mimeType = pickRecorderMimeType();
+  chatMediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+  chatMediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chatRecordedChunks.push(e.data); };
+  chatMediaRecorder.onstop = () => {
+    chatRecordedBlob = new Blob(chatRecordedChunks, { type: chatMediaRecorder.mimeType || 'audio/webm' });
+    const preview = document.getElementById('chat-record-preview');
+    preview.src = URL.createObjectURL(chatRecordedBlob);
+    preview.style.display = '';
+    document.getElementById('chat-record-status').textContent = 'Voice note ready';
+    document.getElementById('chat-record-stop-btn').style.display = 'none';
+    document.getElementById('chat-record-discard-btn').style.display = '';
+    document.getElementById('chat-record-send-btn').style.display = '';
+  };
+  chatMediaRecorder.start();
+
+  document.getElementById('chat-record-bar').style.display = 'flex';
+  document.getElementById('chat-record-status').textContent = 'Recording…';
+  document.getElementById('chat-record-preview').style.display = 'none';
+  document.getElementById('chat-record-discard-btn').style.display = 'none';
+  document.getElementById('chat-record-send-btn').style.display = 'none';
+  document.getElementById('chat-record-stop-btn').style.display = '';
+  document.getElementById('chat-mic-btn').disabled = true;
+}
+
+function stopChatRecording() {
+  if (chatMediaRecorder && chatMediaRecorder.state !== 'inactive') chatMediaRecorder.stop();
+  if (chatRecordingStream) chatRecordingStream.getTracks().forEach(t => t.stop());
+  chatRecordingStream = null;
+}
+
+function resetChatRecordBar() {
+  document.getElementById('chat-record-bar').style.display = 'none';
+  document.getElementById('chat-mic-btn').disabled = false;
+  const preview = document.getElementById('chat-record-preview');
+  if (preview.src) URL.revokeObjectURL(preview.src);
+  preview.src = '';
+  chatRecordedBlob = null;
+  chatRecordedChunks = [];
+}
+
+function discardChatRecording() {
+  resetChatRecordBar();
+}
+
+async function sendChatVoiceNote() {
+  if (!chatRecordedBlob) return;
+  const sendBtn = document.getElementById('chat-record-send-btn');
+  sendBtn.disabled = true;
+  document.getElementById('chat-error').style.display = 'none';
+  try {
+    const ext = chatRecordedBlob.type.includes('ogg') ? 'ogg' : chatRecordedBlob.type.includes('mp4') ? 'm4a' : 'webm';
+    const file = new File([chatRecordedBlob], `voice-note.${ext}`, { type: chatRecordedBlob.type });
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) throw new Error('Session expired. Please sign in again.');
+    const form = new FormData();
+    form.append('leadId', currentChatLeadId);
+    form.append('file', file);
+    const res = await fetch('/api/admin/crm-chat', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${session.access_token}` },
+      body: form
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'Could not send the voice note.');
+    resetChatRecordBar();
+    await loadLeadChatMessages();
+  } catch (err) {
+    document.getElementById('chat-error').style.display = 'block';
+    document.getElementById('chat-error').textContent = err.message;
+  } finally {
+    sendBtn.disabled = false;
   }
 }
 
