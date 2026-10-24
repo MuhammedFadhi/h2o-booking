@@ -78,9 +78,15 @@ async function lookupPromo(rawCode) {
 // one product = 288 off that line); a percent code is naturally proportional
 // to quantity already, since it's a % of that line's own subtotal. Each
 // line's discount is capped at that line's own value, so no line can go
-// negative.
+// negative. A promo with an applicable_products list only discounts lines
+// in that list (e.g. excluding dispensers from an RO-only code) — mirrors
+// admin/dashboard.html's abPromoDiscountFor/basketPromoDiscountFor, which
+// this had drifted out of sync with (every code applied to every line here,
+// unrestricted).
 function promoDiscount(lines, promo) {
+  const restrict = promo.applicable_products && promo.applicable_products.length ? new Set(promo.applicable_products) : null;
   return lines.reduce((sum, l) => {
+    if (restrict && !restrict.has(l.model)) return sum;
     const lineSubtotal = l.unit_price * l.qty;
     let d = promo.discount_type === 'percent' ? lineSubtotal * (Number(promo.discount_value) / 100) : Number(promo.discount_value) * l.qty;
     d = Math.round(d * 100) / 100;
@@ -424,7 +430,7 @@ module.exports = async function handler(req, res) {
       case 'me': return res.status(200).json({ name: user.name, email: user.email });
       case 'check-promo': {
         const p = await lookupPromo(body.code);
-        return res.status(200).json({ code: p.code, discount_type: p.discount_type, discount_value: Number(p.discount_value) });
+        return res.status(200).json({ code: p.code, discount_type: p.discount_type, discount_value: Number(p.discount_value), applicable_products: p.applicable_products || null });
       }
       case 'my-bookings': return res.status(200).json(await myBookings(user));
       case 'my-leads': return res.status(200).json(await myLeads(user));
