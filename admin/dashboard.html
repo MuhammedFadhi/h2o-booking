@@ -1454,11 +1454,19 @@
         <button class="btn btn-primary btn-sm" id="chat-record-send-btn" onclick="sendChatVoiceNote()" style="display:none;">Send</button>
         <button class="btn btn-danger btn-sm" id="chat-record-stop-btn" onclick="stopChatRecording()" title="Stop recording"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M17 4H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3"/></svg></button>
       </div>
+      <div id="chat-template-media-badge" style="display:none;align-items:center;gap:8px;background:var(--foam);border-radius:8px;padding:6px 10px;margin-bottom:8px;font-size:12px;color:var(--water);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="flex-shrink:0;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg>
+        <span>Attachment from template</span>
+        <button class="btn btn-ghost btn-sm" onclick="clearChatTemplateMedia()" style="padding:0 6px;margin-left:auto;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
       <div style="display:flex;gap:8px;">
         <input type="file" id="chat-file-input" style="display:none;" onchange="sendLeadChatMedia()">
         <button class="btn btn-ghost" id="chat-attach-btn" onclick="document.getElementById('chat-file-input').click()" title="Attach a file" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg></button>
         <button class="btn btn-ghost" id="chat-mic-btn" onclick="startChatRecording()" title="Record a voice note" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5a3 3 0 0 1 3-3a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3a3 3 0 0 1-3-3z"/><path d="M5 10a7 7 0 0 0 14 0M8 21h8m-4-4v4"/></g></svg></button>
-        <input type="text" id="chat-input" class="form-input" placeholder="Type a reply…" autocomplete="off" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();sendLeadChatMessage();}">
+        <div style="position:relative;flex:1;">
+          <div id="chat-template-dropdown" style="display:none;position:absolute;bottom:100%;left:0;right:0;margin-bottom:6px;background:var(--white);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);max-height:200px;overflow-y:auto;z-index:20;"></div>
+          <input type="text" id="chat-input" class="form-input" placeholder="Type a reply… (/ for templates)" autocomplete="off" style="width:100%;" oninput="onChatTemplateInput()" onkeydown="handleChatInputKeydown(event)" onblur="setTimeout(closeChatTemplateDropdown, 150)">
+        </div>
         <button class="btn btn-primary" id="chat-send-btn" onclick="sendLeadChatMessage()">Send</button>
       </div>
     </div>
@@ -8373,6 +8381,10 @@ function leadSourceCell(l) {
 // ============================================================
 let currentChatLeadId = null;
 let chatPollInterval = null;
+let chatTemplates = [];
+let chatTemplateDropdownItems = [];
+let chatTemplateDropdownIndex = -1;
+let chatPendingTemplateMedia = null;
 
 async function openLeadChatModal(leadId) {
   currentChatLeadId = leadId;
@@ -8383,13 +8395,15 @@ async function openLeadChatModal(leadId) {
   document.getElementById('chat-error').style.display = 'none';
   document.getElementById('chat-window-warning').style.display = 'none';
   document.getElementById('chat-input').value = '';
+  clearChatTemplateMedia();
+  closeChatTemplateDropdown();
   // The CRM's GET response doesn't confirm the conversation's current
   // ai_paused state, so this starts unchecked (assume the bot is live)
   // rather than guessing — it only reflects what's actually been toggled
   // in this session.
   document.getElementById('chat-ai-pause-toggle').checked = false;
   document.getElementById('lead-chat-modal').style.display = 'flex';
-  await loadLeadChatMessages();
+  await Promise.all([loadLeadChatMessages(), loadChatTemplates()]);
   if (chatPollInterval) clearInterval(chatPollInterval);
   chatPollInterval = setInterval(loadLeadChatMessages, 5000);
 }
@@ -8398,8 +8412,100 @@ function closeLeadChatModal() {
   if (chatPollInterval) { clearInterval(chatPollInterval); chatPollInterval = null; }
   if (chatMediaRecorder && chatMediaRecorder.state !== 'inactive') stopChatRecording();
   resetChatRecordBar();
+  closeChatTemplateDropdown();
   currentChatLeadId = null;
   closeModal('lead-chat-modal');
+}
+
+// Fetched once per chat open (not per keystroke) — same reply-template list
+// the CRM's own UI uses, so there's one source of truth rather than a
+// second list to keep in sync.
+async function loadChatTemplates() {
+  try {
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) return;
+    const res = await fetch('/api/admin/crm-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ action: 'get-templates' })
+    });
+    const body = await res.json().catch(() => ({}));
+    chatTemplates = res.ok ? (body?.data?.templates || []) : [];
+  } catch {
+    chatTemplates = []; // templates are a convenience — a failed fetch shouldn't block chat itself
+  }
+}
+
+// ── "/" template autocomplete ───────────────────────────────────────────
+function closeChatTemplateDropdown() {
+  chatTemplateDropdownItems = [];
+  chatTemplateDropdownIndex = -1;
+  const el = document.getElementById('chat-template-dropdown');
+  if (el) el.style.display = 'none';
+}
+
+function renderChatTemplateDropdown() {
+  const el = document.getElementById('chat-template-dropdown');
+  if (!chatTemplateDropdownItems.length) { el.style.display = 'none'; return; }
+  el.innerHTML = chatTemplateDropdownItems.map((t, i) => `
+    <div onmousedown="event.preventDefault();selectChatTemplate(${i})" style="padding:8px 12px;cursor:pointer;background:${i === chatTemplateDropdownIndex ? 'var(--bg)' : 'transparent'};border-bottom:1px solid var(--border);">
+      <div style="font-weight:700;color:var(--water);font-size:13px;">/${escB(t.shortcut || '')}${t.media_url ? ' <svg xmlns="http://www.w3.org/2000/svg" width="0.8em" height="0.8em" viewBox="0 0 24 24" style="vertical-align:-1px;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg>' : ''}</div>
+      <div style="color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escB(t.message || '')}</div>
+    </div>`).join('');
+  el.style.display = 'block';
+}
+
+// Only triggers on a "/" at the start of input or after whitespace, so a
+// URL or anything else with a slash mid-word doesn't accidentally pop the
+// dropdown open.
+function onChatTemplateInput() {
+  const input = document.getElementById('chat-input');
+  const beforeCursor = input.value.slice(0, input.selectionStart);
+  const match = /(?:^|\s)\/(\S*)$/.exec(beforeCursor);
+  if (!match || !chatTemplates.length) { closeChatTemplateDropdown(); return; }
+  const query = match[1].toLowerCase();
+  const items = chatTemplates.filter(t => (t.shortcut || '').toLowerCase().includes(query)).slice(0, 8);
+  if (!items.length) { closeChatTemplateDropdown(); return; }
+  chatTemplateDropdownItems = items;
+  chatTemplateDropdownIndex = 0;
+  renderChatTemplateDropdown();
+}
+
+function selectChatTemplate(i) {
+  const t = chatTemplateDropdownItems[i];
+  if (!t) return;
+  const input = document.getElementById('chat-input');
+  const cursor = input.selectionStart;
+  const beforeCursor = input.value.slice(0, cursor);
+  const afterCursor = input.value.slice(cursor);
+  const slashIndex = beforeCursor.lastIndexOf('/');
+  const newValue = beforeCursor.slice(0, slashIndex) + (t.message || '') + afterCursor;
+  input.value = newValue;
+  const newCursor = slashIndex + (t.message || '').length;
+  input.setSelectionRange(newCursor, newCursor);
+  input.focus();
+  if (t.media_url) showChatTemplateMedia(t.media_url); else clearChatTemplateMedia();
+  closeChatTemplateDropdown();
+}
+
+function handleChatInputKeydown(event) {
+  if (chatTemplateDropdownItems.length) {
+    if (event.key === 'ArrowDown') { event.preventDefault(); chatTemplateDropdownIndex = (chatTemplateDropdownIndex + 1) % chatTemplateDropdownItems.length; renderChatTemplateDropdown(); return; }
+    if (event.key === 'ArrowUp') { event.preventDefault(); chatTemplateDropdownIndex = (chatTemplateDropdownIndex - 1 + chatTemplateDropdownItems.length) % chatTemplateDropdownItems.length; renderChatTemplateDropdown(); return; }
+    if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); selectChatTemplate(chatTemplateDropdownIndex); return; }
+    if (event.key === 'Escape') { event.preventDefault(); closeChatTemplateDropdown(); return; }
+  }
+  if (event.key === 'Enter') { event.preventDefault(); sendLeadChatMessage(); }
+}
+
+function showChatTemplateMedia(mediaUrl) {
+  chatPendingTemplateMedia = mediaUrl;
+  document.getElementById('chat-template-media-badge').style.display = 'flex';
+}
+
+function clearChatTemplateMedia() {
+  chatPendingTemplateMedia = null;
+  document.getElementById('chat-template-media-badge').style.display = 'none';
 }
 
 async function crmChatCall(action, extra) {
@@ -8498,8 +8604,16 @@ async function sendLeadChatMessage() {
   btn.disabled = true;
   document.getElementById('chat-error').style.display = 'none';
   try {
-    await crmChatCall('send-message', { body: text });
+    // A template picked with a media_url attaches that file alongside the
+    // message as its caption, instead of sending plain text.
+    if (chatPendingTemplateMedia) {
+      await crmChatCall('send-template-media', { mediaUrl: chatPendingTemplateMedia, body: text });
+    } else {
+      await crmChatCall('send-message', { body: text });
+    }
     input.value = '';
+    clearChatTemplateMedia();
+    closeChatTemplateDropdown();
     await loadLeadChatMessages();
   } catch (err) {
     document.getElementById('chat-error').style.display = 'block';

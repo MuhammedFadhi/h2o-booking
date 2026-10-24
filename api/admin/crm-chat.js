@@ -1,7 +1,9 @@
 // /api/admin/crm-chat — server-side proxy to the external CRM's chat API
 // (WhatsApp and, assumed to follow the same URL shape, Instagram), so the
 // CRM's bearer token never reaches the browser.
-// Actions: get-messages | send-message | set-ai-paused
+// Actions: get-messages | send-message | set-ai-paused | send-template-media
+//          | get-templates (the only action that doesn't need a leadId —
+//          reply templates are global, not per-conversation)
 // A multipart/form-data POST (not JSON) is handled as a media upload
 // instead — see handleSendMedia().
 // Auth: caller must present a Bearer token whose email is in admin_emails
@@ -130,7 +132,15 @@ module.exports = async function handler(req, res) {
     }
 
     await requireAdmin(req);
-    const { action, leadId, body, aiPaused } = req.body || {};
+    const { action, leadId, body, aiPaused, mediaUrl } = req.body || {};
+
+    // Reply templates are the CRM's own global list, not tied to any one
+    // lead/conversation — handled before the leadId requirement below.
+    if (action === 'get-templates') {
+      const result = await crmFetch('/api/v1/reply-templates', { method: 'GET' });
+      return res.status(200).json(result);
+    }
+
     if (!leadId) return res.status(400).json({ error: 'leadId required' });
 
     const { channel, convoId } = await conversationForLead(leadId);
@@ -150,6 +160,23 @@ module.exports = async function handler(req, res) {
 
     if (action === 'set-ai-paused') {
       const result = await crmFetch(conversationPath, { method: 'PATCH', body: JSON.stringify({ ai_paused: !!aiPaused }) });
+      return res.status(200).json(result);
+    }
+
+    // A reply template with its own media_url: fetched server-side and
+    // re-uploaded as the actual file, since the CRM's media endpoint only
+    // documented accepting a multipart file, not a remote URL to repost.
+    if (action === 'send-template-media') {
+      const url = String(mediaUrl || '').trim();
+      if (!url) return res.status(400).json({ error: 'mediaUrl required' });
+      const fileRes = await fetch(url);
+      if (!fileRes.ok) { const e = new Error("Could not fetch the template's attachment."); e.status = 502; throw e; }
+      const fileBlob = await fileRes.blob();
+      const filename = new URL(url).pathname.split('/').pop() || 'attachment';
+      const outForm = new FormData();
+      outForm.append('file', fileBlob, filename);
+      if (body) outForm.append('caption', String(body));
+      const result = await crmFetchMultipart(`${conversationPath}/media`, outForm);
       return res.status(200).json(result);
     }
 
