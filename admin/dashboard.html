@@ -8459,8 +8459,16 @@ function renderChatMessages(messages) {
   el.innerHTML = messages.map(m => {
     const out = m.direction === 'outbound';
     const time = m.sent_at ? new Date(m.sent_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
-    const body = m.body ? escB(m.body)
-      : m.media_url ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener" style="color:inherit;">[${escB(m.message_type || 'attachment')}]</a>`
+    // media_url takes priority over body for audio — the CRM sends a
+    // placeholder label like "🎙️ Voice note" as the body ALONGSIDE the
+    // real media_url, and checking body first was hiding the actual
+    // playable file behind that label entirely.
+    const isAudio = m.media_url && /audio|voice/i.test(m.message_type || '');
+    const caption = m.body && m.body.trim() && !/^🎙️?\s*voice note$/i.test(m.body.trim()) ? `<div style="margin-top:4px;">${escB(m.body)}</div>` : '';
+    const body = isAudio
+      ? `<audio controls src="${escB(m.media_url)}" style="max-width:220px;height:34px;"></audio>${caption}`
+      : m.media_url ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener" style="color:inherit;">[${escB(m.message_type || 'attachment')}]</a>${caption}`
+      : m.body ? escB(m.body)
       : '';
     const status = out ? `<span style="display:inline-flex;align-items:center;">${chatStatusIcon(m.status)}</span>` : '';
     return `<div style="align-self:${out ? 'flex-end' : 'flex-start'};max-width:75%;">
