@@ -8366,10 +8366,12 @@ function leadSourceCell(l) {
     : s === 'manual' ? 'manual'
     : 'other';
   const label = `<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">${LEAD_SOURCE_ICONS[key]} ${escB(source)}</span>`;
-  const hasChat = (key === 'whatsapp' && l.whatsapp_conversation_id) || (key === 'instagram' && l.instagram_conversation_id);
-  if (hasChat) {
-    return `<button class="btn btn-ghost btn-sm" onclick="openLeadChatModal('${l.id}')" title="Open ${key === 'whatsapp' ? 'WhatsApp' : 'Instagram'} chat" style="border:none;background:none;padding:2px 8px;cursor:pointer;">${label}</button>`;
-  }
+  // Chat-from-the-Leads-page is on hold while the WhatsApp integration
+  // moves to a direct API connection with its own dedicated sidebar page,
+  // rather than going through the CRM proxy — so this no longer opens the
+  // chat modal. Left disabled rather than removed: the modal, its JS, and
+  // the backend proxy (api/admin/crm-chat.js) are all still intact for
+  // whenever this gets repointed or the toggle gets flipped back.
   return label;
 }
 
