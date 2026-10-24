@@ -37,7 +37,7 @@ const RAW_BODY_ROUTES = new Set(['/api/auth-sms-hook', '/api/webhooks/crm', '/ap
 // Routes that accept a multipart/form-data upload (a media attachment) and
 // need the parsed FormData itself, not text/JSON — see RAW_BODY_ROUTES
 // above for why text() can't come first for these either.
-const MULTIPART_ROUTES = new Set(['/api/admin/crm-chat']);
+const MULTIPART_ROUTES = new Set(['/api/admin/crm-chat', '/api/admin/whatsapp']);
 
 function createRes() {
   const state = { statusCode: 200, headers: {}, body: undefined };

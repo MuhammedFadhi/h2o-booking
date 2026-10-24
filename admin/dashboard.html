@@ -936,7 +936,17 @@
             <div id="wa-thread-empty" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;text-align:center;padding:20px;">Select a conversation to view messages</div>
             <div id="wa-thread-messages" style="display:none;flex:1;overflow-y:auto;padding:18px;flex-direction:column;gap:10px;background:var(--bg);"></div>
             <div id="wa-thread-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;margin:10px 18px 0;border-radius:8px;font-size:13px;"></div>
+            <div id="wa-record-bar" style="display:none;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:8px 12px;margin:10px 18px 0;">
+              <span id="wa-record-status" style="font-size:13px;color:var(--text);flex:1;"></span>
+              <audio id="wa-record-preview" controls style="display:none;height:32px;max-width:180px;"></audio>
+              <button class="btn btn-ghost btn-sm" id="wa-record-discard-btn" onclick="discardWaRecording()" style="display:none;" title="Discard"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg></button>
+              <button class="btn btn-primary btn-sm" id="wa-record-send-btn" onclick="sendWaVoiceNote()" style="display:none;">Send</button>
+              <button class="btn btn-danger btn-sm" id="wa-record-stop-btn" onclick="stopWaRecording()" title="Stop recording"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M17 4H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3"/></svg></button>
+            </div>
             <div id="wa-thread-composer" style="display:none;padding:12px 18px;border-top:1px solid var(--border);gap:8px;">
+              <input type="file" id="wa-file-input" style="display:none;" onchange="sendWaMedia()">
+              <button class="btn btn-ghost" id="wa-attach-btn" onclick="document.getElementById('wa-file-input').click()" title="Attach a file" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg></button>
+              <button class="btn btn-ghost" id="wa-mic-btn" onclick="startWaRecording()" title="Record a voice note" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5a3 3 0 0 1 3-3a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3a3 3 0 0 1-3-3z"/><path d="M5 10a7 7 0 0 0 14 0M8 21h8m-4-4v4"/></g></svg></button>
               <input type="text" id="wa-thread-input" class="form-input" placeholder="Type a reply…" autocomplete="off" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();sendWhatsappMessage();}">
               <button class="btn btn-primary" id="wa-thread-send-btn" onclick="sendWhatsappMessage()">Send</button>
             </div>
@@ -8445,6 +8455,8 @@ async function waCall(action, extra) {
 function stopWhatsappPolling() {
   if (waPollInterval) { clearInterval(waPollInterval); waPollInterval = null; }
   if (waListPollInterval) { clearInterval(waListPollInterval); waListPollInterval = null; }
+  if (waMediaRecorder && waMediaRecorder.state !== 'inactive') stopWaRecording();
+  resetWaRecordBar();
 }
 
 async function loadWhatsappConversations() {
@@ -8489,6 +8501,8 @@ function renderWhatsappConversationList() {
 }
 
 async function selectWhatsappConversation(id) {
+  if (waMediaRecorder && waMediaRecorder.state !== 'inactive') stopWaRecording();
+  resetWaRecordBar();
   waCurrentConversationId = id;
   const convo = waConversations.find(c => c.id === id);
   renderWhatsappConversationList(); // re-render to show the selection highlight
@@ -8583,6 +8597,129 @@ async function sendWhatsappMessage() {
     document.getElementById('wa-thread-error').textContent = err.message;
   } finally {
     btn.disabled = false;
+  }
+}
+
+async function sendWaMedia() {
+  const fileInput = document.getElementById('wa-file-input');
+  const file = fileInput.files[0];
+  if (!file || !waCurrentConversationId) return;
+  const attachBtn = document.getElementById('wa-attach-btn');
+  attachBtn.disabled = true;
+  document.getElementById('wa-thread-error').style.display = 'none';
+  try {
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) throw new Error('Session expired. Please sign in again.');
+    const form = new FormData();
+    form.append('conversationId', waCurrentConversationId);
+    form.append('file', file);
+    const res = await fetch('/api/admin/whatsapp', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${session.access_token}` }, // no Content-Type — browser sets the multipart boundary
+      body: form
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'Upload failed.');
+    await loadWhatsappMessages();
+  } catch (err) {
+    document.getElementById('wa-thread-error').style.display = 'block';
+    document.getElementById('wa-thread-error').textContent = err.message;
+  } finally {
+    attachBtn.disabled = false;
+    fileInput.value = '';
+  }
+}
+
+// ── Voice notes — same record→preview→send-or-discard flow as the CRM
+// chat's (pickRecorderMimeType() is reused as-is, it's channel-agnostic).
+let waMediaRecorder = null;
+let waRecordingStream = null;
+let waRecordedChunks = [];
+let waRecordedBlob = null;
+
+async function startWaRecording() {
+  document.getElementById('wa-thread-error').style.display = 'none';
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    document.getElementById('wa-thread-error').style.display = 'block';
+    document.getElementById('wa-thread-error').textContent = "Couldn't access your microphone — check the browser's permission for this site.";
+    return;
+  }
+  waRecordingStream = stream;
+  waRecordedChunks = [];
+  const mimeType = pickRecorderMimeType();
+  waMediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+  waMediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) waRecordedChunks.push(e.data); };
+  waMediaRecorder.onstop = () => {
+    waRecordedBlob = new Blob(waRecordedChunks, { type: waMediaRecorder.mimeType || 'audio/webm' });
+    const preview = document.getElementById('wa-record-preview');
+    preview.src = URL.createObjectURL(waRecordedBlob);
+    preview.style.display = '';
+    document.getElementById('wa-record-status').textContent = 'Voice note ready';
+    document.getElementById('wa-record-stop-btn').style.display = 'none';
+    document.getElementById('wa-record-discard-btn').style.display = '';
+    document.getElementById('wa-record-send-btn').style.display = '';
+  };
+  waMediaRecorder.start();
+
+  document.getElementById('wa-record-bar').style.display = 'flex';
+  document.getElementById('wa-record-status').textContent = 'Recording…';
+  document.getElementById('wa-record-preview').style.display = 'none';
+  document.getElementById('wa-record-discard-btn').style.display = 'none';
+  document.getElementById('wa-record-send-btn').style.display = 'none';
+  document.getElementById('wa-record-stop-btn').style.display = '';
+  document.getElementById('wa-mic-btn').disabled = true;
+}
+
+function stopWaRecording() {
+  if (waMediaRecorder && waMediaRecorder.state !== 'inactive') waMediaRecorder.stop();
+  if (waRecordingStream) waRecordingStream.getTracks().forEach(t => t.stop());
+  waRecordingStream = null;
+}
+
+function resetWaRecordBar() {
+  document.getElementById('wa-record-bar').style.display = 'none';
+  document.getElementById('wa-mic-btn').disabled = false;
+  const preview = document.getElementById('wa-record-preview');
+  if (preview.src) URL.revokeObjectURL(preview.src);
+  preview.src = '';
+  waRecordedBlob = null;
+  waRecordedChunks = [];
+}
+
+function discardWaRecording() {
+  resetWaRecordBar();
+}
+
+async function sendWaVoiceNote() {
+  if (!waRecordedBlob || !waCurrentConversationId) return;
+  const sendBtn = document.getElementById('wa-record-send-btn');
+  sendBtn.disabled = true;
+  document.getElementById('wa-thread-error').style.display = 'none';
+  try {
+    const ext = waRecordedBlob.type.includes('ogg') ? 'ogg' : waRecordedBlob.type.includes('mp4') ? 'm4a' : 'webm';
+    const file = new File([waRecordedBlob], `voice-note.${ext}`, { type: waRecordedBlob.type });
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) throw new Error('Session expired. Please sign in again.');
+    const form = new FormData();
+    form.append('conversationId', waCurrentConversationId);
+    form.append('file', file);
+    const res = await fetch('/api/admin/whatsapp', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${session.access_token}` },
+      body: form
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'Could not send the voice note.');
+    resetWaRecordBar();
+    await loadWhatsappMessages();
+  } catch (err) {
+    document.getElementById('wa-thread-error').style.display = 'block';
+    document.getElementById('wa-thread-error').textContent = err.message;
+  } finally {
+    sendBtn.disabled = false;
   }
 }
 

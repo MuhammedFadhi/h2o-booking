@@ -1,5 +1,7 @@
 // /api/admin/whatsapp — backs the admin "WhatsApp" sidebar page.
 // Actions: list-conversations | get-messages | send-message | mark-read
+// A multipart/form-data POST (not JSON) is a media/voice-note send instead
+// — see handleSendMedia().
 // Auth: caller must present a Bearer token whose email is in admin_emails
 // (same as every other /api/admin/* route — see ./_auth).
 const { requireAdmin, SUPABASE_URL, SERVICE_KEY } = require('./_auth');
@@ -21,6 +23,97 @@ async function sb(method, path, body, extraHeaders) {
 
 function bad(status, message) { const e = new Error(message); e.status = status; return e; }
 
+async function uploadToStorage(path, buffer, contentType) {
+  const r = await fetch(`${SUPABASE_URL}/storage/v1/object/whatsapp-media/${path}`, {
+    method: 'POST',
+    headers: { apikey: SERVICE_KEY, Authorization: 'Bearer ' + SERVICE_KEY, 'Content-Type': contentType || 'application/octet-stream', 'x-upsert': 'true' },
+    body: buffer
+  });
+  if (!r.ok) throw bad(r.status, await r.text());
+  return `${SUPABASE_URL}/storage/v1/object/public/whatsapp-media/${path}`;
+}
+
+// WhatsApp message "type" buckets — audio/image/video get their own object
+// kind on the send; anything else (PDFs, etc.) is sent as "document".
+function waTypeForMime(mime) {
+  if (/^image\//.test(mime)) return 'image';
+  if (/^audio\//.test(mime)) return 'audio';
+  if (/^video\//.test(mime)) return 'video';
+  return 'document';
+}
+
+// A multipart/form-data POST is always a media/voice-note send — distinct
+// from the JSON actions below. Fields: conversationId, file, caption
+// (optional; WhatsApp's audio type doesn't support one, silently ignored).
+async function handleSendMedia(req, res) {
+  await requireAdmin(req);
+  const form = req.body; // FormData, parsed by worker/index.js's MULTIPART_ROUTES branch
+  const conversationId = form.get('conversationId');
+  const file = form.get('file');
+  const caption = form.get('caption');
+  if (!conversationId) return res.status(400).json({ error: 'conversationId required' });
+  if (!file || typeof file === 'string') return res.status(400).json({ error: 'file required' });
+
+  const convo = (await sb('GET', `/rest/v1/whatsapp_conversations?id=eq.${encodeURIComponent(conversationId)}&select=phone`))?.[0];
+  if (!convo) throw bad(404, 'Conversation not found.');
+
+  const mimeType = file.type || 'application/octet-stream';
+  const waType = waTypeForMime(mimeType);
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  // Meta's own upload step — the message send below references this media
+  // id, it doesn't take the file inline.
+  const uploadForm = new FormData();
+  uploadForm.append('messaging_product', 'whatsapp');
+  uploadForm.append('file', new Blob([buffer], { type: mimeType }), file.name || 'upload');
+  const uploadRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WHATSAPP_PHONE_NUMBER_ID}/media`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}` },
+    body: uploadForm
+  });
+  const uploadJson = await uploadRes.json().catch(() => ({}));
+  if (!uploadRes.ok || !uploadJson?.id) throw bad(uploadRes.status || 502, uploadJson?.error?.message || 'WhatsApp media upload failed.');
+  const metaMediaId = uploadJson.id;
+
+  const mediaObject = { id: metaMediaId };
+  if (caption && waType !== 'audio') mediaObject.caption = String(caption); // audio has no caption field in the API
+
+  const sendRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messaging_product: 'whatsapp', to: convo.phone.replace('+', ''), type: waType, [waType]: mediaObject })
+  });
+  const sendJson = await sendRes.json().catch(() => ({}));
+  if (!sendRes.ok) throw bad(sendRes.status, sendJson?.error?.message || 'WhatsApp send failed.');
+
+  // Also keep our own permanent copy — same reasoning as the webhook's
+  // inbound handling: nothing guarantees Meta's media stays fetchable by
+  // id indefinitely, so self-hosting is what keeps it viewable later.
+  const ext = (mimeType.split('/')[1] || '').split(';')[0] || waType;
+  let mediaUrl = null;
+  try { mediaUrl = await uploadToStorage(`${metaMediaId}.${ext}`, buffer, mimeType); }
+  catch (err) { console.error('whatsapp outbound media re-host failed:', err.message); }
+
+  const waMessageId = sendJson?.messages?.[0]?.id || null;
+  const sentAt = new Date().toISOString();
+  const inserted = await sb('POST', '/rest/v1/whatsapp_messages', {
+    conversation_id: conversationId,
+    wa_message_id: waMessageId,
+    direction: 'outbound',
+    message_type: waType,
+    body: caption ? String(caption) : null,
+    media_id: metaMediaId,
+    media_url: mediaUrl,
+    status: 'sent',
+    sent_at: sentAt
+  }, { Prefer: 'return=representation' });
+  await sb('PATCH', `/rest/v1/whatsapp_conversations?id=eq.${conversationId}`, {
+    last_message_at: sentAt,
+    last_message_preview: caption ? String(caption).slice(0, 200) : `[${waType}]`
+  });
+  return res.status(200).json({ ok: true, message: inserted?.[0] });
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -33,6 +126,11 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    const contentType = req.headers['content-type'] || '';
+    if (contentType.includes('multipart/form-data')) {
+      return await handleSendMedia(req, res);
+    }
+
     await requireAdmin(req);
     const { action, conversationId, body, limit } = req.body || {};
 
