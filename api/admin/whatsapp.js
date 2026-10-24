@@ -8,7 +8,13 @@ const { requireAdmin, SUPABASE_URL, SERVICE_KEY } = require('./_auth');
 
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || '';
 const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
+const CLOUDCONVERT_API_KEY = process.env.CLOUDCONVERT_API_KEY || '';
 const GRAPH_VERSION = 'v21.0';
+
+// Meta's send-message API only accepts these exact audio mime types.
+// Chrome's MediaRecorder can only produce audio/webm — not in this list —
+// so every browser-recorded voice note needs converting first.
+const META_ACCEPTED_AUDIO_TYPES = new Set(['audio/aac', 'audio/mp4', 'audio/mpeg', 'audio/amr', 'audio/ogg', 'audio/opus']);
 
 async function sb(method, path, body, extraHeaders) {
   const r = await fetch(SUPABASE_URL + path, {
@@ -42,6 +48,53 @@ function waTypeForMime(mime) {
   return 'document';
 }
 
+// Converts an unsupported audio file (webm from browser recording, almost
+// always) to ogg via CloudConvert — same fix the CRM already used for this
+// exact problem. import/base64 keeps this to one job-creation call rather
+// than a separate upload step; short voice notes convert in a few seconds,
+// so polling (not a webhook) is fine here.
+async function convertAudioToOgg(buffer, filename) {
+  if (!CLOUDCONVERT_API_KEY) throw bad(500, 'Server not configured (CLOUDCONVERT_API_KEY missing) — needed to convert this audio format for WhatsApp.');
+
+  const jobRes = await fetch('https://api.cloudconvert.com/v2/jobs', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${CLOUDCONVERT_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tasks: {
+        'import-1': { operation: 'import/base64', file: buffer.toString('base64'), filename: filename || 'voice-note.webm' },
+        'convert-1': { operation: 'convert', input: 'import-1', output_format: 'ogg' },
+        'export-1': { operation: 'export/url', input: 'convert-1' }
+      }
+    })
+  });
+  const jobJson = await jobRes.json().catch(() => ({}));
+  if (!jobRes.ok) throw bad(jobRes.status, jobJson?.message || 'CloudConvert job creation failed.');
+  let job = jobJson?.data;
+  if (!job?.id) throw bad(502, 'CloudConvert did not return a job id.');
+
+  for (let i = 0; i < 20 && job.status !== 'finished' && job.status !== 'error'; i++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const pollRes = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.id}`, {
+      headers: { Authorization: `Bearer ${CLOUDCONVERT_API_KEY}` }
+    });
+    const pollJson = await pollRes.json().catch(() => ({}));
+    job = pollJson?.data || job;
+  }
+  if (job.status !== 'finished') throw bad(504, 'Audio conversion timed out or failed.');
+
+  const exportTask = (job.tasks || []).find((t) => t.operation === 'export/url' && t.status === 'finished');
+  const fileInfo = exportTask?.result?.files?.[0];
+  if (!fileInfo?.url) throw bad(502, 'CloudConvert did not return a converted file.');
+
+  const convertedRes = await fetch(fileInfo.url);
+  if (!convertedRes.ok) throw bad(502, 'Could not download the converted audio.');
+  return {
+    buffer: Buffer.from(await convertedRes.arrayBuffer()),
+    mimeType: 'audio/ogg',
+    filename: fileInfo.filename || 'voice-note.ogg'
+  };
+}
+
 // Shared by the file-attach/voice-note path and the quick-reply-with-image
 // path: upload to Meta's media endpoint (the message-send API takes a
 // media id, not an inline file), send referencing that id, then re-host
@@ -50,6 +103,14 @@ function waTypeForMime(mime) {
 async function sendMediaMessage({ conversationId, buffer, mimeType, filename, caption }) {
   const convo = (await sb('GET', `/rest/v1/whatsapp_conversations?id=eq.${encodeURIComponent(conversationId)}&select=phone`))?.[0];
   if (!convo) throw bad(404, 'Conversation not found.');
+
+  const baseMime = mimeType.split(';')[0].trim().toLowerCase();
+  if (baseMime.startsWith('audio/') && !META_ACCEPTED_AUDIO_TYPES.has(baseMime)) {
+    const converted = await convertAudioToOgg(buffer, filename);
+    buffer = converted.buffer;
+    mimeType = converted.mimeType;
+    filename = converted.filename;
+  }
 
   const waType = waTypeForMime(mimeType);
 
