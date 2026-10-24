@@ -923,8 +923,9 @@
       <div class="card" style="padding:0;overflow:hidden;">
         <div style="display:flex;height:calc(100vh - 180px);min-height:520px;">
           <div style="width:300px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;">
-            <div style="padding:14px;border-bottom:1px solid var(--border);">
-              <span class="search-wrap" style="display:block;"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="wa-convo-search" placeholder="Search by name or phone..." oninput="renderWhatsappConversationList()" style="width:100%;" autocomplete="off"></span>
+            <div style="padding:14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;">
+              <span class="search-wrap" style="display:block;flex:1;"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="wa-convo-search" placeholder="Search by name or phone..." oninput="renderWhatsappConversationList()" style="width:100%;" autocomplete="off"></span>
+              <button class="btn btn-ghost btn-sm" onclick="openWaTemplatesModal()" title="Manage quick-reply templates" style="padding:0 10px;flex-shrink:0;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5h8m-8 4h5m-5 6h8m-8 4h5M3 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zm0 10a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg></button>
             </div>
             <div id="wa-convo-list" style="flex:1;overflow-y:auto;"></div>
           </div>
@@ -943,11 +944,19 @@
               <button class="btn btn-primary btn-sm" id="wa-record-send-btn" onclick="sendWaVoiceNote()" style="display:none;">Send</button>
               <button class="btn btn-danger btn-sm" id="wa-record-stop-btn" onclick="stopWaRecording()" title="Stop recording"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M17 4H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3"/></svg></button>
             </div>
+            <div id="wa-template-media-badge" style="display:none;align-items:center;gap:8px;background:var(--foam);border-radius:8px;padding:6px 10px;margin:10px 18px 0;font-size:12px;color:var(--water);">
+              <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="flex-shrink:0;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg>
+              <span>Attachment from template</span>
+              <button class="btn btn-ghost btn-sm" onclick="clearWaTemplateMedia()" style="padding:0 6px;margin-left:auto;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12"/></svg></button>
+            </div>
             <div id="wa-thread-composer" style="display:none;padding:12px 18px;border-top:1px solid var(--border);gap:8px;">
               <input type="file" id="wa-file-input" style="display:none;" onchange="sendWaMedia()">
               <button class="btn btn-ghost" id="wa-attach-btn" onclick="document.getElementById('wa-file-input').click()" title="Attach a file" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg></button>
               <button class="btn btn-ghost" id="wa-mic-btn" onclick="startWaRecording()" title="Record a voice note" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5a3 3 0 0 1 3-3a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3a3 3 0 0 1-3-3z"/><path d="M5 10a7 7 0 0 0 14 0M8 21h8m-4-4v4"/></g></svg></button>
-              <input type="text" id="wa-thread-input" class="form-input" placeholder="Type a reply…" autocomplete="off" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();sendWhatsappMessage();}">
+              <div style="position:relative;flex:1;">
+                <div id="wa-template-dropdown" style="display:none;position:absolute;bottom:100%;left:0;right:0;margin-bottom:6px;background:var(--white);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);max-height:200px;overflow-y:auto;z-index:20;"></div>
+                <input type="text" id="wa-thread-input" class="form-input" placeholder="Type a reply… (/ for templates)" autocomplete="off" style="width:100%;" oninput="onWaTemplateInput()" onkeydown="handleWaInputKeydown(event)" onblur="setTimeout(closeWaTemplateDropdown, 150)">
+              </div>
               <button class="btn btn-primary" id="wa-thread-send-btn" onclick="sendWhatsappMessage()">Send</button>
             </div>
           </div>
@@ -1509,6 +1518,34 @@
           <input type="text" id="chat-input" class="form-input" placeholder="Type a reply… (/ for templates)" autocomplete="off" style="width:100%;" oninput="onChatTemplateInput()" onkeydown="handleChatInputKeydown(event)" onblur="setTimeout(closeChatTemplateDropdown, 150)">
         </div>
         <button class="btn btn-primary" id="chat-send-btn" onclick="sendLeadChatMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WHATSAPP QUICK-REPLY TEMPLATES — our own table (whatsapp_quick_replies),
+     not the CRM's, since WhatsApp no longer relays through them. -->
+<div class="modal-overlay" id="wa-templates-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Quick-Reply Templates</span>
+      <button class="modal-close" onclick="closeModal('wa-templates-modal')">&times;</button></div>
+    <div class="modal-body">
+      <div id="wa-templates-list" style="margin-bottom:16px;"></div>
+      <div style="border-top:1px solid var(--border);padding-top:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;" id="wa-template-form-title">Add a template</div>
+        <input type="hidden" id="wa-template-id">
+        <div class="form-group"><label>Shortcut <span style="color:var(--muted,#94a3b8);font-weight:400;">(what you type after /)</span></label>
+          <input type="text" id="wa-template-shortcut" class="form-input" placeholder="e.g. pricing" autocomplete="off"></div>
+        <div class="form-group"><label>Message</label>
+          <textarea id="wa-template-message" class="form-input" rows="3" placeholder="The full reply text" autocomplete="off"></textarea>
+        </div>
+        <div class="form-group"><label>Image URL <span style="color:var(--muted,#94a3b8);font-weight:400;">(optional)</span></label>
+          <input type="text" id="wa-template-media-url" class="form-input" placeholder="https://..." autocomplete="off"></div>
+        <div id="wa-template-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button class="btn btn-ghost" id="wa-template-cancel-btn" onclick="resetWaTemplateForm()" style="display:none;">Cancel edit</button>
+          <button class="btn btn-primary" id="wa-template-save-btn" onclick="saveWaTemplate()">Save template</button>
+        </div>
       </div>
     </div>
   </div>
@@ -8438,6 +8475,10 @@ let waMessages = [];
 let waPollInterval = null;
 let waListPollInterval = null;
 let waCurrentPanelActive = false;
+let waQuickReplies = [];
+let waTemplateDropdownItems = [];
+let waTemplateDropdownIndex = -1;
+let waPendingTemplateMedia = null;
 
 async function waCall(action, extra) {
   const { data: { session } } = await db.auth.getSession();
@@ -8469,6 +8510,7 @@ async function loadWhatsappConversations() {
   } catch (err) {
     listEl.innerHTML = `<div class="empty-state">⚠️ ${escB(err.message)}</div>`;
   }
+  loadWaQuickReplies(); // fetched once per panel visit, not per keystroke
   if (waListPollInterval) clearInterval(waListPollInterval);
   waListPollInterval = setInterval(async () => {
     try {
@@ -8477,6 +8519,15 @@ async function loadWhatsappConversations() {
       renderWhatsappConversationList();
     } catch { /* a transient poll failure isn't worth interrupting the admin with */ }
   }, 10000);
+}
+
+async function loadWaQuickReplies() {
+  try {
+    const result = await waCall('list-quick-replies');
+    waQuickReplies = result?.quickReplies || [];
+  } catch {
+    waQuickReplies = []; // templates are a convenience — a failed fetch shouldn't block chat itself
+  }
 }
 
 function renderWhatsappConversationList() {
@@ -8503,6 +8554,8 @@ function renderWhatsappConversationList() {
 async function selectWhatsappConversation(id) {
   if (waMediaRecorder && waMediaRecorder.state !== 'inactive') stopWaRecording();
   resetWaRecordBar();
+  clearWaTemplateMedia();
+  closeWaTemplateDropdown();
   waCurrentConversationId = id;
   const convo = waConversations.find(c => c.id === id);
   renderWhatsappConversationList(); // re-render to show the selection highlight
@@ -8578,7 +8631,11 @@ async function sendWhatsappMessage() {
   const btn = document.getElementById('wa-thread-send-btn');
   btn.disabled = true;
   document.getElementById('wa-thread-error').style.display = 'none';
+
+  const pendingMedia = waPendingTemplateMedia;
   input.value = '';
+  clearWaTemplateMedia();
+  closeWaTemplateDropdown();
 
   // Optimistic echo — same reasoning as the CRM chat's send path: don't
   // make every send wait on a second round-trip before showing anything.
@@ -8586,7 +8643,13 @@ async function sendWhatsappMessage() {
   renderWhatsappMessages(waMessages);
 
   try {
-    await waCall('send-message', { conversationId: waCurrentConversationId, body: text });
+    // A template picked with a media_url attaches that file alongside the
+    // message as its caption, instead of sending plain text.
+    if (pendingMedia) {
+      await waCall('send-quick-reply-media', { conversationId: waCurrentConversationId, mediaUrl: pendingMedia, body: text });
+    } else {
+      await waCall('send-message', { conversationId: waCurrentConversationId, body: text });
+    }
     const convo = waConversations.find(c => c.id === waCurrentConversationId);
     if (convo) { convo.last_message_preview = text; convo.last_message_at = new Date().toISOString(); renderWhatsappConversationList(); }
   } catch (err) {
@@ -8720,6 +8783,161 @@ async function sendWaVoiceNote() {
     document.getElementById('wa-thread-error').textContent = err.message;
   } finally {
     sendBtn.disabled = false;
+  }
+}
+
+// ── "/" quick-reply autocomplete — same UX as the CRM chat's, sourced from
+// our own whatsapp_quick_replies table instead. ──────────────────────────
+function closeWaTemplateDropdown() {
+  waTemplateDropdownItems = [];
+  waTemplateDropdownIndex = -1;
+  const el = document.getElementById('wa-template-dropdown');
+  if (el) el.style.display = 'none';
+}
+
+function renderWaTemplateDropdown() {
+  const el = document.getElementById('wa-template-dropdown');
+  if (!waTemplateDropdownItems.length) { el.style.display = 'none'; return; }
+  el.innerHTML = waTemplateDropdownItems.map((t, i) => `
+    <div onmousedown="event.preventDefault();selectWaTemplate(${i})" style="padding:8px 12px;cursor:pointer;background:${i === waTemplateDropdownIndex ? 'var(--bg)' : 'transparent'};border-bottom:1px solid var(--border);">
+      <div style="font-weight:700;color:var(--water);font-size:13px;">/${escB(t.shortcut || '')}${t.media_url ? ' <svg xmlns="http://www.w3.org/2000/svg" width="0.8em" height="0.8em" viewBox="0 0 24 24" style="vertical-align:-1px;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg>' : ''}</div>
+      <div style="color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escB(t.message || '')}</div>
+    </div>`).join('');
+  el.style.display = 'block';
+}
+
+function onWaTemplateInput() {
+  const input = document.getElementById('wa-thread-input');
+  const beforeCursor = input.value.slice(0, input.selectionStart);
+  const match = /(?:^|\s)\/(\S*)$/.exec(beforeCursor);
+  if (!match || !waQuickReplies.length) { closeWaTemplateDropdown(); return; }
+  const query = match[1].toLowerCase();
+  const items = waQuickReplies.filter(t => (t.shortcut || '').toLowerCase().includes(query)).slice(0, 8);
+  if (!items.length) { closeWaTemplateDropdown(); return; }
+  waTemplateDropdownItems = items;
+  waTemplateDropdownIndex = 0;
+  renderWaTemplateDropdown();
+}
+
+function selectWaTemplate(i) {
+  const t = waTemplateDropdownItems[i];
+  if (!t) return;
+  const input = document.getElementById('wa-thread-input');
+  const cursor = input.selectionStart;
+  const beforeCursor = input.value.slice(0, cursor);
+  const afterCursor = input.value.slice(cursor);
+  const slashIndex = beforeCursor.lastIndexOf('/');
+  const newValue = beforeCursor.slice(0, slashIndex) + (t.message || '') + afterCursor;
+  input.value = newValue;
+  const newCursor = slashIndex + (t.message || '').length;
+  input.setSelectionRange(newCursor, newCursor);
+  input.focus();
+  if (t.media_url) showWaTemplateMedia(t.media_url); else clearWaTemplateMedia();
+  closeWaTemplateDropdown();
+}
+
+function handleWaInputKeydown(event) {
+  if (waTemplateDropdownItems.length) {
+    if (event.key === 'ArrowDown') { event.preventDefault(); waTemplateDropdownIndex = (waTemplateDropdownIndex + 1) % waTemplateDropdownItems.length; renderWaTemplateDropdown(); return; }
+    if (event.key === 'ArrowUp') { event.preventDefault(); waTemplateDropdownIndex = (waTemplateDropdownIndex - 1 + waTemplateDropdownItems.length) % waTemplateDropdownItems.length; renderWaTemplateDropdown(); return; }
+    if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); selectWaTemplate(waTemplateDropdownIndex); return; }
+    if (event.key === 'Escape') { event.preventDefault(); closeWaTemplateDropdown(); return; }
+  }
+  if (event.key === 'Enter') { event.preventDefault(); sendWhatsappMessage(); }
+}
+
+function showWaTemplateMedia(mediaUrl) {
+  waPendingTemplateMedia = mediaUrl;
+  document.getElementById('wa-template-media-badge').style.display = 'flex';
+}
+
+function clearWaTemplateMedia() {
+  waPendingTemplateMedia = null;
+  document.getElementById('wa-template-media-badge').style.display = 'none';
+}
+
+// ── Quick-reply template management modal ─────────────────────────────────
+async function openWaTemplatesModal() {
+  document.getElementById('wa-templates-modal').style.display = 'flex';
+  resetWaTemplateForm();
+  document.getElementById('wa-templates-list').innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+  await loadWaQuickReplies();
+  renderWaTemplatesList();
+}
+
+function renderWaTemplatesList() {
+  const el = document.getElementById('wa-templates-list');
+  if (!waQuickReplies.length) { el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0;">No templates yet.</div>'; return; }
+  el.innerHTML = waQuickReplies.map(t => `
+    <div style="background:var(--bg);border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+        <div style="min-width:0;">
+          <div style="font-weight:700;color:var(--water);font-size:13px;">/${escB(t.shortcut)}${t.media_url ? ' <svg xmlns="http://www.w3.org/2000/svg" width="0.8em" height="0.8em" viewBox="0 0 24 24" style="vertical-align:-1px;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg>' : ''}</div>
+          <div style="font-size:13px;color:var(--text);margin-top:2px;white-space:pre-wrap;word-break:break-word;">${escB(t.message)}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="btn btn-ghost btn-sm" onclick='editWaTemplate(${JSON.stringify(t.id)})'>Edit</button>
+          <button class="btn btn-danger btn-sm" onclick='deleteWaTemplate(${JSON.stringify(t.id)})'>Delete</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function editWaTemplate(id) {
+  const t = waQuickReplies.find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('wa-template-id').value = t.id;
+  document.getElementById('wa-template-shortcut').value = t.shortcut || '';
+  document.getElementById('wa-template-message').value = t.message || '';
+  document.getElementById('wa-template-media-url').value = t.media_url || '';
+  document.getElementById('wa-template-form-title').textContent = 'Edit template';
+  document.getElementById('wa-template-cancel-btn').style.display = '';
+  document.getElementById('wa-template-error').style.display = 'none';
+}
+
+function resetWaTemplateForm() {
+  document.getElementById('wa-template-id').value = '';
+  document.getElementById('wa-template-shortcut').value = '';
+  document.getElementById('wa-template-message').value = '';
+  document.getElementById('wa-template-media-url').value = '';
+  document.getElementById('wa-template-form-title').textContent = 'Add a template';
+  document.getElementById('wa-template-cancel-btn').style.display = 'none';
+  document.getElementById('wa-template-error').style.display = 'none';
+}
+
+async function saveWaTemplate() {
+  const id = document.getElementById('wa-template-id').value || null;
+  const shortcut = document.getElementById('wa-template-shortcut').value.trim();
+  const message = document.getElementById('wa-template-message').value.trim();
+  const mediaUrl = document.getElementById('wa-template-media-url').value.trim();
+  const errEl = document.getElementById('wa-template-error');
+  errEl.style.display = 'none';
+  if (!shortcut || !message) { errEl.style.display = 'block'; errEl.textContent = 'Shortcut and message are both required.'; return; }
+
+  const btn = document.getElementById('wa-template-save-btn');
+  btn.disabled = true;
+  try {
+    await waCall('save-quick-reply', { quickReply: { id, shortcut, message, mediaUrl: mediaUrl || null } });
+    resetWaTemplateForm();
+    await loadWaQuickReplies();
+    renderWaTemplatesList();
+    showToast('Template saved', 'success');
+  } catch (err) {
+    errEl.style.display = 'block';
+    errEl.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteWaTemplate(id) {
+  if (!confirm('Delete this template?')) return;
+  try {
+    await waCall('delete-quick-reply', { quickReply: { id } });
+    await loadWaQuickReplies();
+    renderWaTemplatesList();
+  } catch (err) {
+    showToast(err.message, 'error');
   }
 }
 

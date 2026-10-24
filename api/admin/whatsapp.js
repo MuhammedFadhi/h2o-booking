@@ -42,30 +42,20 @@ function waTypeForMime(mime) {
   return 'document';
 }
 
-// A multipart/form-data POST is always a media/voice-note send — distinct
-// from the JSON actions below. Fields: conversationId, file, caption
-// (optional; WhatsApp's audio type doesn't support one, silently ignored).
-async function handleSendMedia(req, res) {
-  await requireAdmin(req);
-  const form = req.body; // FormData, parsed by worker/index.js's MULTIPART_ROUTES branch
-  const conversationId = form.get('conversationId');
-  const file = form.get('file');
-  const caption = form.get('caption');
-  if (!conversationId) return res.status(400).json({ error: 'conversationId required' });
-  if (!file || typeof file === 'string') return res.status(400).json({ error: 'file required' });
-
+// Shared by the file-attach/voice-note path and the quick-reply-with-image
+// path: upload to Meta's media endpoint (the message-send API takes a
+// media id, not an inline file), send referencing that id, then re-host
+// our own permanent copy (nothing guarantees Meta's media stays fetchable
+// by id indefinitely — same reasoning as the webhook's inbound handling).
+async function sendMediaMessage({ conversationId, buffer, mimeType, filename, caption }) {
   const convo = (await sb('GET', `/rest/v1/whatsapp_conversations?id=eq.${encodeURIComponent(conversationId)}&select=phone`))?.[0];
   if (!convo) throw bad(404, 'Conversation not found.');
 
-  const mimeType = file.type || 'application/octet-stream';
   const waType = waTypeForMime(mimeType);
-  const buffer = Buffer.from(await file.arrayBuffer());
 
-  // Meta's own upload step — the message send below references this media
-  // id, it doesn't take the file inline.
   const uploadForm = new FormData();
   uploadForm.append('messaging_product', 'whatsapp');
-  uploadForm.append('file', new Blob([buffer], { type: mimeType }), file.name || 'upload');
+  uploadForm.append('file', new Blob([buffer], { type: mimeType }), filename || 'upload');
   const uploadRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WHATSAPP_PHONE_NUMBER_ID}/media`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}` },
@@ -86,9 +76,6 @@ async function handleSendMedia(req, res) {
   const sendJson = await sendRes.json().catch(() => ({}));
   if (!sendRes.ok) throw bad(sendRes.status, sendJson?.error?.message || 'WhatsApp send failed.');
 
-  // Also keep our own permanent copy — same reasoning as the webhook's
-  // inbound handling: nothing guarantees Meta's media stays fetchable by
-  // id indefinitely, so self-hosting is what keeps it viewable later.
   const ext = (mimeType.split('/')[1] || '').split(';')[0] || waType;
   let mediaUrl = null;
   try { mediaUrl = await uploadToStorage(`${metaMediaId}.${ext}`, buffer, mimeType); }
@@ -111,7 +98,26 @@ async function handleSendMedia(req, res) {
     last_message_at: sentAt,
     last_message_preview: caption ? String(caption).slice(0, 200) : `[${waType}]`
   });
-  return res.status(200).json({ ok: true, message: inserted?.[0] });
+  return inserted?.[0];
+}
+
+// A multipart/form-data POST is always a media/voice-note send — distinct
+// from the JSON actions below. Fields: conversationId, file, caption
+// (optional; WhatsApp's audio type doesn't support one, silently ignored).
+async function handleSendMedia(req, res) {
+  await requireAdmin(req);
+  const form = req.body; // FormData, parsed by worker/index.js's MULTIPART_ROUTES branch
+  const conversationId = form.get('conversationId');
+  const file = form.get('file');
+  const caption = form.get('caption');
+  if (!conversationId) return res.status(400).json({ error: 'conversationId required' });
+  if (!file || typeof file === 'string') return res.status(400).json({ error: 'file required' });
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const message = await sendMediaMessage({
+    conversationId, buffer, mimeType: file.type || 'application/octet-stream', filename: file.name, caption
+  });
+  return res.status(200).json({ ok: true, message });
 }
 
 module.exports = async function handler(req, res) {
@@ -132,11 +138,37 @@ module.exports = async function handler(req, res) {
     }
 
     await requireAdmin(req);
-    const { action, conversationId, body, limit } = req.body || {};
+    const { action, conversationId, body, limit, mediaUrl, quickReply } = req.body || {};
 
     if (action === 'list-conversations') {
       const rows = await sb('GET', `/rest/v1/whatsapp_conversations?select=*&order=last_message_at.desc.nullslast&limit=${Number(limit) || 200}`);
       return res.status(200).json({ conversations: rows || [] });
+    }
+
+    // Quick-reply templates are global, not tied to any one conversation —
+    // handled before the conversationId requirement below.
+    if (action === 'list-quick-replies') {
+      const rows = await sb('GET', '/rest/v1/whatsapp_quick_replies?select=*&order=shortcut.asc');
+      return res.status(200).json({ quickReplies: rows || [] });
+    }
+
+    if (action === 'save-quick-reply') {
+      const shortcut = String(quickReply?.shortcut || '').trim().toLowerCase();
+      const message = String(quickReply?.message || '').trim();
+      const qrMediaUrl = quickReply?.mediaUrl ? String(quickReply.mediaUrl).trim() : null;
+      if (!shortcut) return res.status(400).json({ error: 'Shortcut required' });
+      if (!message) return res.status(400).json({ error: 'Message required' });
+      const row = { shortcut, message, media_url: qrMediaUrl, updated_at: new Date().toISOString() };
+      const saved = quickReply?.id
+        ? await sb('PATCH', `/rest/v1/whatsapp_quick_replies?id=eq.${encodeURIComponent(quickReply.id)}`, row, { Prefer: 'return=representation' })
+        : await sb('POST', '/rest/v1/whatsapp_quick_replies', row, { Prefer: 'return=representation' });
+      return res.status(200).json({ ok: true, quickReply: saved?.[0] });
+    }
+
+    if (action === 'delete-quick-reply') {
+      if (!quickReply?.id) return res.status(400).json({ error: 'quickReply.id required' });
+      await sb('DELETE', `/rest/v1/whatsapp_quick_replies?id=eq.${encodeURIComponent(quickReply.id)}`);
+      return res.status(200).json({ ok: true });
     }
 
     if (!conversationId) return res.status(400).json({ error: 'conversationId required' });
@@ -187,6 +219,20 @@ module.exports = async function handler(req, res) {
     if (action === 'mark-read') {
       await sb('PATCH', `/rest/v1/whatsapp_conversations?id=eq.${conversationId}`, { unread_count: 0 });
       return res.status(200).json({ ok: true });
+    }
+
+    // A quick-reply template with its own media_url: fetched server-side
+    // and sent through the same path as a manual attach.
+    if (action === 'send-quick-reply-media') {
+      const url = String(mediaUrl || '').trim();
+      if (!url) return res.status(400).json({ error: 'mediaUrl required' });
+      const fileRes = await fetch(url);
+      if (!fileRes.ok) throw bad(502, "Could not fetch the template's attachment.");
+      const buffer = Buffer.from(await fileRes.arrayBuffer());
+      const mimeType = fileRes.headers.get('content-type') || 'application/octet-stream';
+      const filename = new URL(url).pathname.split('/').pop() || 'attachment';
+      const message = await sendMediaMessage({ conversationId, buffer, mimeType, filename, caption: body });
+      return res.status(200).json({ ok: true, message });
     }
 
     return res.status(400).json({ error: `Unknown action "${action}"` });
