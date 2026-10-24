@@ -5,10 +5,10 @@
 // Auth: caller must present a Bearer token whose email is in admin_emails
 // (same as every other /api/admin/* route — see ./_auth).
 const { requireAdmin, SUPABASE_URL, SERVICE_KEY } = require('./_auth');
+const { remuxOpusWebmToOgg } = require('./_webmToOgg.js');
 
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || '';
 const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
-const CLOUDCONVERT_API_KEY = process.env.CLOUDCONVERT_API_KEY || '';
 const GRAPH_VERSION = 'v21.0';
 
 // Meta's send-message API only accepts these exact audio mime types.
@@ -49,50 +49,16 @@ function waTypeForMime(mime) {
 }
 
 // Converts an unsupported audio file (webm from browser recording, almost
-// always) to ogg via CloudConvert — same fix the CRM already used for this
-// exact problem. import/base64 keeps this to one job-creation call rather
-// than a separate upload step; short voice notes convert in a few seconds,
-// so polling (not a webhook) is fine here.
-async function convertAudioToOgg(buffer, filename) {
-  if (!CLOUDCONVERT_API_KEY) throw bad(500, 'Server not configured (CLOUDCONVERT_API_KEY missing) — needed to convert this audio format for WhatsApp.');
-
-  const jobRes = await fetch('https://api.cloudconvert.com/v2/jobs', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${CLOUDCONVERT_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      tasks: {
-        'import-1': { operation: 'import/base64', file: buffer.toString('base64'), filename: filename || 'voice-note.webm' },
-        'convert-1': { operation: 'convert', input: 'import-1', output_format: 'ogg' },
-        'export-1': { operation: 'export/url', input: 'convert-1' }
-      }
-    })
-  });
-  const jobJson = await jobRes.json().catch(() => ({}));
-  if (!jobRes.ok) throw bad(jobRes.status, jobJson?.message || 'CloudConvert job creation failed.');
-  let job = jobJson?.data;
-  if (!job?.id) throw bad(502, 'CloudConvert did not return a job id.');
-
-  for (let i = 0; i < 20 && job.status !== 'finished' && job.status !== 'error'; i++) {
-    await new Promise((r) => setTimeout(r, 1500));
-    const pollRes = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.id}`, {
-      headers: { Authorization: `Bearer ${CLOUDCONVERT_API_KEY}` }
-    });
-    const pollJson = await pollRes.json().catch(() => ({}));
-    job = pollJson?.data || job;
+// always) to ogg — a pure container remux (see _webmToOgg.js), not a
+// re-encode: WebM and Ogg can both hold the same compressed Opus data, so
+// this is just extracting and re-wrapping it. No external service, no
+// network round-trip, no conversion-service account to maintain.
+function convertAudioToOgg(buffer, filename) {
+  try {
+    return { buffer: remuxOpusWebmToOgg(buffer), mimeType: 'audio/ogg', filename: (filename || 'voice-note').replace(/\.[^.]+$/, '') + '.ogg' };
+  } catch (err) {
+    throw bad(422, 'Could not convert this audio recording: ' + err.message);
   }
-  if (job.status !== 'finished') throw bad(504, 'Audio conversion timed out or failed.');
-
-  const exportTask = (job.tasks || []).find((t) => t.operation === 'export/url' && t.status === 'finished');
-  const fileInfo = exportTask?.result?.files?.[0];
-  if (!fileInfo?.url) throw bad(502, 'CloudConvert did not return a converted file.');
-
-  const convertedRes = await fetch(fileInfo.url);
-  if (!convertedRes.ok) throw bad(502, 'Could not download the converted audio.');
-  return {
-    buffer: Buffer.from(await convertedRes.arrayBuffer()),
-    mimeType: 'audio/ogg',
-    filename: fileInfo.filename || 'voice-note.ogg'
-  };
 }
 
 // Shared by the file-attach/voice-note path and the quick-reply-with-image
