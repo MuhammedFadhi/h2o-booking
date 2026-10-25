@@ -8635,25 +8635,51 @@ async function loadWaQuickReplies() {
 // gets cleared by setWaFollowupStatus('done'), so it always corresponds to a
 // real pending whatsapp_followups row.
 const WA_STATUS_META = {
-  new:            { label: 'New' },
-  not_interested: { label: 'Not interested' },
-  lead:           { label: 'Lead' },
-  follow_up:      { label: 'Follow-up' },
-  converted:      { label: 'Converted' }
+  new:            { label: 'New',            dot: '#6B7280', bg: '#F3F4F6', fg: '#374151' },
+  not_interested: { label: 'Not interested',  dot: '#9CA3AF', bg: '#F3F4F6', fg: '#6B7280' },
+  lead:           { label: 'Lead',            dot: '#8B5CF6', bg: '#EDE9FE', fg: '#6D28D9' },
+  follow_up:      { label: 'Follow-up',       dot: '#D97706', bg: '#FEF3C7', fg: '#B45309' },
+  converted:      { label: 'Converted',       dot: '#16A34A', bg: '#DCFCE7', fg: '#15803D' }
 };
 
+// Custom pill-trigger + colored-dot dropdown (not a native <select>) — a
+// native select's options list is unstyled OS chrome that clashed with any
+// custom trigger color, so this renders its own panel instead, closed by a
+// single document-level click listener (see closeWaStatusDropdowns) rather
+// than relying on native blur/outside-click behavior.
 function waStatusSelect(c) {
   const current = c.status || 'new';
-  const opts = Object.entries(WA_STATUS_META)
+  const meta = WA_STATUS_META[current] || WA_STATUS_META.new;
+  const items = Object.entries(WA_STATUS_META)
     .filter(([k]) => k !== 'follow_up' || current === 'follow_up')
-    .map(([k, m]) => `<option value="${k}" ${k === 'follow_up' ? 'disabled' : ''} ${current === k ? 'selected' : ''}>${m.label}</option>`)
-    .join('');
-  // Plain select styling (not a colored pill) so the options list the OS
-  // renders when it opens doesn't clash with a custom fill color — matches
-  // the ordinary dropdowns used elsewhere in the app (e.g. the status/
-  // priority filters on the Leads page).
-  return `<select onclick="event.stopPropagation()" onchange="event.stopPropagation();changeWaConversationStatus('${c.id}', this.value)"
-      style="font-size:11px;font-weight:600;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 6px;background:#fff;cursor:pointer;flex-shrink:0;">${opts}</select>`;
+    .map(([k, m]) => `<div onclick="event.stopPropagation();selectWaStatus('${c.id}','${k}')" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'" style="display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12px;font-weight:700;color:${m.fg};cursor:pointer;white-space:nowrap;">
+        <span style="width:7px;height:7px;border-radius:50%;background:${m.dot};flex-shrink:0;"></span>${m.label}
+      </div>`).join('');
+  return `<div style="position:relative;flex-shrink:0;" onclick="event.stopPropagation()">
+      <button onclick="toggleWaStatusDropdown(event,'${c.id}')" style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border:none;border-radius:20px;padding:4px 10px;background:${meta.bg};color:${meta.fg};cursor:pointer;">
+        ${meta.label}<svg xmlns="http://www.w3.org/2000/svg" width="0.8em" height="0.8em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="m6 9l6 6l6-6"/></svg>
+      </button>
+      <div class="wa-status-dropdown" data-convo="${c.id}" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);border:1px solid var(--border);z-index:150;padding:4px 0;min-width:170px;">${items}</div>
+    </div>`;
+}
+
+function closeWaStatusDropdowns() {
+  document.querySelectorAll('.wa-status-dropdown').forEach(el => { el.style.display = 'none'; });
+}
+document.addEventListener('click', closeWaStatusDropdowns);
+
+function toggleWaStatusDropdown(event, conversationId) {
+  event.stopPropagation();
+  const el = document.querySelector(`.wa-status-dropdown[data-convo="${conversationId}"]`);
+  if (!el) return;
+  const wasOpen = el.style.display === 'block';
+  closeWaStatusDropdowns();
+  el.style.display = wasOpen ? 'none' : 'block';
+}
+
+function selectWaStatus(conversationId, status) {
+  closeWaStatusDropdowns();
+  changeWaConversationStatus(conversationId, status);
 }
 
 // Set once — the first admin to reply "owns" the conversation, no reassignment UI.
