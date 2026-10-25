@@ -338,8 +338,22 @@ async function ensureSession() {
   return true;
 }
 setInterval(() => { try { db.auth.getSession().catch(()=>{}); } catch(e){} }, 10 * 60 * 1000);
+
+// Supabase Realtime (subscribeRealtime, below) is the primary way new/changed
+// jobs show up without a manual reload, but a WebSocket subscription can go
+// stale silently — especially wrapped in an APK WebView, which the OS can
+// suspend/background without ever firing a clean disconnect — so this timed
+// refresh is a backstop, not the primary mechanism. 60s keeps "Available"
+// jobs reasonably current without hammering the DB from every installer's phone.
+setInterval(() => { loadAll().catch(() => {}); }, 60 * 1000);
+
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') { try { db.auth.getSession().catch(()=>{}); } catch(e){} }
+  if (document.visibilityState === 'visible') {
+    try { db.auth.getSession().catch(()=>{}); } catch(e){}
+    // Catch up immediately on reopen rather than waiting for the next poll —
+    // this is exactly when a backgrounded realtime socket is most likely stale.
+    loadAll().catch(() => {});
+  }
 });
 
 async function loadAll() {
