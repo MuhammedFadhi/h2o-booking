@@ -168,6 +168,9 @@
   <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O">
   <div class="header-right">
     <div class="installer-chip"><div class="installer-dot"></div><span id="installer-name">Loading...</span></div>
+    <button class="logout-btn" id="refresh-btn" onclick="manualRefresh()" title="Refresh" style="display:flex;align-items:center;justify-content:center;padding:8px 10px;">
+      <svg id="refresh-icon" xmlns="http://www.w3.org/2000/svg" width="1.1em" height="1.1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"/></g></svg>
+    </button>
     <button class="logout-btn" onclick="openProfileModal()" title="My Profile" style="display:flex;align-items:center;gap:5px;">
       <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></g></svg>
       Profile
@@ -291,7 +294,6 @@ function matchCity(raw) {
 let reportsByBooking = {};  // { [bookingId]: { id, status } } — submitted/draft state per booking
 let itemsByBooking = {};    // { [bookingId]: [{product_model, qty, is_serialized}] } — what to bring
 let activeTab = 'upcoming';
-let realtimeChannel = null;
 
 window.addEventListener('DOMContentLoaded', async () => {
   const { data: { session } } = await db.auth.getSession();
@@ -313,7 +315,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   officialCities = cits || [];
   await loadAll();
   buildLocationFilter();
-  subscribeRealtime();
   notifyUpcomingToday();
 });
 
@@ -338,22 +339,23 @@ async function ensureSession() {
   return true;
 }
 setInterval(() => { try { db.auth.getSession().catch(()=>{}); } catch(e){} }, 10 * 60 * 1000);
-
-// Supabase Realtime (subscribeRealtime, below) is the primary way new/changed
-// jobs show up without a manual reload, but a WebSocket subscription can go
-// stale silently — especially wrapped in an APK WebView, which the OS can
-// suspend/background without ever firing a clean disconnect — so this timed
-// refresh is a backstop, not the primary mechanism.
-setInterval(() => { loadAll().catch(() => {}); }, 10 * 1000);
-
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    try { db.auth.getSession().catch(()=>{}); } catch(e){}
-    // Catch up immediately on reopen rather than waiting for the next poll —
-    // this is exactly when a backgrounded realtime socket is most likely stale.
-    loadAll().catch(() => {});
-  }
+  if (document.visibilityState === 'visible') { try { db.auth.getSession().catch(()=>{}); } catch(e){} }
 });
+
+// The list only ever updates when the installer taps the header refresh
+// button — no polling, no live push-updates. Spins the icon for as long as
+// the fetch is actually in flight, so a slow connection doesn't look like a
+// dead tap (reuses the same @keyframes spin the loading spinner uses).
+async function manualRefresh() {
+  const btn = document.getElementById('refresh-btn');
+  const icon = document.getElementById('refresh-icon');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  icon.style.animation = 'spin 0.6s linear infinite';
+  try { await loadAll(); }
+  finally { icon.style.animation = 'none'; btn.disabled = false; }
+}
 
 async function loadAll() {
   // Available only ever shows today + overdue — a future-dated open slot isn't
@@ -422,25 +424,6 @@ async function loadAll() {
 
   if (typeof buildLocationFilter === 'function' && serviceRegions.length) buildLocationFilter();
   renderAppointments();
-}
-
-function subscribeRealtime() {
-  if (realtimeChannel) realtimeChannel.unsubscribe();
-  realtimeChannel = db.channel('bookings-installer-feed')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings' }, async (payload) => {
-      const row = payload.new;
-      if (row.installer_id === null && row.status === 'upcoming') {
-        showBrowserNotification(
-          'New job available',
-          `${row.customer_name} · ${row.city_name} · ${formatDateLocal(row.slot_date)} ${formatHour(row.slot_hour)}`
-        );
-        await loadAll();
-      }
-    })
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings' }, async () => {
-      await loadAll();  // someone claimed / admin changed something
-    })
-    .subscribe();
 }
 
 function requestNotificationPermission() {
@@ -862,7 +845,6 @@ async function saveProfileSignature() {
   alert('Signature saved — it will fill in automatically on your next inspection report.');
 }
 async function logout() {
-  if (realtimeChannel) realtimeChannel.unsubscribe();
   await db.auth.signOut();
   window.location.href = 'login.html';
 }
