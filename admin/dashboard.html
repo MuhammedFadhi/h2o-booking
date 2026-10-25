@@ -8781,7 +8781,7 @@ function renderWhatsappConversationList() {
     return;
   }
   el.innerHTML = rows.map(c => `
-    <div onclick="selectWhatsappConversation('${c.id}')" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};${c.status === 'not_interested' ? 'opacity:0.55;filter:grayscale(0.6);' : ''}">
+    <div onclick="waRowClick(event,'${c.id}')" onmousedown="waPeekStart(event,'${c.id}')" onmouseup="waPeekEnd()" onmouseleave="waPeekEnd()" ontouchstart="waPeekStart(event,'${c.id}')" ontouchend="waPeekEnd()" ontouchmove="clearTimeout(waPeekTimer)" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};${c.status === 'not_interested' ? 'opacity:0.55;filter:grayscale(0.6);' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
         <div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escB(c.contact_name || c.phone)}</div>
         ${c.unread_count > 0 ? `<span style="background:#16A34A;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;flex-shrink:0;">${c.unread_count}</span>` : ''}
@@ -8805,6 +8805,99 @@ function renderWhatsappConversationList() {
     const current = waConversations.find(c => c.id === waCurrentConversationId);
     if (current) applyWaThreadStatusUI(current);
   }
+}
+
+// ── Long-press peek — holding a conversation row shows its last few
+// messages without leaving the list (same idea as iOS's peek-and-release),
+// instead of having to fully open the thread just to check context. A
+// short hold (under the delay below) is treated as an ordinary click and
+// opens the conversation as before; waPeekSuppressClick stops that same
+// release from ALSO firing the click once a peek has actually shown.
+let waPeekTimer = null;
+let waPeekShown = false;
+let waPeekSuppressClick = false;
+
+function waPeekStart(event, conversationId) {
+  if (event.type === 'mousedown' && event.button !== 0) return; // left click / touch only
+  clearTimeout(waPeekTimer);
+  waPeekShown = false;
+  waPeekTimer = setTimeout(() => { waPeekShown = true; showWaPeek(conversationId, event); }, 450);
+}
+
+function waPeekEnd() {
+  clearTimeout(waPeekTimer);
+  if (waPeekShown) {
+    hideWaPeek();
+    waPeekSuppressClick = true;
+    setTimeout(() => { waPeekSuppressClick = false; }, 50);
+  }
+  waPeekShown = false;
+}
+
+function waRowClick(event, conversationId) {
+  if (waPeekSuppressClick) { waPeekSuppressClick = false; return; }
+  selectWhatsappConversation(conversationId);
+}
+
+function waPeekPopup() {
+  let el = document.getElementById('wa-peek-popup');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'wa-peek-popup';
+    el.style.cssText = 'display:none;position:fixed;z-index:500;background:#111827;color:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.35);padding:10px;width:260px;max-height:320px;overflow-y:auto;pointer-events:none;';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function positionWaPeek(el, x, y) {
+  const w = 260, maxH = 320;
+  let left = x + 16, top = y - 40;
+  if (left + w > window.innerWidth - 10) left = x - w - 16;
+  if (left < 10) left = 10;
+  if (top + maxH > window.innerHeight - 10) top = window.innerHeight - maxH - 10;
+  if (top < 10) top = 10;
+  el.style.left = left + 'px';
+  el.style.top = top + 'px';
+}
+
+async function showWaPeek(conversationId, event) {
+  const x = event.touches ? event.touches[0].clientX : event.clientX;
+  const y = event.touches ? event.touches[0].clientY : event.clientY;
+  const el = waPeekPopup();
+  positionWaPeek(el, x, y);
+  el.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.6);font-size:12px;padding:10px;">Loading…</div>';
+  el.style.display = 'block';
+
+  try {
+    const result = await waCall('get-messages', { conversationId, limit: 200 });
+    // get-messages orders oldest-first (for the real thread view), so the
+    // last N for a peek are the LAST entries of that array, not a query
+    // limit — a limited descending query would need its own backend action.
+    const messages = (result?.messages || []).slice(-6);
+    if (!waPeekShown || el.style.display === 'none') return; // released while this was in flight
+    const convo = waConversations.find(c => c.id === conversationId);
+    el.innerHTML = messages.length
+      ? messages.map(m => {
+          const out = m.direction === 'outbound';
+          const who = out ? 'You' : (convo?.contact_name || convo?.phone || 'Them');
+          const text = m.body || (m.media_url ? `[${m.message_type || 'attachment'}]` : '');
+          const time = m.sent_at ? new Date(m.sent_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+          return `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+              <div style="font-size:11px;font-weight:700;color:${out ? '#60A5FA' : '#4ADE80'};">${escB(who)}</div>
+              <div style="font-size:13px;color:#fff;white-space:pre-wrap;word-break:break-word;">${escB(text)}</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:2px;">${time}</div>
+            </div>`;
+        }).join('')
+      : '<div style="text-align:center;color:rgba(255,255,255,0.6);font-size:12px;padding:10px;">No messages yet.</div>';
+  } catch (err) {
+    if (el.style.display !== 'none') el.innerHTML = `<div style="text-align:center;color:#FCA5A5;font-size:12px;padding:10px;">${escB(err.message)}</div>`;
+  }
+}
+
+function hideWaPeek() {
+  const el = document.getElementById('wa-peek-popup');
+  if (el) el.style.display = 'none';
 }
 
 function applyWaThreadStatusUI(convo) {
