@@ -961,7 +961,7 @@
                   <button class="wa-back-btn btn btn-ghost btn-sm" onclick="waMobileBackToList()" title="Back to conversations" style="display:none;padding:4px 6px;flex-shrink:0;margin-top:-2px;"><svg xmlns="http://www.w3.org/2000/svg" width="1.2em" height="1.2em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 6l-6 6l6 6"/></svg></button>
                   <div style="min-width:0;">
                     <div id="wa-thread-name" style="font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
-                    <div id="wa-thread-phone" style="font-size:12px;color:var(--muted);"></div>
+                    <a id="wa-thread-phone" href="#" style="display:block;font-size:12px;color:var(--muted);text-decoration:none;"></a>
                   </div>
                 </div>
                 <div id="wa-thread-controls" style="display:flex;align-items:center;gap:6px;flex-shrink:0;"></div>
@@ -8781,12 +8781,12 @@ function renderWhatsappConversationList() {
     return;
   }
   el.innerHTML = rows.map(c => `
-    <div onclick="waRowClick(event,'${c.id}')" onmousedown="waPeekStart(event,'${c.id}')" onmouseup="waPeekEnd()" onmouseleave="waPeekEnd()" ontouchstart="waPeekStart(event,'${c.id}')" ontouchend="waPeekEnd()" ontouchmove="clearTimeout(waPeekTimer)" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};${c.status === 'not_interested' ? 'opacity:0.55;filter:grayscale(0.6);' : ''}">
+    <div onclick="waRowClick(event,'${c.id}')" onmousedown="waPeekStart(event,'${c.id}')" onmouseup="waPeekEnd()" onmouseleave="waPeekEnd()" ontouchstart="waPeekStart(event,'${c.id}')" ontouchend="waPeekEnd()" ontouchmove="clearTimeout(waPeekTimer)" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};${c.status === 'not_interested' ? 'opacity:0.55;filter:grayscale(0.6);' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
         <div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escB(c.contact_name || c.phone)}</div>
         ${c.unread_count > 0 ? `<span style="background:#16A34A;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;flex-shrink:0;">${c.unread_count}</span>` : ''}
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px;">${escB(c.phone)}</div>
+      <a href="tel:${escB(c.phone || '')}" onclick="event.stopPropagation()" style="display:block;font-size:11px;color:var(--muted);margin-top:2px;text-decoration:none;">${escB(c.phone)}</a>
       <div style="font-size:12px;color:var(--muted);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escB(c.last_message_preview || '—')}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;">
         ${waAssignedPill(c)}${waStatusSelect(c)}${waFollowupBtn(c)}
@@ -9131,7 +9131,9 @@ async function selectWhatsappConversation(id) {
   document.getElementById('panel-whatsapp').classList.add('wa-mobile-thread-active');
   document.getElementById('wa-thread-header').style.display = 'block';
   document.getElementById('wa-thread-name').textContent = convo?.contact_name || convo?.phone || '—';
-  document.getElementById('wa-thread-phone').textContent = convo?.phone || '';
+  const threadPhoneEl = document.getElementById('wa-thread-phone');
+  threadPhoneEl.textContent = convo?.phone || '';
+  threadPhoneEl.href = convo?.phone ? `tel:${convo.phone}` : '#';
   document.getElementById('wa-thread-empty').style.display = 'none';
   document.getElementById('wa-thread-messages').style.display = 'flex';
   document.getElementById('wa-thread-composer').style.display = 'flex';
