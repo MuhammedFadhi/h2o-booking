@@ -86,17 +86,19 @@ async function handleLeadCreated(data) {
   const name = String(data.client_name || '').trim().slice(0, 80);
   const phone = normalizePhone(data.client_phone);
   const source = data.source ? String(data.source).trim().slice(0, 40) : 'CRM';
-  // Instagram DMs are identified by handle/name, not a phone number — the
-  // CRM legitimately sends no client_phone for these, so don't reject them.
-  // Every other source still requires a valid phone, same as before.
-  const isInstagram = source.toLowerCase().includes('instagram');
+
+  // Instagram leads from the CRM are no longer wanted at all — drop them
+  // before any validation/DB work (not saved-but-hidden) so nothing from
+  // this source ever lands in the leads table. Still 200s back below so the
+  // CRM doesn't treat this as a failure and retry.
+  if (source.toLowerCase().includes('instagram')) return null;
 
   if (!name) {
     const e = new Error('lead.created payload missing client_name');
     e.status = 400;
     throw e;
   }
-  if (!phone && !isInstagram) {
+  if (!phone) {
     const e = new Error(`lead.created payload has an invalid client_phone: "${data.client_phone}"`);
     e.status = 400;
     throw e;
@@ -203,7 +205,7 @@ module.exports = async function handler(req, res) {
   try {
     if (event === 'lead.created') {
       const row = await handleLeadCreated(data);
-      return res.status(200).json({ ok: true, lead: row });
+      return res.status(200).json({ ok: true, lead: row, skipped: !row });
     }
     if (event === 'message.created') {
       const row = await handleMessageCreated(data, table);

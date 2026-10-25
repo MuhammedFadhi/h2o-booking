@@ -6302,9 +6302,11 @@ function renderLeadsAdminTable() {
         ${W.fmtDate(f.followup_date)} · ${W.humanDays(f.followup_date)}</span>${notePreview ? '<br>' + notePreview : ''}<br>${btn}`;
   };
 
+  const deleteLeadBtn = (l) => `<button class="btn btn-ghost btn-sm" onclick="deleteLead('${l.id}')" title="Delete lead" aria-label="Delete lead" style="padding:6px 9px;font-size:14px;line-height:1;color:#B91C1C;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg></button>`;
+
   container.innerHTML = `
     <table>
-      <thead><tr><th>Lead</th><th>Where</th><th>Interest</th><th>Source</th><th style="display:none;">Notes</th><th>Added by</th><th>Added</th><th>Priority</th><th>Status</th><th>Follow-up</th></tr></thead>
+      <thead><tr><th>Lead</th><th>Where</th><th>Interest</th><th>Source</th><th style="display:none;">Notes</th><th>Added by</th><th>Added</th><th>Priority</th><th>Status</th><th>Follow-up</th><th></th></tr></thead>
       <tbody>${rows.map(l => `
         <tr>
           <td><div style="font-weight:600;">${escB(l.name)}</div><div style="font-size:11px;color:var(--muted);">${escB(l.phone)}</div></td>
@@ -6317,8 +6319,21 @@ function renderLeadsAdminTable() {
           <td>${priorityPill(l.priority)}</td>
           <td>${statusPill(l.status)}</td>
           <td>${followupCell(l)}</td>
+          <td data-label="">${deleteLeadBtn(l)}</td>
         </tr>`).join('')}</tbody>
     </table>`;
+}
+
+async function deleteLead(id) {
+  if (!(await ensureSession())) return;
+  const lead = allLeads.find(l => l.id === id);
+  if (!confirm(`Delete the lead "${lead?.name || ''}"? This cannot be undone.`)) return;
+  const { error } = await dbAdmin.from('leads').delete().eq('id', id);
+  if (error) { showToast(error.message, 'error'); return; }
+  allLeads = allLeads.filter(l => l.id !== id);
+  renderLeadsAdminTable();
+  logActivity('lead.delete', `Deleted lead ${lead?.name || ''}`, 'lead', id);
+  showToast('Lead deleted', 'success');
 }
 
 // ============================================================
