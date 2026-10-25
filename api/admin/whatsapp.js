@@ -124,7 +124,7 @@ async function convertAudioToAac(buffer, filename) {
 // media id, not an inline file), send referencing that id, then re-host
 // our own permanent copy (nothing guarantees Meta's media stays fetchable
 // by id indefinitely — same reasoning as the webhook's inbound handling).
-async function sendMediaMessage({ conversationId, buffer, mimeType, filename, caption }) {
+async function sendMediaMessage({ conversationId, buffer, mimeType, filename, caption, replyToWaMessageId }) {
   const convo = (await sb('GET', `/rest/v1/whatsapp_conversations?id=eq.${encodeURIComponent(conversationId)}&select=phone`))?.[0];
   if (!convo) throw bad(404, 'Conversation not found.');
 
@@ -154,10 +154,13 @@ async function sendMediaMessage({ conversationId, buffer, mimeType, filename, ca
   if (caption && waType !== 'audio') mediaObject.caption = String(caption); // audio has no caption field in the API
   if (waType === 'document' && filename) mediaObject.filename = String(filename); // shown to the recipient as the file's name
 
+  const sendBody = { messaging_product: 'whatsapp', to: convo.phone.replace('+', ''), type: waType, [waType]: mediaObject };
+  if (replyToWaMessageId) sendBody.context = { message_id: String(replyToWaMessageId) };
+
   const sendRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WHATSAPP_PHONE_NUMBER_ID}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messaging_product: 'whatsapp', to: convo.phone.replace('+', ''), type: waType, [waType]: mediaObject })
+    body: JSON.stringify(sendBody)
   });
   const sendJson = await sendRes.json().catch(() => ({}));
   if (!sendRes.ok) throw bad(sendRes.status, sendJson?.error?.message || 'WhatsApp send failed.');
@@ -179,6 +182,7 @@ async function sendMediaMessage({ conversationId, buffer, mimeType, filename, ca
     body: caption ? String(caption) : null,
     media_id: metaMediaId,
     media_url: mediaUrl,
+    reply_to_wa_message_id: replyToWaMessageId ? String(replyToWaMessageId) : null,
     status: 'sent',
     sent_at: sentAt
   }, { Prefer: 'return=representation' });
@@ -198,12 +202,13 @@ async function handleSendMedia(req, res) {
   const conversationId = form.get('conversationId');
   const file = form.get('file');
   const caption = form.get('caption');
+  const replyToWaMessageId = form.get('replyToWaMessageId') || null;
   if (!conversationId) return res.status(400).json({ error: 'conversationId required' });
   if (!file || typeof file === 'string') return res.status(400).json({ error: 'file required' });
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const message = await sendMediaMessage({
-    conversationId, buffer, mimeType: file.type || 'application/octet-stream', filename: file.name, caption
+    conversationId, buffer, mimeType: file.type || 'application/octet-stream', filename: file.name, caption, replyToWaMessageId
   });
   return res.status(200).json({ ok: true, message });
 }
@@ -226,7 +231,7 @@ module.exports = async function handler(req, res) {
     }
 
     await requireAdmin(req);
-    const { action, conversationId, body, limit, mediaUrl, quickReply } = req.body || {};
+    const { action, conversationId, body, limit, mediaUrl, quickReply, replyToWaMessageId } = req.body || {};
 
     if (action === 'list-conversations') {
       const rows = await sb('GET', `/rest/v1/whatsapp_conversations?select=*&order=last_message_at.desc.nullslast&limit=${Number(limit) || 200}`);
@@ -273,15 +278,13 @@ module.exports = async function handler(req, res) {
       const convo = (await sb('GET', `/rest/v1/whatsapp_conversations?id=eq.${encodeURIComponent(conversationId)}&select=phone`))?.[0];
       if (!convo) throw bad(404, 'Conversation not found.');
 
+      const sendBody = { messaging_product: 'whatsapp', to: convo.phone.replace('+', ''), type: 'text', text: { body: text } };
+      if (replyToWaMessageId) sendBody.context = { message_id: String(replyToWaMessageId) };
+
       const sendRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WHATSAPP_PHONE_NUMBER_ID}/messages`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to: convo.phone.replace('+', ''),
-          type: 'text',
-          text: { body: text }
-        })
+        body: JSON.stringify(sendBody)
       });
       const sendJson = await sendRes.json().catch(() => ({}));
       if (!sendRes.ok) throw bad(sendRes.status, sendJson?.error?.message || 'WhatsApp send failed.');
@@ -294,6 +297,7 @@ module.exports = async function handler(req, res) {
         direction: 'outbound',
         message_type: 'text',
         body: text,
+        reply_to_wa_message_id: replyToWaMessageId ? String(replyToWaMessageId) : null,
         status: 'sent',
         sent_at: sentAt
       }, { Prefer: 'return=representation' });
@@ -319,7 +323,7 @@ module.exports = async function handler(req, res) {
       const buffer = Buffer.from(await fileRes.arrayBuffer());
       const mimeType = fileRes.headers.get('content-type') || 'application/octet-stream';
       const filename = new URL(url).pathname.split('/').pop() || 'attachment';
-      const message = await sendMediaMessage({ conversationId, buffer, mimeType, filename, caption: body });
+      const message = await sendMediaMessage({ conversationId, buffer, mimeType, filename, caption: body, replyToWaMessageId });
       return res.status(200).json({ ok: true, message });
     }
 

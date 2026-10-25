@@ -154,6 +154,9 @@ async function handleInboundMessage(message, contact) {
     body,
     media_id: mediaId,
     media_url: mediaUrl,
+    // Present when the customer swiped-to-reply on a specific message in
+    // their own app — Meta echoes that message's wamid back here.
+    reply_to_wa_message_id: message.context?.id || null,
     status: 'sent',
     sent_at: sentAt
   }, { Prefer: 'resolution=ignore-duplicates' });
