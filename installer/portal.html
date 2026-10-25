@@ -343,9 +343,8 @@ setInterval(() => { try { db.auth.getSession().catch(()=>{}); } catch(e){} }, 10
 // jobs show up without a manual reload, but a WebSocket subscription can go
 // stale silently — especially wrapped in an APK WebView, which the OS can
 // suspend/background without ever firing a clean disconnect — so this timed
-// refresh is a backstop, not the primary mechanism. 60s keeps "Available"
-// jobs reasonably current without hammering the DB from every installer's phone.
-setInterval(() => { loadAll().catch(() => {}); }, 60 * 1000);
+// refresh is a backstop, not the primary mechanism.
+setInterval(() => { loadAll().catch(() => {}); }, 10 * 1000);
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
