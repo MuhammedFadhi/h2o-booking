@@ -9277,7 +9277,19 @@ function renderWhatsappMessages(messages) {
         <div style="font-size:10px;color:var(--muted);margin-top:2px;text-align:${out ? 'right' : 'left'};display:flex;align-items:center;justify-content:${out ? 'flex-end' : 'flex-start'};gap:4px;">${time}${replyBtn}${status}</div>
       </div>`;
   }).join('');
-  if (wasAtBottom) el.scrollTop = el.scrollHeight;
+  if (wasAtBottom) {
+    el.scrollTop = el.scrollHeight;
+    // Images load asynchronously, so scrollHeight right after innerHTML is
+    // set doesn't yet include their final height — without this, opening a
+    // chat that ends in an image "scrolls to bottom" against a height
+    // that's about to grow, landing short of the real bottom once it
+    // loads. Re-snap once every image in this render has settled.
+    const imgs = el.querySelectorAll('img');
+    if (imgs.length) {
+      Promise.all([...imgs].map(img => img.complete ? Promise.resolve() : new Promise((res) => { img.onload = img.onerror = res; })))
+        .then(() => { if (wasAtBottom) el.scrollTop = el.scrollHeight; });
+    }
+  }
 }
 
 function startWaReply(waMessageId) {
