@@ -8950,6 +8950,38 @@ async function selectWhatsappConversation(id) {
   waPollInterval = setInterval(loadWhatsappMessages, 5000);
 }
 
+// Backs the Esc-to-exit shortcut (see the keydown listener below) — undoes
+// everything selectWhatsappConversation set up, back to the "select a
+// conversation" empty state.
+function closeWhatsappThread() {
+  if (waMediaRecorder && waMediaRecorder.state !== 'inactive') stopWaRecording();
+  resetWaRecordBar();
+  clearWaTemplateMedia();
+  closeWaTemplateDropdown();
+  closeWaStatusDropdowns();
+  if (waPollInterval) { clearInterval(waPollInterval); waPollInterval = null; }
+  waCurrentConversationId = null;
+  document.getElementById('panel-whatsapp').classList.remove('wa-mobile-thread-active');
+  document.getElementById('wa-thread-header').style.display = 'none';
+  document.getElementById('wa-thread-empty').style.display = 'flex';
+  document.getElementById('wa-thread-messages').style.display = 'none';
+  document.getElementById('wa-thread-composer').style.display = 'none';
+  document.getElementById('wa-thread-error').style.display = 'none';
+  document.getElementById('wa-thread-ni-banner').style.display = 'none';
+  renderWhatsappConversationList();
+}
+
+// Esc exits the open thread back to the conversation list — only while the
+// WhatsApp panel is actually on screen (waCurrentPanelActive) and no modal
+// is open on top of it (a modal eating Esc itself would be surprising
+// otherwise, since none of this app's modals currently close on Esc).
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || !waCurrentPanelActive || !waCurrentConversationId) return;
+  const modalOpen = [...document.querySelectorAll('.modal-overlay')].some(m => m.style.display === 'flex');
+  if (modalOpen) return;
+  closeWhatsappThread();
+});
+
 async function loadWhatsappMessages() {
   if (!waCurrentConversationId) return;
   try {
@@ -9251,7 +9283,7 @@ function handleWaInputKeydown(event) {
     if (event.key === 'ArrowDown') { event.preventDefault(); waTemplateDropdownIndex = (waTemplateDropdownIndex + 1) % waTemplateDropdownItems.length; renderWaTemplateDropdown(); return; }
     if (event.key === 'ArrowUp') { event.preventDefault(); waTemplateDropdownIndex = (waTemplateDropdownIndex - 1 + waTemplateDropdownItems.length) % waTemplateDropdownItems.length; renderWaTemplateDropdown(); return; }
     if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); selectWaTemplate(waTemplateDropdownIndex); return; }
-    if (event.key === 'Escape') { event.preventDefault(); closeWaTemplateDropdown(); return; }
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeWaTemplateDropdown(); return; }
   }
   if (event.key === 'Enter') { event.preventDefault(); sendWhatsappMessage(); }
 }
