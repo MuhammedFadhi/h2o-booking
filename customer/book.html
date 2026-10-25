@@ -31,7 +31,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
   <style>
     :root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#CFD8DC;--error:#B71C1C;--success:#15803D;--dark-grad:linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%);}
     *{box-sizing:border-box;margin:0;padding:0;}
@@ -63,7 +63,7 @@
     .form-section{display:none;padding:40px 40px 32px;animation:fadeIn 0.4s ease;}
     .form-section.active{display:block;}
     @keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-    .section-title{font-family:'Playfair Display',serif;font-size:26px;color:var(--deep);margin-bottom:6px;letter-spacing:-0.01em;}
+    .section-title{font-family:'Inter',sans-serif;font-weight:600;font-size:26px;color:var(--deep);margin-bottom:6px;letter-spacing:-0.01em;}
     .section-subtitle{color:var(--muted);font-size:14px;margin-bottom:28px;}
     .form-group{margin-bottom:20px;}
     label{display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;letter-spacing:0.3px;text-transform:uppercase;}
@@ -174,7 +174,7 @@
     .date-box.selected{border-color:var(--water);background:var(--water);color:white;box-shadow:0 4px 12px rgba(21,101,192,0.35);}
     .date-box.disabled{opacity:0.35;cursor:not-allowed;}
     .date-day{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;opacity:0.7;}
-    .date-num{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;line-height:1.2;}
+    .date-num{font-family:'Inter',sans-serif;font-size:22px;font-weight:700;line-height:1.2;}
     .date-month{font-size:11px;font-weight:500;opacity:0.7;}
     .time-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px;}
     .time-slot{padding:14px 10px;border:2px solid var(--border);border-radius:12px;cursor:pointer;text-align:center;font-size:13px;font-weight:600;transition:all 0.15s;background:var(--white);}
@@ -194,11 +194,11 @@
     #step-success{text-align:center;padding:60px 40px;}
     .success-icon{width:80px;height:80px;background:linear-gradient(135deg,#16A34A,#22C55E);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:36px;animation:popIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275);}
     @keyframes popIn{from{transform:scale(0);opacity:0;}to{transform:scale(1);opacity:1;}}
-    .success-title{font-family:'Playfair Display',serif;font-size:28px;color:var(--deep);margin-bottom:12px;}
+    .success-title{font-family:'Inter',sans-serif;font-weight:600;font-size:28px;color:var(--deep);margin-bottom:12px;}
     .success-message{color:var(--muted);font-size:15px;line-height:1.6;margin-bottom:16px;}
     .booking-ref{background:var(--foam);border:2px solid var(--water);border-radius:16px;padding:20px;margin-bottom:24px;}
     .booking-ref-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
-    .booking-ref-code{font-family:'Playfair Display',serif;font-size:24px;color:var(--water);font-weight:700;}
+    .booking-ref-code{font-family:'Inter',sans-serif;font-size:24px;color:var(--water);font-weight:700;}
     .loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:20px;color:var(--muted);}
     .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--water);border-radius:50%;animation:spin 0.8s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg);}}
