@@ -594,11 +594,17 @@
          Below this breakpoint it becomes list-OR-thread, full width each,
          toggled by the back button (see waMobileBackToList()) instead of
          both panes squeezed side by side. */
-      #wa-panel-row { height: calc(100vh - 200px) !important; height: calc(100dvh - 200px) !important; min-height: 0 !important; }
+      /* List view sizes to its actual content (no forced min-height) so a
+         short list doesn't leave a big dead area above the bottom nav —
+         only the thread view (composer must stay pinned, messages scroll
+         above it) needs the fixed viewport-relative height. */
+      #wa-panel-row { height: auto !important; min-height: 0 !important; }
       #wa-list-pane { width: 100% !important; border-right: none !important; }
+      #wa-convo-list { flex: none !important; overflow-y: visible !important; }
       #wa-thread-pane { display: none !important; }
       #panel-whatsapp.wa-mobile-thread-active #wa-list-pane { display: none !important; }
       #panel-whatsapp.wa-mobile-thread-active #wa-thread-pane { display: flex !important; }
+      #panel-whatsapp.wa-mobile-thread-active #wa-panel-row { height: calc(100vh - 200px) !important; height: calc(100dvh - 200px) !important; }
       .wa-back-btn { display: inline-flex !important; }
       /* The generic .content padding + rounded/bordered .card read as a
          floating panel with gray margins all around it — real chat apps
