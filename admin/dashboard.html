@@ -594,12 +594,17 @@
          Below this breakpoint it becomes list-OR-thread, full width each,
          toggled by the back button (see waMobileBackToList()) instead of
          both panes squeezed side by side. */
-      #wa-panel-row { height: calc(100vh - 230px) !important; height: calc(100dvh - 230px) !important; min-height: 0 !important; }
+      #wa-panel-row { height: calc(100vh - 200px) !important; height: calc(100dvh - 200px) !important; min-height: 0 !important; }
       #wa-list-pane { width: 100% !important; border-right: none !important; }
       #wa-thread-pane { display: none !important; }
       #panel-whatsapp.wa-mobile-thread-active #wa-list-pane { display: none !important; }
       #panel-whatsapp.wa-mobile-thread-active #wa-thread-pane { display: flex !important; }
       .wa-back-btn { display: inline-flex !important; }
+      /* The generic .content padding + rounded/bordered .card read as a
+         floating panel with gray margins all around it — real chat apps
+         (what this was asked to match) go edge-to-edge instead, so cancel
+         both specifically for this panel rather than globally. */
+      #panel-whatsapp .card { margin: -16px !important; border-radius: 0 !important; border: none !important; }
     }
 
     @media (max-width: 400px) {
