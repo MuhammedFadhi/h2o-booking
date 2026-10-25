@@ -1004,6 +1004,10 @@
             </div>
             <div id="wa-thread-composer" style="display:none;padding:12px 18px;border-top:1px solid var(--border);gap:8px;">
               <input type="file" id="wa-file-input" style="display:none;" onchange="sendWaMedia()">
+              <div style="position:relative;">
+                <button class="btn btn-ghost" id="wa-emoji-btn" onclick="toggleWaEmojiPicker(event)" title="Emoji" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 21a9 9 0 1 0 0-18a9 9 0 0 0 0 18"/><path d="M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 0 0 5 0"/></g></svg></button>
+                <div id="wa-emoji-picker" style="display:none;position:absolute;bottom:100%;left:0;margin-bottom:6px;background:var(--white);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);width:260px;max-height:220px;overflow-y:auto;z-index:20;padding:8px;"></div>
+              </div>
               <button class="btn btn-ghost" id="wa-attach-btn" onclick="document.getElementById('wa-file-input').click()" title="Attach a file" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg></button>
               <!-- Hidden for now — voice note conversion (webm -> m4a via
                    CloudConvert) still being verified on real iPhones.
@@ -9270,6 +9274,52 @@ function handleWaInputPaste(event) {
       return;
     }
   }
+}
+
+// ── Emoji picker — a flat curated set (not a category-tabbed library) is
+// plenty for a reply box; native Unicode glyphs need no image assets or
+// external dependency. Inserts at the cursor rather than appending, and
+// stays open after a pick so several can be added in a row (closed only by
+// the outside-click listener below or the toggle button itself).
+const WA_EMOJIS = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','🙂','🙃','😉','😇','🥰','😍','🤩','😘','😗','😚','😙','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','😎','🤓','🧐','😕','😟','🙁','☹️','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','👍','👎','👏','🙏','🤝','👋','🤲','🙌','💪','✌️','🤞','🤟','🤙','👌','🤌','👈','👉','👆','👇','☝️','✋','🤚','🖐️','🖖','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','🔥','✨','🎉','🎊','🎁','⭐','🌟','💯','✅','❌','❗','❓','💬','💤','⏰','📌','📍','📞','✈️','🏠','💧','🚚'];
+
+function renderWaEmojiPicker() {
+  const el = document.getElementById('wa-emoji-picker');
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:2px;">${WA_EMOJIS.map(e =>
+    `<button type="button" onclick="insertWaEmoji('${e}')" style="background:none;border:none;font-size:20px;line-height:1.6;cursor:pointer;border-radius:6px;padding:4px;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">${e}</button>`
+  ).join('')}</div>`;
+}
+
+function toggleWaEmojiPicker(event) {
+  event.stopPropagation();
+  const el = document.getElementById('wa-emoji-picker');
+  const wasOpen = el.style.display === 'block';
+  closeWaEmojiPicker();
+  if (!wasOpen) {
+    closeWaTemplateDropdown();
+    if (!el.innerHTML) renderWaEmojiPicker();
+    el.style.display = 'block';
+  }
+}
+
+function closeWaEmojiPicker() {
+  document.getElementById('wa-emoji-picker').style.display = 'none';
+}
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('#wa-emoji-picker, #wa-emoji-btn')) closeWaEmojiPicker();
+});
+
+// Inserts at the cursor position (not just appended), so picking an emoji
+// mid-sentence lands where expected — then restores focus + cursor so
+// typing (or picking another emoji) continues naturally.
+function insertWaEmoji(emoji) {
+  const input = document.getElementById('wa-thread-input');
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? input.value.length;
+  input.value = input.value.slice(0, start) + emoji + input.value.slice(end);
+  const cursor = start + emoji.length;
+  input.focus();
+  input.setSelectionRange(cursor, cursor);
 }
 
 // ── Voice notes — same record→preview→send-or-discard flow as the CRM
