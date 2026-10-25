@@ -1522,7 +1522,7 @@
     <div class="modal-header"><span class="modal-title">Follow-ups — <span id="lfup-lead-name"></span></span>
       <button class="modal-close" onclick="closeModal('lead-followup-modal')">&times;</button></div>
     <div class="modal-body">
-      <div id="lfup-lead-phone" style="font-size:12px;color:var(--muted);margin:-8px 0 14px;"></div>
+      <div id="lfup-lead-details"></div>
       <div id="lfup-list" style="margin-bottom:16px;"></div>
       <div style="border-top:1px solid var(--border);padding-top:14px;">
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Add a follow-up</div>
@@ -6376,6 +6376,29 @@ async function deleteLead(id) {
 // ============================================================
 let currentLeadFollowupLeadId = null;
 
+// Compact details card shown at the top of the lead follow-up modal — same
+// fields the Leads table itself shows (phone/city/interest/source/status/
+// priority/notes), so adding or reviewing a follow-up doesn't require
+// flipping back to the table to remember who this lead is.
+function leadDetailsHtml(lead) {
+  const statusMap = { open: ['Open', '#2563EB'], converted: ['Converted', '#16A34A'], lost: ['Lost', '#94A3B8'] };
+  const priorityMap = { hot: ['Hot', '#DC2626'], warm: ['Warm', '#D97706'], cold: ['Cold', '#2563EB'] };
+  const [sLabel, sColor] = statusMap[lead.status] || [lead.status || '—', '#6B7280'];
+  const [pLabel, pColor] = priorityMap[lead.priority || 'warm'] || ['Warm', '#D97706'];
+  const field = (label, value) => `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">${label}</div><div style="font-size:13px;color:var(--text);">${value ? escB(value) : '—'}</div></div>`;
+  const badge = (label, color) => `<span style="background:${color}22;color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">${label}</span>`;
+  return `
+    <div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin:-8px 0 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      ${field('Phone', lead.phone)}
+      ${field('City', lead.city_name)}
+      ${field('Interest', lead.product_interest)}
+      ${field('Source', lead.source)}
+      <div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;">Status</div>${badge(sLabel, sColor)}</div>
+      <div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;">Priority</div>${badge(pLabel, pColor)}</div>
+      ${lead.notes ? `<div style="grid-column:1/-1;"><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Notes</div><div style="font-size:13px;color:var(--text);white-space:pre-wrap;">${escB(lead.notes)}</div></div>` : ''}
+    </div>`;
+}
+
 async function openLeadFollowupModal(leadId) {
   currentLeadFollowupLeadId = leadId;
   // Don't rely on allLeads being populated — it's only loaded once the Leads
@@ -6390,7 +6413,7 @@ async function openLeadFollowupModal(leadId) {
   if (!lead) { showToast('Could not find that lead.', 'error'); return; }
 
   document.getElementById('lfup-lead-name').textContent = lead.name || '—';
-  document.getElementById('lfup-lead-phone').textContent = lead.phone || '';
+  document.getElementById('lfup-lead-details').innerHTML = leadDetailsHtml(lead);
   document.getElementById('lfup-date').value = window.SADA.Warranty.localDateISO(new Date());
   document.getElementById('lfup-note').value = '';
   document.getElementById('lfup-error').style.display = 'none';
