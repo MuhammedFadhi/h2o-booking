@@ -951,6 +951,7 @@
               <span class="search-wrap" style="display:block;flex:1;"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="wa-convo-search" placeholder="Search by name or phone..." oninput="renderWhatsappConversationList()" style="width:100%;" autocomplete="off"></span>
               <button class="btn btn-ghost btn-sm" onclick="openWaTemplatesModal()" title="Manage quick-reply templates" style="padding:0 10px;flex-shrink:0;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5h8m-8 4h5m-5 6h8m-8 4h5M3 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zm0 10a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg></button>
             </div>
+            <div id="wa-status-filter-bar" style="display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);overflow-x:auto;"></div>
             <div id="wa-convo-list" style="flex:1;overflow-y:auto;"></div>
           </div>
           <div id="wa-thread-pane" style="flex:1;display:flex;flex-direction:column;min-width:0;">
@@ -8621,6 +8622,7 @@ let currentWaFollowupConversationId = null;
 let waReplyTarget = null; // { waMessageId, who, snippet } — see startWaReply()
 let waPendingAttachmentFile = null; // staged, not-yet-sent File — see stageWaAttachment()
 let waPendingAttachmentPreviewUrl = null; // object URL for its thumbnail, revoked on cancel/send
+let waStatusFilter = ''; // '' = All — see renderWaStatusFilterBar()/setWaStatusFilter()
 
 async function waCall(action, extra) {
   const { data: { session } } = await db.auth.getSession();
@@ -8745,12 +8747,39 @@ function waFollowupBtn(c) {
   return `<button onclick="event.stopPropagation();openWaFollowupModal('${c.id}')" title="Follow-up" class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:12px;line-height:1;flex-shrink:0;">${FOLLOWUP_ICON_SVG}</button>`;
 }
 
+// "All" + one chip per status (incl. Follow-up, even though that one isn't
+// manually settable from the per-row dropdown — it's still a real state
+// worth filtering down to), same pill-row UX as WhatsApp's own
+// All/Unread/Favourites/Groups filter bar.
+function renderWaStatusFilterBar() {
+  const el = document.getElementById('wa-status-filter-bar');
+  if (!el) return;
+  const counts = {};
+  waConversations.forEach(c => { const s = c.status || 'new'; counts[s] = (counts[s] || 0) + 1; });
+  const chip = (key, label, count) => {
+    const active = waStatusFilter === key;
+    return `<button onclick="setWaStatusFilter('${key}')" style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;border:1px solid ${active ? 'transparent' : 'var(--border)'};background:${active ? 'var(--text)' : '#fff'};color:${active ? '#fff' : 'var(--text)'};cursor:pointer;white-space:nowrap;flex-shrink:0;">${escB(label)}${count ? `<span style="font-size:10px;font-weight:800;opacity:${active ? 0.85 : 0.55};">${count}</span>` : ''}</button>`;
+  };
+  el.innerHTML = chip('', 'All', waConversations.length) +
+    Object.entries(WA_STATUS_META).map(([k, m]) => chip(k, m.label, counts[k] || 0)).join('');
+}
+
+function setWaStatusFilter(key) {
+  waStatusFilter = key;
+  renderWhatsappConversationList();
+}
+
 function renderWhatsappConversationList() {
+  renderWaStatusFilterBar();
   const q = (document.getElementById('wa-convo-search')?.value || '').trim().toLowerCase();
   let rows = waConversations;
+  if (waStatusFilter) rows = rows.filter(c => (c.status || 'new') === waStatusFilter);
   if (q) rows = rows.filter(c => (c.contact_name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q));
   const el = document.getElementById('wa-convo-list');
-  if (!rows.length) { el.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px;">No conversations yet.</div>'; return; }
+  if (!rows.length) {
+    el.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;">${waStatusFilter || q ? 'No conversations match.' : 'No conversations yet.'}</div>`;
+    return;
+  }
   el.innerHTML = rows.map(c => `
     <div onclick="selectWhatsappConversation('${c.id}')" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};${c.status === 'not_interested' ? 'opacity:0.55;filter:grayscale(0.6);' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
