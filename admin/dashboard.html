@@ -8998,7 +8998,16 @@ async function loadWhatsappMessages() {
   if (!waCurrentConversationId) return;
   try {
     const result = await waCall('get-messages', { conversationId: waCurrentConversationId });
-    waMessages = result?.messages || [];
+    const serverMessages = result?.messages || [];
+    // A poll landing mid-send (before that send's own await resolves —
+    // see sendWhatsappMessage) would otherwise wholesale-replace waMessages
+    // with a server snapshot that doesn't have the new message yet, making
+    // it flicker away until a later poll finally picks it up. Carrying any
+    // still-pending optimistic echoes past this replacement avoids that;
+    // sendWhatsappMessage swaps each one for its real row once ready, so
+    // none linger once the server catches up.
+    const stillPending = waMessages.filter(m => m._optimistic);
+    waMessages = stillPending.length ? [...serverMessages, ...stillPending] : serverMessages;
     renderWhatsappMessages(waMessages);
   } catch (err) {
     document.getElementById('wa-thread-error').style.display = 'block';
@@ -9121,24 +9130,30 @@ async function sendWhatsappMessage() {
 
   // Optimistic echo — same reasoning as the CRM chat's send path: don't
   // make every send wait on a second round-trip before showing anything.
-  // reply_to_wa_message_id included so the quote preview shows immediately
-  // instead of waiting for the next poll to pick up the saved row.
-  waMessages = [...waMessages, { direction: 'outbound', body: text, sent_at: new Date().toISOString(), status: 'sent', reply_to_wa_message_id: replyTarget?.waMessageId || null, _optimistic: true }];
+  // _tempId identifies THIS send's own placeholder so it can be swapped for
+  // the real row below without touching any other concurrent send's
+  // placeholder. reply_to_wa_message_id is included so the quote preview
+  // shows immediately instead of waiting for the next poll.
+  const tempId = `wa-temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  waMessages = [...waMessages, { direction: 'outbound', body: text, sent_at: new Date().toISOString(), status: 'sent', reply_to_wa_message_id: replyTarget?.waMessageId || null, _optimistic: true, _tempId: tempId }];
   renderWhatsappMessages(waMessages);
 
   try {
     // A template picked with a media_url attaches that file alongside the
     // message as its caption, instead of sending plain text.
-    if (pendingMedia) {
-      await waCall('send-quick-reply-media', { conversationId: waCurrentConversationId, mediaUrl: pendingMedia, body: text, replyToWaMessageId: replyTarget?.waMessageId || null });
-    } else {
-      await waCall('send-message', { conversationId: waCurrentConversationId, body: text, replyToWaMessageId: replyTarget?.waMessageId || null });
-    }
+    const result = pendingMedia
+      ? await waCall('send-quick-reply-media', { conversationId: waCurrentConversationId, mediaUrl: pendingMedia, body: text, replyToWaMessageId: replyTarget?.waMessageId || null })
+      : await waCall('send-message', { conversationId: waCurrentConversationId, body: text, replyToWaMessageId: replyTarget?.waMessageId || null });
+    // Swap the placeholder for the real, saved row now rather than leaving
+    // it for the next poll to naturally overwrite — see loadWhatsappMessages
+    // for why relying on that alone let the message flicker away.
+    waMessages = waMessages.map(m => m._tempId === tempId ? (result?.message || { ...m, _optimistic: false }) : m);
+    renderWhatsappMessages(waMessages);
     const convo = waConversations.find(c => c.id === waCurrentConversationId);
     if (convo) { convo.last_message_preview = text; convo.last_message_at = new Date().toISOString(); renderWhatsappConversationList(); }
     assignWaConversationIfUnassigned(waCurrentConversationId);
   } catch (err) {
-    waMessages = waMessages.filter(m => !m._optimistic);
+    waMessages = waMessages.filter(m => m._tempId !== tempId);
     renderWhatsappMessages(waMessages);
     input.value = text;
     document.getElementById('wa-thread-error').style.display = 'block';
