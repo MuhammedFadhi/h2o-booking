@@ -8635,11 +8635,11 @@ async function loadWaQuickReplies() {
 // gets cleared by setWaFollowupStatus('done'), so it always corresponds to a
 // real pending whatsapp_followups row.
 const WA_STATUS_META = {
-  new:            { label: 'New',            bg: '#E5E7EB', fg: '#374151' },
-  not_interested: { label: 'Not interested',  bg: '#E5E7EB', fg: '#6B7280' },
-  lead:           { label: 'Lead',            bg: '#EDE9FE', fg: '#6D28D9' },
-  follow_up:      { label: 'Follow-up',       bg: '#FEF3C7', fg: '#B45309' },
-  converted:      { label: 'Converted',       bg: '#DCFCE7', fg: '#15803D' }
+  new:            { label: 'New' },
+  not_interested: { label: 'Not interested' },
+  lead:           { label: 'Lead' },
+  follow_up:      { label: 'Follow-up' },
+  converted:      { label: 'Converted' }
 };
 
 function waStatusSelect(c) {
@@ -8648,9 +8648,12 @@ function waStatusSelect(c) {
     .filter(([k]) => k !== 'follow_up' || current === 'follow_up')
     .map(([k, m]) => `<option value="${k}" ${k === 'follow_up' ? 'disabled' : ''} ${current === k ? 'selected' : ''}>${m.label}</option>`)
     .join('');
-  const meta = WA_STATUS_META[current] || WA_STATUS_META.new;
+  // Plain select styling (not a colored pill) so the options list the OS
+  // renders when it opens doesn't clash with a custom fill color — matches
+  // the ordinary dropdowns used elsewhere in the app (e.g. the status/
+  // priority filters on the Leads page).
   return `<select onclick="event.stopPropagation()" onchange="event.stopPropagation();changeWaConversationStatus('${c.id}', this.value)"
-      style="font-size:10px;font-weight:700;border:none;border-radius:8px;padding:3px 6px;background:${meta.bg};color:${meta.fg};cursor:pointer;flex-shrink:0;">${opts}</select>`;
+      style="font-size:11px;font-weight:600;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 6px;background:#fff;cursor:pointer;flex-shrink:0;">${opts}</select>`;
 }
 
 // Set once — the first admin to reply "owns" the conversation, no reassignment UI.
