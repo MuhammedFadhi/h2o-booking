@@ -1550,6 +1550,7 @@
     <div class="modal-header"><span class="modal-title">Follow-ups — <span id="wfup-contact-name"></span></span>
       <button class="modal-close" onclick="closeModal('wa-followup-modal')">&times;</button></div>
     <div class="modal-body">
+      <div id="wfup-contact-details"></div>
       <div id="wfup-list" style="margin-bottom:16px;"></div>
       <div style="border-top:1px solid var(--border);padding-top:14px;">
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Add a follow-up</div>
@@ -8857,10 +8858,34 @@ async function assignWaConversationIfUnassigned(conversationId) {
 
 // ── Conversation follow-ups (v89) — same list+add pattern as the lead
 // follow-up modal, scoped to a whatsapp_conversations row. ──────────────────
+// Compact details card shown at the top of the WhatsApp follow-up modal —
+// mirrors leadDetailsHtml() for the lead one. Phone/status/assigned admin,
+// the fields the WhatsApp conversation list itself shows.
+function waConvoDetailsHtml(convo) {
+  const meta = WA_STATUS_META[convo.status || 'new'] || WA_STATUS_META.new;
+  const field = (label, value) => `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">${label}</div><div style="font-size:13px;color:var(--text);">${value ? escB(value) : '—'}</div></div>`;
+  return `
+    <div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin:-8px 0 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      ${field('Phone', convo.phone)}
+      ${field('Assigned to', convo.assigned_admin_name)}
+      <div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;">Status</div><span style="background:${meta.bg};color:${meta.fg};font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">${meta.label}</span></div>
+    </div>`;
+}
+
 async function openWaFollowupModal(conversationId) {
   currentWaFollowupConversationId = conversationId;
-  const convo = waConversations.find(c => c.id === conversationId);
+  // Don't rely on waConversations being populated — it's only loaded once
+  // the WhatsApp panel itself has been opened this session. Opening this
+  // modal from the Follow-ups calendar/list shouldn't silently show "—"
+  // for a conversation that genuinely exists.
+  let convo = waConversations.find(c => c.id === conversationId);
+  if (!convo) {
+    const { data } = await dbAdmin.from('whatsapp_conversations').select('*').eq('id', conversationId).maybeSingle();
+    convo = data;
+    if (convo) waConversations.push(convo);
+  }
   document.getElementById('wfup-contact-name').textContent = convo?.contact_name || convo?.phone || '—';
+  document.getElementById('wfup-contact-details').innerHTML = convo ? waConvoDetailsHtml(convo) : '';
   document.getElementById('wfup-date').value = window.SADA.Warranty.localDateISO(new Date());
   document.getElementById('wfup-note').value = '';
   document.getElementById('wfup-error').style.display = 'none';
