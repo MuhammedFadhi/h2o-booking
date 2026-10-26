@@ -113,6 +113,13 @@
     #step-3 .date-box,#step-3 .time-slot{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.18);color:#fff;}
     #step-3 .date-box:hover:not(.disabled),#step-3 .time-slot:hover:not(.booked){background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.4);}
     #step-3 .time-slot.booked{background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.3);}
+    /* The plain #step-3 .date-box/.time-slot rule above is (id+class)
+       specificity, which otherwise beats the base .date-box.selected /
+       .time-slot.selected (class+class) rule and silently cancels the
+       solid blue "selected" fill — restate it here at matching
+       (id+class+class) specificity so a selected box actually fills blue
+       instead of just keeping the glass look with a border glow. */
+    #step-3 .date-box.selected,#step-3 .time-slot.selected{background:var(--water);border-color:var(--water);color:#fff;}
     #step-3 .loading,#step-3 .empty-msg{color:rgba(255,255,255,0.6);}
     #step-3 .spinner{border-color:rgba(255,255,255,0.25);border-top-color:#fff;}
     #basket-total{background:#EFF6FF;color:#1565C0;}
