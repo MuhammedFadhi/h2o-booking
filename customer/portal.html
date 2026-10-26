@@ -54,7 +54,8 @@
     /* Just the profile-icon button now (no name/greeting card) — same look
        as .home-hero-avatar on the Home hero, no background/blur/shadow of
        its own since there's no card left to give it one. */
-    header{padding:16px 20px;padding-top:calc(16px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:flex-end;}
+    header{padding:16px 20px;padding-top:calc(16px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;}
+    .header-logo{height:34px;display:block;}
     .icon-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:white;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;flex-shrink:0;transition:all 0.15s;}
     .icon-btn:hover{border-color:var(--red);color:var(--red);background:#FEF2F2;}
 
@@ -362,6 +363,7 @@
 <body>
 <div id="bg-anim"></div>
 <header style="display:none;">
+  <img class="header-logo" src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O">
   <button class="home-hero-avatar" onclick="openProfileModal()" title="My Profile">
     <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></g></svg>
   </button>
