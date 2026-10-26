@@ -85,8 +85,8 @@
     /* Glassy, not filled — lets the page's own glowing rings behind it show
        through, matching the reference's bordered/translucent login card. */
     .booking-card.card-dark{position:relative;background:rgba(13,18,33,0.6);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:1px solid rgba(255,255,255,0.14);}
-    #step-1,#step-1b,#step-type,#step-2,#step-3{position:relative;z-index:1;}
-    #step-1 .section-title,#step-1b .section-title,#step-type .section-title,#step-2 .section-title,#step-3 .section-title,#step-1 .section-subtitle,#step-1b .section-subtitle,#step-type .section-subtitle,#step-2 .section-subtitle,#step-3 .section-subtitle{color:#fff;}
+    #step-1,#step-1b,#step-type,#step-2,#step-3,#step-4{position:relative;z-index:1;}
+    #step-1 .section-title,#step-1b .section-title,#step-type .section-title,#step-2 .section-title,#step-3 .section-title,#step-4 .section-title,#step-1 .section-subtitle,#step-1b .section-subtitle,#step-type .section-subtitle,#step-2 .section-subtitle,#step-3 .section-subtitle,#step-4 .section-subtitle{color:#fff;}
     /* "How can we help?" visit-type list — same glass treatment as the
        inputs, keeping each option's own colored icon badge unchanged. */
     #step-type .visit-type-btn{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.18);}
@@ -101,10 +101,10 @@
     #step-1b .timer-text span{color:#fff;}
     #step-1 label,#step-1b label,#step-2 label,#step-3 label{color:rgba(255,255,255,0.7);}
     #step-1b .btn-back{color:rgba(255,255,255,0.75);}
-    #step-3 .btn-back{color:rgba(255,255,255,0.75);}
+    #step-3 .btn-back,#step-4 .btn-back{color:rgba(255,255,255,0.75);}
     #step-1b .resend-btn{color:#fff;}
     #step-1b .resend-btn:disabled{color:rgba(255,255,255,0.4);}
-    #step-1 .error-msg,#step-1b .error-msg,#step-2 .error-msg,#step-3 .error-msg{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.35);color:#FCA5A5;}
+    #step-1 .error-msg,#step-1b .error-msg,#step-2 .error-msg,#step-3 .error-msg,#step-4 .error-msg{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.35);color:#FCA5A5;}
     /* STEP 3 (Product + Schedule) — same glass treatment as steps 1/1b/type/2.
        Date/time pickers use real CSS classes so a plain selector override
        works; the product basket cards are built with inline styles in JS
@@ -117,6 +117,17 @@
     #step-3 .spinner{border-color:rgba(255,255,255,0.25);border-top-color:#fff;}
     #basket-total{background:#EFF6FF;color:#1565C0;}
     #step-3 #basket-total{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);color:#fff;}
+    /* STEP 4 (Confirm) — same glass treatment; .confirm-block's light-foam
+       fill becomes a translucent white tint, matching the other dark
+       steps' inputs/chips instead of staying a bright foam box. */
+    #step-4 .confirm-block{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);}
+    #step-4 .confirm-title{color:rgba(255,255,255,0.55);}
+    #step-4 .confirm-row{border-bottom-color:rgba(255,255,255,0.1);}
+    #step-4 .confirm-label{color:rgba(255,255,255,0.6);}
+    #step-4 .confirm-value{color:#fff;}
+    #step-4 #promo-input{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.25);color:#fff;}
+    #step-4 #promo-input::placeholder{color:rgba(255,255,255,0.4);}
+    #step-4 #conf-discount-row .confirm-label,#step-4 #conf-discount-row .confirm-value{color:#4ADE80 !important;}
     /* STEP 2 (Your Details) — same glass treatment, regular (not pill)
        inputs since this is a dense multi-field form rather than a single
        login-style field. */
@@ -785,7 +796,7 @@ function showStep(step) {
   // background past the card's padding, which left a sliver of the card's
   // real (white) corner showing through.
   const card = document.querySelector('.booking-card');
-  const isDarkStep = step === '1' || step === '1b' || step === 'type' || step === 2 || step === 3;
+  const isDarkStep = step === '1' || step === '1b' || step === 'type' || step === 2 || step === 3 || step === 4;
   if (card) card.classList.toggle('card-dark', isDarkStep);
   // Only phone entry/OTP are short enough to lock the viewport on — the
   // service-type picker has 6 options and genuinely needs to scroll on a
@@ -1245,7 +1256,7 @@ async function applyPromo() {
   const msg = document.getElementById('promo-msg');
   const code = (input.value || '').trim();
   if (!code) return;
-  const show = (text, ok) => { msg.style.display = 'block'; msg.style.color = ok ? '#0d7a63' : '#B71C1C'; msg.textContent = text; };
+  const show = (text, ok) => { msg.style.display = 'block'; msg.style.color = ok ? '#4ADE80' : '#F87171'; msg.textContent = text; };
 
   const { data, error } = await db.from('promo_codes').select('*').ilike('code', code).maybeSingle();
   if (error || !data) { state.promo = null; renderConfirmTotals(); show('That code isn\u2019t valid.', false); return; }
@@ -1399,6 +1410,9 @@ async function submitBooking() {
     ? 'Your installation appointment has been successfully booked.'
     : 'Your visit has been successfully booked.';
   document.querySelectorAll('.form-section').forEach(s=>s.classList.remove('active'));
+  // Step 4 leaves the card dark/glass; the success screen was designed for
+  // the plain white card (dark-navy title/body text), so drop it back off.
+  document.querySelector('.booking-card')?.classList.remove('card-dark');
   document.getElementById('step-success').style.display='block';
   document.getElementById('booking-ref-display').textContent=booking.booking_reference;
   document.getElementById('portal-link').style.display='block';
