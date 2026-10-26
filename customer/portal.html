@@ -699,11 +699,19 @@ async function loadHome() {
     // any status, non-dispenser item" eligibility the activate_pending_
     // warranty RPC itself already uses for a QR scan.
     const eligible = await findActivatableBooking(units);
-    const unitCardsHtml = units.map((u, i) => SADA.Warranty.unitCard(u, i, 'circular')).join('');
+    // A 'pending' unit is exactly the one the Activate card above already
+    // represents — rendering it as a unit card too showed the same unit
+    // twice: once asking to be activated, once right below it with a full
+    // countdown/"2-YR WARRANTY" badge as if it already were (registration_
+    // date, filter_expiry and service_expiry are all stamped at job
+    // completion, before any real activation). Hide pending ones here; once
+    // activated they reappear as a normal card on the next loadHome().
+    const displayUnits = units.filter(u => u.status !== 'pending');
+    const unitCardsHtml = displayUnits.map((u, i) => SADA.Warranty.unitCard(u, i, 'circular')).join('');
     const activateCardHtml = eligible
       ? renderActivateCard(eligible.booking.booking_reference, eligible.productLabel, eligible.productModel, eligible.booking.id, eligible.unitIndex, eligible.unitTotal)
       : '';
-    if (!units.length && !eligible) {
+    if (!displayUnits.length && !eligible) {
       el.innerHTML =
         '<div class="empty-state"><div class="empty-icon">🛡️</div>' +
         '<p style="font-weight:700;margin-bottom:6px;">No units registered yet</p>' +
