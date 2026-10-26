@@ -135,6 +135,14 @@
     #step-4 #promo-input{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.25);color:#fff;}
     #step-4 #promo-input::placeholder{color:rgba(255,255,255,0.4);}
     #step-4 #conf-discount-row .confirm-label,#step-4 #conf-discount-row .confirm-value{color:#4ADE80 !important;}
+    /* SUCCESS screen — same glass treatment, now that the card stays dark
+       through to the end instead of dropping back to plain white. */
+    #step-success{position:relative;z-index:1;}
+    #step-success .success-title{color:#fff;}
+    #step-success .success-message{color:rgba(255,255,255,0.65);}
+    #step-success .booking-ref{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.3);}
+    #step-success .booking-ref-label{color:rgba(255,255,255,0.55);}
+    #step-success .booking-ref-code{color:#60A5FA;}
     /* STEP 2 (Your Details) — same glass treatment, regular (not pill)
        inputs since this is a dense multi-field form rather than a single
        login-style field. */
@@ -486,7 +494,7 @@
           <div class="booking-ref-code" id="booking-ref-display"></div>
         </div>
         <p class="success-message" style="font-size:13px;">Thank you for trusting SA'DA H2O. Our team will contact you prior to the booking.</p>
-        <p class="success-message" style="font-size:16px;">Please visit our website by clicking <a href="https://h2o.sadawater.com" target="_blank" style="color:#1565C0;font-weight:600;text-decoration:underline;">here</a>.</p>
+        <p class="success-message" style="font-size:16px;">Please visit our website by clicking <a href="https://h2o.sadawater.com" target="_blank" style="color:#60A5FA;font-weight:600;text-decoration:underline;">here</a>.</p>
         <div id="portal-link" style="display:none;margin-top:16px;">
           <a href="portal.html" style="display:inline-block;background:linear-gradient(135deg,#0D3B6E,#1565C0);color:white;padding:14px 28px;border-radius:14px;font-size:15px;font-weight:600;text-decoration:none;">📋 Track My Booking →</a>
         </div>
@@ -1418,9 +1426,10 @@ async function submitBooking() {
     ? 'Your installation appointment has been successfully booked.'
     : 'Your visit has been successfully booked.';
   document.querySelectorAll('.form-section').forEach(s=>s.classList.remove('active'));
-  // Step 4 leaves the card dark/glass; the success screen was designed for
-  // the plain white card (dark-navy title/body text), so drop it back off.
-  document.querySelector('.booking-card')?.classList.remove('card-dark');
+  // Step 4 already leaves the card dark/glass — keep it on through success
+  // too now (see #step-success's dark-mode CSS overrides) instead of
+  // dropping back to the plain white card.
+  document.querySelector('.booking-card')?.classList.add('card-dark');
   document.getElementById('step-success').style.display='block';
   document.getElementById('booking-ref-display').textContent=booking.booking_reference;
   document.getElementById('portal-link').style.display='block';
