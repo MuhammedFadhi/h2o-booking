@@ -737,15 +737,24 @@ async function loadHome() {
 //
 // Eligibility is based on TOTALS, not a booking_id link: how many real
 // units has this customer ever bought across all their Installation
-// bookings, vs. how many warranties do they already have (any status
-// besides deactivated, linked to a booking or not). A warranty created
-// before booking_id existed — or activated directly by admin — has no
-// link to any specific booking, so matching per-booking alone would wrongly
-// re-offer activation for a unit that's already covered. Credits existing
-// warranties to the OLDEST installations first, so "which booking still
-// needs one" falls out of the running total rather than a direct link.
+// bookings, vs. how many warranties do they already have ACTIVATED (status
+// active/paused — not pending, not deactivated), linked to a booking or
+// not. A warranty created before booking_id existed — or activated
+// directly by admin — has no link to any specific booking, so matching
+// per-booking alone would wrongly re-offer activation for a unit that's
+// already covered. Credits existing warranties to the OLDEST installations
+// first, so "which booking still needs one" falls out of the running total
+// rather than a direct link.
+//
+// 'pending' is deliberately NOT counted as covered: it's the row the
+// installer's job-completion step auto-creates (js/inspection-report.js,
+// createPendingWarranties()) before anyone has actually activated
+// anything. Counting it as covered used to hide this very card for a unit
+// that still genuinely needs activating — the physical QR-sticker scan was
+// the only way left to activate it. Treating pending the same as "not yet
+// activated" lets the customer finish the job right here instead.
 async function findActivatableBooking(units) {
-  const existingCount = (units || []).filter(u => u.status !== 'deactivated' && !isBookDispenser(u.product_type)).length;
+  const existingCount = (units || []).filter(u => (u.status === 'active' || u.status === 'paused') && !isBookDispenser(u.product_type)).length;
 
   const { data: bookings } = await db.from('bookings')
     .select('id, booking_reference, booking_type, product_model, product_qty, created_at, booking_items(product_model, qty, is_serialized)')
