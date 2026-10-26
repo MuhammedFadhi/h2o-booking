@@ -687,6 +687,7 @@ function startTimer() {
 async function resendOTP() {
   const otp=Math.floor(1000+Math.random()*9000).toString();
   state.generatedOTP=otp;
+  state.otpGeneratedAt=Date.now();
   state.otpAttempts=0;
   document.getElementById('step1b-error').style.display='none';
   window.resetOtpBoxes && window.resetOtpBoxes();
