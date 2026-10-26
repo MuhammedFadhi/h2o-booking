@@ -101,7 +101,7 @@
     #step-1b .timer-text span{color:#fff;}
     #step-1 label,#step-1b label,#step-2 label,#step-3 label{color:rgba(255,255,255,0.7);}
     #step-1b .btn-back{color:rgba(255,255,255,0.75);}
-    #step-3 .btn-back,#step-4 .btn-back{color:rgba(255,255,255,0.75);}
+    #step-2 .btn-back,#step-3 .btn-back,#step-4 .btn-back{color:rgba(255,255,255,0.75);}
     #step-1b .resend-btn{color:#fff;}
     #step-1b .resend-btn:disabled{color:rgba(255,255,255,0.4);}
     #step-1 .error-msg,#step-1b .error-msg,#step-2 .error-msg,#step-3 .error-msg,#step-4 .error-msg{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.35);color:#FCA5A5;}
@@ -329,6 +329,7 @@
 
       <!-- STEP 2: Details -->
       <div class="form-section" id="step-2">
+        <button class="btn-back" onclick="goToStep('type')">← Back</button>
         <h1 class="section-title">Your Details</h1>
         <p class="section-subtitle">Tell us a bit about yourself so we can serve you better.</p>
         <div class="chosen-type-chip">
