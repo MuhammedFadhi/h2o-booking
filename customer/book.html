@@ -1082,7 +1082,7 @@ function renderProducts() {
     } else {
       // Prefer the catalogue's image_url (DB = source of truth); fall back to the built-in map.
       const imgSrc = (p.image_url && !/purifier-generic/.test(p.image_url)) ? p.image_url : PRODUCT_IMAGES[p.model_name];
-      if (imgSrc) imageBlock = `<div style="height:96px;margin:4px 0 8px;border-radius:8px;background:#fff url('${imgSrc}') center/contain no-repeat;"></div>`;
+      if (imgSrc) imageBlock = `<div style="height:96px;margin:4px 0 8px;background:url('${imgSrc}') center/contain no-repeat;"></div>`;
     }
 
     const outOfStock = p.in_stock === false;
