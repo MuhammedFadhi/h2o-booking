@@ -2025,7 +2025,18 @@
       </div>
       <div id="product-image-preview" style="display:none;margin-top:8px;"><img style="max-width:120px;max-height:120px;border-radius:8px;border:1px solid var(--border);object-fit:cover;"></div>
     </div>
-    <div class="form-group">
+    <div class="form-group" style="display:flex;flex-direction:column;gap:8px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="product-in-stock" checked style="width:auto;"> In stock
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="product-catalogue" checked style="width:auto;"> Show in customer booking catalogue
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="product-serialized" style="width:auto;" onchange="toggleProductIntervalsVisibility()"> Serialized unit (QR / warranty tracked)
+      </label>
+    </div>
+    <div class="form-group" id="product-intervals-group">
       <label>Service Intervals <span style="color:var(--muted);font-weight:400;">(days — drive this product's Filter Change / Annual Service / Warranty due dates)</span></label>
       <div style="display:flex;gap:10px;">
         <div style="flex:1;"><input class="form-input" id="product-filter-days" type="number" min="1" step="1" placeholder="90">
@@ -2035,17 +2046,6 @@
         <div style="flex:1;"><input class="form-input" id="product-warranty-days" type="number" min="1" step="1" placeholder="730">
           <div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:center;">Warranty</div></div>
       </div>
-    </div>
-    <div class="form-group" style="display:flex;flex-direction:column;gap:8px;">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-        <input type="checkbox" id="product-in-stock" checked style="width:auto;"> In stock
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-        <input type="checkbox" id="product-catalogue" checked style="width:auto;"> Show in customer booking catalogue
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-        <input type="checkbox" id="product-serialized" style="width:auto;"> Serialized unit (QR / warranty tracked)
-      </label>
     </div>
     <div id="product-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
     <div class="modal-footer">
@@ -4916,7 +4916,17 @@ function openProductModal(id) {
   document.getElementById('product-serialized').checked = p ? !!p.is_serialized : false;
   document.getElementById('product-error').style.display = 'none';
   updateProductImagePreview();
+  toggleProductIntervalsVisibility();
   openModal('product-modal');
+}
+
+// Filter/Service/Warranty intervals only ever apply to a serialized (QR /
+// warranty tracked) product — a dispenser never gets a warranty row at all,
+// so these fields would just be dead config for one. Hide them, live, as
+// the checkbox is toggled.
+function toggleProductIntervalsVisibility() {
+  document.getElementById('product-intervals-group').style.display =
+    document.getElementById('product-serialized').checked ? 'block' : 'none';
 }
 
 function updateProductImagePreview() {
