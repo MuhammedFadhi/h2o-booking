@@ -37,15 +37,18 @@ async function requireAdmin(req) {
   if (!user || !user.email) { const e = new Error('Invalid session'); e.status = 401; throw e; }
 
   // Check email against the admin OR owner allowlist (service-role query
-  // bypasses RLS). Owner is a separate identity with the same full access.
-  const rows = await sb('GET', `/rest/v1/admin_emails?email=eq.${encodeURIComponent(user.email)}&select=email`);
-  if (!rows || !rows.length) {
-    const ownerRows = await sb('GET', `/rest/v1/owner_emails?email=eq.${encodeURIComponent(user.email)}&select=email`);
-    if (!ownerRows || !ownerRows.length) { const e = new Error('Not an admin'); e.status = 403; throw e; }
-  }
+  // bypasses RLS). Owner is a separate identity with the same full access,
+  // plus the ability to manage other owners — callers need to know which
+  // table(s) matched, not just whether either one did.
+  const [adminRows, ownerRows] = await Promise.all([
+    sb('GET', `/rest/v1/admin_emails?email=eq.${encodeURIComponent(user.email)}&select=email`),
+    sb('GET', `/rest/v1/owner_emails?email=eq.${encodeURIComponent(user.email)}&select=email`)
+  ]);
+  const isOwner = !!(ownerRows && ownerRows.length);
+  if (!(adminRows && adminRows.length) && !isOwner) { const e = new Error('Not an admin'); e.status = 403; throw e; }
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-  return { userId: user.id, email: user.email, token, admin };
+  return { userId: user.id, email: user.email, token, admin, isOwner };
 }
 
 module.exports = { requireAdmin, SUPABASE_URL, SERVICE_KEY };
