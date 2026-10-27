@@ -832,7 +832,7 @@ function renderActivateCard(bookingRef, productLabel, productModel, bookingId, u
       <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"><g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 8.5-8 10c-4.5-1.5-8-5-8-10V7z"/><path d="M9 12l2 2l4-4"/></g></svg>
     </div>
     <p style="font-family:'Inter',sans-serif;font-weight:500;font-size:18px;color:#fff;margin-bottom:6px;">Activate Your Warranty${multi ? ` (${unitIndex}/${unitTotal})` : ''}</p>
-    <p style="font-size:13px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:18px;">${multi ? 'This booking has multiple units — activate them one at a time.' : 'Your purifier is installed — activate now to start your 2-year coverage.'}</p>
+    <p style="font-size:13px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:18px;">${multi ? 'This booking has multiple units — activate them one at a time.' : 'Your purifier is installed — activate now to start your coverage.'}</p>
     <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;margin-bottom:18px;text-align:left;">
       <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Booking ID</span><strong style="color:#fff;">${escHtml(bookingRef || '—')}</strong></div>
       <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Model No</span><strong style="color:#fff;">${modelRow}</strong></div>

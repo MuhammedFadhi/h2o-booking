@@ -2025,6 +2025,17 @@
       </div>
       <div id="product-image-preview" style="display:none;margin-top:8px;"><img style="max-width:120px;max-height:120px;border-radius:8px;border:1px solid var(--border);object-fit:cover;"></div>
     </div>
+    <div class="form-group">
+      <label>Service Intervals <span style="color:var(--muted);font-weight:400;">(days — drive this product's Filter Change / Annual Service / Warranty due dates)</span></label>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;"><input class="form-input" id="product-filter-days" type="number" min="1" step="1" placeholder="90">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:center;">Filter Change</div></div>
+        <div style="flex:1;"><input class="form-input" id="product-service-days" type="number" min="1" step="1" placeholder="365">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:center;">Annual Service</div></div>
+        <div style="flex:1;"><input class="form-input" id="product-warranty-days" type="number" min="1" step="1" placeholder="730">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:center;">Warranty</div></div>
+      </div>
+    </div>
     <div class="form-group" style="display:flex;flex-direction:column;gap:8px;">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
         <input type="checkbox" id="product-in-stock" checked style="width:auto;"> In stock
@@ -3684,12 +3695,16 @@ async function submitAdminBooking() {
     // Filter (+90d) & Service (+365d) start at install; Warranty starts only on customer scan.
     if (startStatus === 'installed' && exC?.id) {
       const iso = (days) => { const x = new Date(nowIso); x.setDate(x.getDate() + days); return x.toISOString(); };
+      const catalogue = await getCatalogue();
       const pendings = [];
       abBasket.filter(l => l.is_serialized).forEach(l => {
+        const cat = catalogue.find(p => p.model_name === l.model);
+        const filterDays = cat?.filter_interval_days || 90;
+        const serviceDays = cat?.service_interval_days || 365;
         for (let i = 0; i < l.qty; i++) pendings.push({
           customer_id: exC.id, qr_code: null, product_type: l.model, quantity: 1,
           booking_id: bkId, status: 'pending', registration_date: nowIso.slice(0,10),
-          filter_expiry: iso(90), service_expiry: iso(365), warranty_expiry: null
+          filter_expiry: iso(filterDays), service_expiry: iso(serviceDays), warranty_expiry: null
         });
       });
       if (pendings.length) await dbAdmin.from('warranties').insert(pendings);
@@ -4163,7 +4178,7 @@ async function renderBookingWarrantyBlock(b) {
   host.innerHTML = `
     <div style="background:#EFF6FF; border:1px solid #BFDBFE; padding:16px; border-radius:12px;">
       <div style="font-size:13px; color:#1E40AF; margin-bottom:10px;">
-        🛡️ This completed installation has no warranty yet. Activating creates a 2-year warranty for
+        🛡️ This completed installation has no warranty yet. Activating creates a warranty for
         <strong>${W.esc(b.customer_name)}</strong>, dated to the install.
       </div>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
@@ -4401,7 +4416,7 @@ async function editCustomerPhone(oldPhone) {
 async function getCatalogue() {
   if (window.__catalogue) return window.__catalogue;
   const { data } = await dbAdmin.from('product_models')
-    .select('model_name, price_sar, is_catalogue, is_serialized, image_url, sort_order, in_stock')
+    .select('model_name, price_sar, is_catalogue, is_serialized, image_url, sort_order, in_stock, filter_interval_days, service_interval_days, warranty_interval_days')
     .order('sort_order', { ascending: true });
   window.__catalogue = data || [];
   return window.__catalogue;
@@ -4893,6 +4908,9 @@ function openProductModal(id) {
   document.getElementById('product-sort').value = p && p.sort_order != null ? p.sort_order : '';
   document.getElementById('product-description').value = p && p.description ? p.description : '';
   document.getElementById('product-image').value = p && p.image_url ? p.image_url : '';
+  document.getElementById('product-filter-days').value = p && p.filter_interval_days != null ? p.filter_interval_days : 90;
+  document.getElementById('product-service-days').value = p && p.service_interval_days != null ? p.service_interval_days : 365;
+  document.getElementById('product-warranty-days').value = p && p.warranty_interval_days != null ? p.warranty_interval_days : 730;
   document.getElementById('product-in-stock').checked = p ? !!p.in_stock : true;
   document.getElementById('product-catalogue').checked = p ? !!p.is_catalogue : true;
   document.getElementById('product-serialized').checked = p ? !!p.is_serialized : false;
@@ -4955,6 +4973,9 @@ async function saveProduct() {
   const sort_order = sortRaw === '' ? 999 : parseInt(sortRaw, 10);
   const description = (document.getElementById('product-description').value || '').trim() || null;
   const image_url = (document.getElementById('product-image').value || '').trim() || null;
+  const filter_interval_days = parseInt(document.getElementById('product-filter-days').value, 10) || 90;
+  const service_interval_days = parseInt(document.getElementById('product-service-days').value, 10) || 365;
+  const warranty_interval_days = parseInt(document.getElementById('product-warranty-days').value, 10) || 730;
   const in_stock = document.getElementById('product-in-stock').checked;
   const is_catalogue = document.getElementById('product-catalogue').checked;
   const is_serialized = document.getElementById('product-serialized').checked;
@@ -4964,7 +4985,7 @@ async function saveProduct() {
 
   const btn = document.getElementById('product-save');
   btn.disabled = true; btn.textContent = 'Saving…';
-  const payload = { model_name, price_sar, sort_order, description, image_url, in_stock, is_catalogue, is_serialized };
+  const payload = { model_name, price_sar, sort_order, description, image_url, in_stock, is_catalogue, is_serialized, filter_interval_days, service_interval_days, warranty_interval_days };
   let error;
   if (id) ({ error } = await dbAdmin.from('product_models').update(payload).eq('id', id));
   else ({ error } = await dbAdmin.from('product_models').insert(payload));
@@ -5123,14 +5144,18 @@ async function activateWarrantyForBooking(bookingId) {
   const plus = (d) => { const x = new Date(); x.setDate(x.getDate() + d); return x.toISOString(); };
   const { data: { session } } = await dbAdmin.auth.getSession();
 
+  const productType = b.product_model || (serial ? serial.slice(0,4).toUpperCase() : 'RO');
+  const catalogue = await getCatalogue();
+  const cat = catalogue.find(p => p.model_name === productType);
+
   const { error } = await dbAdmin.from('warranties').insert({
     customer_id: cid,
     qr_code: serial,                       // may be null — booking is the dedup key
-    product_type: b.product_model || (serial ? serial.slice(0,4).toUpperCase() : 'RO'),
+    product_type: productType,
     registration_date: today,
-    filter_expiry: plus(90),
-    service_expiry: plus(365),
-    warranty_expiry: plus(730),
+    filter_expiry: plus(cat?.filter_interval_days || 90),
+    service_expiry: plus(cat?.service_interval_days || 365),
+    warranty_expiry: plus(cat?.warranty_interval_days || 730),
     quantity: b.product_qty || 1,
     booking_id: bookingId,
     status: 'active',
@@ -8720,8 +8745,8 @@ async function viewWarrantyHistory(id) {
           ${w.customers?.phone ? `<button class="btn btn-ghost btn-sm" onclick="editCustomerName('${W.esc(w.customers.phone)}')" style="padding:1px 7px;font-size:11px;margin-left:6px;">${ICON_PENCIL}</button>` : ''}</div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        ${W.milestoneCard('Filter Replacement','Filter', w.filter_expiry, 90)}
-        ${W.milestoneCard('Annual RO Service','Service', w.service_expiry, 365)}
+        ${W.milestoneCard('Filter Replacement','Filter', w.filter_expiry, w.product_models?.filter_interval_days || 90)}
+        ${W.milestoneCard('Annual RO Service','Service', w.service_expiry, w.product_models?.service_interval_days || 365)}
       </div>
       <div style="background:var(--bg);padding:16px;border-radius:12px;">
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Service History (${(hist||[]).length})</div>

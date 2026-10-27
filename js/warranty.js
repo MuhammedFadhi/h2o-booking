@@ -105,7 +105,7 @@
   var _modelCache = null;
   async function modelMap() {
     if (_modelCache) return _modelCache;
-    var r = await window.db.from('product_models').select('model_name, image_url, description');
+    var r = await window.db.from('product_models').select('model_name, image_url, description, filter_interval_days, service_interval_days, warranty_interval_days');
     _modelCache = {};
     (r.data || []).forEach(function (m) { _modelCache[m.model_name] = m; });
     return _modelCache;
@@ -320,6 +320,10 @@
     // honest framing instead of implying formal SA'DA product coverage: no
     // warranty badge/countdown, "first serviced" instead of "installed".
     var isSelfReported = u.source === 'self_reported';
+    // Per-product intervals (admin's Products panel) when the model is known,
+    // else the same 90/365 every unit used before these columns existed.
+    var filterDays = (u.product_models && u.product_models.filter_interval_days) || TERMS.filter;
+    var serviceDays = (u.product_models && u.product_models.service_interval_days) || TERMS.service;
     // Admin can pause/deactivate a warranty. Reflect that to the customer:
     // a deactivated unit is not covered; a paused one is temporarily suspended.
     var st = u.status || 'active';
@@ -330,7 +334,7 @@
     } else {
       var wSt = statusOf(u.warranty_expiry);
       wc = STATUS_COLORS[wSt];
-      statusBadge = (wSt === 'expired') ? 'EXPIRED' : '2-YR WARRANTY';
+      statusBadge = (wSt === 'expired') ? 'EXPIRED' : 'WARRANTY';
       if (st === 'deactivated') { wc = STATUS_COLORS.expired; statusBadge = 'NOT COVERED'; }
       else if (st === 'paused') { wc = STATUS_COLORS.soon; statusBadge = 'SUSPENDED'; }
     }
@@ -374,11 +378,11 @@
 
       '<div style="display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-bottom:' + (isSelfReported ? '4px' : '12px') + ';">' +
         (gaugeStyle === 'circular' ? (
-          milestoneCardCircular('Filter Replacement', 'Filter', u.filter_expiry, TERMS.filter) +
-          milestoneCardCircular('Annual RO Service', 'Service', u.service_expiry, TERMS.service)
+          milestoneCardCircular('Filter Replacement', 'Filter', u.filter_expiry, filterDays) +
+          milestoneCardCircular('Annual RO Service', 'Service', u.service_expiry, serviceDays)
         ) : (
-          milestoneCard('Filter Replacement', 'Filter', u.filter_expiry, TERMS.filter) +
-          milestoneCard('Annual RO Service', 'Service', u.service_expiry, TERMS.service)
+          milestoneCard('Filter Replacement', 'Filter', u.filter_expiry, filterDays) +
+          milestoneCard('Annual RO Service', 'Service', u.service_expiry, serviceDays)
         )) +
       '</div>' +
       (isSelfReported ? '<p style="font-size:10.5px;color:' + mutedColor + ';margin:0 0 12px;line-height:1.5;">Estimated from your last SA\'DA visit, not this unit\'s original install date.</p>' : '') +
