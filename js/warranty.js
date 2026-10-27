@@ -321,8 +321,11 @@
     // warranty badge/countdown, "first serviced" instead of "installed".
     var isSelfReported = u.source === 'self_reported';
     // Per-product intervals (admin's Products panel) when the model is known,
-    // else the same 90/365 every unit used before these columns existed.
-    var filterDays = (u.product_models && u.product_models.filter_interval_days) || TERMS.filter;
+    // else the same 90/365 every unit used before these columns existed. A
+    // unit's own filter_interval_override_days (admin's Filter Change
+    // Schedule modal — e.g. a hotel installation on a faster cycle than a
+    // home one) always wins over the shared product default.
+    var filterDays = u.filter_interval_override_days || (u.product_models && u.product_models.filter_interval_days) || TERMS.filter;
     var serviceDays = (u.product_models && u.product_models.service_interval_days) || TERMS.service;
     // Admin can pause/deactivate a warranty. Reflect that to the customer:
     // a deactivated unit is not covered; a paused one is temporarily suspended.

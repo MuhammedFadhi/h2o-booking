@@ -2106,14 +2106,18 @@
     <div class="form-group">
       <label>Next Filter Due Date</label>
       <input type="date" class="form-input" id="fsched-date-input">
-      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Editing this recomputes every date below, stepped by this product's current filter interval.</div>
+    </div>
+    <div class="form-group">
+      <label>Filter Interval for this unit <span style="color:var(--muted);font-weight:400;">(days)</span></label>
+      <input type="number" class="form-input" id="fsched-interval-input" min="1" step="1">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Real usage varies per unit — e.g. a hotel installation wears filters faster than a home one. Defaults to the product's own interval; override it here just for this unit. <a href="#" id="fsched-reset-link" onclick="resetFilterScheduleInterval();return false;">Use product default</a>.</div>
     </div>
     <div id="fsched-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
     <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px;" id="fsched-list-title">Upcoming dates</div>
     <div id="fsched-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('filter-schedule-modal')">Close</button>
-      <button class="btn btn-primary" id="fsched-save" onclick="saveFilterScheduleDate()">Save Date</button>
+      <button class="btn btn-primary" id="fsched-save" onclick="saveFilterScheduleDate()">Save</button>
     </div>
   </div>
 </div>
@@ -8805,10 +8809,10 @@ function filterChangeSchedule(filterExpiry, intervalDays, horizonDays) {
 }
 
 // Separate dedicated view (not folded into Booking Details) — the Schedule
-// button on each Active Units row. The only editable field is the next due
-// date itself; the interval used to project the rest of the list always
-// comes from the product's own current setting (edit that in Products to
-// change it, which cascades to every customer — see v95).
+// button on each Active Units row. Two editable fields: the next due date,
+// and this unit's own filter interval override (real usage varies per unit
+// — see v96) — editing the override here is specific to this one customer,
+// unlike Products' interval which cascades to everyone with that product.
 function renderFilterScheduleModal(w) {
   const W = window.SADA.Warranty;
   document.getElementById('fsched-warranty-id').value = w.id;
@@ -8816,7 +8820,10 @@ function renderFilterScheduleModal(w) {
     <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Serial</div>
     <div style="font-weight:700;color:var(--water);font-size:17px;font-family:ui-monospace,Menlo,monospace;">${W.esc(w.qr_code)}</div>
     <div style="font-size:13px;margin-top:8px;">${W.esc(w.product_type)} · ${W.esc(w.customers?.name || '—')} · ${W.esc(w.customers?.phone || '')}</div>`;
-  const filterDays = w.product_models?.filter_interval_days || 90;
+  const productDays = w.product_models?.filter_interval_days || 90;
+  const filterDays = w.filter_interval_override_days || productDays;
+  document.getElementById('fsched-interval-input').value = filterDays;
+  document.getElementById('fsched-reset-link').style.display = w.filter_interval_override_days ? 'inline' : 'none';
   document.getElementById('fsched-list-title').textContent = `Upcoming dates — next 12 months (every ${filterDays}d)`;
   document.getElementById('fsched-date-input').value = w.filter_expiry ? w.filter_expiry.slice(0, 10) : '';
   const schedule = filterChangeSchedule(w.filter_expiry, filterDays, 365);
@@ -8835,25 +8842,52 @@ function openFilterSchedule(id) {
   openModal('filter-schedule-modal');
 }
 
+// "Use product default" — clears the input back to the product's own
+// interval and previews the schedule with it, without saving yet.
+function resetFilterScheduleInterval() {
+  const id = document.getElementById('fsched-warranty-id').value;
+  const w = allWarranties.find(x => x.id === id);
+  if (!w) return;
+  const productDays = w.product_models?.filter_interval_days || 90;
+  document.getElementById('fsched-interval-input').value = productDays;
+  document.getElementById('fsched-list-title').textContent = `Upcoming dates — next 12 months (every ${productDays}d)`;
+  const dateVal = document.getElementById('fsched-date-input').value || w.filter_expiry;
+  const W = window.SADA.Warranty;
+  const schedule = filterChangeSchedule(dateVal, productDays, 365);
+  document.getElementById('fsched-list').innerHTML = schedule.map((d, i) =>
+    `<span style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;">#${i + 1} · ${W.fmtDate(d)}</span>`).join('');
+}
+
 async function saveFilterScheduleDate() {
   if (!(await ensureSession())) return;
   const id = document.getElementById('fsched-warranty-id').value;
+  const w = allWarranties.find(x => x.id === id);
+  if (!w) return;
   const errEl = document.getElementById('fsched-error');
   errEl.style.display = 'none';
   const dateVal = document.getElementById('fsched-date-input').value;
   if (!dateVal) { errEl.style.display = 'block'; errEl.textContent = 'Pick a date.'; return; }
+  const intervalRaw = document.getElementById('fsched-interval-input').value;
+  const intervalDays = parseInt(intervalRaw, 10);
+  if (!intervalRaw || isNaN(intervalDays) || intervalDays < 1) { errEl.style.display = 'block'; errEl.textContent = 'Enter a valid number of days.'; return; }
+  const productDays = w.product_models?.filter_interval_days || 90;
+  // Only store an override when it actually differs from the product's own
+  // interval — otherwise leave it NULL so this unit keeps following the
+  // product automatically (including future product-wide cascades).
+  const overrideToSave = intervalDays === productDays ? null : intervalDays;
 
   const btn = document.getElementById('fsched-save');
   btn.disabled = true; btn.textContent = 'Saving…';
-  const { error } = await dbAdmin.from('warranties').update({ filter_expiry: dateVal }).eq('id', id);
-  btn.disabled = false; btn.textContent = 'Save Date';
+  const { error } = await dbAdmin.from('warranties')
+    .update({ filter_expiry: dateVal, filter_interval_override_days: overrideToSave }).eq('id', id);
+  btn.disabled = false; btn.textContent = 'Save';
   if (error) { errEl.style.display = 'block'; errEl.textContent = error.message; return; }
 
-  const w = allWarranties.find(x => x.id === id);
-  if (w) w.filter_expiry = dateVal;
-  logActivity('warranty.filter_date_edit', `Set filter due date to ${dateVal}`, 'warranty', id);
-  showToast('Filter due date updated', 'success');
-  if (w) renderFilterScheduleModal(w);
+  w.filter_expiry = dateVal;
+  w.filter_interval_override_days = overrideToSave;
+  logActivity('warranty.filter_schedule_edit', `Set filter due date to ${dateVal}${overrideToSave ? `, interval override ${overrideToSave}d` : ''}`, 'warranty', id);
+  showToast('Filter schedule updated', 'success');
+  renderFilterScheduleModal(w);
   renderWarranties();
 }
 
@@ -8872,7 +8906,7 @@ async function viewWarrantyHistory(id) {
           ${w.customers?.phone ? `<button class="btn btn-ghost btn-sm" onclick="editCustomerName('${W.esc(w.customers.phone)}')" style="padding:1px 7px;font-size:11px;margin-left:6px;">${ICON_PENCIL}</button>` : ''}</div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        ${W.milestoneCard('Filter Replacement','Filter', w.filter_expiry, w.product_models?.filter_interval_days || 90)}
+        ${W.milestoneCard('Filter Replacement','Filter', w.filter_expiry, w.filter_interval_override_days || w.product_models?.filter_interval_days || 90)}
         ${W.milestoneCard('Annual RO Service','Service', w.service_expiry, w.product_models?.service_interval_days || 365)}
       </div>
       <div style="background:var(--bg);padding:16px;border-radius:12px;">
