@@ -8767,12 +8767,34 @@ function renderWarranties() {
     <div style="font-size:11px;color:var(--muted);margin-top:10px;">Showing ${rows.length} of ${allWarranties.length} units — ${W.esc(activeLabel)}${q ? ` matching "${W.esc(q)}"` : ''}.</div>`;
 }
 
+// Every filter-change occurrence from the unit's next due date through one
+// year from today, stepping by the product's own interval — e.g. a 90-day
+// filter yields ~4 dates. Not stored anywhere; purely computed for display.
+function filterChangeSchedule(filterExpiry, intervalDays, horizonDays) {
+  if (!filterExpiry || !intervalDays) return [];
+  const horizon = new Date(); horizon.setDate(horizon.getDate() + (horizonDays || 365));
+  const dates = [];
+  let d = new Date(filterExpiry);
+  while (d <= horizon) {
+    dates.push(new Date(d));
+    d = new Date(d); d.setDate(d.getDate() + intervalDays);
+  }
+  return dates;
+}
+
 async function viewWarrantyHistory(id) {
   const W = window.SADA.Warranty;
   const w = allWarranties.find(x => x.id === id);
   if (!w) return;
   const { data: hist } = await dbAdmin.from('warranty_service_history')
     .select('*').eq('warranty_id', id).order('created_at', { ascending: false });
+  const filterDays = w.product_models?.filter_interval_days || 90;
+  const schedule = filterChangeSchedule(w.filter_expiry, filterDays, 365);
+  const scheduleHtml = schedule.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:8px;">${schedule.map((d, i) => `<span style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;">#${i + 1} · ${W.fmtDate(d)}</span>`).join('')}</div>`
+    : (w.filter_expiry
+        ? `<div style="font-size:12px;color:var(--muted);">Next filter change is due ${W.fmtDate(w.filter_expiry)} — more than a year away.</div>`
+        : `<div style="font-size:12px;color:var(--muted);">No filter-change date set yet.</div>`);
   document.getElementById('booking-detail-content').innerHTML = `
     <div style="display:grid;gap:12px;">
       <div style="background:var(--bg);padding:16px;border-radius:12px;">
@@ -8782,8 +8804,12 @@ async function viewWarrantyHistory(id) {
           ${w.customers?.phone ? `<button class="btn btn-ghost btn-sm" onclick="editCustomerName('${W.esc(w.customers.phone)}')" style="padding:1px 7px;font-size:11px;margin-left:6px;">${ICON_PENCIL}</button>` : ''}</div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        ${W.milestoneCard('Filter Replacement','Filter', w.filter_expiry, w.product_models?.filter_interval_days || 90)}
+        ${W.milestoneCard('Filter Replacement','Filter', w.filter_expiry, filterDays)}
         ${W.milestoneCard('Annual RO Service','Service', w.service_expiry, w.product_models?.service_interval_days || 365)}
+      </div>
+      <div style="background:var(--bg);padding:16px;border-radius:12px;">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Filter Change Schedule — next 12 months (every ${filterDays}d)</div>
+        ${scheduleHtml}
       </div>
       <div style="background:var(--bg);padding:16px;border-radius:12px;">
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Service History (${(hist||[]).length})</div>
