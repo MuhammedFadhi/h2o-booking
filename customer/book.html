@@ -1255,8 +1255,16 @@ function renderConfirmTotals() {
 // fixed-amount code multiplies by that line's quantity; a percent code is
 // naturally proportional to quantity already, since it's a % of that line's
 // own subtotal. Each line's discount is capped at that line's own value.
+// A promo.applicable_products list restricts the discount to only those
+// product models (NULL/empty = applies to everything) — every other place
+// this same calculation exists (admin dashboard, sales portal, customer
+// portal, api/sales/ops.js) already honors this; this was the one place
+// that didn't, so a product-restricted code was silently discounting every
+// line in the basket instead of just the ones it was configured for.
 function promoDiscountFor(lines, promo) {
+  const restrict = promo.applicable_products && promo.applicable_products.length ? new Set(promo.applicable_products) : null;
   return lines.reduce((sum, l) => {
+    if (restrict && !restrict.has(l.model)) return sum;
     const lineSubtotal = l.price * l.qty;
     let d = promo.discount_type === 'percent'
       ? lineSubtotal * (Number(promo.discount_value) / 100)
