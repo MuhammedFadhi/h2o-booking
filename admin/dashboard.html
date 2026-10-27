@@ -4976,6 +4976,7 @@ async function saveProduct() {
   const errEl = document.getElementById('product-error');
   const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
   const id = document.getElementById('product-id').value;
+  const oldProduct = id ? allProducts.find(x => x.id === id) : null;
   const model_name = (document.getElementById('product-name').value || '').trim();
   const priceRaw = document.getElementById('product-price').value;
   const price_sar = priceRaw === '' ? null : parseFloat(priceRaw);
@@ -4993,16 +4994,42 @@ async function saveProduct() {
   if (!model_name) return fail('Enter a product name.');
   if (priceRaw !== '' && (isNaN(price_sar) || price_sar < 0)) return fail('Enter a valid price.');
 
+  // Editing an existing product's intervals? Existing customers with this
+  // product get their due dates shifted by the same amount, not reset — see
+  // v95. Confirm first since it's a bulk change to real customer data.
+  let deltaFilter = 0, deltaService = 0, deltaWarranty = 0;
+  if (oldProduct) {
+    deltaFilter = filter_interval_days - (oldProduct.filter_interval_days ?? 90);
+    deltaService = service_interval_days - (oldProduct.service_interval_days ?? 365);
+    deltaWarranty = warranty_interval_days - (oldProduct.warranty_interval_days ?? 730);
+    if (deltaFilter || deltaService || deltaWarranty) {
+      const { count } = await dbAdmin.from('warranties').select('id', { count: 'exact', head: true }).eq('product_type', oldProduct.model_name);
+      if (count > 0) {
+        const ok = confirm(`This will update Filter/Service/Warranty due dates for ${count} existing customer${count === 1 ? '' : 's'} who ${count === 1 ? 'has' : 'have'} this product. Continue?`);
+        if (!ok) return;
+      }
+    }
+  }
+
   const btn = document.getElementById('product-save');
   btn.disabled = true; btn.textContent = 'Saving…';
   const payload = { model_name, price_sar, sort_order, description, image_url, in_stock, is_catalogue, is_serialized, filter_interval_days, service_interval_days, warranty_interval_days };
   let error;
   if (id) ({ error } = await dbAdmin.from('product_models').update(payload).eq('id', id));
   else ({ error } = await dbAdmin.from('product_models').insert(payload));
-  btn.disabled = false; btn.textContent = 'Save Product';
   if (error) {
+    btn.disabled = false; btn.textContent = 'Save Product';
     return fail(/duplicate|unique/i.test(error.message) ? 'A product with that name already exists.' : error.message);
   }
+
+  if (oldProduct && (deltaFilter || deltaService || deltaWarranty)) {
+    const { error: shiftErr } = await dbAdmin.rpc('shift_warranty_dates_for_product', {
+      p_product_type: oldProduct.model_name, p_filter_delta: deltaFilter, p_service_delta: deltaService, p_warranty_delta: deltaWarranty
+    });
+    if (shiftErr) showToast("Product saved, but updating existing customers' dates failed: " + shiftErr.message, 'error');
+  }
+
+  btn.disabled = false; btn.textContent = 'Save Product';
   logActivity('product.save', `${id ? 'Updated' : 'Added'} product ${model_name}`, 'product', id || model_name);
   showToast('Product saved', 'success');
   closeModal('product-modal');
