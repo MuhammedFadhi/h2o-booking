@@ -1283,7 +1283,13 @@ async function applyPromo() {
 
   state.promo = data;
   renderConfirmTotals();
-  const off = state.promo.discount_type === 'percent' ? `${state.promo.discount_value}% off` : `SAR ${state.promo.discount_value} off`;
+  // A fixed-SAR code is applied PER UNIT (see promoDiscountFor) — showing the
+  // raw discount_value here instead of the actual total contradicted the
+  // discount line right below it for any basket with qty > 1 (e.g. "SAR 96
+  // off" next to a real "− SAR 192" two lines down). Percent is naturally
+  // proportional already, so it's unaffected either way.
+  const totalOff = promoDiscountFor(basketLines(), state.promo);
+  const off = state.promo.discount_type === 'percent' ? `${state.promo.discount_value}% off` : `SAR ${totalOff.toLocaleString('en-US')} off`;
   show(`\u2713 Code applied — ${off}!`, true);
 }
 
