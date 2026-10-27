@@ -889,16 +889,20 @@ async function loadHomeHero() {
     }
     const unit = units[0];
     const W = SADA.Warranty;
-    const status = W.statusOf(unit.service_expiry);
-    const days = W.daysUntil(unit.service_expiry);
-    if (status === 'unknown') {
+    const days = W.daysUntil(unit.filter_expiry);
+    const plural = (n) => `day${Math.abs(n) === 1 ? '' : 's'}`;
+    if (days === null) {
       statusEl.textContent = "Keep track of your SA'DA unit's health here.";
-    } else if (status === 'expired') {
-      statusEl.textContent = `Your RO Unit's service is overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'}.`;
-    } else if (status === 'soon') {
-      statusEl.textContent = `Your RO Unit's service is due soon — in ${days} day${days === 1 ? '' : 's'}.`;
+    } else if (days < 0) {
+      statusEl.textContent = `Your filter change is overdue by ${Math.abs(days)} ${plural(days)} — book now to keep your water quality protected.`;
+    } else if (days <= 4) {
+      statusEl.textContent = `Your filter change is due very soon — ${days} ${plural(days)} left. Book now to stay protected.`;
+    } else if (days <= 7) {
+      statusEl.textContent = `Your filter change is almost due — only ${days} ${plural(days)} left.`;
+    } else if (days <= 30) {
+      statusEl.textContent = `Your filter change is coming up — due in ${days} ${plural(days)}.`;
     } else {
-      statusEl.textContent = `Your RO Unit is healthy and the service is due in ${days} days.`;
+      statusEl.textContent = `Your filter is in good shape — next change due in ${days} ${plural(days)}.`;
     }
   } catch (e) {
     console.error('loadHomeHero failed:', e);
