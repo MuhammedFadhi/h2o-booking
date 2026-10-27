@@ -24,13 +24,14 @@ const ROUTE_LOADERS = {
   '/api/admin/user-ops': () => require('../api/admin/user-ops.js'),
   '/api/admin/whatsapp': () => require('../api/admin/whatsapp.js'),
   '/api/sales/ops': () => require('../api/sales/ops.js'),
+  '/api/webhooks/crm': () => require('../api/webhooks/crm.js'),
   '/api/webhooks/whatsapp': () => require('../api/webhooks/whatsapp.js')
 };
 
-// auth-sms-hook and the whatsapp webhook verify an HMAC over the exact raw
-// bytes the sender sent, so neither must be JSON-parsed — matches their own
+// auth-sms-hook and both webhooks verify an HMAC over the exact raw bytes
+// the sender sent, so none of them must be JSON-parsed — matches their own
 // `config.api.bodyParser = false` intent.
-const RAW_BODY_ROUTES = new Set(['/api/auth-sms-hook', '/api/webhooks/whatsapp']);
+const RAW_BODY_ROUTES = new Set(['/api/auth-sms-hook', '/api/webhooks/crm', '/api/webhooks/whatsapp']);
 
 // Routes that accept a multipart/form-data upload (a media attachment) and
 // need the parsed FormData itself, not text/JSON — see RAW_BODY_ROUTES

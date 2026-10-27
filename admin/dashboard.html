@@ -1037,7 +1037,6 @@
       </div>
     </div>
 
-
     <!-- SALES REPORT PANEL -->
     <div class="panel" id="panel-salesreport">
       <div class="card" style="margin-bottom:16px;">
@@ -1536,7 +1535,7 @@
     <div class="modal-header"><span class="modal-title">Follow-ups — <span id="lfup-lead-name"></span></span>
       <button class="modal-close" onclick="closeModal('lead-followup-modal')">&times;</button></div>
     <div class="modal-body">
-      <div id="lfup-lead-phone" style="font-size:12px;color:var(--muted);margin:-8px 0 14px;"></div>
+      <div id="lfup-lead-details"></div>
       <div id="lfup-list" style="margin-bottom:16px;"></div>
       <div style="border-top:1px solid var(--border);padding-top:14px;">
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Add a follow-up</div>
@@ -6307,22 +6306,38 @@ function renderLeadsAdminTable() {
         ${W.fmtDate(f.followup_date)} · ${W.humanDays(f.followup_date)}</span>${notePreview ? '<br>' + notePreview : ''}<br>${btn}`;
   };
 
+  const deleteLeadBtn = (l) => `<button class="btn btn-ghost btn-sm" onclick="deleteLead('${l.id}')" title="Delete lead" aria-label="Delete lead" style="padding:6px 9px;font-size:14px;line-height:1;color:#B91C1C;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg></button>`;
+
   container.innerHTML = `
     <table>
-      <thead><tr><th>Lead</th><th>Where</th><th>Interest / Source</th><th>Notes</th><th>Added by</th><th>Added</th><th>Priority</th><th>Status</th><th>Follow-up</th></tr></thead>
+      <thead><tr><th>Lead</th><th>Where</th><th>Interest</th><th>Source</th><th style="display:none;">Notes</th><th>Added by</th><th>Added</th><th>Priority</th><th>Status</th><th>Follow-up</th><th></th></tr></thead>
       <tbody>${rows.map(l => `
         <tr>
           <td><div style="font-weight:600;">${escB(l.name)}</div><div style="font-size:11px;color:var(--muted);">${escB(l.phone)}</div></td>
           <td>${escB(l.city_name || '—')}</td>
-          <td>${[l.product_interest, l.source].filter(Boolean).map(escB).join(' · ') || '—'}</td>
-          <td style="max-width:220px;font-size:12px;color:var(--muted);">${escB(l.notes || '—')}${l.status === 'lost' && l.lost_reason ? `<br><em>Lost: ${escB(l.lost_reason)}</em>` : ''}</td>
+          <td>${escB(l.product_interest || '—')}</td>
+          <td>${leadSourceCell(l)}</td>
+          <td style="display:none;max-width:220px;font-size:12px;color:var(--muted);">${escB(l.notes || '—')}${l.status === 'lost' && l.lost_reason ? `<br><em>Lost: ${escB(l.lost_reason)}</em>` : ''}</td>
           <td>${escB(l.created_by_name || '—')}</td>
           <td style="font-size:12px;color:var(--muted);">${new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
           <td>${priorityPill(l.priority)}</td>
           <td>${statusPill(l.status)}</td>
           <td>${followupCell(l)}</td>
+          <td data-label="">${deleteLeadBtn(l)}</td>
         </tr>`).join('')}</tbody>
     </table>`;
+}
+
+async function deleteLead(id) {
+  if (!(await ensureSession())) return;
+  const lead = allLeads.find(l => l.id === id);
+  if (!confirm(`Delete the lead "${lead?.name || ''}"? This cannot be undone.`)) return;
+  const { error } = await dbAdmin.from('leads').delete().eq('id', id);
+  if (error) { showToast(error.message, 'error'); return; }
+  allLeads = allLeads.filter(l => l.id !== id);
+  renderLeadsAdminTable();
+  logActivity('lead.delete', `Deleted lead ${lead?.name || ''}`, 'lead', id);
+  showToast('Lead deleted', 'success');
 }
 
 // ============================================================
@@ -6332,6 +6347,29 @@ function renderLeadsAdminTable() {
 // picker is needed — unlike the generic customer follow-up modal.
 // ============================================================
 let currentLeadFollowupLeadId = null;
+
+// Compact details card shown at the top of the lead follow-up modal — same
+// fields the Leads table itself shows (phone/city/interest/source/status/
+// priority/notes), so adding or reviewing a follow-up doesn't require
+// flipping back to the table to remember who this lead is.
+function leadDetailsHtml(lead) {
+  const statusMap = { open: ['Open', '#2563EB'], converted: ['Converted', '#16A34A'], lost: ['Lost', '#94A3B8'] };
+  const priorityMap = { hot: ['Hot', '#DC2626'], warm: ['Warm', '#D97706'], cold: ['Cold', '#2563EB'] };
+  const [sLabel, sColor] = statusMap[lead.status] || [lead.status || '—', '#6B7280'];
+  const [pLabel, pColor] = priorityMap[lead.priority || 'warm'] || ['Warm', '#D97706'];
+  const field = (label, value) => `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">${label}</div><div style="font-size:13px;color:var(--text);">${value ? escB(value) : '—'}</div></div>`;
+  const badge = (label, color) => `<span style="background:${color}22;color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">${label}</span>`;
+  return `
+    <div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin:-8px 0 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      ${field('Phone', lead.phone)}
+      ${field('City', lead.city_name)}
+      ${field('Interest', lead.product_interest)}
+      ${field('Source', lead.source)}
+      <div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;">Status</div>${badge(sLabel, sColor)}</div>
+      <div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;">Priority</div>${badge(pLabel, pColor)}</div>
+      ${lead.notes ? `<div style="grid-column:1/-1;"><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">Notes</div><div style="font-size:13px;color:var(--text);white-space:pre-wrap;">${escB(lead.notes)}</div></div>` : ''}
+    </div>`;
+}
 
 async function openLeadFollowupModal(leadId) {
   currentLeadFollowupLeadId = leadId;
@@ -6347,7 +6385,7 @@ async function openLeadFollowupModal(leadId) {
   if (!lead) { showToast('Could not find that lead.', 'error'); return; }
 
   document.getElementById('lfup-lead-name').textContent = lead.name || '—';
-  document.getElementById('lfup-lead-phone').textContent = lead.phone || '';
+  document.getElementById('lfup-lead-details').innerHTML = leadDetailsHtml(lead);
   document.getElementById('lfup-date').value = window.SADA.Warranty.localDateISO(new Date());
   document.getElementById('lfup-note').value = '';
   document.getElementById('lfup-error').style.display = 'none';
@@ -8426,9 +8464,108 @@ async function toggleServiceOptOut(warrantyId, current) {
  * FOLLOW-UPS — internal sales notes. RLS is admin-only; anon cannot read this
  * table at all. Never surface any of it in the customer portal.
  * ========================================================================*/
+async function loadFollowups() {
+  const el = document.getElementById('followups-list');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading follow-ups...</div>';
+  const [{ data, error }, { data: leadData, error: leadError }, { data: waData, error: waError }] = await Promise.all([
+    dbAdmin.from('customer_followups').select('*, customers(id, name, phone)').order('followup_date', { ascending: true }),
+    dbAdmin.from('lead_followups').select('*, leads(id, name, phone)').order('followup_date', { ascending: true }),
+    dbAdmin.from('whatsapp_followups').select('*, whatsapp_conversations(id, contact_name, phone)').order('followup_date', { ascending: true })
+  ]);
+  if (error) {
+    console.error(error);
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">Could not load follow-ups.</div>';
+    return;
+  }
+  if (leadError) console.error(leadError);
+  if (waError) console.error(waError);
+  // Unified list: every follow-up — customer, lead, or WhatsApp conversation
+  // — tagged with .kind so the calendar/list can show them together and
+  // route clicks/actions to the right modal.
+  const customerRows = (data || []).map(r => ({ ...r, kind: 'customer', name: r.customers?.name, phone: r.customers?.phone }));
+  const leadRows = (leadData || []).map(r => ({ ...r, kind: 'lead', name: r.leads?.name, phone: r.leads?.phone }));
+  const waRows = (waData || []).map(r => ({ ...r, kind: 'whatsapp', name: r.whatsapp_conversations?.contact_name, phone: r.whatsapp_conversations?.phone }));
+  allFollowups = [...customerRows, ...leadRows, ...waRows].sort((a, b) => a.followup_date.localeCompare(b.followup_date));
+  updateFollowupBadge();
+  renderFollowups();
+}
+
+/** Calendar/list chip click: routes to the right modal for this follow-up's kind. */
+function openFollowupChip(kind, id, parentId) {
+  if (kind === 'lead') openLeadFollowupModal(parentId);
+  else if (kind === 'whatsapp') openWaFollowupModal(parentId);
+  else openFollowupModal(null, id);
+}
+
+// Follow-up view state — calendar is the default.
+let followupView = 'calendar';
+let followupCalMonth = (() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d; })();
+
+function setFollowupView(v) {
+  followupView = v;
+  document.getElementById('fup-view-cal').className  = 'btn btn-sm' + (v === 'calendar' ? '' : ' btn-ghost');
+  document.getElementById('fup-view-list').className = 'btn btn-sm' + (v === 'list' ? '' : ' btn-ghost');
+  document.getElementById('fup-cal-nav').style.display = (v === 'calendar') ? 'flex' : 'none';
+  renderFollowups();
+}
+function followupMonthShift(n) { followupCalMonth.setMonth(followupCalMonth.getMonth() + n); renderFollowups(); }
+function followupMonthToday()  { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); followupCalMonth = d; renderFollowups(); }
+
+function updateFollowupBadge() {
+  const W = window.SADA.Warranty;
+  const due = allFollowups.filter(f => f.status === 'pending' && W.daysUntil(f.followup_date) <= 0).length;
+  const b = document.getElementById('badge-followups');
+  if (due) { b.textContent = due; b.style.display = 'inline-flex'; } else { b.style.display = 'none'; }
+}
+
+function renderFollowups() {
+  if (followupView === 'calendar') return renderFollowupCalendar();
+  return renderFollowupList();
+}
+
+// Same line-art icon as the Leads nav item / sales portal's "Lead" group —
+// used anywhere a lead follow-up needs a small inline marker.
+const LEAD_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><path d="M0 0h24v24H0z" fill="none"/><g fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m16.719 19.752l-.64-5.124A3 3 0 0 0 13.101 12h-2.204a3 3 0 0 0-2.976 2.628l-.641 5.124A2 2 0 0 0 9.266 22h5.468a2 2 0 0 0 1.985-2.248"/><circle cx="12" cy="5" r="3"/><circle cx="4" cy="9" r="2"/><circle cx="20" cy="9" r="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 14h-.306a2 2 0 0 0-1.973 1.671l-.333 2A2 2 0 0 0 3.361 20H7m13-6h.306a2 2 0 0 1 1.973 1.671l.333 2A2 2 0 0 1 20.639 20H17"/></g></svg>';
+
+// The Follow-ups icon (nav item, Overview tile, activity log, per-lead button).
+const FOLLOWUP_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M21 3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6.455L2 22.5V4a1 1 0 0 1 1-1zm-1 2H4v13.385L5.763 17H20zm-3 2v8h-2V7zm-6 1v1.999L13 10v2l-2-.001V14H9v-2.001L7 12v-2l2-.001V8z"/></svg>';
+
+// Lead Source column icons — one per channel the external CRM webhook tags
+// a synced lead with (see migrations/v81_crm_webhook.sql), plus a generic
+// fallback for the sales portal's own free-text sources (Lulu Kiosk, Flyer
+// / Billboard, etc.) that were never meant to map to a brand icon.
+const LEAD_SOURCE_ICONS = {
+  whatsapp: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 256 258"><defs><linearGradient id="ls-wa-a" x1="50%" x2="50%" y1="100%" y2="0%"><stop offset="0%" stop-color="#1faf38"/><stop offset="100%" stop-color="#60d669"/></linearGradient><linearGradient id="ls-wa-b" x1="50%" x2="50%" y1="100%" y2="0%"><stop offset="0%" stop-color="#f9f9f9"/><stop offset="100%" stop-color="#fff"/></linearGradient></defs><path fill="url(#ls-wa-a)" d="M5.463 127.456c-.006 21.677 5.658 42.843 16.428 61.499L4.433 252.697l65.232-17.104a123 123 0 0 0 58.8 14.97h.054c67.815 0 123.018-55.183 123.047-123.01c.013-32.867-12.775-63.773-36.009-87.025c-23.23-23.25-54.125-36.061-87.043-36.076c-67.823 0-123.022 55.18-123.05 123.004"/><path fill="url(#ls-wa-b)" d="M1.07 127.416c-.007 22.457 5.86 44.38 17.014 63.704L0 257.147l67.571-17.717c18.618 10.151 39.58 15.503 60.91 15.511h.055c70.248 0 127.434-57.168 127.464-127.423c.012-34.048-13.236-66.065-37.3-90.15C194.633 13.286 162.633.014 128.536 0C58.276 0 1.099 57.16 1.071 127.416m40.24 60.376l-2.523-4.005c-10.606-16.864-16.204-36.352-16.196-56.363C22.614 69.029 70.138 21.52 128.576 21.52c28.3.012 54.896 11.044 74.9 31.06c20.003 20.018 31.01 46.628 31.003 74.93c-.026 58.395-47.551 105.91-105.943 105.91h-.042c-19.013-.01-37.66-5.116-53.922-14.765l-3.87-2.295l-40.098 10.513z"/><path fill="#fff" d="M96.678 74.148c-2.386-5.303-4.897-5.41-7.166-5.503c-1.858-.08-3.982-.074-6.104-.074c-2.124 0-5.575.799-8.492 3.984c-2.92 3.188-11.148 10.892-11.148 26.561s11.413 30.813 13.004 32.94c1.593 2.123 22.033 35.307 54.405 48.073c26.904 10.609 32.379 8.499 38.218 7.967c5.84-.53 18.844-7.702 21.497-15.139c2.655-7.436 2.655-13.81 1.859-15.142c-.796-1.327-2.92-2.124-6.105-3.716s-18.844-9.298-21.763-10.361c-2.92-1.062-5.043-1.592-7.167 1.597c-2.124 3.184-8.223 10.356-10.082 12.48c-1.857 2.129-3.716 2.394-6.9.801c-3.187-1.598-13.444-4.957-25.613-15.806c-9.468-8.442-15.86-18.867-17.718-22.056c-1.858-3.184-.199-4.91 1.398-6.497c1.431-1.427 3.186-3.719 4.78-5.578c1.588-1.86 2.118-3.187 3.18-5.311c1.063-2.126.531-3.986-.264-5.579c-.798-1.593-6.987-17.343-9.819-23.64"/></svg>',
+  instagram: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 256 256"><g fill="none"><rect width="256" height="256" fill="url(#ls-ig-a)" rx="60"/><rect width="256" height="256" fill="url(#ls-ig-b)" rx="60"/><path fill="#fff" d="M128.009 28c-27.158 0-30.567.119-41.233.604c-10.646.488-17.913 2.173-24.271 4.646c-6.578 2.554-12.157 5.971-17.715 11.531c-5.563 5.559-8.98 11.138-11.542 17.713c-2.48 6.36-4.167 13.63-4.646 24.271c-.477 10.667-.602 14.077-.602 41.236s.12 30.557.604 41.223c.49 10.646 2.175 17.913 4.646 24.271c2.556 6.578 5.973 12.157 11.533 17.715c5.557 5.563 11.136 8.988 17.709 11.542c6.363 2.473 13.631 4.158 24.275 4.646c10.667.485 14.073.604 41.23.604c27.161 0 30.559-.119 41.225-.604c10.646-.488 17.921-2.173 24.284-4.646c6.575-2.554 12.146-5.979 17.702-11.542c5.563-5.558 8.979-11.137 11.542-17.712c2.458-6.361 4.146-13.63 4.646-24.272c.479-10.666.604-14.066.604-41.225s-.125-30.567-.604-41.234c-.5-10.646-2.188-17.912-4.646-24.27c-2.563-6.578-5.979-12.157-11.542-17.716c-5.562-5.562-11.125-8.979-17.708-11.53c-6.375-2.474-13.646-4.16-24.292-4.647c-10.667-.485-14.063-.604-41.23-.604zm-8.971 18.021c2.663-.004 5.634 0 8.971 0c26.701 0 29.865.096 40.409.575c9.75.446 15.042 2.075 18.567 3.444c4.667 1.812 7.994 3.979 11.492 7.48c3.5 3.5 5.666 6.833 7.483 11.5c1.369 3.52 3 8.812 3.444 18.562c.479 10.542.583 13.708.583 40.396s-.104 29.855-.583 40.396c-.446 9.75-2.075 15.042-3.444 18.563c-1.812 4.667-3.983 7.99-7.483 11.488c-3.5 3.5-6.823 5.666-11.492 7.479c-3.521 1.375-8.817 3-18.567 3.446c-10.542.479-13.708.583-40.409.583c-26.702 0-29.867-.104-40.408-.583c-9.75-.45-15.042-2.079-18.57-3.448c-4.666-1.813-8-3.979-11.5-7.479s-5.666-6.825-7.483-11.494c-1.369-3.521-3-8.813-3.444-18.563c-.479-10.542-.575-13.708-.575-40.413s.096-29.854.575-40.396c.446-9.75 2.075-15.042 3.444-18.567c1.813-4.667 3.983-8 7.484-11.5s6.833-5.667 11.5-7.483c3.525-1.375 8.819-3 18.569-3.448c9.225-.417 12.8-.542 31.437-.563zm62.351 16.604c-6.625 0-12 5.37-12 11.996c0 6.625 5.375 12 12 12s12-5.375 12-12s-5.375-12-12-12zm-53.38 14.021c-28.36 0-51.354 22.994-51.354 51.355s22.994 51.344 51.354 51.344c28.361 0 51.347-22.983 51.347-51.344c0-28.36-22.988-51.355-51.349-51.355zm0 18.021c18.409 0 33.334 14.923 33.334 33.334c0 18.409-14.925 33.334-33.334 33.334s-33.333-14.925-33.333-33.334c0-18.411 14.923-33.334 33.333-33.334"/><defs><radialGradient id="ls-ig-a" cx="0" cy="0" r="1" gradientTransform="matrix(0 -253.715 235.975 0 68 275.717)" gradientUnits="userSpaceOnUse"><stop stop-color="#fd5"/><stop offset=".1" stop-color="#fd5"/><stop offset=".5" stop-color="#ff543e"/><stop offset="1" stop-color="#c837ab"/></radialGradient><radialGradient id="ls-ig-b" cx="0" cy="0" r="1" gradientTransform="rotate(78.68 -32.69 -16.937)scale(113.412 467.488)" gradientUnits="userSpaceOnUse"><stop stop-color="#3771c8"/><stop offset=".128" stop-color="#3771c8"/><stop offset="1" stop-color="#60f" stop-opacity="0"/></radialGradient></defs></g></svg>',
+  messenger: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 256 256"><defs><radialGradient id="ls-fm-a" cx="19.247%" cy="99.465%" r="108.96%" fx="19.247%" fy="99.465%"><stop offset="0%" stop-color="#09f"/><stop offset="60.975%" stop-color="#a033ff"/><stop offset="93.482%" stop-color="#ff5280"/><stop offset="100%" stop-color="#ff7061"/></radialGradient></defs><path fill="url(#ls-fm-a)" d="M128 0C55.894 0 0 52.818 0 124.16c0 37.317 15.293 69.562 40.2 91.835c2.09 1.871 3.352 4.493 3.438 7.298l.697 22.77c.223 7.262 7.724 11.988 14.37 9.054L84.111 243.9a10.22 10.22 0 0 1 6.837-.501c11.675 3.21 24.1 4.92 37.052 4.92c72.106 0 128-52.818 128-124.16S200.106 0 128 0"/><path fill="#fff" d="m51.137 160.47l37.6-59.653c5.98-9.49 18.788-11.853 27.762-5.123l29.905 22.43a7.68 7.68 0 0 0 9.252-.027l40.388-30.652c5.39-4.091 12.428 2.36 8.82 8.085l-37.6 59.654c-5.981 9.489-18.79 11.852-27.763 5.122l-29.906-22.43a7.68 7.68 0 0 0-9.25.027l-40.39 30.652c-5.39 4.09-12.427-2.36-8.818-8.085"/></svg>',
+  manual: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 20h4L18.5 9.5a2.828 2.828 0 1 0-4-4L4 16zm9.5-13.5l4 4"/></svg>',
+  other: '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0m.6-3h16.8M3.6 15h16.8"/><path d="M11.5 3a17 17 0 0 0 0 18m1-18a17 17 0 0 1 0 18"/></g></svg>'
+};
+
+// Maps a lead's free-text `source` to one of the icons above — case/wording
+// insensitive for the CRM's own values (WhatsApp/Instagram/Messenger), with
+// everything else (the sales portal's Lulu Kiosk, Flyer/Billboard, Phone
+// Call, etc.) falling back to a generic globe rather than going unlabeled.
+// Takes the whole lead row (not just the source string) because a WhatsApp
+// lead with a linked conversation renders as a clickable chat button —
+// Instagram/Messenger stay plain labels since the CRM only gave us a chat
+// API for WhatsApp.
+function leadSourceCell(l) {
+  const source = l.source;
+  if (!source) return '—';
+  const s = source.toLowerCase();
+  const key = s.includes('whatsapp') ? 'whatsapp'
+    : s.includes('instagram') ? 'instagram'
+    : s.includes('messenger') || s === 'facebook' ? 'messenger'
+    : s === 'manual' ? 'manual'
+    : 'other';
+  return `<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">${LEAD_SOURCE_ICONS[key]} ${escB(source)}</span>`;
+}
+
+// ============================================================
 // WHATSAPP PANEL — direct Meta Cloud API inbox (/api/admin/whatsapp,
-// backed by /api/webhooks/whatsapp). Replaces the CRM-relay chat below for
-// WhatsApp specifically; no AI auto-reply, receive/store/manual-reply only.
+// backed by /api/webhooks/whatsapp). No AI auto-reply, receive/store/
+// manual-reply only.
 // Conversation list polls every 10s while the panel is open; an open
 // thread polls every 5s on top of that — both stop the moment showPanel()
 // navigates away (see the stopWhatsappPolling() call in showPanel()).
@@ -9034,8 +9171,26 @@ async function loadWhatsappMessages() {
   }
 }
 
-// Reuses waStatusIcon() (the delivery-tick renderer) — it's a pure
-// function of a status string, nothing CRM-specific about it.
+// WhatsApp delivery-status ticks, outbound messages only. Standard
+// convention: 1 grey check = reached Meta's servers, 2 grey = delivered to
+// the phone, 2 colored (brand green) = read, warning = failed. Unrecognized
+// statuses fall back to the "sent" single check rather than showing
+// nothing. Re-rendered on every 5s poll, so a message visibly progresses
+// from sent → delivered → read as the webhook's own status updates arrive.
+const WA_CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="m5 12l5 5L20 7"/></svg>';
+const WA_CHECKS_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="m7 12l5 5L22 7M2 12l5 5m5-5l5-5"/></svg>';
+const WA_FAILED_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1.67c.955 0 1.845.467 2.39 1.247l.105.16l8.114 13.548a2.914 2.914 0 0 1-2.307 4.363l-.195.008H3.882a2.914 2.914 0 0 1-2.582-4.2l.099-.185l8.11-13.538A2.91 2.91 0 0 1 12 1.67M12.01 15l-.127.007a1 1 0 0 0 0 1.986L12 17l.127-.007a1 1 0 0 0 0-1.986zM12 8a1 1 0 0 0-.993.883L11 9v4l.007.117a1 1 0 0 0 1.986 0L13 13V9l-.007-.117A1 1 0 0 0 12 8"/></svg>';
+
+function waStatusIcon(status) {
+  // Rendered in the timestamp row below the bubble (light background), not
+  // on the blue bubble itself — so these need to be actual greys, not a
+  // near-white meant for sitting on blue.
+  if (status === 'failed') return `<span style="color:#DC2626;" title="Failed to deliver">${WA_FAILED_SVG}</span>`;
+  if (status === 'read') return `<span style="color:#22C55E;" title="Read">${WA_CHECKS_SVG}</span>`;
+  if (status === 'delivered') return `<span style="color:var(--muted);" title="Delivered">${WA_CHECKS_SVG}</span>`;
+  return `<span style="color:var(--muted);" title="Sent">${WA_CHECK_SVG}</span>`; // "sent" + any unrecognized value
+}
+
 // Storage paths are written as "{id}_{original-filename}" (see
 // fetchAndStoreMedia in the webhook and sendMediaMessage in the admin API)
 // specifically so this can recover a real, readable filename from the URL
@@ -9337,8 +9492,14 @@ function insertWaEmoji(emoji) {
   input.setSelectionRange(cursor, cursor);
 }
 
-// ── Voice notes — same record→preview→send-or-discard flow as the CRM
-// chat's (pickRecorderMimeType() is reused as-is, it's channel-agnostic).
+// ── Voice notes — record→preview→send-or-discard flow.
+function pickRecorderMimeType() {
+  const candidates = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+  for (const type of candidates) {
+    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return '';
+}
 let waMediaRecorder = null;
 let waRecordingStream = null;
 let waRecordedChunks = [];
@@ -9633,94 +9794,6 @@ async function deleteWaTemplate(id) {
   }
 }
 
-
-// Delivery-tick status icon + WhatsApp brand mark — small, pure helpers
-// used by the WhatsApp panel above and the Follow-ups calendar's
-// whatsapp-kind chip tag.
-const WA_CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="m5 12l5 5L20 7"/></svg>';
-const WA_CHECKS_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="m7 12l5 5L22 7M2 12l5 5m5-5l5-5"/></svg>';
-const WA_FAILED_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1.67c.955 0 1.845.467 2.39 1.247l.105.16l8.114 13.548a2.914 2.914 0 0 1-2.307 4.363l-.195.008H3.882a2.914 2.914 0 0 1-2.582-4.2l.099-.185l8.11-13.538A2.91 2.91 0 0 1 12 1.67M12.01 15l-.127.007a1 1 0 0 0 0 1.986L12 17l.127-.007a1 1 0 0 0 0-1.986zM12 8a1 1 0 0 0-.993.883L11 9v4l.007.117a1 1 0 0 0 1.986 0L13 13V9l-.007-.117A1 1 0 0 0 12 8"/></svg>';
-
-function waStatusIcon(status) {
-  // Rendered in the timestamp row below the bubble (light background), not
-  // on the blue bubble itself — so these need to be actual greys, not a
-  // near-white meant for sitting on blue.
-  if (status === 'failed') return `<span style="color:#DC2626;" title="Failed to deliver">${WA_FAILED_SVG}</span>`;
-  if (status === 'read') return `<span style="color:#22C55E;" title="Read">${WA_CHECKS_SVG}</span>`;
-  if (status === 'delivered') return `<span style="color:var(--muted);" title="Delivered">${WA_CHECKS_SVG}</span>`;
-  return `<span style="color:var(--muted);" title="Sent">${WA_CHECK_SVG}</span>`; // "sent" + any unrecognized value
-}
-
-// WhatsApp brand mark — used as a tiny inline tag on the unified Follow-ups
-// calendar/list for a whatsapp-kind entry (see renderFollowupCalendar).
-const WA_BRAND_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 256 258"><defs><linearGradient id="wa-brand-a" x1="50%" x2="50%" y1="100%" y2="0%"><stop offset="0%" stop-color="#1faf38"/><stop offset="100%" stop-color="#60d669"/></linearGradient><linearGradient id="wa-brand-b" x1="50%" x2="50%" y1="100%" y2="0%"><stop offset="0%" stop-color="#f9f9f9"/><stop offset="100%" stop-color="#fff"/></linearGradient></defs><path fill="url(#wa-brand-a)" d="M5.463 127.456c-.006 21.677 5.658 42.843 16.428 61.499L4.433 252.697l65.232-17.104a123 123 0 0 0 58.8 14.97h.054c67.815 0 123.018-55.183 123.047-123.01c.013-32.867-12.775-63.773-36.009-87.025c-23.23-23.25-54.125-36.061-87.043-36.076c-67.823 0-123.022 55.18-123.05 123.004"/><path fill="url(#wa-brand-b)" d="M1.07 127.416c-.007 22.457 5.86 44.38 17.014 63.704L0 257.147l67.571-17.717c18.618 10.151 39.58 15.503 60.91 15.511h.055c70.248 0 127.434-57.168 127.464-127.423c.012-34.048-13.236-66.065-37.3-90.15C194.633 13.286 162.633.014 128.536 0C58.276 0 1.099 57.16 1.071 127.416m40.24 60.376l-2.523-4.005c-10.606-16.864-16.204-36.352-16.196-56.363C22.614 69.029 70.138 21.52 128.576 21.52c28.3.012 54.896 11.044 74.9 31.06c20.003 20.018 31.01 46.628 31.003 74.93c-.026 58.395-47.551 105.91-105.943 105.91h-.042c-19.013-.01-37.66-5.116-53.922-14.765l-3.87-2.295l-40.098 10.513z"/><path fill="#fff" d="M96.678 74.148c-2.386-5.303-4.897-5.41-7.166-5.503c-1.858-.08-3.982-.074-6.104-.074c-2.124 0-5.575.799-8.492 3.984c-2.92 3.188-11.148 10.892-11.148 26.561s11.413 30.813 13.004 32.94c1.593 2.123 22.033 35.307 54.405 48.073c26.904 10.609 32.379 8.499 38.218 7.967c5.84-.53 18.844-7.702 21.497-15.139c2.655-7.436 2.655-13.81 1.859-15.142c-.796-1.327-2.92-2.124-6.105-3.716s-18.844-9.298-21.763-10.361c-2.92-1.062-5.043-1.592-7.167 1.597c-2.124 3.184-8.223 10.356-10.082 12.48c-1.857 2.129-3.716 2.394-6.9.801c-3.187-1.598-13.444-4.957-25.613-15.806c-9.468-8.442-15.86-18.867-17.718-22.056c-1.858-3.184-.199-4.91 1.398-6.497c1.431-1.427 3.186-3.719 4.78-5.578c1.588-1.86 2.118-3.187 3.18-5.311c1.063-2.126.531-3.986-.264-5.579c-.798-1.593-6.987-17.343-9.819-23.64"/></svg>';
-
-async function loadFollowups() {
-  const el = document.getElementById('followups-list');
-  el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading follow-ups...</div>';
-  const [{ data, error }, { data: leadData, error: leadError }, { data: waData, error: waError }] = await Promise.all([
-    dbAdmin.from('customer_followups').select('*, customers(id, name, phone)').order('followup_date', { ascending: true }),
-    dbAdmin.from('lead_followups').select('*, leads(id, name, phone)').order('followup_date', { ascending: true }),
-    dbAdmin.from('whatsapp_followups').select('*, whatsapp_conversations(id, contact_name, phone)').order('followup_date', { ascending: true })
-  ]);
-  if (error) {
-    console.error(error);
-    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">Could not load follow-ups.</div>';
-    return;
-  }
-  if (leadError) console.error(leadError);
-  if (waError) console.error(waError);
-  // Unified list: every follow-up — customer, lead, or WhatsApp conversation
-  // — tagged with .kind so the calendar/list can show them together and
-  // route clicks/actions to the right modal.
-  const customerRows = (data || []).map(r => ({ ...r, kind: 'customer', name: r.customers?.name, phone: r.customers?.phone }));
-  const leadRows = (leadData || []).map(r => ({ ...r, kind: 'lead', name: r.leads?.name, phone: r.leads?.phone }));
-  const waRows = (waData || []).map(r => ({ ...r, kind: 'whatsapp', name: r.whatsapp_conversations?.contact_name, phone: r.whatsapp_conversations?.phone }));
-  allFollowups = [...customerRows, ...leadRows, ...waRows].sort((a, b) => a.followup_date.localeCompare(b.followup_date));
-  updateFollowupBadge();
-  renderFollowups();
-}
-
-/** Calendar/list chip click: routes to the right modal for this follow-up's kind. */
-function openFollowupChip(kind, id, parentId) {
-  if (kind === 'lead') openLeadFollowupModal(parentId);
-  else if (kind === 'whatsapp') openWaFollowupModal(parentId);
-  else openFollowupModal(null, id);
-}
-
-// Follow-up view state — calendar is the default.
-let followupView = 'calendar';
-let followupCalMonth = (() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d; })();
-
-function setFollowupView(v) {
-  followupView = v;
-  document.getElementById('fup-view-cal').className  = 'btn btn-sm' + (v === 'calendar' ? '' : ' btn-ghost');
-  document.getElementById('fup-view-list').className = 'btn btn-sm' + (v === 'list' ? '' : ' btn-ghost');
-  document.getElementById('fup-cal-nav').style.display = (v === 'calendar') ? 'flex' : 'none';
-  renderFollowups();
-}
-function followupMonthShift(n) { followupCalMonth.setMonth(followupCalMonth.getMonth() + n); renderFollowups(); }
-function followupMonthToday()  { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); followupCalMonth = d; renderFollowups(); }
-
-function updateFollowupBadge() {
-  const W = window.SADA.Warranty;
-  const due = allFollowups.filter(f => f.status === 'pending' && W.daysUntil(f.followup_date) <= 0).length;
-  const b = document.getElementById('badge-followups');
-  if (due) { b.textContent = due; b.style.display = 'inline-flex'; } else { b.style.display = 'none'; }
-}
-
-function renderFollowups() {
-  if (followupView === 'calendar') return renderFollowupCalendar();
-  return renderFollowupList();
-}
-
-// Same line-art icon as the Leads nav item / sales portal's "Lead" group —
-// used anywhere a lead follow-up needs a small inline marker.
-const LEAD_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><path d="M0 0h24v24H0z" fill="none"/><g fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m16.719 19.752l-.64-5.124A3 3 0 0 0 13.101 12h-2.204a3 3 0 0 0-2.976 2.628l-.641 5.124A2 2 0 0 0 9.266 22h5.468a2 2 0 0 0 1.985-2.248"/><circle cx="12" cy="5" r="3"/><circle cx="4" cy="9" r="2"/><circle cx="20" cy="9" r="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 14h-.306a2 2 0 0 0-1.973 1.671l-.333 2A2 2 0 0 0 3.361 20H7m13-6h.306a2 2 0 0 1 1.973 1.671l.333 2A2 2 0 0 1 20.639 20H17"/></g></svg>';
-
-// The Follow-ups icon (nav item, Overview tile, activity log, per-lead button).
-const FOLLOWUP_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M21 3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6.455L2 22.5V4a1 1 0 0 1 1-1zm-1 2H4v13.385L5.763 17H20zm-3 2v8h-2V7zm-6 1v1.999L13 10v2l-2-.001V14H9v-2.001L7 12v-2l2-.001V8z"/></svg>';
-
 /** Colour for a follow-up: done = grey, overdue = red, today/soon = amber, else green. */
 function followupColor(x) {
   const W = window.SADA.Warranty;
@@ -9764,7 +9837,7 @@ function renderFollowupCalendar() {
     const chips = items.slice(0, 3).map(x => {
       const c = followupColor(x);
       const done = x.status === 'done';
-      const tag = x.kind === 'lead' ? LEAD_ICON_SVG + ' ' : x.kind === 'whatsapp' ? WA_BRAND_ICON_SVG + ' ' : '';
+      const tag = x.kind === 'lead' ? LEAD_ICON_SVG + ' ' : x.kind === 'whatsapp' ? LEAD_SOURCE_ICONS.whatsapp + ' ' : '';
       const kindLabel = x.kind === 'lead' ? 'Lead' : x.kind === 'whatsapp' ? 'WhatsApp' : 'Customer';
       return `<div onclick="event.stopPropagation();openFollowupChip('${x.kind}','${x.id}','${x.lead_id || x.conversation_id || ''}')"
         title="${kindLabel}: ${W.esc(x.name || '')} — ${W.esc(x.note)}"
