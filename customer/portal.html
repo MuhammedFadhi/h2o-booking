@@ -20,30 +20,191 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:opsz,wght@9..40,1..1000&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
   <style>
-    :root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#E2E8F0;--bg:#F8FAFC;--green:#16A34A;--red:#DC2626;--amber:#D97706;}
+    :root{--deep:#0A1628;--ocean:#0D3B6E;--water:#1565C0;--foam:#E3F2FD;--white:#FFFFFF;--text:#1A2B47;--muted:#607D8B;--border:#E2E8F0;--bg:#F8FAFC;--green:#16A34A;--red:#DC2626;--amber:#D97706;
+      /* Accent gradient for the greeting header + bottom nav only — every
+         button/link/action stays SADA blue (--water). Not a rebrand. */
+      --dark-grad:linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%);
+      --dark-grad-glass:linear-gradient(135deg,rgba(74,111,165,0.38) 0%,rgba(26,39,68,0.48) 55%,rgba(5,6,10,0.62) 100%);}
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;}
-    header{background:linear-gradient(135deg,var(--deep),var(--ocean));padding:0 24px;padding-top:env(safe-area-inset-top);height:calc(72px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 4px 20px rgba(10,22,40,0.2);}
-    header img{height:60px;}
-    .header-right{display:flex;align-items:center;gap:12px;}
-    .user-chip{background:rgba(255,255,255,0.12);border-radius:20px;padding:6px 14px;font-size:13px;color:white;display:flex;align-items:center;gap:8px;}
-    .logout-btn{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.85);padding:6px 14px;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;transition:background 0.15s;}
-    .logout-btn:hover{background:rgba(255,255,255,0.18);color:white;}
-    .container{max-width:720px;margin:0 auto;padding:28px 16px calc(40px + env(safe-area-inset-bottom));}
-    .tabs{display:flex;gap:4px;background:white;border-radius:14px;padding:5px;border:1px solid var(--border);margin-bottom:24px;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
-    .tab{flex:1;padding:10px;border-radius:10px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted);background:none;transition:all 0.15s;text-align:center;}
-    .tab:hover:not(.active){color:var(--text);background:var(--bg);}
-    .tab.active{background:var(--water);color:white;box-shadow:0 2px 8px rgba(21,101,192,0.35);}
+    body{font-family:'DM Sans',sans-serif;background:var(--deep);color:var(--text);min-height:100dvh;}
+
+    /* Animated background — a dedicated fixed layer behind everything
+       (z-index:-1, sits behind body's normal-flow content automatically)
+       instead of animating background-position/size directly, which is
+       janky on mobile. Overscanned 6% on every side so the scale/pan
+       drift never reveals an edge. transform-only animation stays on the
+       GPU compositor. prefers-reduced-motion is already handled by the
+       blanket *{animation-duration:0.01ms!important} rule further down. */
+    #bg-anim{position:fixed;inset:-6%;z-index:-1;
+      background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat;
+      animation:bgDrift 26s ease-in-out infinite alternate;will-change:transform;}
+    @keyframes bgDrift{
+      0%{transform:scale(1) translate(0,0);}
+      50%{transform:scale(1.07) translate(-1.5%,-1%);}
+      100%{transform:scale(1.03) translate(1.2%,1.6%);}
+    }
+
+    /* HEADER — a dark-gradient greeting card (accent only, see --dark-grad
+       above) instead of a plain white bar. The avatar+name area is a button
+       that opens the Profile modal. Flush to the top/left/right screen
+       edges (per reference), rounded only at the bottom corners — not an
+       inset floating card. */
+    /* Just the profile-icon button now (no name/greeting card) — same look
+       as .home-hero-avatar on the Home hero, no background/blur/shadow of
+       its own since there's no card left to give it one. */
+    header{padding:16px 20px;padding-top:calc(16px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;max-width:720px;margin:0 auto;}
+    .header-logo{height:60px;display:block;}
+    .icon-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:white;color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;flex-shrink:0;transition:all 0.15s;}
+    .icon-btn:hover{border-color:var(--red);color:var(--red);background:#FEF2F2;}
+
+    /* HOME HERO — replaces the generic <header> only while the Home tab is
+       active (toggled in switchTab()). Full-bleed like <header>, same
+       rounded-bottom-corner treatment. Background is a placeholder gradient
+       until the real photo asset is dropped in — swap the `background`
+       line on .home-hero for `background:url(...) center/cover` then. */
+    /* No background-image of its own anymore — body now carries the same
+       photo for the whole page, and this just adds extra dark overlay on
+       top of it (for text contrast) rather than a second, misaligned copy. */
+    .home-hero{display:none;background:linear-gradient(180deg, rgba(5,8,16,0.1) 0%, rgba(5,8,16,0.5) 75%, rgba(5,8,16,0.7) 100%);
+      border:1px solid rgba(255,255,255,0.12);border-top:none;border-radius:0 0 30px 30px;
+      padding:calc(20px + env(safe-area-inset-top)) 22px 30px;box-shadow:0 14px 30px -14px rgba(5,6,10,0.45);
+      max-width:720px;margin:0 auto;}
+    .home-hero.active{display:block;}
+    .home-hero-topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;}
+    .home-hero-logo{height:90px;display:block;}
+    .home-hero-avatar{width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;flex-shrink:0;
+      background:linear-gradient(135deg,var(--water),var(--ocean));color:#fff;
+      display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px -4px rgba(21,101,192,0.6);}
+    .home-hero-avatar svg{width:19px;height:19px;}
+    .home-hero-greet{font-family:'Inter',sans-serif;font-weight:260;color:#fff;font-size:34px;line-height:1.18;margin-bottom:18px;}
+    .home-hero-greet span{display:block;}
+    .home-hero-status{font-family:'Inter',sans-serif;font-weight:220;color:rgba(255,255,255,0.88);font-size:18px;line-height:1.45;margin-bottom:20px;max-width:380px;}
+    .home-hero-cta{font-family:'Inter',sans-serif;font-weight:200;font-size:13px;letter-spacing:0.5px;text-transform:uppercase;
+      color:#fff;border:none;cursor:pointer;padding:13px 26px;border-radius:12px;
+      background:linear-gradient(135deg,#8BC34A,#43A047);box-shadow:0 8px 18px -6px rgba(67,160,71,0.55);}
+
+    /* HOME ACTION CARDS — New Installation / Repair, sit on the page's own
+       dark gradient (body already carries --dark-grad), just below the hero. */
+    .home-actions{display:flex;flex-direction:column;gap:14px;margin-top:28px;}
+    .home-action-card{display:flex;align-items:center;gap:16px;width:100%;text-align:left;border:1px solid rgba(255,255,255,0.14);border-radius:18px;padding:18px 22px;cursor:pointer;transition:transform 0.15s;}
+    .home-action-card:hover{transform:translateY(-1px);}
+    .home-action-card.dark{background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);}
+    .home-action-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;background:rgba(255,255,255,0.14);color:#fff;}
+    .home-action-text{flex:1;min-width:0;}
+    .home-action-title{font-family:'Inter',sans-serif;font-weight:260;font-size:21px;color:#fff;margin-bottom:4px;}
+    .home-action-sub{font-family:'Inter',sans-serif;font-weight:200;font-size:13px;color:rgba(255,255,255,0.65);}
+
+    .container{max-width:720px;margin:0 auto;padding:20px 16px calc(90px + env(safe-area-inset-bottom));}
+
+    /* HERO BANNER — next-booking summary or a promo CTA, top of My Bookings */
+    .hero-banner{background:linear-gradient(135deg,var(--ocean),var(--water));border-radius:22px;padding:22px 24px;margin-bottom:20px;color:white;box-shadow:0 12px 28px -10px rgba(13,59,110,0.5);cursor:default;}
+    .hero-banner.clickable{cursor:pointer;transition:transform 0.15s;}
+    .hero-banner.clickable:hover{transform:translateY(-2px);}
+    .hero-banner-label{font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.6px;opacity:0.8;text-transform:uppercase;margin-bottom:8px;}
+    .hero-banner-title{font-family:'Inter',sans-serif;font-size:21px;font-weight:500;margin-bottom:4px;}
+    .hero-banner-sub{font-family:'Inter',sans-serif;font-size:13px;opacity:0.9;line-height:1.5;}
+
+    /* BOTTOM NAV — floating dark pill (same accent gradient as the header),
+       not an edge-to-edge white bar. .tab / .tabs classes are kept so
+       switchTab()'s existing selectors (`.tab`, `el.classList`) need zero
+       JS changes. */
+    .tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border:1px solid rgba(255,255,255,0.14);border-bottom:none;border-radius:20px 20px 0 0;box-shadow:0 14px 30px -12px rgba(5,6,10,0.5);padding:7px 7px calc(7px + env(safe-area-inset-bottom));z-index:60;max-width:720px;margin:0 auto;}
+    /* Raised above .sheet-modal (300) only while the Book Again modal is
+       open (toggled in openBookModal()/closeBookModal()) — not done as a
+       base z-index change, since that would also push it on top of the
+       Reschedule bottom-sheet and collide with its own buttons down there. */
+    .tabs.above-modal{z-index:400;}
+    .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:14px;border:none;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;cursor:pointer;color:rgba(255,255,255,0.55);background:none;transition:all 0.15s;}
+    .tab svg{width:22px;height:22px;}
+    .tab:hover:not(.active){color:rgba(255,255,255,0.85);}
+    .tab.active{color:#fff;background:var(--water);}
+
     .tab-panel{display:none;}
     .tab-panel.active{display:block;}
 
-    /* BOOKING CARDS */
-    .booking-card{background:white;border-radius:18px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px;box-shadow:0 1px 3px rgba(15,23,42,0.04);transition:box-shadow 0.15s,transform 0.15s;}
-    .booking-card:hover{box-shadow:0 6px 20px rgba(15,23,42,0.08);transform:translateY(-1px);}
-    .booking-card-header{padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--border);}
-    .booking-ref{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--water);}
+    /* Book Again / Profile are full-screen modals now, not bottom-nav tabs. */
+    .sheet-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;}
+    .sheet-modal.open{display:block;}
+    .sheet-modal-inner{position:absolute;inset:0;background:var(--bg);overflow-y:auto;}
+    .sheet-modal-header{position:sticky;top:0;background:white;border-bottom:1px solid var(--border);padding:16px 20px;padding-top:calc(16px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px;z-index:5;}
+    .sheet-modal-header h2{font-family:'Playfair Display',serif;font-size:19px;color:var(--deep);flex:1;}
+    .sheet-modal-body{padding:20px 16px calc(32px + env(safe-area-inset-bottom));max-width:720px;margin:0 auto;}
+
+    /* BOOK AGAIN MODAL — dark glass, matching the rest of the redesign.
+       Scoped to #book-modal specifically: .sheet-modal/.sheet-modal-inner/
+       .sheet-modal-header/.form-group are shared with Profile and Reschedule,
+       which stay light for now. */
+    /* z-index establishes a local stacking context here — without it,
+       .book-modal-bg's z-index:-1 escapes all the way to the page's root
+       stacking context (position:absolute alone doesn't create one) and
+       renders behind the ENTIRE page instead of just behind this modal's
+       own content, which is why it was invisible under the plain --deep
+       fallback. */
+    #book-modal .sheet-modal-inner{background:var(--deep);z-index:1;}
+    /* Same animated-layer trick as #bg-anim, scoped to this modal since it's
+       its own opaque overlay sitting above body. .sheet-modal-inner is
+       position:absolute, so it's this div's z-index:-1 containing block —
+       no need to touch .sheet-modal-body's stacking (.sheet-modal-header
+       already has z-index:5). */
+    #book-modal .book-modal-bg{position:fixed;inset:-6%;z-index:-1;pointer-events:none;
+      background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat;
+      animation:bgDrift 26s ease-in-out infinite alternate;will-change:transform;}
+    #book-modal .sheet-modal-header{background:var(--dark-grad-glass);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border-bottom-color:rgba(255,255,255,0.12);}
+    /* .tabs now floats on top of this modal (see .above-modal) — give the
+       bottom of the form the same clearance .container already uses, so
+       "Confirm Booking" isn't hidden under the nav bar. */
+    #book-modal .sheet-modal-body{padding-bottom:calc(90px + env(safe-area-inset-bottom));}
+    #book-modal .sheet-modal-header h2{color:#fff;}
+    #book-modal .icon-btn{border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);}
+    #book-modal .icon-btn:hover{border-color:#fff;color:#fff;background:rgba(255,255,255,0.18);}
+    #book-modal .section-sub{color:rgba(255,255,255,0.65);}
+    #book-modal .form-group label{color:#fff;}
+    #book-modal .form-group input,#book-modal .form-group select{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.2);color:#fff;}
+    #book-modal .form-group input::placeholder{color:rgba(255,255,255,0.4);}
+    #book-modal .form-group select:disabled{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.4);}
+    #book-modal .form-group select option{color:#1A2B47;}
+
+    /* PROFILE MODAL — same dark-glass treatment as #book-modal, in Inter
+       instead of the app-wide DM Sans/Playfair mix. */
+    #profile-modal .sheet-modal-inner{background:var(--deep);z-index:1;}
+    #profile-modal .book-modal-bg{position:fixed;inset:-6%;z-index:-1;pointer-events:none;
+      background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat;
+      animation:bgDrift 26s ease-in-out infinite alternate;will-change:transform;}
+    #profile-modal .sheet-modal-header{background:var(--dark-grad-glass);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border-bottom-color:rgba(255,255,255,0.12);}
+    #profile-modal .icon-btn{border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);}
+    #profile-modal .icon-btn:hover{border-color:#fff;color:#fff;background:rgba(255,255,255,0.18);}
+    #profile-modal #profile-phone-display{color:rgba(255,255,255,0.65);}
+    #profile-modal .form-group label{color:#fff;}
+    #profile-modal .form-group input{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.2);color:#fff;}
+    #profile-modal .form-group input::placeholder{color:rgba(255,255,255,0.4);}
+    #profile-modal .form-group input:disabled{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.4);}
+    #profile-modal .profile-card{background:linear-gradient(135deg,rgba(74,111,165,0.12),rgba(26,39,68,0.22));border-color:rgba(255,255,255,0.12);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);box-shadow:0 8px 24px -8px rgba(5,6,10,0.5);}
+    #profile-modal .btn-outline{background:rgba(255,255,255,0.08);}
+    #profile-modal, #profile-modal input, #profile-modal button{font-family:'Inter',sans-serif;}
+    #profile-modal .sheet-modal-header h2{font-family:'Inter',sans-serif;font-weight:500;color:#fff;}
+    #profile-modal .section-title{font-family:'Inter',sans-serif;font-weight:500;color:#fff;}
+
+    /* Full-width "Book a visit" bar at the bottom of Home/Service content,
+       opens Book Again. Replaces a floating circular FAB. */
+    .book-bar{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:15px;margin-top:16px;background:linear-gradient(135deg,var(--ocean),var(--water));color:white;border:none;border-radius:14px;font-family:'Inter',sans-serif;font-size:14px;font-weight:500;cursor:pointer;box-shadow:0 6px 16px -6px rgba(13,59,110,0.5);transition:filter 0.15s;}
+    .book-bar:hover{filter:brightness(0.95);}
+    .book-bar svg{width:19px;height:19px;}
+
+    /* Service tab — flat history feed (reuses js/warranty.js historyList(), dark=true). */
+    .history-card{background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border-radius:18px;border:1px solid rgba(255,255,255,0.14);padding:6px 16px;}
+
+    /* BOOKING CARDS — dark glass, matching the rest of the redesign. Rather
+       than rewrite renderBookingCard()'s markup, redefine --text/--muted/
+       --border/--bg locally: every descendant (inline style or CSS class)
+       that reads var(--text) etc. picks up these dark-appropriate values
+       automatically, without touching the JS. */
+    .booking-card{background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border-radius:20px;border:1px solid rgba(255,255,255,0.14);overflow:hidden;margin-bottom:16px;transition:transform 0.15s;
+      --text:#fff;--muted:rgba(255,255,255,0.55);--border:rgba(255,255,255,0.15);--bg:rgba(255,255,255,0.07);}
+    .booking-card:hover{transform:translateY(-1px);}
+    .booking-card-header{padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid rgba(255,255,255,0.12);}
+    .booking-ref{font-family:'DM Sans',sans-serif;font-size:16px;font-weight:500;color:#fff;}
     .booking-type-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:0.4px;}
     .type-installation{background:#EFF6FF;color:#1D4ED8;}
     .type-quarterly_service, .type-maintenance{background:#F0FDF4;color:#166534;}
@@ -61,7 +222,8 @@
     .progress-step{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;}
     .progress-step:not(:last-child)::after{content:'';position:absolute;top:14px;left:50%;width:100%;height:2px;background:var(--border);z-index:0;}
     .progress-step.done:not(:last-child)::after{background:var(--green);}
-    .progress-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:white;display:flex;align-items:center;justify-content:center;font-size:12px;position:relative;z-index:1;transition:all 0.3s;}
+    .progress-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:var(--bg,white);display:flex;align-items:center;justify-content:center;font-size:12px;position:relative;z-index:1;transition:all 0.3s;}
+    .progress-dot svg{width:14px;height:14px;}
     .progress-step.done .progress-dot{background:var(--green);border-color:var(--green);color:white;}
     .progress-step.active .progress-dot{background:var(--water);border-color:var(--water);color:white;}
     .progress-label{font-size:10px;color:var(--muted);margin-top:6px;text-align:center;font-weight:500;}
@@ -73,21 +235,30 @@
     .btn-outline:hover{border-color:var(--water);color:var(--water);}
     .btn-danger{padding:9px 16px;border:1.5px solid #FECACA;border-radius:10px;background:white;color:var(--red);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;}
     .btn-danger:hover{background:#FEF2F2;}
-    .btn-primary{padding:9px 16px;background:var(--water);color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.15s;}
-    .btn-primary:hover{background:var(--ocean);}
+    /* booking-card sits on dark glass now — these two still hardcode a white
+       background (unlike btn-disabled, which already uses var(--bg)/(--border)
+       and inherits the dark override automatically). */
+    .booking-card .btn-outline{background:rgba(255,255,255,0.08);}
+    .booking-card .btn-outline:hover{border-color:#fff;color:#fff;}
+    .booking-card .btn-danger{background:rgba(255,255,255,0.08);}
+    .booking-card .btn-danger:hover{background:rgba(220,38,38,0.18);}
+    .btn-primary{padding:9px 16px;background:linear-gradient(135deg,var(--ocean),var(--water));color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:filter 0.15s;}
+    .btn-primary:hover{filter:brightness(0.92);}
     .btn-primary:disabled{opacity:0.55;cursor:not-allowed;}
     .btn-wa{padding:9px 16px;background:#25D366;color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;text-decoration:none;transition:background 0.15s;}
     .btn-wa:hover{background:#128C7E;}
     .btn-disabled{padding:9px 16px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:not-allowed;}
 
-    /* BOOK AGAIN */
-    .type-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;}
-    .type-card{border:2px solid var(--border);border-radius:14px;padding:18px;cursor:pointer;text-align:center;transition:all 0.15s;background:white;}
-    .type-card:hover{border-color:var(--water);}
-    .type-card.selected{border-color:var(--water);background:var(--foam);box-shadow:0 2px 8px rgba(21,101,192,0.15);}
-    .type-icon{font-size:28px;margin-bottom:8px;}
-    .type-name{font-size:14px;font-weight:600;color:var(--text);}
-    .type-desc{font-size:12px;color:var(--muted);margin-top:4px;}
+    /* BOOK AGAIN — quick-action icon grid, same visual language as a
+       marketplace app's service-category picker. */
+    .type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;}
+    .type-card{border:1px solid rgba(255,255,255,0.14);border-radius:16px;padding:14px 8px;cursor:pointer;text-align:center;transition:all 0.15s;background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);}
+    .type-card:hover{transform:translateY(-1px);}
+    .type-card.selected{border-color:var(--water);background:linear-gradient(135deg,var(--water),var(--ocean));}
+    .type-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:20px;background:rgba(255,255,255,0.14);color:#fff;}
+    .type-icon svg{width:21px;height:21px;}
+    .type-name{font-size:11.5px;font-weight:700;color:#fff;line-height:1.2;}
+    .type-desc{display:none;}
     .form-group{margin-bottom:16px;}
     .form-group label{display:block;font-size:12px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px;}
     .form-group input,.form-group select{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:var(--white);outline:none;transition:border-color 0.15s,box-shadow 0.15s;}
@@ -95,19 +266,19 @@
     .form-group select:disabled{background:var(--foam);color:var(--muted);cursor:not-allowed;}
 
     /* LOCATION (Book Again) */
-    .location-btn{width:100%;padding:12px;background:var(--foam);border:2px dashed var(--water);border-radius:10px;color:var(--water);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s;margin-top:8px;}
-    .location-btn:hover:not(:disabled){background:#DBEAFE;}
+    .location-btn{width:100%;padding:12px;background:rgba(255,255,255,0.08);border:2px dashed rgba(255,255,255,0.35);border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s;margin-top:8px;}
+    .location-btn:hover:not(:disabled){background:rgba(255,255,255,0.14);}
     .location-btn:disabled{opacity:0.75;cursor:progress;}
     .location-btn.got-location{background:#ECFDF5;border:2px solid #16A34A;color:#15803D;}
     .location-btn.error-location{background:#FEF2F2;border:2px solid #EF4444;color:#B71C1C;}
-    .location-hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;}
-    .location-hint.error{color:var(--red);}
-    #book-map{display:none;margin-top:10px;height:200px;border-radius:10px;overflow:hidden;border:1px solid var(--border);box-shadow:0 2px 8px rgba(15,23,42,0.05);}
+    .location-hint{font-size:12px;color:rgba(255,255,255,0.55);margin-top:6px;line-height:1.5;}
+    .location-hint.error{color:#FCA5A5;}
+    #book-map{display:none;margin-top:10px;height:200px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.2);box-shadow:0 2px 8px rgba(5,6,10,0.3);}
     #book-map.visible{display:block;}
-    .map-caption{font-size:12px;color:var(--muted);margin-top:6px;text-align:center;}
+    .map-caption{font-size:12px;color:rgba(255,255,255,0.55);margin-top:6px;text-align:center;}
 
     .date-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;}
-    .date-box{padding:12px 6px;border:2px solid var(--border);border-radius:12px;cursor:pointer;text-align:center;transition:all 0.15s;background:white;}
+    .date-box{padding:12px 6px;border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;text-align:center;transition:all 0.15s;background:rgba(255,255,255,0.07);color:#fff;}
     .date-box:hover:not(.disabled){border-color:var(--water);}
     .date-box.selected{border-color:var(--water);background:var(--water);color:white;box-shadow:0 4px 12px rgba(21,101,192,0.3);}
     .date-box.disabled{opacity:0.35;cursor:not-allowed;}
@@ -115,14 +286,14 @@
     .date-num{font-size:20px;font-weight:700;line-height:1.2;}
     .date-month{font-size:10px;opacity:0.7;}
     .time-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
-    .time-slot{padding:12px 8px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center;font-size:12px;font-weight:600;transition:all 0.15s;background:white;}
+    .time-slot{padding:12px 8px;border:2px solid rgba(255,255,255,0.15);border-radius:10px;cursor:pointer;text-align:center;font-size:12px;font-weight:600;transition:all 0.15s;background:rgba(255,255,255,0.07);color:#fff;}
     .time-slot:hover:not(.booked){border-color:var(--water);}
     .time-slot.selected{border-color:var(--water);background:var(--water);color:white;}
-    .time-slot.booked{background:var(--bg);color:var(--muted);cursor:not-allowed;text-decoration:line-through;}
+    .time-slot.booked{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.35);cursor:not-allowed;text-decoration:line-through;}
 
     /* PROFILE */
-    .profile-card{background:white;border-radius:18px;border:1px solid var(--border);padding:24px;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
-    .profile-avatar{width:64px;height:64px;background:linear-gradient(135deg,var(--ocean),var(--water));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:white;margin-bottom:16px;box-shadow:0 4px 12px rgba(21,101,192,0.35);}
+    .profile-card{background:white;border-radius:22px;border:1px solid var(--border);padding:24px;box-shadow:0 1px 3px rgba(15,23,42,0.04);}
+    .profile-avatar{width:68px;height:68px;background:linear-gradient(135deg,var(--ocean),var(--water));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:white;margin-bottom:16px;box-shadow:0 4px 12px rgba(21,101,192,0.35);}
 
     /* MISC */
     .section-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--deep);margin-bottom:4px;letter-spacing:-0.01em;}
@@ -130,9 +301,20 @@
     .empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
     .empty-icon{font-size:48px;margin-bottom:12px;opacity:0.5;}
     .loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px;color:var(--muted);}
+    /* body is the dark gradient; the Book/Profile sheet-modals keep their
+       own light background. These re-color just the tab-panel instances
+       (Home/Service/Bookings sit directly on body) — modal instances keep
+       the dark-on-light defaults above. */
+    #tab-home .section-title, #tab-unit .section-title, #tab-service .section-title, #tab-bookings .section-title{color:#fff;}
+    #tab-unit .section-title{font-family:'Inter',sans-serif;font-weight:500;}
+    #tab-service .section-title{font-family:'DM Sans',sans-serif;font-weight:100;}
+    #tab-bookings .section-title{font-family:'Inter',sans-serif;font-weight:500;}
+    #tab-home .section-sub, #tab-unit .section-sub, #tab-service .section-sub, #tab-bookings .section-sub{color:rgba(255,255,255,0.6);}
+    #tab-home .empty-state, #tab-unit .empty-state, #tab-service .empty-state, #tab-bookings .empty-state{color:rgba(255,255,255,0.6);}
+    #tab-home .loading, #tab-unit .loading, #tab-service .loading, #tab-bookings .loading{color:rgba(255,255,255,0.6);}
     .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--water);border-radius:50%;animation:spin 0.8s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg);}}
-    .toast{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));right:24px;background:#1A2B47;color:white;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:500;z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,0.25);}
+    .toast{position:fixed;bottom:calc(96px + env(safe-area-inset-bottom));right:24px;background:#1A2B47;color:white;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:500;z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,0.25);}
     .toast.show{opacity:1;}
     .alert-box{padding:14px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;}
     .alert-info{background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;}
@@ -149,65 +331,147 @@
       .time-grid{grid-template-columns:repeat(2,1fr);}
       .booking-actions{flex-direction:column;}
       .booking-actions a,.booking-actions button{width:100%;justify-content:center;text-align:center;}
-      header{padding:0 16px;padding-top:env(safe-area-inset-top);}
-      header img{height:52px;}
+      header{padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));}
     }
     @media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}}
+
+    /* iOS Safari (and some Android browsers) visibly jitter ANY
+       position:fixed layer during scroll/touch, animated or not — a
+       long-standing WebKit compositing quirk. Disabling just the
+       animation wasn't enough, since plain fixed positioning itself is
+       the actual cause. Touch/coarse-pointer devices (hover:none) drop
+       the separate fixed layer entirely and get an ordinary background
+       that scrolls with the page instead (no shake, since it's not
+       fixed); desktop/mouse devices keep the fixed, animated layer.
+       Placed at the end of the stylesheet deliberately — same selector
+       specificity as the base #bg-anim/.sheet-modal-inner rules above,
+       so source order is what makes this one win. */
+    @media (hover:none) and (pointer:coarse){
+      /* Tried a JS scroll-pinned #bg-anim here (position:absolute +
+         transform:translateY(scrollY)) to keep the fixed-background-reveal
+         effect on mobile too, but on a real device it looked worse than
+         just letting the background scroll with the page like the modals
+         below already do — reverted to that simpler, confirmed-good
+         behavior instead. */
+      #bg-anim, #book-modal .book-modal-bg, #profile-modal .book-modal-bg{display:none;}
+      body{background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center/cover no-repeat, var(--deep);}
+      #book-modal .sheet-modal-inner{background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center top/cover no-repeat, var(--deep);}
+      #profile-modal .sheet-modal-inner{background:linear-gradient(180deg, rgba(5,8,16,0.25) 0%, rgba(5,8,16,0.65) 100%), url('../assets/home-hero-bg.jpg') center top/cover no-repeat, var(--deep);}
+    }
   </style>
 </head>
 <body>
-<header>
-  <a href="https://h2o.sadawater.com" target="_blank"><img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O"></a>
-  <div class="header-right">
-    <div class="user-chip">👤 <span id="user-name-header">My Account</span></div>
-    <button class="logout-btn" onclick="logout()">Sign Out</button>
-  </div>
+<div id="bg-anim"></div>
+<header style="display:none;">
+  <img class="header-logo" src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O">
+  <button class="home-hero-avatar" onclick="openProfileModal()" title="My Profile">
+    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></g></svg>
+  </button>
 </header>
 
+<!-- HOME HERO — shown instead of <header> only while Home is the active tab
+     (see switchTab()). Background is a placeholder gradient; swap for the
+     real photo asset once it's in. -->
+<div class="home-hero active" id="home-hero">
+  <div class="home-hero-topbar">
+    <img class="home-hero-logo" src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O">
+    <button class="home-hero-avatar" onclick="openProfileModal()" title="My Profile">
+      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></g></svg>
+    </button>
+  </div>
+  <h1 class="home-hero-greet">Hello!<span id="home-hero-name">there!</span></h1>
+  <p class="home-hero-status" id="home-hero-status">Loading your unit status…</p>
+  <button class="home-hero-cta" onclick="switchTab('unit')">My Product</button>
+</div>
+
 <div class="container">
-  <div class="tabs">
-    <button class="tab active" onclick="switchTab('bookings',this)">📋 My Bookings</button>
-    <button class="tab" onclick="switchTab('units',this)">🛡️ My Units</button>
-    <button class="tab" onclick="switchTab('book',this)">➕ Book Again</button>
-    <button class="tab" onclick="switchTab('profile',this)">👤 My Profile</button>
+  <nav class="tabs">
+    <button class="tab active" data-tab="home" onclick="switchTab('home')"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12H3l9-9l9 9h-2M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 21v-6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6"/></svg><span>Home</span></button>
+    <button class="tab" data-tab="unit" onclick="switchTab('unit')"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2c-4 5 -6 8.5 -6 11a6 6 0 0 0 12 0c0 -2.5 -2 -6 -6 -11"/></svg><span>My Unit</span></button>
+    <button class="tab" data-tab="service" onclick="switchTab('service')"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/></g></svg><span>Service</span></button>
+    <button class="tab" data-tab="bookings" onclick="switchTab('bookings')"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.5 21H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6M16 3v4M8 3v4m-4 4h16m-5 8l2 2l4-4"/></svg><span>Bookings</span></button>
+  </nav>
+
+  <!-- HOME (default) — the hero (greeting + unit status + My Product) lives
+       in #home-hero above, outside .container, shown instead of <header>
+       while this tab is active. This panel just holds the two action cards
+       below it. The unit list that used to live here moved to My Unit. -->
+  <div class="tab-panel active" id="tab-home">
+    <div class="home-actions">
+      <button class="home-action-card dark" onclick="openBookModal('installation')">
+        <div class="home-action-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 15 15"><path fill="currentColor" d="M13.792 3.262s-1.676 1.675-2.116 2.12a.3.3 0 0 1-.282.097c-.149-.023-.298-.038-.447-.056l-1.229-.146c-.069-.592-.14-1.172-.2-1.753c-.006-.055.033-.13.074-.172c.508-.513 1.927-1.928 2.134-2.136c-.45-.213-1.224-.297-1.8-.203a3.545 3.545 0 0 0-2.82 4.625c.037.115.013.182-.069.264q-2.771 2.766-5.539 5.535a3 3 0 0 0-.178.192a1.457 1.457 0 0 0 .298 2.102c.604.42 1.365.344 1.905-.195q2.78-2.778 5.556-5.56c.092-.092.165-.123.299-.078a3.4 3.4 0 0 0 1.888.089a3.544 3.544 0 0 0 2.655-4.304c-.031-.13-.078-.259-.13-.421"/></svg></div>
+        <div class="home-action-text">
+          <div class="home-action-title">New Installation</div>
+          <div class="home-action-sub">Buy &amp; install new SA'DA unit</div>
+        </div>
+      </button>
+      <button class="home-action-card dark" onclick="openBookModal('repair')">
+        <div class="home-action-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 512 512"><path fill="currentColor" d="m241.406 21l-15.22 34.75a182 182 0 0 0-23.467 2.97l-23.282-30.064l-25.094 8.532l-.125 38.25c-10.63 5.464-20.817 12.07-30.44 19.78L88.313 79.25L70.156 98.563L88.312 133a180.6 180.6 0 0 0-15.218 26.094l-38.938 1.062l-7.906 25.28l31.438 23.158c-1.505 9.38-2.24 18.858-2.282 28.344L20.5 254.625l3.656 26.25l38.313 7.5a182 182 0 0 0 8.5 23.5L45.72 343.22l14.093 22.436l39.25-9.187a185 185 0 0 0 7.718 8.53a187 187 0 0 0 17.72 16.125l-7.625 39.313l22.938 13.25l29.968-26.094a179.4 179.4 0 0 0 26.407 8.312l9.782 38.406l26.405 2.157l15.875-36.22c10.97-.66 21.904-2.3 32.656-4.938l25.22 29.22l24.593-9.844l-.72-14.813l-57.406-43.53c-16.712 4.225-34.042 5.356-51.063 3.436c-31.754-3.58-62.27-17.92-86.218-42.686c-54.738-56.614-53.173-146.67 3.438-201.406c27.42-26.513 62.69-39.963 98-40.344c37.59-.406 75.214 13.996 103.438 43.187c45.935 47.512 52.196 118.985 19.562 173.095l31.97 24.25a181 181 0 0 0 10.75-19.375l38.655-1.063l7.906-25.28l-31.217-23a183 183 0 0 0 2.28-28.594l34.688-17.625l-3.655-26.25l-38.28-7.5a182 182 0 0 0-12.75-32.125l22.81-31.594l-15.25-21.657l-37.56 10.906c-.472-.5-.93-1.007-1.408-1.5a185 185 0 0 0-18.937-17.064l7.188-37.125L334 43.78l-28.5 24.814c-9.226-3.713-18.702-6.603-28.313-8.75l-9.343-36.688zM183.25 174.5c-10.344.118-20.597 2.658-30 7.28l45.22 34.314c13.676 10.376 17.555 30.095 7.06 43.937c-10.498 13.85-30.656 15.932-44.53 5.408l-45.188-34.282c-4.627 24.793 4.135 51.063 25.594 67.344c19.245 14.597 43.944 17.33 65.22 9.688l4.78-1.72l4.03 3.063l135.19 102.564l4.03 3.062l-.344 5.063c-1.637 22.55 7.59 45.61 26.844 60.217c21.46 16.28 49.145 17.63 71.78 6.5l-45.186-34.28c-13.874-10.526-17.282-30.506-6.78-44.344c10.5-13.84 30.537-15.405 44.217-5.032l45.188 34.283c4.616-24.784-4.11-51.067-25.563-67.344c-19.313-14.658-43.817-17.562-64.968-10.033l-4.75 1.688l-4.03-3.063l-135.19-102.562l-4.03-3.063l.344-5.03c1.55-22.387-7.85-45.194-27.157-59.845c-12.544-9.516-27.222-13.978-41.78-13.812zm43.563 90.25l163.875 124.344L379.406 404L215.5 279.625z"/></svg></div>
+        <div class="home-action-text">
+          <div class="home-action-title">Repair/Fix Request</div>
+          <div class="home-action-sub">Get your present Unit fixed</div>
+        </div>
+      </button>
+      <button class="home-action-card dark" onclick="openBookModal('quarterly_service')">
+        <div class="home-action-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m19 1l-1.26 2.75L15 5l2.74 1.26L19 9l1.25-2.74L23 5l-2.75-1.25M9 4L6.5 9.5L1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5M19 15l-1.26 2.74L15 19l2.74 1.25L19 23l1.25-2.75L23 19l-2.75-1.26"/></svg></div>
+        <div class="home-action-text">
+          <div class="home-action-title">Filter Change</div>
+          <div class="home-action-sub">Regular service for your unit</div>
+        </div>
+      </button>
+      <button class="home-action-card dark" onclick="openBookModal('relocation')">
+        <div class="home-action-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M20.96 16.45c.01-.15.04-.3.04-.45v.5zM11 16c0 .71.15 1.39.42 2H6v1c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-8l2.08-6c.2-.58.76-1 1.42-1h11c.66 0 1.22.42 1.42 1L21 11v5c0-2.76-2.24-5-5-5s-5 2.24-5 5m-3-2.5c0-.83-.67-1.5-1.5-1.5S5 12.67 5 13.5S5.67 15 6.5 15S8 14.33 8 13.5M19 10l-1.5-4.5h-11L5 10zm3.87 11.19l-4.11-4.11c.41-1.04.18-2.26-.68-3.11c-.9-.91-2.25-1.09-3.34-.59l1.94 1.94l-1.35 1.36l-1.99-1.95c-.54 1.09-.29 2.44.59 3.35a2.91 2.91 0 0 0 3.12.68l4.11 4.1c.18.19.45.19.63 0l1.04-1.03c.22-.18.22-.5.04-.64"/></svg></div>
+        <div class="home-action-text">
+          <div class="home-action-title">Relocation</div>
+          <div class="home-action-sub">Move your unit to a new address</div>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- MY UNIT — what Home used to show: every unit (real SA'DA + self-reported), warranty/service status. -->
+  <div class="tab-panel" id="tab-unit">
+    <p class="section-title">My Units</p>
+    <div id="home-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
   </div>
 
   <!-- MY BOOKINGS -->
-  <div class="tab-panel active" id="tab-bookings">
+  <div class="tab-panel" id="tab-bookings">
     <p class="section-title">My Installations</p>
     <p class="section-sub">Track your current and past SA'DA H2O bookings.</p>
     <div id="bookings-list"><div class="loading"><div class="spinner"></div> Loading your bookings...</div></div>
+    <div id="hero-banner"></div>
   </div>
 
-  <!-- MY UNITS (warranty) -->
-  <div class="tab-panel" id="tab-units">
-    <p class="section-title">My Units</p>
-    <p class="section-sub">Warranty coverage and service history for every SA'DA H2O purifier you own.</p>
-    <div id="units-list"><div class="loading"><div class="spinner"></div> Loading your units...</div></div>
-  </div>
-
-  <!-- BOOK AGAIN -->
-  <div class="tab-panel" id="tab-book">
-    <p class="section-title">New Booking</p>
+  <!-- BOOK AGAIN — a full-screen modal now, opened from Home's "+" FAB,
+       not a bottom-nav tab. -->
+  <div class="sheet-modal" id="book-modal">
+   <div class="sheet-modal-inner">
+    <div class="book-modal-bg"></div>
+    <div class="sheet-modal-header">
+      <button class="icon-btn" onclick="closeBookModal()" title="Close"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 6l-6 6l6 6"/></svg></button>
+      <h2>New Booking</h2>
+    </div>
+   <div class="sheet-modal-body">
     <p class="section-sub">Choose a service type and select your slot.</p>
     <div class="type-grid">
       <div class="type-card selected" id="type-installation" onclick="selectType('installation')">
-        <div class="type-icon">🚰</div>
+        <div class="type-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 15 15"><path fill="currentColor" d="M13.792 3.262s-1.676 1.675-2.116 2.12a.3.3 0 0 1-.282.097c-.149-.023-.298-.038-.447-.056l-1.229-.146c-.069-.592-.14-1.172-.2-1.753c-.006-.055.033-.13.074-.172c.508-.513 1.927-1.928 2.134-2.136c-.45-.213-1.224-.297-1.8-.203a3.545 3.545 0 0 0-2.82 4.625c.037.115.013.182-.069.264q-2.771 2.766-5.539 5.535a3 3 0 0 0-.178.192a1.457 1.457 0 0 0 .298 2.102c.604.42 1.365.344 1.905-.195q2.78-2.778 5.556-5.56c.092-.092.165-.123.299-.078a3.4 3.4 0 0 0 1.888.089a3.544 3.544 0 0 0 2.655-4.304c-.031-.13-.078-.259-.13-.421"/></svg></div>
         <div class="type-name">Installation</div>
         <div class="type-desc">New RO filter setup</div>
       </div>
       <div class="type-card" id="type-quarterly_service" onclick="selectType('quarterly_service')">
-        <div class="type-icon">🔄</div>
-        <div class="type-name">Maintenance</div>
+        <div class="type-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m19 1l-1.26 2.75L15 5l2.74 1.26L19 9l1.25-2.74L23 5l-2.75-1.25M9 4L6.5 9.5L1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5M19 15l-1.26 2.74L15 19l2.74 1.25L19 23l1.25-2.75L23 19l-2.75-1.26"/></svg></div>
+        <div class="type-name">Filter Change</div>
         <div class="type-desc">Regular service (3 months)</div>
       </div>
       <div class="type-card" id="type-repair" onclick="selectType('repair')">
-        <div class="type-icon">🛠</div>
+        <div class="type-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 512 512"><path fill="currentColor" d="m241.406 21l-15.22 34.75a182 182 0 0 0-23.467 2.97l-23.282-30.064l-25.094 8.532l-.125 38.25c-10.63 5.464-20.817 12.07-30.44 19.78L88.313 79.25L70.156 98.563L88.312 133a180.6 180.6 0 0 0-15.218 26.094l-38.938 1.062l-7.906 25.28l31.438 23.158c-1.505 9.38-2.24 18.858-2.282 28.344L20.5 254.625l3.656 26.25l38.313 7.5a182 182 0 0 0 8.5 23.5L45.72 343.22l14.093 22.436l39.25-9.187a185 185 0 0 0 7.718 8.53a187 187 0 0 0 17.72 16.125l-7.625 39.313l22.938 13.25l29.968-26.094a179.4 179.4 0 0 0 26.407 8.312l9.782 38.406l26.405 2.157l15.875-36.22c10.97-.66 21.904-2.3 32.656-4.938l25.22 29.22l24.593-9.844l-.72-14.813l-57.406-43.53c-16.712 4.225-34.042 5.356-51.063 3.436c-31.754-3.58-62.27-17.92-86.218-42.686c-54.738-56.614-53.173-146.67 3.438-201.406c27.42-26.513 62.69-39.963 98-40.344c37.59-.406 75.214 13.996 103.438 43.187c45.935 47.512 52.196 118.985 19.562 173.095l31.97 24.25a181 181 0 0 0 10.75-19.375l38.655-1.063l7.906-25.28l-31.217-23a183 183 0 0 0 2.28-28.594l34.688-17.625l-3.655-26.25l-38.28-7.5a182 182 0 0 0-12.75-32.125l22.81-31.594l-15.25-21.657l-37.56 10.906c-.472-.5-.93-1.007-1.408-1.5a185 185 0 0 0-18.937-17.064l7.188-37.125L334 43.78l-28.5 24.814c-9.226-3.713-18.702-6.603-28.313-8.75l-9.343-36.688zM183.25 174.5c-10.344.118-20.597 2.658-30 7.28l45.22 34.314c13.676 10.376 17.555 30.095 7.06 43.937c-10.498 13.85-30.656 15.932-44.53 5.408l-45.188-34.282c-4.627 24.793 4.135 51.063 25.594 67.344c19.245 14.597 43.944 17.33 65.22 9.688l4.78-1.72l4.03 3.063l135.19 102.564l4.03 3.062l-.344 5.063c-1.637 22.55 7.59 45.61 26.844 60.217c21.46 16.28 49.145 17.63 71.78 6.5l-45.186-34.28c-13.874-10.526-17.282-30.506-6.78-44.344c10.5-13.84 30.537-15.405 44.217-5.032l45.188 34.283c4.616-24.784-4.11-51.067-25.563-67.344c-19.313-14.658-43.817-17.562-64.968-10.033l-4.75 1.688l-4.03-3.063l-135.19-102.562l-4.03-3.063l.344-5.03c1.55-22.387-7.85-45.194-27.157-59.845c-12.544-9.516-27.222-13.978-41.78-13.812zm43.563 90.25l163.875 124.344L379.406 404L215.5 279.625z"/></svg></div>
         <div class="type-name">Repair</div>
         <div class="type-desc">Fix an issue</div>
       </div>
       <div class="type-card" id="type-relocation" onclick="selectType('relocation')">
-        <div class="type-icon">📦</div>
+        <div class="type-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M20.96 16.45c.01-.15.04-.3.04-.45v.5zM11 16c0 .71.15 1.39.42 2H6v1c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-8l2.08-6c.2-.58.76-1 1.42-1h11c.66 0 1.22.42 1.42 1L21 11v5c0-2.76-2.24-5-5-5s-5 2.24-5 5m-3-2.5c0-.83-.67-1.5-1.5-1.5S5 12.67 5 13.5S5.67 15 6.5 15S8 14.33 8 13.5M19 10l-1.5-4.5h-11L5 10zm3.87 11.19l-4.11-4.11c.41-1.04.18-2.26-.68-3.11c-.9-.91-2.25-1.09-3.34-.59l1.94 1.94l-1.35 1.36l-1.99-1.95c-.54 1.09-.29 2.44.59 3.35a2.91 2.91 0 0 0 3.12.68l4.11 4.1c.18.19.45.19.63 0l1.04-1.03c.22-.18.22-.5.04-.64"/></svg></div>
         <div class="type-name">Relocation</div>
         <div class="type-desc">Move to new address</div>
       </div>
@@ -215,12 +479,16 @@
     <div class="form-group" id="book-product-section">
       <label>Products</label>
       <div id="book-product-grid" style="display:grid;grid-template-columns:1fr;gap:8px;"></div>
-      <div id="book-basket-total" style="display:none;margin-top:10px;padding:10px 14px;background:#EFF6FF;border-radius:10px;font-weight:700;text-align:right;color:#1565C0;"></div>
+      <div id="book-basket-total" style="display:none;margin-top:10px;padding:10px 14px;background:rgba(255,255,255,0.1);border-radius:10px;font-weight:700;text-align:right;color:#fff;"></div>
       <div style="margin-top:10px;display:flex;gap:8px;">
-        <input type="text" id="book-promo-input" placeholder="Promo code (optional)" style="flex:1;text-transform:uppercase;padding:9px 11px;border:1.5px solid var(--border,#d5dde3);border-radius:9px;font-size:13px;">
+        <input type="text" id="book-promo-input" placeholder="Promo code (optional)" style="flex:1;text-transform:uppercase;padding:9px 11px;border:1.5px solid rgba(255,255,255,0.2);border-radius:9px;font-size:13px;background:rgba(255,255,255,0.08);color:#fff;">
         <button type="button" onclick="applyBookPromo()" style="padding:9px 16px;border:none;border-radius:9px;background:#0D3B6E;color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">Apply</button>
       </div>
       <div id="book-promo-msg" style="font-size:12px;margin-top:6px;display:none;"></div>
+    </div>
+    <div class="form-group" id="book-unit-section" style="display:none;">
+      <label>Which Unit?</label>
+      <select id="book-unit-select"></select>
     </div>
     <div class="form-group">
       <label>Region</label>
@@ -258,20 +526,41 @@
     </div>
     <div id="book-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:12px;"></div>
     <button class="btn-primary" id="btn-confirm-booking" onclick="submitNewBooking()" style="width:100%;padding:14px;">Confirm Booking →</button>
+   </div>
+   </div>
   </div>
 
-  <!-- MY PROFILE -->
-  <div class="tab-panel" id="tab-profile">
+  <!-- MY PROFILE — a modal now, opened by tapping the header avatar/name. -->
+  <div class="sheet-modal" id="profile-modal">
+   <div class="sheet-modal-inner">
+    <div class="book-modal-bg"></div>
+    <div class="sheet-modal-header">
+      <button class="icon-btn" onclick="closeProfileModal()" title="Close"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 6l-6 6l6 6"/></svg></button>
+      <h2>My Profile</h2>
+    </div>
+   <div class="sheet-modal-body">
     <div class="profile-card">
-      <div class="profile-avatar">👤</div>
+      <div class="profile-avatar" id="profile-avatar">?</div>
       <p class="section-title" id="profile-name-display">—</p>
       <p style="font-size:13px;color:var(--muted);margin-bottom:24px;" id="profile-phone-display">—</p>
       <div class="form-group"><label>Full Name</label><input type="text" id="profile-name" placeholder="Your name"></div>
       <div class="form-group"><label>City</label><input type="text" id="profile-city" placeholder="Your city"></div>
       <div class="form-group"><label>Address</label><input type="text" id="profile-address" placeholder="Your address"></div>
-      <div class="form-group"><label>Phone (cannot be changed)</label><input type="text" id="profile-phone" disabled style="background:var(--bg);color:var(--muted);"></div>
+      <div class="form-group"><label>Phone (cannot be changed)</label><input type="text" id="profile-phone" disabled></div>
       <button class="btn-primary" onclick="saveProfile()" style="width:100%;padding:14px;">Save Changes</button>
+      <button class="btn-outline" onclick="logout()" style="width:100%;padding:14px;margin-top:10px;color:var(--red);border-color:#FECACA;">Sign Out</button>
     </div>
+   </div>
+   </div>
+  </div>
+
+  <!-- SERVICE — flat history feed: every filter/service/activation event,
+       for both real SA'DA units and self-reported tracking, newest first. -->
+  <div class="tab-panel" id="tab-service">
+    <p class="section-title">Service History</p>
+    <p class="section-sub">Every installation and service visit we've done for you.</p>
+    <div id="service-list"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    <button class="book-bar" onclick="openBookModal()"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"/></svg> Book a Visit</button>
   </div>
 </div>
 
@@ -325,8 +614,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   const { data: stillExists } = await db.from('customers').select('id').eq('phone', customer.phone).maybeSingle();
   if (!stillExists) { logout(); return; }
 
-  document.getElementById('user-name-header').textContent = customer.name || customer.phone;
+  updateAvatars();
   loadProfile();
+  loadHome();
+  loadHomeHero();
   loadMyBookings();
   await loadBookRegionsAndCities();
   if (selectedType === 'installation') loadBookProducts();
@@ -373,39 +664,292 @@ function onBookRegionChange() {
   loadBookDates();
 }
 
-function switchTab(name, el) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById(`tab-${name}`).classList.add('active');
-  // Units are loaded lazily — most visits are about bookings, and this saves
-  // 2 round trips on every portal open.
-  if (name === 'units' && !unitsLoaded) loadUnits();
+function switchTab(name) {
+  // Tapping a nav tab while a modal is open (Book Again / Profile) should
+  // navigate AND close it, like any normal app — otherwise the tab bar
+  // visibly updates but the modal keeps covering everything, which just
+  // looks like the tap did nothing.
+  if (document.getElementById('book-modal')?.classList.contains('open')) closeBookModal();
+  if (document.getElementById('profile-modal')?.classList.contains('open')) closeProfileModal();
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
+  // Home has its own hero (logo + greeting + status) instead of the generic
+  // <header> — swap between them instead of showing both.
+  document.querySelector('header').style.display = name === 'home' ? 'none' : 'flex';
+  document.getElementById('home-hero').classList.toggle('active', name === 'home');
+  // Service is loaded lazily — most visits are about Home/Bookings, and this
+  // saves a round trip on every portal open. Home loads eagerly on page load.
+  if (name === 'service' && !serviceLoaded) loadServiceHistory();
 }
 
-let unitsLoaded = false;
-async function loadUnits() {
-  const el = document.getElementById('units-list');
+// HOME — every unit (real SA'DA + self-reported tracking) in one list.
+async function loadHome() {
+  const el = document.getElementById('home-list');
   if (!window.SADA || !window.SADA.Warranty) {
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Warranty module still loading — please try again in a moment.</p></div>';
     return;
   }
   try {
     const units = await SADA.Warranty.unitsForPhone(customer.phone);
-    unitsLoaded = true;
-    if (!units.length) {
+    // Any booking that still needs its warranty activated — checked against
+    // EVERY existing warranty's own booking_id (not just "does the customer
+    // have zero warranties total"), so a customer with two or more
+    // installations still gets offered activation for a later one even
+    // after an earlier one is already done. If there's a real booking
+    // behind this customer, let them self-activate in-app instead of only
+    // offering the physical QR-sticker scan. Mirrors the same "any booking,
+    // any status, non-dispenser item" eligibility the activate_pending_
+    // warranty RPC itself already uses for a QR scan.
+    const eligible = await findActivatableBooking(units);
+    // A 'pending' unit is exactly the one the Activate card above already
+    // represents — rendering it as a unit card too showed the same unit
+    // twice: once asking to be activated, once right below it with a full
+    // countdown/"2-YR WARRANTY" badge as if it already were (registration_
+    // date, filter_expiry and service_expiry are all stamped at job
+    // completion, before any real activation). Hide pending ones here; once
+    // activated they reappear as a normal card on the next loadHome().
+    const displayUnits = units.filter(u => u.status !== 'pending');
+    const unitCardsHtml = displayUnits.map((u, i) => SADA.Warranty.unitCard(u, i, 'circular')).join('');
+    const activateCardHtml = eligible
+      ? renderActivateCard(eligible.booking.booking_reference, eligible.productLabel, eligible.productModel, eligible.booking.id, eligible.unitIndex, eligible.unitTotal)
+      : '';
+    if (!displayUnits.length && !eligible) {
       el.innerHTML =
         '<div class="empty-state"><div class="empty-icon">🛡️</div>' +
         '<p style="font-weight:700;margin-bottom:6px;">No units registered yet</p>' +
-        '<p style="font-size:13px;color:var(--muted);line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty and start tracking filter and service dates here.</p>' +
+        '<p style="font-size:13px;line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty.</p>' +
+        '</div>';
+    } else {
+      // Activation prompt first (most actionable), existing units below.
+      el.innerHTML = activateCardHtml + (activateCardHtml && unitCardsHtml ? '<div style="height:16px;"></div>' : '') + unitCardsHtml;
+      if (eligible) switchTab('unit');
+    }
+  } catch (e) {
+    console.error('loadHome failed:', e);
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load your units. Please refresh.</p></div>';
+  }
+}
+
+// IN-APP WARRANTY SELF-ACTIVATION — an alternative to the physical QR-sticker
+// scan (warranty/claim.html), for a customer who's logged into the portal but
+// hasn't scanned anything yet. Reuses the exact same activate_pending_warranty
+// RPC the sticker flow calls; the only difference is the serial is generated
+// here instead of being printed on a sticker, since there's no physical code
+// to read. The sticker flow itself is untouched by any of this.
+
+// Newest booking that still needs a warranty — (a) is an Installation (a
+// Repair/Filter Change/Relocation visit is for a unit that should already
+// be covered, never a trigger to activate a NEW one — legacy rows with no
+// booking_type at all default to installation, same convention used
+// elsewhere), (b) has at least one real (non-dispenser, serialized)
+// product, dispensers never getting a warranty like admin's own activation
+// flow.
+//
+// Eligibility is based on TOTALS, not a booking_id link: how many real
+// units has this customer ever bought across all their Installation
+// bookings, vs. how many warranties do they already have ACTIVATED (status
+// active/paused — not pending, not deactivated), linked to a booking or
+// not. A warranty created before booking_id existed — or activated
+// directly by admin — has no link to any specific booking, so matching
+// per-booking alone would wrongly re-offer activation for a unit that's
+// already covered. Credits existing warranties to the OLDEST installations
+// first, so "which booking still needs one" falls out of the running total
+// rather than a direct link.
+//
+// 'pending' is deliberately NOT counted as covered: it's the row the
+// installer's job-completion step auto-creates (js/inspection-report.js,
+// createPendingWarranties()) before anyone has actually activated
+// anything. Counting it as covered used to hide this very card for a unit
+// that still genuinely needs activating — the physical QR-sticker scan was
+// the only way left to activate it. Treating pending the same as "not yet
+// activated" lets the customer finish the job right here instead.
+async function findActivatableBooking(units) {
+  const existingCount = (units || []).filter(u => (u.status === 'active' || u.status === 'paused') && !isBookDispenser(u.product_type)).length;
+
+  const { data: bookings } = await db.from('bookings')
+    .select('id, booking_reference, booking_type, product_model, product_qty, created_at, booking_items(product_model, qty, is_serialized)')
+    .eq('customer_phone', customer.phone)
+    .order('created_at', { ascending: true });
+
+  let covered = 0;
+  for (const b of (bookings || [])) {
+    if (b.booking_type && b.booking_type !== 'installation') continue;
+    const items = (b.booking_items && b.booking_items.length)
+      ? b.booking_items
+      : (b.product_model ? [{ product_model: b.product_model, qty: b.product_qty || 1, is_serialized: true }] : []);
+    const real = items.filter(it => it.is_serialized !== false && !isBookDispenser(it.product_model));
+    if (!real.length) continue;
+    const targetQty = real.reduce((s, it) => s + (it.qty || 1), 0);
+    if (covered + targetQty <= existingCount) { covered += targetQty; continue; }
+    const already = Math.max(0, existingCount - covered);
+    return {
+      booking: b,
+      productLabel: real.map(it => it.product_model).join(', '),
+      productModel: real[0].product_model,
+      unitIndex: already + 1,
+      unitTotal: targetQty
+    };
+  }
+  return null;
+}
+
+// The product's own short code (e.g. "7 stage RO - A100" -> "A100") when the
+// model name ends in one, otherwise a derived one from its letters+digits —
+// this becomes the generated serial's prefix, same idea as a real unit's
+// manufacturer-printed serial always starting with its model code.
+function warrantySerialPrefix(modelName) {
+  const m = (modelName || '').match(/-\s*([A-Za-z0-9]{3,6})\s*$/);
+  if (m) return m[1].toUpperCase();
+  const digits = ((modelName || '').match(/\d+/) || [''])[0];
+  const letters = (modelName || '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
+  return (letters + digits).slice(0, 6) || 'RO';
+}
+
+// Avoids ambiguous-looking characters (0/O, 1/I) in the generated portion.
+function randomSerialSuffix(len) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+function renderActivateCard(bookingRef, productLabel, productModel, bookingId, unitIndex, unitTotal) {
+  const encModel = escHtml(productModel || '');
+  const encId = escHtml(bookingId || '');
+  // Generated up front (not at click time) so the serial shown in the
+  // preview is the exact one that gets saved — activateMyWarranty() below
+  // reuses this same value rather than rolling a new one.
+  const serial = warrantySerialPrefix(productModel) + randomSerialSuffix(8);
+  const encSerial = escHtml(serial);
+  const todayLabel = SADA.Warranty.fmtDate(new Date());
+  // A "7 stage RO - A100 ×2" booking is two physical units needing two
+  // separate warranties — flag which one this card is for so it's clear
+  // why the prompt shows again right after activating the first.
+  const multi = unitTotal > 1;
+  const modelRow = multi ? `${escHtml(productLabel || '—')} <span style="color:rgba(255,255,255,0.5);font-weight:400;">(Unit ${unitIndex} of ${unitTotal})</span>` : escHtml(productLabel || '—');
+  return `<div style="background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border:1px solid rgba(255,255,255,0.14);border-radius:20px;padding:26px 22px;text-align:center;">
+    <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--water),var(--ocean));display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:0 8px 18px -6px rgba(21,101,192,0.55);">
+      <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"><g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 8.5-8 10c-4.5-1.5-8-5-8-10V7z"/><path d="M9 12l2 2l4-4"/></g></svg>
+    </div>
+    <p style="font-family:'Inter',sans-serif;font-weight:500;font-size:18px;color:#fff;margin-bottom:6px;">Activate Your Warranty${multi ? ` (${unitIndex}/${unitTotal})` : ''}</p>
+    <p style="font-size:13px;color:rgba(255,255,255,0.6);line-height:1.5;margin-bottom:18px;">${multi ? 'This booking has multiple units — activate them one at a time.' : 'Your purifier is installed — activate now to start your 2-year coverage.'}</p>
+    <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;margin-bottom:18px;text-align:left;">
+      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Booking ID</span><strong style="color:#fff;">${escHtml(bookingRef || '—')}</strong></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Model No</span><strong style="color:#fff;">${modelRow}</strong></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:6px;"><span style="color:rgba(255,255,255,0.55);">Serial No</span><strong style="color:#fff;">${encSerial}</strong></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;"><span style="color:rgba(255,255,255,0.55);">Installed</span><strong style="color:#fff;">${todayLabel}</strong></div>
+    </div>
+    <div id="activate-card-action">
+      <button class="btn-primary" style="width:100%;padding:14px;" onclick="activateMyWarranty('${escHtml(bookingRef || '')}','${encId}','${encSerial}')">Activate Warranty</button>
+    </div>
+  </div>`;
+}
+
+async function activateMyWarranty(bookingRef, bookingId, serial) {
+  const host = document.getElementById('activate-card-action');
+  if (host) host.innerHTML = '<div class="loading" style="padding:14px 0;"><div class="spinner"></div> Activating your warranty…</div>';
+
+  const { data, error } = await db.rpc('activate_pending_warranty', { p_phone: customer.phone, p_serial: serial, p_booking_id: bookingId || null });
+
+  // Dispensers never get a warranty — the eligibility check on My Unit
+  // already keeps this card from offering one, but the RPC enforces it too
+  // (v77/v78, via product_models.is_serialized), so this is a "nothing to
+  // do here" case, not a failure to retry.
+  if (data?.reason === 'dispenser') {
+    showToast('Dispensers don’t need a warranty — nothing to activate.');
+    loadHome();
+    return;
+  }
+
+  if (error || !data || !data.ok) {
+    showToast('Could not activate — please try again.');
+    if (host) host.innerHTML = `<button class="btn-primary" style="width:100%;padding:14px;" onclick="activateMyWarranty('${escHtml(bookingRef || '')}','${escHtml(bookingId || '')}','${escHtml(serial || '')}')">Try Again</button>`;
+    return;
+  }
+
+  if (host) host.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:8px;color:#4ADE80;font-family:\'Inter\',sans-serif;font-weight:500;font-size:14px;padding:4px 0;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="m5 12l5 5L20 7"/></svg> Warranty Activated!</div>';
+  showToast('Warranty activated — your unit is now covered.');
+  setTimeout(() => { loadHome(); loadHomeHero(); }, 1400);
+}
+
+// HOME HERO — greeting + a one-line summary of the featured (most recently
+// registered) unit's service status. Falls back gracefully with no unit, or
+// no service_expiry set yet.
+async function loadHomeHero() {
+  const nameEl = document.getElementById('home-hero-name');
+  const statusEl = document.getElementById('home-hero-status');
+  nameEl.textContent = (customer.name || 'there') + '!';
+
+  if (!window.SADA || !window.SADA.Warranty) { statusEl.textContent = ''; return; }
+  try {
+    const units = await SADA.Warranty.unitsForPhone(customer.phone);
+    if (!units.length) {
+      statusEl.textContent = "You don't have a registered unit yet — add one to track its health here.";
+      return;
+    }
+    const unit = units[0];
+    const W = SADA.Warranty;
+    const status = W.statusOf(unit.service_expiry);
+    const days = W.daysUntil(unit.service_expiry);
+    if (status === 'unknown') {
+      statusEl.textContent = "Keep track of your SA'DA unit's health here.";
+    } else if (status === 'expired') {
+      statusEl.textContent = `Your RO Unit's service is overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'}.`;
+    } else if (status === 'soon') {
+      statusEl.textContent = `Your RO Unit's service is due soon — in ${days} day${days === 1 ? '' : 's'}.`;
+    } else {
+      statusEl.textContent = `Your RO Unit is healthy and the service is due in ${days} days.`;
+    }
+  } catch (e) {
+    console.error('loadHomeHero failed:', e);
+    statusEl.textContent = '';
+  }
+}
+
+// SERVICE — flat history feed: every warranty_service_history entry across
+// ALL the customer's units (real + self-reported), newest first. Reuses
+// SADA.Warranty.historyList()'s existing icon/label rendering as-is.
+let serviceLoaded = false;
+async function loadServiceHistory() {
+  const el = document.getElementById('service-list');
+  if (!window.SADA || !window.SADA.Warranty) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Service module still loading — please try again in a moment.</p></div>';
+    return;
+  }
+  try {
+    const units = await SADA.Warranty.unitsForPhone(customer.phone);
+    serviceLoaded = true;
+    const allHistory = units.flatMap(u => u.history || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    if (!allHistory.length) {
+      el.innerHTML =
+        '<div class="empty-state"><div class="empty-icon">🔧</div>' +
+        '<p style="font-weight:700;margin-bottom:6px;">Nothing here yet</p>' +
+        '<p style="font-size:13px;line-height:1.6;">Every installation and service visit we do for you will show up here.</p>' +
         '</div>';
       return;
     }
-    el.innerHTML = units.map((u, i) => SADA.Warranty.unitCard(u, i)).join('');
+    el.innerHTML = `<div class="history-card">${SADA.Warranty.historyList(allHistory, true)}</div>`;
   } catch (e) {
-    console.error('loadUnits failed:', e);
-    el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load your units. Please refresh.</p></div>';
+    console.error('loadServiceHistory failed:', e);
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>Could not load your service history. Please refresh.</p></div>';
   }
+}
+
+// BOOK AGAIN / PROFILE modals
+function openBookModal(presetType) {
+  document.getElementById('book-modal').classList.add('open');
+  document.querySelector('.tabs')?.classList.add('above-modal');
+  selectType(presetType || 'installation');
+}
+function closeBookModal() {
+  document.getElementById('book-modal').classList.remove('open');
+  document.querySelector('.tabs')?.classList.remove('above-modal');
+}
+function openProfileModal() {
+  document.getElementById('profile-modal').classList.add('open');
+}
+function closeProfileModal() {
+  document.getElementById('profile-modal').classList.remove('open');
 }
 
 function showToast(msg) {
@@ -434,6 +978,14 @@ async function loadProfile() {
   document.getElementById('profile-name-display').textContent = customer.name || 'My Account';
   document.getElementById('profile-phone-display').textContent = customer.phone || '';
   document.getElementById('book-address').value = customer.address || '';
+  updateAvatars();
+}
+
+// The profile-tab avatar circle shows the customer's initial. The header no
+// longer has its own name/avatar display — just the profile icon button.
+function updateAvatars() {
+  const initial = (customer.name || customer.phone || '?').trim().charAt(0).toUpperCase();
+  const p = document.getElementById('profile-avatar'); if (p) p.textContent = initial;
 }
 
 async function saveProfile() {
@@ -443,17 +995,44 @@ async function saveProfile() {
   await db.from('customers').upsert({ phone: customer.phone, name, city, address, updated_at: new Date().toISOString() }, { onConflict: 'phone' });
   customer = { ...customer, name, city, address };
   localStorage.setItem('sada_customer', JSON.stringify(customer));
-  document.getElementById('user-name-header').textContent = name || customer.phone;
   document.getElementById('profile-name-display').textContent = name || 'My Account';
+  updateAvatars();
   showToast('Profile saved!');
 }
 
 // ── MY BOOKINGS ──
+// Top-of-tab banner: the nearest upcoming/in-progress booking, or a promo
+// CTA into Book Again when there's nothing scheduled.
+function renderHeroBanner(data) {
+  const host = document.getElementById('hero-banner');
+  if (!host) return;
+  const typeLabel = (t) => ({ installation:'Installation', repair:'Repair', relocation:'Relocation',
+    quarterly_service:'Filter Change', maintenance:'Filter Change',
+    annual_service:'Annual Service', inspection:'Inspection' })[t] || (t || 'Installation');
+  const upcoming = data.find(b => b.status === 'upcoming' || b.status === 'in_progress');
+  if (upcoming) {
+    host.innerHTML = `
+      <div class="hero-banner">
+        <div class="hero-banner-label">${upcoming.status === 'in_progress' ? 'IN PROGRESS' : 'UPCOMING'}</div>
+        <div class="hero-banner-title">${typeLabel(upcoming.booking_type)} · ${formatDate(upcoming.slot_date)}</div>
+        <div class="hero-banner-sub">${formatHour(upcoming.slot_hour)} · ${upcoming.city_name || ''}</div>
+      </div>`;
+  } else {
+    host.innerHTML = `
+      <div class="hero-banner clickable" onclick="openBookModal()">
+        <div class="hero-banner-label">NEED SERVICE?</div>
+        <div class="hero-banner-title">Book your next visit</div>
+        <div class="hero-banner-sub">Filter change, repair, or a new installation — tap to book.</div>
+      </div>`;
+  }
+}
+
 async function loadMyBookings() {
   const list = document.getElementById('bookings-list');
   const { data } = await db.from('bookings').select('*, installers(name)').eq('customer_phone', customer.phone).order('created_at', { ascending: false });
+  renderHeroBanner(data || []);
   if (!data || !data.length) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px;">No bookings yet</p><p>Your installations will appear here after booking.</p></div>`;
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p style="font-size:16px;font-weight:600;margin-bottom:6px;">No bookings yet</p><p>Your installations will appear here after booking.</p></div>`;
     return;
   }
   // Book Again: pre-fill floor / flat from the most recent booking that has them
@@ -479,7 +1058,12 @@ async function loadMyBookings() {
 function renderBookingCard(b) {
   const steps = ['upcoming','in_progress','completed'];
   const stepLabels = ['Scheduled','In Progress','Completed'];
-  const stepIcons = ['📅','⚙️','✅'];
+  const ICON_CHECK = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="m5 12l5 5L20 7"/></svg>';
+  const stepIcons = [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm12-4v4M8 3v4m-4 4h16m-9 4h1m0 0v3"/></svg>',
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37c1 .608 2.296.07 2.572-1.065"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0-6 0"/></g></svg>',
+    ICON_CHECK
+  ];
   // 'installed' sits between in_progress and fully completed/invoiced — from
   // the customer's side their unit IS in, so treat it as reaching the final step.
   const currentIdx = steps.indexOf(b.status === 'installed' ? 'completed' : b.status);
@@ -494,7 +1078,7 @@ function renderBookingCard(b) {
     <div class="progress-track">
       ${steps.map((s,i) => `
         <div class="progress-step ${i < currentIdx ? 'done' : i === currentIdx ? 'active' : ''}">
-          <div class="progress-dot">${i < currentIdx ? '✓' : stepIcons[i]}</div>
+          <div class="progress-dot">${i < currentIdx ? ICON_CHECK : stepIcons[i]}</div>
           <div class="progress-label">${stepLabels[i]}</div>
         </div>
         ${i < steps.length-1 ? '' : ''}
@@ -516,7 +1100,7 @@ function renderBookingCard(b) {
   // Inspection report — customers only see submitted reports
   const report = window._sadaReportsByBooking?.[b.id];
   if (report) {
-    actionsHTML = `<button class="btn-outline" onclick="viewInspectionReport('${report.id}')">📋 View Inspection Report</button>` + actionsHTML;
+    actionsHTML = `<button class="btn-outline" onclick="viewInspectionReport('${report.id}')" style="display:inline-flex;align-items:center;gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2m0 9l2 2l4-4"/></g></svg>View Inspection Report</button>` + actionsHTML;
   }
 
   // 'maintenance' is a legacy alias — the booking form now saves 'quarterly_service' (matches the admin side).
@@ -545,7 +1129,7 @@ function renderBookingCard(b) {
           <div class="info-item"><label>City</label><span>${b.city_name || '—'}</span></div>
           <div class="info-item"><label>Address</label><span>${b.location_address || '—'}</span></div>
           ${flatLine(b) ? `<div class="info-item"><label>Floor / Flat</label><span>${flatLine(b)}</span></div>` : ''}
-          ${b.installers?.name ? `<div class="info-item"><label>Installer</label><span>👷 ${b.installers.name}</span></div>` : ''}
+          ${b.installers?.name ? `<div class="info-item"><label>Installer</label><span style="display:inline-flex;align-items:center;gap:5px;"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" style="flex-shrink:0;"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></g></svg>${b.installers.name}</span></div>` : ''}
           ${b.rescheduled_at ? `<div class="info-item"><label>Rescheduled</label><span>${formatDate(b.rescheduled_at.split('T')[0])}</span></div>` : ''}
         </div>
         ${actionsHTML ? `<div class="booking-actions">${actionsHTML}</div>` : ''}
@@ -690,6 +1274,28 @@ function selectType(type) {
   const showProducts = type === 'installation';
   document.getElementById('book-product-section').style.display = showProducts ? '' : 'none';
   if (showProducts && !bookProductsLoaded) loadBookProducts();
+
+  // Filter Change / Repair are for an EXISTING unit, but previously had no
+  // way to say which one — a customer with 2+ registered units just booked
+  // a generic visit with no unit reference at all. Offer a picker only when
+  // it's actually ambiguous (more than one unit); hidden for exactly one.
+  document.getElementById('book-unit-section').style.display = 'none';
+  if (type === 'quarterly_service' || type === 'repair') loadBookUnitPicker();
+  else bookUnitsCache = [];
+}
+
+let bookUnitsCache = [];
+async function loadBookUnitPicker() {
+  const section = document.getElementById('book-unit-section');
+  const sel = document.getElementById('book-unit-select');
+  if (!window.SADA || !window.SADA.Warranty) { bookUnitsCache = []; return; }
+  const units = await SADA.Warranty.unitsForPhone(customer.phone);
+  bookUnitsCache = units;
+  if (units.length <= 1) return;
+  sel.innerHTML = units.map(u =>
+    `<option value="${escHtml(u.id)}">${escHtml(u.product_type || 'Unit')}${u.qr_code ? ' — ' + escHtml(u.qr_code) : ''}</option>`
+  ).join('');
+  section.style.display = '';
 }
 
 // ── PRODUCTS + PROMO (Installation only) — mirrors book.html's basket/promo logic ──
@@ -735,34 +1341,36 @@ function renderBookProducts() {
 
     let imageBlock = '';
     if (isDisp) {
+      // Product photos stay on a white chip (true to the actual studio photos)
+      // even though the card around them is now dark glass.
       imageBlock = `<div style="display:flex;gap:10px;justify-content:center;margin:6px 0 10px;">
         ${BOOK_DISPENSER_COLORS.map(c => `
           <div onclick="pickBookDispenserColor('${enc}','${c.name}')" style="cursor:pointer;text-align:center;">
-            <div style="width:78px;height:78px;border-radius:10px;border:2px solid ${chosenColor===c.name ? '#1565C0' : 'var(--border,#e2e8f0)'};background:#fff url('${c.img}') center/contain no-repeat;box-shadow:${chosenColor===c.name ? '0 0 0 3px rgba(21,101,192,.15)' : 'none'};"></div>
-            <div style="font-size:10px;font-weight:700;margin-top:3px;color:${chosenColor===c.name ? '#1565C0' : 'var(--muted,#667)'};">${c.name}</div>
+            <div style="width:78px;height:78px;border-radius:10px;border:2px solid ${chosenColor===c.name ? '#64B5F6' : 'rgba(255,255,255,0.2)'};background:#fff url('${c.img}') center/contain no-repeat;box-shadow:${chosenColor===c.name ? '0 0 0 3px rgba(100,181,246,.25)' : 'none'};"></div>
+            <div style="font-size:10px;font-weight:700;margin-top:3px;color:${chosenColor===c.name ? '#64B5F6' : 'rgba(255,255,255,0.55)'};">${c.name}</div>
           </div>`).join('')}
       </div>`;
     } else {
       const imgSrc = (p.image_url && !/purifier-generic/.test(p.image_url)) ? p.image_url : BOOK_PRODUCT_IMAGES[p.model_name];
-      if (imgSrc) imageBlock = `<div style="height:96px;margin:4px 0 8px;background:#fff url('${imgSrc}') center/contain no-repeat;"></div>`;
+      if (imgSrc) imageBlock = `<div style="height:96px;margin:4px 0 8px;background:url('${imgSrc}') center/contain no-repeat;"></div>`;
     }
 
     const outOfStock = p.in_stock === false;
 
-    return `<div style="border:2px solid ${qty ? '#1565C0' : 'var(--border,#ddd)'};border-radius:12px;padding:12px 14px;background:${outOfStock ? '#F8FAFC' : (qty ? '#EFF6FF' : '#fff')};transition:all .12s;${outOfStock ? 'opacity:0.65;' : ''}">
+    return `<div style="border:1px solid ${qty ? '#64B5F6' : 'rgba(255,255,255,0.14)'};border-radius:20px;padding:12px 14px;background:${outOfStock ? 'rgba(255,255,255,0.03)' : (qty ? 'rgba(21,101,192,0.22)' : 'var(--dark-grad-glass)')};backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);transition:all .12s;${outOfStock ? 'opacity:0.6;' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-        <div style="font-weight:700;font-size:14px;">${p.model_name}${isDisp && qty ? ` <span style="font-size:11px;color:#1565C0;">· ${chosenColor}</span>` : ''}</div>
-        <div style="font-weight:800;font-size:14px;color:#1565C0;white-space:nowrap;">SAR ${Number(p.price_sar).toLocaleString('en-US')}</div>
+        <div style="font-weight:700;font-size:14px;color:#fff;">${p.model_name}${isDisp && qty ? ` <span style="font-size:11px;color:#64B5F6;">· ${chosenColor}</span>` : ''}</div>
+        <div style="font-weight:800;font-size:14px;color:#64B5F6;white-space:nowrap;">SAR ${Number(p.price_sar).toLocaleString('en-US')}</div>
       </div>
-      ${p.description ? `<div style="font-size:11px;color:var(--muted,#667);margin-top:4px;line-height:1.4;">${p.description}</div>` : ''}
+      ${p.description ? `<div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:4px;line-height:1.4;">${p.description}</div>` : ''}
       ${imageBlock}
       ${outOfStock
         ? `<div style="margin-top:6px;font-size:12px;font-weight:700;color:#B45309;background:#FEF3C7;display:inline-block;padding:4px 10px;border-radius:8px;">Out of Stock</div>`
         : `<div style="display:flex;align-items:center;gap:12px;margin-top:6px;">
-        <button type="button" onclick="bookBasketQty('${enc}',-1)" style="width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border,#ccc);background:#fff;font-size:18px;cursor:pointer;">−</button>
-        <span style="font-size:17px;font-weight:700;min-width:24px;text-align:center;">${qty}</span>
-        <button type="button" onclick="bookBasketQty('${enc}',1)" style="width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border,#ccc);background:#fff;font-size:18px;cursor:pointer;">+</button>
-        ${qty ? `<span style="font-size:12px;color:var(--muted,#667);margin-left:auto;">SAR ${(p.price_sar*qty).toLocaleString('en-US')}</span>` : ''}
+        <button type="button" onclick="bookBasketQty('${enc}',-1)" style="width:34px;height:34px;border-radius:9px;border:1.5px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.1);color:#fff;font-size:18px;cursor:pointer;">−</button>
+        <span style="font-size:17px;font-weight:700;min-width:24px;text-align:center;color:#fff;">${qty}</span>
+        <button type="button" onclick="bookBasketQty('${enc}',1)" style="width:34px;height:34px;border-radius:9px;border:1.5px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.1);color:#fff;font-size:18px;cursor:pointer;">+</button>
+        ${qty ? `<span style="font-size:12px;color:rgba(255,255,255,0.55);margin-left:auto;">SAR ${(p.price_sar*qty).toLocaleString('en-US')}</span>` : ''}
       </div>`}
     </div>`;
   }).join('');
@@ -965,6 +1573,11 @@ async function submitNewBooking() {
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
   const discount = (lines.length && bookPromo) ? bookPromoDiscountFor(lines, bookPromo) : 0;
   const primary = lines.length ? lines.slice().sort((a, b) => (b.price*b.qty) - (a.price*a.qty))[0] : null;
+  // "Which unit?" picker — only present (and only matters) for Filter
+  // Change/Repair with 2+ registered units.
+  const selectedUnit = (document.getElementById('book-unit-section').style.display !== 'none')
+    ? bookUnitsCache.find(u => u.id === document.getElementById('book-unit-select').value)
+    : null;
 
   const { data: booking, error } = await db.from('bookings').insert({
     customer_name: customer.name, customer_email: '', customer_phone: customer.phone,
@@ -977,6 +1590,10 @@ async function submitNewBooking() {
       order_total: subtotal,
       promo_code: bookPromo ? bookPromo.code : null,
       discount_amount: discount || null
+    } : {}),
+    ...(selectedUnit ? {
+      product_model: selectedUnit.product_type, product_qty: 1, warranty_id: selectedUnit.id,
+      notes: `For unit: ${selectedUnit.product_type}${selectedUnit.qr_code ? ' (Serial ' + selectedUnit.qr_code + ')' : ''}`
     } : {})
   }).select().maybeSingle();
   if (error || !booking) {
@@ -998,6 +1615,12 @@ async function submitNewBooking() {
       unit_price: l.price, is_serialized: l.is_serialized
     })));
     // Promo usage is counted when the admin marks the job completed, not here.
+  } else if (selectedUnit) {
+    // Keeps the Bookings table / Sales Report's existing booking_items-first
+    // display logic working the same way it already does for Installation.
+    await db.from('booking_items').insert([{
+      booking_id: booking.id, product_model: selectedUnit.product_type, qty: 1, is_serialized: true
+    }]);
   }
   // Persist region so next Book Again pre-fills.
   customer.regionId = bookRegionId; customer.city = cityName;
@@ -1029,7 +1652,8 @@ async function submitNewBooking() {
   if (cap) cap.style.display = 'none';
   loadBookDates();
   resetBtn();
-  setTimeout(() => switchTab('bookings', document.querySelector('.tab')), 1500);
+  setTimeout(() => { closeBookModal(); switchTab('bookings'); }, 1500);
+  loadHome();
   loadMyBookings();
 }
 

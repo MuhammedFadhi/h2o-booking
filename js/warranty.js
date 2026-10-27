@@ -202,32 +202,120 @@
       '</div>';
   }
 
+  // Iconify (tabler) icons — see memory: icons are always inline SVG, never emoji.
   var TYPE_META = {
-    activation: { icon: '🎉', label: 'Activated',        color: '#1565C0' },
-    filter:     { icon: '💧', label: 'Filter Replaced',  color: '#0891B2' },
-    service:    { icon: '🔧', label: 'Serviced',         color: '#7C3AED' },
-    other:      { icon: '📝', label: 'Note',             color: '#607D8B' }
+    activation: { icon: '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 8.5-8 10c-4.5-1.5-8-5-8-10V7z"/><path d="M9 12l2 2l4-4"/></g></svg>', label: 'Activated', color: '#1565C0' },
+    // Same sparkle icon used system-wide for Filter Change (customer/portal.html's
+    // FILTER_ICON_SVG, installer/portal.html) — kept consistent, not a droplet.
+    filter:     { icon: '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m19 1l-1.26 2.75L15 5l2.74 1.26L19 9l1.25-2.74L23 5l-2.75-1.25M9 4L6.5 9.5L1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5M19 15l-1.26 2.74L15 19l2.74 1.25L19 23l1.25-2.75L23 19l-2.75-1.26"/></svg>', label: 'Filter Replaced', color: '#0891B2' },
+    service:    { icon: '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 10h3v-3l-3.5-3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8z"/></svg>', label: 'Serviced', color: '#7C3AED' },
+    other:      { icon: '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></g></svg>', label: 'Note', color: '#607D8B' }
   };
 
-  function historyList(history) {
+  // dark=true (only unitCard's dark unit card passes this) renders white
+  // text/icons on a translucent divider instead of the per-type tinted
+  // labels on a light divider — admin's Services "+Job" modal and the
+  // customer portal's Service tab (both light backgrounds) call this
+  // without it and are unaffected.
+  function historyList(history, dark) {
     if (!history || !history.length) {
-      return '<div style="font-size:12px;color:var(--muted,#607D8B);padding:8px 0;">No service records yet.</div>';
+      return '<div style="font-size:12px;color:' + (dark ? 'rgba(255,255,255,0.5)' : 'var(--muted,#607D8B)') + ';padding:8px 0;">No service records yet.</div>';
     }
-    return history.map(function (h) {
+    var labelColor = dark ? '#fff' : null;
+    var iconColor = dark ? '#fff' : null;
+    var noteColor = dark ? 'rgba(255,255,255,0.6)' : 'var(--muted,#607D8B)';
+    var dateColor = dark ? '#fff' : '#94A3B8';
+    var borderColor = dark ? 'rgba(255,255,255,0.15)' : '#F8FAFC';
+    return history.map(function (h, i) {
       var t = TYPE_META[h.service_type] || TYPE_META.other;
-      return '<div style="display:flex;gap:9px;padding:8px 0;border-bottom:1px solid #F8FAFC;">' +
-          '<span style="font-size:14px;line-height:1.2;">' + t.icon + '</span>' +
+      var border = (i < history.length - 1) ? ('border-bottom:1px solid ' + borderColor + ';') : '';
+      return '<div style="display:flex;gap:9px;padding:8px 0;' + border + '">' +
+          '<span style="display:inline-flex;align-items:center;color:' + (iconColor || t.color) + ';flex-shrink:0;">' + t.icon + '</span>' +
           '<div style="flex:1;min-width:0;">' +
-            '<div style="font-size:12px;font-weight:700;color:' + t.color + ';">' + t.label + '</div>' +
-            (h.notes ? '<div style="font-size:11px;color:var(--muted,#607D8B);word-break:break-word;">' + esc(h.notes) + '</div>' : '') +
+            '<div style="font-size:15px;font-weight:15;color:' + (labelColor || t.color) + ';">' + t.label + '</div>' +
+            (h.notes ? '<div style="font-size:11px;font-weight:22;color:' + noteColor + ';word-break:break-word;">' + esc(h.notes) + '</div>' : '') +
           '</div>' +
-          '<span style="font-size:10px;color:#94A3B8;white-space:nowrap;">' + fmtDate(h.created_at) + '</span>' +
+          '<span style="font-size:15px;font-weight:15;color:' + dateColor + ';white-space:nowrap;">' + fmtDate(h.created_at) + '</span>' +
         '</div>';
     }).join('');
   }
 
   /** Full unit card for the customer portal. */
-  function unitCard(u, idx) {
+  // Dark full-ring gauge (per a reference temperature-gauge UI) for the
+  // customer portal's Filter/Service "days left" meters. admin/dashboard.html
+  // still uses the plain gauge()/milestoneCard() above via W.milestoneCard()
+  // directly (openJobOrder's modal) - untouched, this is additive only.
+  var _gaugeUid = 0;
+  function gaugeCircular(pct, color, days, statusWord, dueText) {
+    var R = 92, CX = 112, CY = 112, SW = 17;
+    var toRad = function (d) { return d * Math.PI / 180; };
+    var pt = function (deg, radius) {
+      radius = radius || R;
+      return { x: CX + radius * Math.cos(toRad(deg)), y: CY + radius * Math.sin(toRad(deg)) };
+    };
+    var circ = 2 * Math.PI * R;
+    var frac = Math.max(0, Math.min(1, pct));
+    var dash = frac * circ;
+    // Full ring, no gap — progress starts at 12 o'clock (deg 270 in this
+    // x=cos/y=sin convention) and sweeps clockwise.
+    var knob = pt(270 + frac * 360);
+    var label = (days === null) ? '—' : (days < 0 ? '0' : String(days));
+    var gid = 'gaugeGrad' + (++_gaugeUid);
+
+    // Static decorative ring of dots around the outside — purely visual,
+    // full circle regardless of progress (the reference's "protection
+    // circle" look), independent of the actual progress arc inside it.
+    var dotR = R + 18, dots = [];
+    for (var i = 0; i < 40; i++) {
+      var dp = pt(i * 9, dotR);
+      dots.push('<circle cx="' + dp.x.toFixed(1) + '" cy="' + dp.y.toFixed(1) + '" r="1.8" fill="rgba(255,255,255,0.22)"/>');
+    }
+
+    // 288px (was 248) — viewBox stays 0 0 264 264, the SVG ring/dots/knob
+    // scale up with it automatically. The overlaid text is plain HTML, not
+    // part of that scaling, so its sizes are bumped by the same ~16% ratio
+    // to match.
+    return '' +
+      '<div style="position:relative;width:288px;height:288px;margin:0 auto;">' +
+        '<svg viewBox="0 0 264 264" style="width:288px;height:288px;">' +
+          '<defs><linearGradient id="' + gid + '" x1="0%" y1="0%" x2="100%" y2="100%">' +
+            '<stop offset="0%" stop-color="#E4E7FC"/>' +
+            '<stop offset="100%" stop-color="#5B7FDB"/>' +
+          '</linearGradient></defs>' +
+          '<g transform="translate(20,20)">' +
+            dots.join('') +
+            '<circle cx="' + CX + '" cy="' + CY + '" r="' + R + '" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="' + SW + '"/>' +
+            '<circle cx="' + CX + '" cy="' + CY + '" r="' + R + '" fill="none" stroke="url(#' + gid + ')" stroke-width="' + SW + '" ' +
+              'stroke-linecap="round" stroke-dasharray="' + dash.toFixed(1) + ' ' + circ.toFixed(1) + '" ' +
+              'transform="rotate(-90 ' + CX + ' ' + CY + ')"/>' +
+            '<circle cx="' + knob.x.toFixed(1) + '" cy="' + knob.y.toFixed(1) + '" r="10" fill="#fff"/>' +
+          '</g>' +
+        '</svg>' +
+        '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
+          '<div style="font-size:51px;font-weight:500;color:#fff;line-height:1;">' + label + '</div>' +
+          '<div style="font-size:12px;font-weight:500;color:rgba(255,255,255,0.55);letter-spacing:.1em;margin-top:5px;">DAYS LEFT</div>' +
+          '<div style="margin-top:6px;max-width:116px;background:rgba(255,255,255,0.14);color:#fff;font-size:10px;font-weight:500;padding:4px 9px;border-radius:13px;letter-spacing:0;line-height:1.25;text-align:center;">' + esc(statusWord) + '</div>' +
+          (dueText ? '<div style="margin-top:7px;max-width:125px;font-size:10px;font-weight:500;line-height:1.3;text-align:center;color:rgba(255,255,255,0.5);">' + esc(dueText) + '</div>' : '') +
+        '</div>' +
+      '</div>';
+  }
+
+  // Same dark gradient the customer portal's header card uses (--dark-grad),
+  // with a literal fallback for any page that doesn't define it.
+  var DARK_CARD_BG = 'var(--dark-grad,linear-gradient(135deg,#4a6fa5 0%,#1a2744 55%,#05060a 100%))';
+
+  function milestoneCardCircular(title, keyLabel, expiry, totalDays) {
+    var m = milestone(expiry, totalDays);
+    var st = statusOf(expiry);
+    var c = STATUS_COLORS[st];
+    var dueText = m.unknown ? '' : fmtDate(expiry);
+    return '' +
+      '<div style="flex:1 1 300px;max-width:320px;margin:0 auto;">' +
+        gaugeCircular(m.pct, c.bar, m.remaining, title, dueText) +
+      '</div>';
+  }
+
+  function unitCard(u, idx, gaugeStyle) {
     // A self-reported row (standalone service visit, no SA'DA install/QR) gets
     // honest framing instead of implying formal SA'DA product coverage: no
     // warranty badge/countdown, "first serviced" instead of "installed".
@@ -246,43 +334,71 @@
       if (st === 'deactivated') { wc = STATUS_COLORS.expired; statusBadge = 'NOT COVERED'; }
       else if (st === 'paused') { wc = STATUS_COLORS.soon; statusBadge = 'SUSPENDED'; }
     }
-    var img = (u.product_models && u.product_models.image_url) || '/assets/models/purifier-generic.png';
-    var desc = (u.product_models && u.product_models.description) || '';
-    var hid = 'wh-' + idx;
+    // Never show a real SA'DA product photo for a self-reported row, even if
+    // its free-text product_type happens to match a real catalogue model
+    // name — it isn't actually that product, just tracked alongside it.
+    var img = (!isSelfReported && u.product_models && u.product_models.image_url) || '/assets/models/purifier-generic.png';
+    var desc = (!isSelfReported && u.product_models && u.product_models.description) || '';
+    // Keyed by the warranty's own id (not the loop index) so it stays unique
+    // even when My Units and the Service tab both render a card at index 0 —
+    // their panels coexist in the DOM at once (one just hidden), and
+    // getElementById only ever finds the first match.
+    var hid = 'wh-' + (u.id || idx);
+    var dark = gaugeStyle === 'circular';
+    var cardBg = dark ? DARK_CARD_BG : 'var(--foam,#E3F2FD)';
+    var titleColor = dark ? '#fff' : 'var(--ocean,#0D3B6E)';
+    var mutedColor = dark ? 'rgba(255,255,255,0.55)' : 'var(--muted,#607D8B)';
+    var infoBoxBg = dark ? 'rgba(255,255,255,0.08)' : '#fff';
+    var infoBoxText = dark ? '#fff' : 'var(--text,#1A2B47)';
+    var btnBorder = dark ? 'rgba(255,255,255,0.25)' : 'var(--border,#CFD8DC)';
+    var btnColor = dark ? '#fff' : 'var(--ocean,#0D3B6E)';
     return '' +
-    '<div style="background:var(--foam,#E3F2FD);border:1px solid var(--border,#CFD8DC);border-radius:16px;padding:16px;margin-bottom:14px;">' +
+    // Dark theme: same dark-glass card treatment as .booking-card/
+    // .history-card elsewhere in the redesign, instead of sitting directly
+    // on the page background with no boundary of its own.
+    (dark
+      ? '<div style="background:var(--dark-grad-glass);backdrop-filter:blur(36px) saturate(180%);-webkit-backdrop-filter:blur(36px) saturate(180%);border:1px solid rgba(255,255,255,0.14);border-radius:20px;padding:18px;margin-bottom:20px;">'
+      : '<div style="background:' + cardBg + ';border:1px solid var(--border,#CFD8DC);border-radius:16px;padding:16px;margin-bottom:14px;">') +
       '<div style="display:flex;gap:13px;align-items:flex-start;margin-bottom:13px;">' +
         '<img src="' + esc(img) + '" alt="" loading="lazy" ' +
              'style="width:56px;height:56px;object-fit:contain;background:#fff;border-radius:11px;padding:5px;flex-shrink:0;" ' +
              'onerror="this.src=\'/assets/models/purifier-generic.png\'">' +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:15px;font-weight:800;color:var(--ocean,#0D3B6E);word-break:break-word;">' + esc(u.product_type) + '</div>' +
-          (u.qr_code ? '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--muted,#607D8B);word-break:break-all;margin-top:2px;">' + esc(u.qr_code) + '</div>' : '') +
+          '<div style="font-size:15px;font-weight:500;color:' + titleColor + ';word-break:break-word;">' + esc(u.product_type) + '</div>' +
+          (u.qr_code ? '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:500;color:' + mutedColor + ';word-break:break-all;margin-top:2px;">' + esc(u.qr_code) + '</div>' : '') +
           (u.quantity > 1 ? '<div style="font-size:10px;color:#92400E;background:#FEF3C7;display:inline-block;padding:2px 7px;border-radius:8px;margin-top:4px;font-weight:700;">×' + u.quantity + ' units on this record</div>' : '') +
         '</div>' +
         '<span style="background:' + wc.bg + ';color:' + wc.fg + ';font-size:10px;font-weight:800;padding:4px 9px;border-radius:10px;white-space:nowrap;">' +
           statusBadge + '</span>' +
       '</div>' +
 
-      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:' + (isSelfReported ? '4px' : '12px') + ';">' +
-        milestoneCard('Filter Replacement', 'Filter', u.filter_expiry, TERMS.filter) +
-        milestoneCard('Annual RO Service', 'Service', u.service_expiry, TERMS.service) +
+      '<div style="display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-bottom:' + (isSelfReported ? '4px' : '12px') + ';">' +
+        (gaugeStyle === 'circular' ? (
+          milestoneCardCircular('Filter Replacement', 'Filter', u.filter_expiry, TERMS.filter) +
+          milestoneCardCircular('Annual RO Service', 'Service', u.service_expiry, TERMS.service)
+        ) : (
+          milestoneCard('Filter Replacement', 'Filter', u.filter_expiry, TERMS.filter) +
+          milestoneCard('Annual RO Service', 'Service', u.service_expiry, TERMS.service)
+        )) +
       '</div>' +
-      (isSelfReported ? '<p style="font-size:10.5px;color:var(--muted,#607D8B);margin:0 0 12px;line-height:1.5;">Estimated from your last SA\'DA visit, not this unit\'s original install date.</p>' : '') +
+      (isSelfReported ? '<p style="font-size:10.5px;color:' + mutedColor + ';margin:0 0 12px;line-height:1.5;">Estimated from your last SA\'DA visit, not this unit\'s original install date.</p>' : '') +
 
-      '<div style="background:#fff;border-radius:11px;padding:11px 13px;font-size:12px;">' +
-        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted,#607D8B);">' + (isSelfReported ? 'First serviced by SA\'DA' : 'Installed') + '</span><strong>' + fmtDate(u.registration_date) + '</strong></div>' +
-        (isSelfReported ? '' : '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted,#607D8B);">Warranty until</span><strong style="color:' + wc.fg + ';">' + fmtDate(u.warranty_expiry) + ' · ' + humanDays(u.warranty_expiry) + '</strong></div>') +
-        (u.client_code ? '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:var(--muted,#607D8B);">Client code</span><strong>' + esc(u.client_code) + '</strong></div>' : '') +
+      '<div style="background:' + infoBoxBg + ';border-radius:11px;padding:11px 13px;font-size:12px;color:' + infoBoxText + ';">' +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">Model No</span><strong style="color:' + infoBoxText + ';">' + esc(u.product_type) + '</strong></div>' +
+        (u.qr_code ? '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">Serial No</span><strong style="color:' + infoBoxText + ';font-family:ui-monospace,Menlo,monospace;font-size:11px;">' + esc(u.qr_code) + '</strong></div>' : '') +
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">' + (isSelfReported ? 'First serviced by SA\'DA' : 'Installed') + '</span><strong style="color:' + infoBoxText + ';">' + fmtDate(u.registration_date) + '</strong></div>' +
+        (isSelfReported ? '' : '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">Warranty until</span><strong style="color:' + (dark ? '#fff' : wc.fg) + ';">' + fmtDate(u.warranty_expiry) + ' · ' + humanDays(u.warranty_expiry) + '</strong></div>') +
+        (u.client_code ? '<div style="display:flex;justify-content:space-between;padding:3px 0;"><span style="color:' + mutedColor + ';">Client code</span><strong style="color:' + infoBoxText + ';">' + esc(u.client_code) + '</strong></div>' : '') +
       '</div>' +
 
       '<button onclick="SADA.Warranty.toggle(\'' + hid + '\',this)" ' +
-              'style="width:100%;margin-top:11px;background:none;border:1px solid var(--border,#CFD8DC);color:var(--ocean,#0D3B6E);padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">' +
-        '🛠️ Service history (' + (u.history ? u.history.length : 0) + ')</button>' +
-      '<div id="' + hid + '" style="display:none;background:#fff;border-radius:11px;padding:5px 13px;margin-top:9px;">' + historyList(u.history) + '</div>' +
+              'style="width:100%;margin-top:11px;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:1px solid ' + btnBorder + ';color:' + btnColor + ';padding:9px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 10h3v-3l-3.5-3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8z"/></svg>' +
+        'Service history (' + (u.history ? u.history.length : 0) + ')</button>' +
+      '<div id="' + hid + '" style="display:none;background:' + infoBoxBg + ';color:' + infoBoxText + ';border-radius:11px;padding:5px 13px;margin-top:9px;">' + historyList(u.history, dark) + '</div>' +
 
-      (desc ? '<details style="margin-top:9px;"><summary style="font-size:11px;color:var(--muted,#607D8B);cursor:pointer;">About this model</summary>' +
-              '<p style="font-size:11px;color:var(--muted,#607D8B);line-height:1.6;margin-top:7px;">' + esc(desc) + '</p></details>' : '') +
+      (desc ? '<details style="margin-top:9px;"><summary style="font-size:11px;color:' + mutedColor + ';cursor:pointer;">About this model</summary>' +
+              '<p style="font-size:11px;color:' + mutedColor + ';line-height:1.6;margin-top:7px;">' + esc(desc) + '</p></details>' : '') +
     '</div>';
   }
 
@@ -291,7 +407,10 @@
     if (!el) return;
     var open = el.style.display !== 'none';
     el.style.display = open ? 'none' : 'block';
-    if (btn) btn.style.background = open ? 'none' : '#F1F5F9';
+    // Neutral translucent highlight — reads fine as an "open" state on both
+    // the light contexts this is used from and the dark unit card, instead
+    // of a hardcoded light gray that turned into a white box there.
+    if (btn) btn.style.background = open ? 'none' : 'rgba(128,142,160,0.2)';
   }
 
   window.SADA = window.SADA || {};
@@ -313,6 +432,8 @@
     unitCard: unitCard,
     historyList: historyList,
     milestoneCard: milestoneCard,
+    milestoneCardCircular: milestoneCardCircular,
+    gaugeCircular: gaugeCircular,
     toggle: toggle
   };
 })();
