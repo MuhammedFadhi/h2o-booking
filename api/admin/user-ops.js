@@ -54,8 +54,15 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { email: callerEmail } = await requireAdmin(req);
+    const { email: callerEmail, isOwner } = await requireAdmin(req);
     const { action, email, password, userId, name, phone } = req.body || {};
+
+    // Owner management (seeing who's an owner, let alone creating/editing one)
+    // is owner-only — a plain admin can't even list owners.
+    const OWNER_ONLY_ACTIONS = new Set(['create-owner', 'grant-owner', 'edit-owner', 'list-owners', 'delete-owner']);
+    if (OWNER_ONLY_ACTIONS.has(action) && !isOwner) {
+      return res.status(403).json({ error: 'Owner access required' });
+    }
 
     if (action === 'create-installer') {
       if (!email || !password || !name) return res.status(400).json({ error: 'email, password, name required' });

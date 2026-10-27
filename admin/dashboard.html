@@ -1207,7 +1207,7 @@
         </div>
       </div>
 
-      <div class="card" style="margin-top:20px;">
+      <div class="card" id="owners-card" style="margin-top:20px; display:none;">
         <div class="card-header">
           <span class="card-title">Owners</span>
           <button class="btn btn-primary" onclick="openOwnerModal()">+ Add Owner</button>
@@ -2308,6 +2308,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const myEmailLower = session.user.email.trim().toLowerCase();
   if (owners.some(o => o.email.trim().toLowerCase() === myEmailLower)) {
     document.getElementById('nav-analytics').style.display = 'flex';
+    document.getElementById('owners-card').style.display = 'block';
   }
 
   // If the URL names a saved panel other than Overview, jump straight there
