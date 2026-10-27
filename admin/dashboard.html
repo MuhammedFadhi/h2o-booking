@@ -742,6 +742,9 @@
     </div>
 
     <div class="nav-section">Units &amp; Sales</div>
+    <div class="nav-item" onclick="showPanel('products', this)">
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/><path d="M3.3 7 12 2l8.7 5a2 2 0 0 1 1 1.73v6.54a2 2 0 0 1-1 1.73l-8.7 5a2 2 0 0 1-2 0l-8.7-5a2 2 0 0 1-1-1.73V8.73a2 2 0 0 1 1-1.73Z"/></svg></span> Products
+    </div>
     <div class="nav-item" onclick="showPanel('warranties', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.46 20.846A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3a12 12 0 0 0 8.5 3a12 12 0 0 1-.09 7.06M15 19l2 2l4-4"/></svg></span> Active Units
     </div>
@@ -1334,6 +1337,18 @@
     </div>
 
     <!-- WARRANTIES PANEL -->
+    <!-- PRODUCTS PANEL -->
+    <div class="panel" id="panel-products">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+          <h3 style="margin:0;">Product Catalogue</h3>
+          <button class="btn btn-primary" onclick="openProductModal()">+ Add Product</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin:-8px 0 16px;">Prices, stock status and catalogue visibility feed the customer booking page and every "add product" picker in the dashboard.</div>
+        <div id="products-table"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+      </div>
+    </div>
+
     <div class="panel" id="panel-warranties">
       <div class="stat-grid" id="warranty-stats" style="margin-bottom:12px;"></div>
       <div class="stat-grid" id="warranty-region-stats" style="margin-bottom:16px;"></div>
@@ -1978,6 +1993,52 @@
   </div>
 </div>
 
+<!-- ADD/EDIT PRODUCT MODAL -->
+<div class="modal-overlay" id="product-modal">
+  <div class="modal">
+    <h2 class="modal-title" id="product-modal-title">Add Product</h2>
+    <input type="hidden" id="product-id">
+    <div class="form-group">
+      <label>Product Name</label>
+      <input class="form-input" id="product-name" placeholder="e.g. 5-Stage RO System">
+    </div>
+    <div style="display:flex;gap:10px;">
+      <div class="form-group" style="flex:1;">
+        <label>Price (SAR)</label>
+        <input class="form-input" id="product-price" type="number" min="0" step="0.01" placeholder="1200">
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label>Sort Order <span style="color:var(--muted);font-weight:400;">(lower shows first)</span></label>
+        <input class="form-input" id="product-sort" type="number" step="1" placeholder="999">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Description <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+      <textarea class="form-input" id="product-description" rows="2" placeholder="Shown to customers on the booking page"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Image URL <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+      <input class="form-input" id="product-image" placeholder="https://...">
+    </div>
+    <div class="form-group" style="display:flex;flex-direction:column;gap:8px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="product-in-stock" checked style="width:auto;"> In stock
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="product-catalogue" checked style="width:auto;"> Show in customer booking catalogue
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="product-serialized" style="width:auto;"> Serialized unit (QR / warranty tracked)
+      </label>
+    </div>
+    <div id="product-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('product-modal')">Cancel</button>
+      <button class="btn btn-primary" id="product-save" onclick="saveProduct()">Save Product</button>
+    </div>
+  </div>
+</div>
+
 <!-- PRODUCT BASKET EDITOR MODAL -->
 <div class="modal-overlay" id="basket-modal" style="display:none;">
   <div class="modal">
@@ -2341,6 +2402,7 @@ const panelTitles = {
   whatsapp: ['Whatsapp chat', ''],
   salesreport: ['Sales Report', 'Leads and bookings by sales agent — filter and export'],
   slots: ['Availability Slots', 'Control which time slots customers can book'],
+  products: ['Products', 'Manage the product catalogue — prices, stock, and what customers see'],
   installers: ['User Management', 'Add, remove and manage installers and admin users'],
   passwords: ['Manage Access', 'Create and reset installer login passwords'],
   sms: ['Send Booking Link', 'Send the booking link to a customer via SMS'],
@@ -2400,6 +2462,7 @@ function showPanel(name, el) {
   if (name === 'reports') loadInspectionReports();
   if (name === 'warranties') loadWarranties();
   if (name === 'promocodes') loadPromoCodes();
+  if (name === 'products') loadProducts();
   if (name === 'invoices') loadInvoices();
   if (name === 'followups') loadFollowups();
   if (name === 'activity') loadActivityLog();
@@ -4778,6 +4841,104 @@ async function deletePromo(id) {
   logActivity('promo.delete', `Deleted code ${p.code}`, 'promo', id);
   showToast('Promo code deleted', 'success');
   loadPromoCodes();
+}
+
+// ============================================================
+// PRODUCTS (catalogue management — pricing, stock, visibility)
+// ============================================================
+let allProducts = [];
+
+async function loadProducts() {
+  const host = document.getElementById('products-table');
+  const { data, error } = await dbAdmin.from('product_models').select('*').order('sort_order', { ascending: true });
+  if (error) { host.innerHTML = `<div style="color:#B71C1C;padding:12px;">${escB(error.message)}</div>`; return; }
+  allProducts = data || [];
+  window.__catalogue = null; // invalidate getCatalogue()'s cache so edits show up immediately in pickers/promo lists
+  renderProductsTable();
+}
+
+function renderProductsTable() {
+  const host = document.getElementById('products-table');
+  if (!allProducts.length) {
+    host.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);">No products yet. Add one to get started.</div>';
+    return;
+  }
+  const rows = allProducts.map(p => `<tr>
+    <td>${p.image_url ? `<img src="${escB(p.image_url)}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;" onerror="this.style.display='none'">` : ''}</td>
+    <td><strong>${escB(p.model_name)}</strong>${p.description ? `<div style="font-size:11px;color:var(--muted);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escB(p.description)}</div>` : ''}</td>
+    <td>${p.price_sar != null ? `SAR ${Number(p.price_sar).toLocaleString('en-US')}` : '—'}</td>
+    <td><span class="status-badge" style="background:${p.in_stock ? '#DCFCE7' : '#FEE2E2'};color:${p.in_stock ? '#166534' : '#B91C1C'};">${p.in_stock ? 'In stock' : 'Out of stock'}</span></td>
+    <td>${p.is_catalogue ? 'Visible' : '<span style="color:var(--muted);">Hidden</span>'}</td>
+    <td style="text-align:right;white-space:nowrap;">
+      <button class="btn btn-sm btn-ghost" onclick="openProductModal('${p.id}')" title="Edit">${ICON_PENCIL}</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteProduct('${p.id}')" title="Delete">🗑</button>
+    </td>
+  </tr>`).join('');
+  host.innerHTML = `<div style="overflow-x:auto;"><table class="data-table" style="width:100%;">
+    <thead><tr><th></th><th>Product</th><th>Price</th><th>Stock</th><th>Catalogue</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function openProductModal(id) {
+  const p = id ? allProducts.find(x => x.id === id) : null;
+  document.getElementById('product-modal-title').textContent = p ? 'Edit Product' : 'Add Product';
+  document.getElementById('product-id').value = p ? p.id : '';
+  document.getElementById('product-name').value = p ? p.model_name : '';
+  document.getElementById('product-price').value = p && p.price_sar != null ? p.price_sar : '';
+  document.getElementById('product-sort').value = p && p.sort_order != null ? p.sort_order : '';
+  document.getElementById('product-description').value = p && p.description ? p.description : '';
+  document.getElementById('product-image').value = p && p.image_url ? p.image_url : '';
+  document.getElementById('product-in-stock').checked = p ? !!p.in_stock : true;
+  document.getElementById('product-catalogue').checked = p ? !!p.is_catalogue : true;
+  document.getElementById('product-serialized').checked = p ? !!p.is_serialized : false;
+  document.getElementById('product-error').style.display = 'none';
+  openModal('product-modal');
+}
+
+async function saveProduct() {
+  if (!(await ensureSession())) return;
+  const errEl = document.getElementById('product-error');
+  const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
+  const id = document.getElementById('product-id').value;
+  const model_name = (document.getElementById('product-name').value || '').trim();
+  const priceRaw = document.getElementById('product-price').value;
+  const price_sar = priceRaw === '' ? null : parseFloat(priceRaw);
+  const sortRaw = document.getElementById('product-sort').value;
+  const sort_order = sortRaw === '' ? 999 : parseInt(sortRaw, 10);
+  const description = (document.getElementById('product-description').value || '').trim() || null;
+  const image_url = (document.getElementById('product-image').value || '').trim() || null;
+  const in_stock = document.getElementById('product-in-stock').checked;
+  const is_catalogue = document.getElementById('product-catalogue').checked;
+  const is_serialized = document.getElementById('product-serialized').checked;
+
+  if (!model_name) return fail('Enter a product name.');
+  if (priceRaw !== '' && (isNaN(price_sar) || price_sar < 0)) return fail('Enter a valid price.');
+
+  const btn = document.getElementById('product-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const payload = { model_name, price_sar, sort_order, description, image_url, in_stock, is_catalogue, is_serialized };
+  let error;
+  if (id) ({ error } = await dbAdmin.from('product_models').update(payload).eq('id', id));
+  else ({ error } = await dbAdmin.from('product_models').insert(payload));
+  btn.disabled = false; btn.textContent = 'Save Product';
+  if (error) {
+    return fail(/duplicate|unique/i.test(error.message) ? 'A product with that name already exists.' : error.message);
+  }
+  logActivity('product.save', `${id ? 'Updated' : 'Added'} product ${model_name}`, 'product', id || model_name);
+  showToast('Product saved', 'success');
+  closeModal('product-modal');
+  loadProducts();
+}
+
+async function deleteProduct(id) {
+  if (!(await ensureSession())) return;
+  const p = allProducts.find(x => x.id === id); if (!p) return;
+  if (!confirm(`Delete “${p.model_name}”? Existing bookings keep their record, but this removes it from the catalogue entirely.`)) return;
+  const { error } = await dbAdmin.from('product_models').delete().eq('id', id);
+  if (error) { showToast(error.message, 'error'); return; }
+  logActivity('product.delete', `Deleted product ${p.model_name}`, 'product', id);
+  showToast('Product deleted', 'success');
+  loadProducts();
 }
 
 // Show which bookings used a given code (who applied it + how much off).
