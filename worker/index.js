@@ -22,7 +22,6 @@ const ROUTE_LOADERS = {
   '/api/admin/slots': () => require('../api/admin/slots.js'),
   '/api/admin/installers': () => require('../api/admin/installers.js'),
   '/api/admin/user-ops': () => require('../api/admin/user-ops.js'),
-  '/api/admin/crm-chat': () => require('../api/admin/crm-chat.js'),
   '/api/admin/whatsapp': () => require('../api/admin/whatsapp.js'),
   '/api/sales/ops': () => require('../api/sales/ops.js'),
   '/api/webhooks/crm': () => require('../api/webhooks/crm.js'),
@@ -37,7 +36,7 @@ const RAW_BODY_ROUTES = new Set(['/api/auth-sms-hook', '/api/webhooks/crm', '/ap
 // Routes that accept a multipart/form-data upload (a media attachment) and
 // need the parsed FormData itself, not text/JSON — see RAW_BODY_ROUTES
 // above for why text() can't come first for these either.
-const MULTIPART_ROUTES = new Set(['/api/admin/crm-chat', '/api/admin/whatsapp']);
+const MULTIPART_ROUTES = new Set(['/api/admin/whatsapp']);
 
 function createRes() {
   const state = { statusCode: 200, headers: {}, body: undefined };

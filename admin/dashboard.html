@@ -1582,48 +1582,6 @@
   </div>
 </div>
 
-<!-- LEAD WHATSAPP CHAT — proxies to the external CRM's WhatsApp API via
-     /api/admin/crm-chat (see that file for why the bearer token stays
-     server-side). Only reachable from leads that have a
-     whatsapp_conversation_id (see leadSourceCell()). -->
-<div class="modal-overlay" id="lead-chat-modal" style="display:none;">
-  <div class="modal">
-    <div class="modal-header"><span class="modal-title">Chat — <span id="chat-lead-name"></span></span>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;margin-left:auto;margin-right:10px;" title="Pause the CRM's auto-reply bot for this conversation while you're replying">
-        <input type="checkbox" id="chat-ai-pause-toggle" onchange="toggleChatAiPaused()"> AI paused
-      </label>
-      <button class="modal-close" onclick="closeLeadChatModal()">&times;</button></div>
-    <div class="modal-body">
-      <div id="chat-lead-phone" style="font-size:12px;color:var(--muted);margin:-8px 0 14px;"></div>
-      <div id="chat-window-warning" style="display:none;background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:10px;">This customer hasn't messaged in over 24 hours — WhatsApp only allows pre-approved templates now, a free-form reply here may silently fail to deliver.</div>
-      <div id="chat-messages" style="height:360px;overflow-y:auto;background:var(--bg);border-radius:12px;padding:14px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;"></div>
-      <div id="chat-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:10px;"></div>
-      <div id="chat-record-bar" style="display:none;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:8px 12px;margin-bottom:8px;">
-        <span id="chat-record-status" style="font-size:13px;color:var(--text);flex:1;"></span>
-        <audio id="chat-record-preview" controls style="display:none;height:32px;max-width:180px;"></audio>
-        <button class="btn btn-ghost btn-sm" id="chat-record-discard-btn" onclick="discardChatRecording()" style="display:none;" title="Discard"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg></button>
-        <button class="btn btn-primary btn-sm" id="chat-record-send-btn" onclick="sendChatVoiceNote()" style="display:none;">Send</button>
-        <button class="btn btn-danger btn-sm" id="chat-record-stop-btn" onclick="stopChatRecording()" title="Stop recording"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M17 4H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3"/></svg></button>
-      </div>
-      <div id="chat-template-media-badge" style="display:none;align-items:center;gap:8px;background:var(--foam);border-radius:8px;padding:6px 10px;margin-bottom:8px;font-size:12px;color:var(--water);">
-        <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="flex-shrink:0;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg>
-        <span>Attachment from template</span>
-        <button class="btn btn-ghost btn-sm" onclick="clearChatTemplateMedia()" style="padding:0 6px;margin-left:auto;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12"/></svg></button>
-      </div>
-      <div style="display:flex;gap:8px;">
-        <input type="file" id="chat-file-input" style="display:none;" onchange="sendLeadChatMedia()">
-        <button class="btn btn-ghost" id="chat-attach-btn" onclick="document.getElementById('chat-file-input').click()" title="Attach a file" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg></button>
-        <button class="btn btn-ghost" id="chat-mic-btn" onclick="startChatRecording()" title="Record a voice note" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5a3 3 0 0 1 3-3a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3a3 3 0 0 1-3-3z"/><path d="M5 10a7 7 0 0 0 14 0M8 21h8m-4-4v4"/></g></svg></button>
-        <div style="position:relative;flex:1;">
-          <div id="chat-template-dropdown" style="display:none;position:absolute;bottom:100%;left:0;right:0;margin-bottom:6px;background:var(--white);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);max-height:200px;overflow-y:auto;z-index:20;"></div>
-          <input type="text" id="chat-input" class="form-input" placeholder="Type a reply… (/ for templates)" autocomplete="off" style="width:100%;" oninput="onChatTemplateInput()" onkeydown="handleChatInputKeydown(event)" onblur="setTimeout(closeChatTemplateDropdown, 150)">
-        </div>
-        <button class="btn btn-primary" id="chat-send-btn" onclick="sendLeadChatMessage()">Send</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- WHATSAPP QUICK-REPLY TEMPLATES — our own table (whatsapp_quick_replies),
      not the CRM's, since WhatsApp no longer relays through them. -->
 <div class="modal-overlay" id="wa-templates-modal" style="display:none;">
@@ -8601,20 +8559,13 @@ function leadSourceCell(l) {
     : s.includes('messenger') || s === 'facebook' ? 'messenger'
     : s === 'manual' ? 'manual'
     : 'other';
-  const label = `<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">${LEAD_SOURCE_ICONS[key]} ${escB(source)}</span>`;
-  // Chat-from-the-Leads-page is on hold while the WhatsApp integration
-  // moves to a direct API connection with its own dedicated sidebar page,
-  // rather than going through the CRM proxy — so this no longer opens the
-  // chat modal. Left disabled rather than removed: the modal, its JS, and
-  // the backend proxy (api/admin/crm-chat.js) are all still intact for
-  // whenever this gets repointed or the toggle gets flipped back.
-  return label;
+  return `<span style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">${LEAD_SOURCE_ICONS[key]} ${escB(source)}</span>`;
 }
 
 // ============================================================
 // WHATSAPP PANEL — direct Meta Cloud API inbox (/api/admin/whatsapp,
-// backed by /api/webhooks/whatsapp). Replaces the CRM-relay chat below for
-// WhatsApp specifically; no AI auto-reply, receive/store/manual-reply only.
+// backed by /api/webhooks/whatsapp). No AI auto-reply, receive/store/
+// manual-reply only.
 // Conversation list polls every 10s while the panel is open; an open
 // thread polls every 5s on top of that — both stop the moment showPanel()
 // navigates away (see the stopWhatsappPolling() call in showPanel()).
@@ -9220,8 +9171,26 @@ async function loadWhatsappMessages() {
   }
 }
 
-// Reuses chatStatusIcon() (the delivery-tick renderer) — it's a pure
-// function of a status string, nothing CRM-specific about it.
+// WhatsApp delivery-status ticks, outbound messages only. Standard
+// convention: 1 grey check = reached Meta's servers, 2 grey = delivered to
+// the phone, 2 colored (brand green) = read, warning = failed. Unrecognized
+// statuses fall back to the "sent" single check rather than showing
+// nothing. Re-rendered on every 5s poll, so a message visibly progresses
+// from sent → delivered → read as the webhook's own status updates arrive.
+const WA_CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="m5 12l5 5L20 7"/></svg>';
+const WA_CHECKS_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="m7 12l5 5L22 7M2 12l5 5m5-5l5-5"/></svg>';
+const WA_FAILED_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1.67c.955 0 1.845.467 2.39 1.247l.105.16l8.114 13.548a2.914 2.914 0 0 1-2.307 4.363l-.195.008H3.882a2.914 2.914 0 0 1-2.582-4.2l.099-.185l8.11-13.538A2.91 2.91 0 0 1 12 1.67M12.01 15l-.127.007a1 1 0 0 0 0 1.986L12 17l.127-.007a1 1 0 0 0 0-1.986zM12 8a1 1 0 0 0-.993.883L11 9v4l.007.117a1 1 0 0 0 1.986 0L13 13V9l-.007-.117A1 1 0 0 0 12 8"/></svg>';
+
+function waStatusIcon(status) {
+  // Rendered in the timestamp row below the bubble (light background), not
+  // on the blue bubble itself — so these need to be actual greys, not a
+  // near-white meant for sitting on blue.
+  if (status === 'failed') return `<span style="color:#DC2626;" title="Failed to deliver">${WA_FAILED_SVG}</span>`;
+  if (status === 'read') return `<span style="color:#22C55E;" title="Read">${WA_CHECKS_SVG}</span>`;
+  if (status === 'delivered') return `<span style="color:var(--muted);" title="Delivered">${WA_CHECKS_SVG}</span>`;
+  return `<span style="color:var(--muted);" title="Sent">${WA_CHECK_SVG}</span>`; // "sent" + any unrecognized value
+}
+
 // Storage paths are written as "{id}_{original-filename}" (see
 // fetchAndStoreMedia in the webhook and sendMediaMessage in the admin API)
 // specifically so this can recover a real, readable filename from the URL
@@ -9281,7 +9250,7 @@ function renderWhatsappMessages(messages) {
           </a>${caption}`
       : m.body ? escB(m.body)
       : '';
-    const status = out ? `<span style="display:inline-flex;align-items:center;">${chatStatusIcon(m.status)}</span>` : '';
+    const status = out ? `<span style="display:inline-flex;align-items:center;">${waStatusIcon(m.status)}</span>` : '';
     const quoted = waQuotedBlock(m.reply_to_wa_message_id, messages, out);
     const replyBtn = m.wa_message_id ? `<button onclick="startWaReply('${m.wa_message_id}')" title="Reply" style="background:none;border:none;padding:0;cursor:pointer;color:inherit;opacity:0.6;display:inline-flex;align-items:center;"><svg xmlns="http://www.w3.org/2000/svg" width="0.9em" height="0.9em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4l4-4m-4 4h11a4 4 0 0 1 4 4v1"/></svg></button>` : '';
     return `<div style="align-self:${out ? 'flex-end' : 'flex-start'};max-width:65%;">
@@ -9523,8 +9492,14 @@ function insertWaEmoji(emoji) {
   input.setSelectionRange(cursor, cursor);
 }
 
-// ── Voice notes — same record→preview→send-or-discard flow as the CRM
-// chat's (pickRecorderMimeType() is reused as-is, it's channel-agnostic).
+// ── Voice notes — record→preview→send-or-discard flow.
+function pickRecorderMimeType() {
+  const candidates = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+  for (const type of candidates) {
+    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return '';
+}
 let waMediaRecorder = null;
 let waRecordingStream = null;
 let waRecordedChunks = [];
@@ -9816,421 +9791,6 @@ async function deleteWaTemplate(id) {
     renderWaTemplatesList();
   } catch (err) {
     showToast(err.message, 'error');
-  }
-}
-
-// ============================================================
-// LEAD CHAT (WhatsApp/Instagram) — proxies to the external CRM's own chat
-// API via /api/admin/crm-chat, which resolves the right channel itself.
-// Polls every 5s while the modal is open; no push/real-time needed for a
-// first version.
-// ============================================================
-let currentChatLeadId = null;
-let chatPollInterval = null;
-let chatTemplates = [];
-let chatTemplateDropdownItems = [];
-let chatTemplateDropdownIndex = -1;
-let chatPendingTemplateMedia = null;
-
-async function openLeadChatModal(leadId) {
-  currentChatLeadId = leadId;
-  const lead = allLeads.find(x => x.id === leadId);
-  document.getElementById('chat-lead-name').textContent = lead?.name || '—';
-  document.getElementById('chat-lead-phone').textContent = lead?.phone || '';
-  document.getElementById('chat-messages').innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
-  document.getElementById('chat-error').style.display = 'none';
-  document.getElementById('chat-window-warning').style.display = 'none';
-  document.getElementById('chat-input').value = '';
-  clearChatTemplateMedia();
-  closeChatTemplateDropdown();
-  // The CRM's GET response doesn't confirm the conversation's current
-  // ai_paused state, so this starts unchecked (assume the bot is live)
-  // rather than guessing — it only reflects what's actually been toggled
-  // in this session.
-  document.getElementById('chat-ai-pause-toggle').checked = false;
-  document.getElementById('lead-chat-modal').style.display = 'flex';
-  await Promise.all([loadLeadChatMessages(), loadChatTemplates()]);
-  if (chatPollInterval) clearInterval(chatPollInterval);
-  chatPollInterval = setInterval(loadLeadChatMessages, 5000);
-}
-
-function closeLeadChatModal() {
-  if (chatPollInterval) { clearInterval(chatPollInterval); chatPollInterval = null; }
-  if (chatMediaRecorder && chatMediaRecorder.state !== 'inactive') stopChatRecording();
-  resetChatRecordBar();
-  closeChatTemplateDropdown();
-  currentChatLeadId = null;
-  closeModal('lead-chat-modal');
-}
-
-// Fetched once per chat open (not per keystroke) — same reply-template list
-// the CRM's own UI uses, so there's one source of truth rather than a
-// second list to keep in sync.
-async function loadChatTemplates() {
-  try {
-    const { data: { session } } = await db.auth.getSession();
-    if (!session) return;
-    const res = await fetch('/api/admin/crm-chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ action: 'get-templates' })
-    });
-    const body = await res.json().catch(() => ({}));
-    chatTemplates = res.ok ? (body?.data?.templates || []) : [];
-  } catch {
-    chatTemplates = []; // templates are a convenience — a failed fetch shouldn't block chat itself
-  }
-}
-
-// ── "/" template autocomplete ───────────────────────────────────────────
-function closeChatTemplateDropdown() {
-  chatTemplateDropdownItems = [];
-  chatTemplateDropdownIndex = -1;
-  const el = document.getElementById('chat-template-dropdown');
-  if (el) el.style.display = 'none';
-}
-
-function renderChatTemplateDropdown() {
-  const el = document.getElementById('chat-template-dropdown');
-  if (!chatTemplateDropdownItems.length) { el.style.display = 'none'; return; }
-  el.innerHTML = chatTemplateDropdownItems.map((t, i) => `
-    <div onmousedown="event.preventDefault();selectChatTemplate(${i})" style="padding:8px 12px;cursor:pointer;background:${i === chatTemplateDropdownIndex ? 'var(--bg)' : 'transparent'};border-bottom:1px solid var(--border);">
-      <div style="font-weight:700;color:var(--water);font-size:13px;">/${escB(t.shortcut || '')}${t.media_url ? ' <svg xmlns="http://www.w3.org/2000/svg" width="0.8em" height="0.8em" viewBox="0 0 24 24" style="vertical-align:-1px;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg>' : ''}</div>
-      <div style="color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escB(t.message || '')}</div>
-    </div>`).join('');
-  el.style.display = 'block';
-}
-
-// Only triggers on a "/" at the start of input or after whitespace, so a
-// URL or anything else with a slash mid-word doesn't accidentally pop the
-// dropdown open.
-function onChatTemplateInput() {
-  const input = document.getElementById('chat-input');
-  const beforeCursor = input.value.slice(0, input.selectionStart);
-  const match = /(?:^|\s)\/(\S*)$/.exec(beforeCursor);
-  if (!match || !chatTemplates.length) { closeChatTemplateDropdown(); return; }
-  const query = match[1].toLowerCase();
-  const items = chatTemplates.filter(t => (t.shortcut || '').toLowerCase().includes(query)).slice(0, 8);
-  if (!items.length) { closeChatTemplateDropdown(); return; }
-  chatTemplateDropdownItems = items;
-  chatTemplateDropdownIndex = 0;
-  renderChatTemplateDropdown();
-}
-
-function selectChatTemplate(i) {
-  const t = chatTemplateDropdownItems[i];
-  if (!t) return;
-  const input = document.getElementById('chat-input');
-  const cursor = input.selectionStart;
-  const beforeCursor = input.value.slice(0, cursor);
-  const afterCursor = input.value.slice(cursor);
-  const slashIndex = beforeCursor.lastIndexOf('/');
-  const newValue = beforeCursor.slice(0, slashIndex) + (t.message || '') + afterCursor;
-  input.value = newValue;
-  const newCursor = slashIndex + (t.message || '').length;
-  input.setSelectionRange(newCursor, newCursor);
-  input.focus();
-  if (t.media_url) showChatTemplateMedia(t.media_url); else clearChatTemplateMedia();
-  closeChatTemplateDropdown();
-}
-
-function handleChatInputKeydown(event) {
-  if (chatTemplateDropdownItems.length) {
-    if (event.key === 'ArrowDown') { event.preventDefault(); chatTemplateDropdownIndex = (chatTemplateDropdownIndex + 1) % chatTemplateDropdownItems.length; renderChatTemplateDropdown(); return; }
-    if (event.key === 'ArrowUp') { event.preventDefault(); chatTemplateDropdownIndex = (chatTemplateDropdownIndex - 1 + chatTemplateDropdownItems.length) % chatTemplateDropdownItems.length; renderChatTemplateDropdown(); return; }
-    if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); selectChatTemplate(chatTemplateDropdownIndex); return; }
-    if (event.key === 'Escape') { event.preventDefault(); closeChatTemplateDropdown(); return; }
-  }
-  if (event.key === 'Enter') { event.preventDefault(); sendLeadChatMessage(); }
-}
-
-function showChatTemplateMedia(mediaUrl) {
-  chatPendingTemplateMedia = mediaUrl;
-  document.getElementById('chat-template-media-badge').style.display = 'flex';
-}
-
-function clearChatTemplateMedia() {
-  chatPendingTemplateMedia = null;
-  document.getElementById('chat-template-media-badge').style.display = 'none';
-}
-
-async function crmChatCall(action, extra) {
-  const { data: { session } } = await db.auth.getSession();
-  if (!session) throw new Error('Session expired. Please sign in again.');
-  const res = await fetch('/api/admin/crm-chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-    body: JSON.stringify({ action, leadId: currentChatLeadId, ...(extra || {}) })
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || 'Request failed.');
-  return body;
-}
-
-// WhatsApp only delivers free-form replies within 24h of the customer's
-// last inbound message — outside that window only pre-approved templates
-// go through (same rule the CRM's own UI already warns about). No inbound
-// message at all is treated the same as "too old" — nothing to reply
-// within a window of yet.
-function updateChatWindowWarning(messages) {
-  const lastInbound = (messages || []).filter(m => m.direction === 'inbound' && m.sent_at).pop();
-  const stale = !lastInbound || (Date.now() - new Date(lastInbound.sent_at).getTime()) > 24 * 60 * 60 * 1000;
-  document.getElementById('chat-window-warning').style.display = stale ? 'block' : 'none';
-}
-
-// WhatsApp delivery-status ticks, outbound messages only. Standard
-// convention: 1 grey check = reached Meta's servers, 2 grey = delivered to
-// the phone, 2 colored (brand green) = read, warning = failed. Unrecognized
-// statuses fall back to the "sent" single check rather than showing
-// nothing. Re-rendered on every 5s poll, so a message visibly progresses
-// from sent → delivered → read as the CRM's own status updates arrive.
-const CHAT_CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="m5 12l5 5L20 7"/></svg>';
-const CHAT_CHECKS_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="m7 12l5 5L22 7M2 12l5 5m5-5l5-5"/></svg>';
-const CHAT_FAILED_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1.67c.955 0 1.845.467 2.39 1.247l.105.16l8.114 13.548a2.914 2.914 0 0 1-2.307 4.363l-.195.008H3.882a2.914 2.914 0 0 1-2.582-4.2l.099-.185l8.11-13.538A2.91 2.91 0 0 1 12 1.67M12.01 15l-.127.007a1 1 0 0 0 0 1.986L12 17l.127-.007a1 1 0 0 0 0-1.986zM12 8a1 1 0 0 0-.993.883L11 9v4l.007.117a1 1 0 0 0 1.986 0L13 13V9l-.007-.117A1 1 0 0 0 12 8"/></svg>';
-
-function chatStatusIcon(status) {
-  // Rendered in the timestamp row below the bubble (light background), not
-  // on the blue bubble itself — so these need to be actual greys, not a
-  // near-white meant for sitting on blue.
-  if (status === 'failed') return `<span style="color:#DC2626;" title="Failed to deliver">${CHAT_FAILED_SVG}</span>`;
-  if (status === 'read') return `<span style="color:#22C55E;" title="Read">${CHAT_CHECKS_SVG}</span>`;
-  if (status === 'delivered') return `<span style="color:var(--muted);" title="Delivered">${CHAT_CHECKS_SVG}</span>`;
-  return `<span style="color:var(--muted);" title="Sent">${CHAT_CHECK_SVG}</span>`; // "sent" + any unrecognized value
-}
-
-function renderChatMessages(messages) {
-  const el = document.getElementById('chat-messages');
-  updateChatWindowWarning(messages);
-  if (!messages || !messages.length) {
-    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px;">No messages yet.</div>';
-    return;
-  }
-  // Preserve scroll position unless already at the bottom, so polling
-  // doesn't yank the view away from a message someone's reading mid-scroll.
-  const wasAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-  el.innerHTML = messages.map(m => {
-    const out = m.direction === 'outbound';
-    const time = m.sent_at ? new Date(m.sent_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
-    // media_url takes priority over body for audio — the CRM sends a
-    // placeholder label like "🎙️ Voice note" as the body ALONGSIDE the
-    // real media_url, and checking body first was hiding the actual
-    // playable file behind that label entirely.
-    const isAudio = m.media_url && /audio|voice/i.test(m.message_type || '');
-    const isImage = m.media_url && /image|photo|picture/i.test(m.message_type || '');
-    const caption = m.body && m.body.trim() && !/^🎙️?\s*voice note$/i.test(m.body.trim()) ? `<div style="margin-top:4px;">${escB(m.body)}</div>` : '';
-    const body = isAudio
-      ? `<audio controls src="${escB(m.media_url)}" style="max-width:220px;height:34px;"></audio>${caption}`
-      : isImage
-      ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener"><img src="${escB(m.media_url)}" style="max-width:220px;max-height:220px;border-radius:8px;display:block;"></a>${caption}`
-      : m.media_url ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener" style="color:inherit;">[${escB(m.message_type || 'attachment')}]</a>${caption}`
-      : m.body ? escB(m.body)
-      : '';
-    const status = out ? `<span style="display:inline-flex;align-items:center;">${chatStatusIcon(m.status)}</span>` : '';
-    return `<div style="align-self:${out ? 'flex-end' : 'flex-start'};max-width:75%;">
-        <div style="background:${out ? 'var(--water)' : 'var(--white)'};color:${out ? '#fff' : 'var(--text)'};border:${out ? 'none' : '1px solid var(--border)'};padding:8px 12px;border-radius:14px;font-size:13px;white-space:pre-wrap;word-break:break-word;">${body}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px;text-align:${out ? 'right' : 'left'};display:flex;align-items:center;justify-content:${out ? 'flex-end' : 'flex-start'};gap:4px;">${time}${status}</div>
-      </div>`;
-  }).join('');
-  if (wasAtBottom) el.scrollTop = el.scrollHeight;
-}
-
-let chatCurrentMessages = [];
-
-async function loadLeadChatMessages() {
-  if (!currentChatLeadId) return;
-  try {
-    const result = await crmChatCall('get-messages');
-    chatCurrentMessages = result?.data?.messages || [];
-    renderChatMessages(chatCurrentMessages);
-  } catch (err) {
-    document.getElementById('chat-error').style.display = 'block';
-    document.getElementById('chat-error').textContent = err.message;
-  }
-}
-
-async function sendLeadChatMessage() {
-  const input = document.getElementById('chat-input');
-  const text = input.value.trim();
-  if (!text) return;
-  const btn = document.getElementById('chat-send-btn');
-  btn.disabled = true;
-  document.getElementById('chat-error').style.display = 'none';
-
-  const pendingMedia = chatPendingTemplateMedia;
-  input.value = '';
-  clearChatTemplateMedia();
-  closeChatTemplateDropdown();
-
-  // Show it immediately instead of waiting on a second round-trip (a full
-  // GET re-fetch) after the POST completes — that double hop through our
-  // proxy to the CRM is what made sending feel slow. The next 5s poll
-  // replaces this with the CRM's authoritative copy (real id, delivery
-  // ticks), so this doesn't need to be exact.
-  chatCurrentMessages = [...chatCurrentMessages, { direction: 'outbound', body: text, sent_at: new Date().toISOString(), status: 'sent', _optimistic: true }];
-  renderChatMessages(chatCurrentMessages);
-
-  try {
-    if (pendingMedia) {
-      await crmChatCall('send-template-media', { mediaUrl: pendingMedia, body: text });
-    } else {
-      await crmChatCall('send-message', { body: text });
-    }
-  } catch (err) {
-    // It never actually sent — roll back the optimistic echo and give the
-    // text back rather than silently losing it.
-    chatCurrentMessages = chatCurrentMessages.filter(m => !m._optimistic);
-    renderChatMessages(chatCurrentMessages);
-    input.value = text;
-    document.getElementById('chat-error').style.display = 'block';
-    document.getElementById('chat-error').textContent = err.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function sendLeadChatMedia() {
-  const fileInput = document.getElementById('chat-file-input');
-  const file = fileInput.files[0];
-  if (!file) return;
-  const attachBtn = document.getElementById('chat-attach-btn');
-  attachBtn.disabled = true;
-  document.getElementById('chat-error').style.display = 'none';
-  try {
-    const { data: { session } } = await db.auth.getSession();
-    if (!session) throw new Error('Session expired. Please sign in again.');
-    const form = new FormData();
-    form.append('leadId', currentChatLeadId);
-    form.append('file', file);
-    const res = await fetch('/api/admin/crm-chat', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${session.access_token}` }, // no Content-Type — browser sets the multipart boundary
-      body: form
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || 'Upload failed.');
-    await loadLeadChatMessages();
-  } catch (err) {
-    document.getElementById('chat-error').style.display = 'block';
-    document.getElementById('chat-error').textContent = err.message;
-  } finally {
-    attachBtn.disabled = false;
-    fileInput.value = '';
-  }
-}
-
-async function toggleChatAiPaused() {
-  const toggle = document.getElementById('chat-ai-pause-toggle');
-  const wanted = toggle.checked;
-  document.getElementById('chat-error').style.display = 'none';
-  try {
-    await crmChatCall('set-ai-paused', { aiPaused: wanted });
-  } catch (err) {
-    toggle.checked = !wanted; // revert — the CRM never confirmed the change
-    document.getElementById('chat-error').style.display = 'block';
-    document.getElementById('chat-error').textContent = err.message;
-  }
-}
-
-// ── Voice notes ──────────────────────────────────────────────────────────
-// Record → preview → send-or-discard, rather than sending the instant
-// recording stops — a misclick shouldn't fire off a voice note nobody
-// meant to send.
-let chatMediaRecorder = null;
-let chatRecordingStream = null;
-let chatRecordedChunks = [];
-let chatRecordedBlob = null;
-
-function pickRecorderMimeType() {
-  const candidates = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
-  for (const type of candidates) {
-    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) return type;
-  }
-  return '';
-}
-
-async function startChatRecording() {
-  document.getElementById('chat-error').style.display = 'none';
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (err) {
-    document.getElementById('chat-error').style.display = 'block';
-    document.getElementById('chat-error').textContent = "Couldn't access your microphone — check the browser's permission for this site.";
-    return;
-  }
-  chatRecordingStream = stream;
-  chatRecordedChunks = [];
-  const mimeType = pickRecorderMimeType();
-  chatMediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-  chatMediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chatRecordedChunks.push(e.data); };
-  chatMediaRecorder.onstop = () => {
-    chatRecordedBlob = new Blob(chatRecordedChunks, { type: chatMediaRecorder.mimeType || 'audio/webm' });
-    const preview = document.getElementById('chat-record-preview');
-    preview.src = URL.createObjectURL(chatRecordedBlob);
-    preview.style.display = '';
-    document.getElementById('chat-record-status').textContent = 'Voice note ready';
-    document.getElementById('chat-record-stop-btn').style.display = 'none';
-    document.getElementById('chat-record-discard-btn').style.display = '';
-    document.getElementById('chat-record-send-btn').style.display = '';
-  };
-  chatMediaRecorder.start();
-
-  document.getElementById('chat-record-bar').style.display = 'flex';
-  document.getElementById('chat-record-status').textContent = 'Recording…';
-  document.getElementById('chat-record-preview').style.display = 'none';
-  document.getElementById('chat-record-discard-btn').style.display = 'none';
-  document.getElementById('chat-record-send-btn').style.display = 'none';
-  document.getElementById('chat-record-stop-btn').style.display = '';
-  document.getElementById('chat-mic-btn').disabled = true;
-}
-
-function stopChatRecording() {
-  if (chatMediaRecorder && chatMediaRecorder.state !== 'inactive') chatMediaRecorder.stop();
-  if (chatRecordingStream) chatRecordingStream.getTracks().forEach(t => t.stop());
-  chatRecordingStream = null;
-}
-
-function resetChatRecordBar() {
-  document.getElementById('chat-record-bar').style.display = 'none';
-  document.getElementById('chat-mic-btn').disabled = false;
-  const preview = document.getElementById('chat-record-preview');
-  if (preview.src) URL.revokeObjectURL(preview.src);
-  preview.src = '';
-  chatRecordedBlob = null;
-  chatRecordedChunks = [];
-}
-
-function discardChatRecording() {
-  resetChatRecordBar();
-}
-
-async function sendChatVoiceNote() {
-  if (!chatRecordedBlob) return;
-  const sendBtn = document.getElementById('chat-record-send-btn');
-  sendBtn.disabled = true;
-  document.getElementById('chat-error').style.display = 'none';
-  try {
-    const ext = chatRecordedBlob.type.includes('ogg') ? 'ogg' : chatRecordedBlob.type.includes('mp4') ? 'm4a' : 'webm';
-    const file = new File([chatRecordedBlob], `voice-note.${ext}`, { type: chatRecordedBlob.type });
-    const { data: { session } } = await db.auth.getSession();
-    if (!session) throw new Error('Session expired. Please sign in again.');
-    const form = new FormData();
-    form.append('leadId', currentChatLeadId);
-    form.append('file', file);
-    const res = await fetch('/api/admin/crm-chat', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${session.access_token}` },
-      body: form
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || 'Could not send the voice note.');
-    resetChatRecordBar();
-    await loadLeadChatMessages();
-  } catch (err) {
-    document.getElementById('chat-error').style.display = 'block';
-    document.getElementById('chat-error').textContent = err.message;
-  } finally {
-    sendBtn.disabled = false;
   }
 }
 
