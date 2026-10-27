@@ -36,9 +36,13 @@ async function requireAdmin(req) {
   const user = await sb('GET', '/auth/v1/user', null, token);
   if (!user || !user.email) { const e = new Error('Invalid session'); e.status = 401; throw e; }
 
-  // Check email against allowlist (service-role query bypasses RLS)
+  // Check email against the admin OR owner allowlist (service-role query
+  // bypasses RLS). Owner is a separate identity with the same full access.
   const rows = await sb('GET', `/rest/v1/admin_emails?email=eq.${encodeURIComponent(user.email)}&select=email`);
-  if (!rows || !rows.length) { const e = new Error('Not an admin'); e.status = 403; throw e; }
+  if (!rows || !rows.length) {
+    const ownerRows = await sb('GET', `/rest/v1/owner_emails?email=eq.${encodeURIComponent(user.email)}&select=email`);
+    if (!ownerRows || !ownerRows.length) { const e = new Error('Not an admin'); e.status = 403; throw e; }
+  }
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   return { userId: user.id, email: user.email, token, admin };

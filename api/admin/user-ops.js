@@ -1,8 +1,10 @@
 // /api/admin/user-ops — server-side proxy for auth.admin operations
 // Actions: create-installer, delete-installer, reset-installer-password,
 //          create-admin, grant-admin, edit-admin, list-admins, delete-admin,
+//          create-owner, grant-owner, edit-owner, list-owners, delete-owner,
 //          create-sales, list-sales, edit-sales, set-sales-active, delete-sales
-// Auth: caller must present a Bearer token whose email is in admin_emails.
+// Auth: caller must present a Bearer token whose email is in admin_emails
+//       or owner_emails.
 const { requireAdmin, SUPABASE_URL, SERVICE_KEY } = require('./_auth');
 
 async function admin(method, path, body) {
@@ -30,16 +32,16 @@ async function findAuthUserByEmail(email) {
   return null;
 }
 
-// Resolves an admin's auth user id (using the cached admin_emails.user_id
-// when present) and sets their password, backfilling the cache on lookup.
-async function resetAdminPassword(email, password) {
-  const rows = await admin('GET', `/rest/v1/admin_emails?email=eq.${encodeURIComponent(email)}&select=user_id`, null);
+// Resolves an admin/owner's auth user id (using the allowlist table's cached
+// user_id when present) and sets their password, backfilling the cache on lookup.
+async function resetAllowlistPassword(table, email, password) {
+  const rows = await admin('GET', `/rest/v1/${table}?email=eq.${encodeURIComponent(email)}&select=user_id`, null);
   let userId = rows?.[0]?.user_id;
   if (!userId) {
     const user = await findAuthUserByEmail(email);
     if (!user) { const e = new Error('No login found for this email.'); e.status = 404; throw e; }
     userId = user.id;
-    await admin('PATCH', `/rest/v1/admin_emails?email=eq.${encodeURIComponent(email)}`, { user_id: userId });
+    await admin('PATCH', `/rest/v1/${table}?email=eq.${encodeURIComponent(email)}`, { user_id: userId });
   }
   await admin('PUT', `/auth/v1/admin/users/${userId}`, { password });
 }
@@ -98,7 +100,7 @@ module.exports = async function handler(req, res) {
     if (action === 'edit-admin') {
       if (!email) return res.status(400).json({ error: 'email required' });
       await admin('PATCH', `/rest/v1/admin_emails?email=eq.${encodeURIComponent(email)}`, { name: name || null });
-      if (password) await resetAdminPassword(email, password);
+      if (password) await resetAllowlistPassword('admin_emails', email, password);
       return res.status(200).json({ ok: true });
     }
 
@@ -113,6 +115,44 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'You cannot remove your own admin access.' });
       }
       await admin('DELETE', `/rest/v1/admin_emails?email=eq.${encodeURIComponent(email)}`, null);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── Owner (role: same full access as Admin, separate identity/label) ───
+    if (action === 'create-owner') {
+      if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+      const authUser = await admin('POST', '/auth/v1/admin/users', { email, password, email_confirm: true });
+      if (!authUser?.id) return res.status(500).json({ error: 'Auth user creation failed' });
+      await admin('POST', '/rest/v1/owner_emails', { email, name: name || null, user_id: authUser.id });
+      return res.status(201).json({ id: authUser.id, email });
+    }
+
+    if (action === 'grant-owner') {
+      if (!email) return res.status(400).json({ error: 'email required' });
+      const user = await findAuthUserByEmail(email);
+      if (!user) return res.status(404).json({ error: 'No existing login found for that email. Set a password to create one.' });
+      await admin('POST', '/rest/v1/owner_emails', { email, name: name || null, user_id: user.id });
+      return res.status(201).json({ email });
+    }
+
+    if (action === 'edit-owner') {
+      if (!email) return res.status(400).json({ error: 'email required' });
+      await admin('PATCH', `/rest/v1/owner_emails?email=eq.${encodeURIComponent(email)}`, { name: name || null });
+      if (password) await resetAllowlistPassword('owner_emails', email, password);
+      return res.status(200).json({ ok: true });
+    }
+
+    if (action === 'list-owners') {
+      const rows = await admin('GET', '/rest/v1/owner_emails?select=email,name,created_at&order=created_at.asc', null);
+      return res.status(200).json({ owners: rows });
+    }
+
+    if (action === 'delete-owner') {
+      if (!email) return res.status(400).json({ error: 'email required' });
+      if (email.toLowerCase() === (callerEmail || '').toLowerCase()) {
+        return res.status(400).json({ error: 'You cannot remove your own owner access.' });
+      }
+      await admin('DELETE', `/rest/v1/owner_emails?email=eq.${encodeURIComponent(email)}`, null);
       return res.status(200).json({ ok: true });
     }
 
