@@ -2105,11 +2105,11 @@
     <div id="fsched-header" style="background:var(--bg);padding:16px;border-radius:12px;margin-bottom:12px;"></div>
     <div class="form-group">
       <label>Next Filter Due Date</label>
-      <input type="date" class="form-input" id="fsched-date-input">
+      <input type="date" class="form-input" id="fsched-date-input" oninput="previewFilterSchedule()">
     </div>
     <div class="form-group">
       <label>Filter Interval for this unit <span style="color:var(--muted);font-weight:400;">(days)</span></label>
-      <input type="number" class="form-input" id="fsched-interval-input" min="1" step="1">
+      <input type="number" class="form-input" id="fsched-interval-input" min="1" step="1" oninput="previewFilterSchedule()">
       <div style="font-size:11px;color:var(--muted);margin-top:4px;">Real usage varies per unit — e.g. a hotel installation wears filters faster than a home one. Defaults to the product's own interval; override it here just for this unit. <a href="#" id="fsched-reset-link" onclick="resetFilterScheduleInterval();return false;">Use product default</a>.</div>
     </div>
     <div id="fsched-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
@@ -8842,20 +8842,33 @@ function openFilterSchedule(id) {
   openModal('filter-schedule-modal');
 }
 
-// "Use product default" — clears the input back to the product's own
-// interval and previews the schedule with it, without saving yet.
+// Live preview — recomputes the list from whatever's currently typed into
+// the date/interval fields, without saving. Wired to both inputs' oninput.
+function previewFilterSchedule() {
+  const W = window.SADA.Warranty;
+  const dateVal = document.getElementById('fsched-date-input').value;
+  const intervalDays = parseInt(document.getElementById('fsched-interval-input').value, 10);
+  const listEl = document.getElementById('fsched-list');
+  if (!dateVal || !intervalDays || intervalDays < 1) {
+    listEl.innerHTML = `<div style="font-size:12px;color:var(--muted);">Enter a date and an interval to preview the schedule.</div>`;
+    return;
+  }
+  document.getElementById('fsched-list-title').textContent = `Upcoming dates — next 12 months (every ${intervalDays}d)`;
+  const schedule = filterChangeSchedule(dateVal, intervalDays, 365);
+  listEl.innerHTML = schedule.length
+    ? schedule.map((d, i) => `<span style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;">#${i + 1} · ${W.fmtDate(d)}</span>`).join('')
+    : `<div style="font-size:12px;color:var(--muted);">Next filter change is due ${W.fmtDate(dateVal)} — more than a year away.</div>`;
+}
+
+// "Use product default" — resets the interval field to the product's own
+// interval, then re-previews with it.
 function resetFilterScheduleInterval() {
   const id = document.getElementById('fsched-warranty-id').value;
   const w = allWarranties.find(x => x.id === id);
   if (!w) return;
   const productDays = w.product_models?.filter_interval_days || 90;
   document.getElementById('fsched-interval-input').value = productDays;
-  document.getElementById('fsched-list-title').textContent = `Upcoming dates — next 12 months (every ${productDays}d)`;
-  const dateVal = document.getElementById('fsched-date-input').value || w.filter_expiry;
-  const W = window.SADA.Warranty;
-  const schedule = filterChangeSchedule(dateVal, productDays, 365);
-  document.getElementById('fsched-list').innerHTML = schedule.map((d, i) =>
-    `<span style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;">#${i + 1} · ${W.fmtDate(d)}</span>`).join('');
+  previewFilterSchedule();
 }
 
 async function saveFilterScheduleDate() {
