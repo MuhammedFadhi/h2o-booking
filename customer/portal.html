@@ -894,15 +894,17 @@ async function loadHomeHero() {
     if (days === null) {
       statusEl.textContent = "Keep track of your SA'DA unit's health here.";
     } else if (days < 0) {
-      statusEl.textContent = `Your filter change is overdue by ${Math.abs(days)} ${plural(days)} — book now to keep your water quality protected.`;
-    } else if (days <= 4) {
-      statusEl.textContent = `Your filter change is due very soon — ${days} ${plural(days)} left. Book now to stay protected.`;
+      statusEl.textContent = `Your water filter replacement is overdue by ${Math.abs(days)} ${plural(days)}. Schedule your replacement as soon as possible to maintain optimal filtration performance.`;
+    } else if (days === 0) {
+      statusEl.textContent = `Your water filter has reached its recommended replacement date. Book your replacement service today.`;
+    } else if (days <= 3) {
+      statusEl.textContent = `Your water filter replacement is due in ${days} ${plural(days)}. Schedule your replacement to help maintain optimal water quality.`;
     } else if (days <= 7) {
-      statusEl.textContent = `Your filter change is almost due — only ${days} ${plural(days)} left.`;
+      statusEl.textContent = `Your water filter replacement is due soon. Only ${days} days remaining. Book your service today.`;
     } else if (days <= 30) {
-      statusEl.textContent = `Your filter change is coming up — due in ${days} ${plural(days)}.`;
+      statusEl.textContent = `Your water filter replacement is approaching. Schedule your next service in ${days} days.`;
     } else {
-      statusEl.textContent = `Your filter is in good shape — next change due in ${days} ${plural(days)}.`;
+      statusEl.textContent = `Your water filter is performing well. Your next replacement is recommended in ${days} days.`;
     }
   } catch (e) {
     console.error('loadHomeHero failed:', e);
