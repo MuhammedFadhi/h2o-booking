@@ -889,16 +889,22 @@ async function loadHomeHero() {
     }
     const unit = units[0];
     const W = SADA.Warranty;
-    const status = W.statusOf(unit.service_expiry);
-    const days = W.daysUntil(unit.service_expiry);
-    if (status === 'unknown') {
+    const days = W.daysUntil(unit.filter_expiry);
+    const plural = (n) => `day${Math.abs(n) === 1 ? '' : 's'}`;
+    if (days === null) {
       statusEl.textContent = "Keep track of your SA'DA unit's health here.";
-    } else if (status === 'expired') {
-      statusEl.textContent = `Your RO Unit's service is overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'}.`;
-    } else if (status === 'soon') {
-      statusEl.textContent = `Your RO Unit's service is due soon — in ${days} day${days === 1 ? '' : 's'}.`;
+    } else if (days < 0) {
+      statusEl.textContent = `Your water filter replacement is overdue by ${Math.abs(days)} ${plural(days)}. Schedule your replacement as soon as possible to maintain optimal filtration performance.`;
+    } else if (days === 0) {
+      statusEl.textContent = `Your water filter has reached its recommended replacement date. Book your replacement service today.`;
+    } else if (days <= 3) {
+      statusEl.textContent = `Your water filter replacement is due in ${days} ${plural(days)}. Schedule your replacement to help maintain optimal water quality.`;
+    } else if (days <= 7) {
+      statusEl.textContent = `Your water filter replacement is due soon. Only ${days} days remaining. Book your service today.`;
+    } else if (days <= 30) {
+      statusEl.textContent = `Your water filter replacement is approaching. Schedule your next service in ${days} days.`;
     } else {
-      statusEl.textContent = `Your RO Unit is healthy and the service is due in ${days} days.`;
+      statusEl.textContent = `Your water filter is performing well. Your next replacement is recommended in ${days} days.`;
     }
   } catch (e) {
     console.error('loadHomeHero failed:', e);
