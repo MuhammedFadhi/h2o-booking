@@ -713,7 +713,7 @@
     <div class="nav-item active" onclick="showPanel('overview', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M5 12H3l9-9l9 9h-2M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M9 21v-6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6"/></g></svg></span> Overview
     </div>
-    <div class="nav-item" onclick="showPanel('analytics', this)" style="display:none;">
+    <div class="nav-item" id="nav-analytics" onclick="showPanel('analytics', this)" style="display:none;">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zm12-4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1zM9 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1zM4 20h14"/></svg></span> Analytics
     </div>
 
@@ -2302,6 +2302,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   // per row from admins/owners/salesUsers and an Assign Installer dropdown
   // from installers, so it still has to wait for all five to finish first.
   await Promise.all([loadCities(), loadInstallers(), loadAdmins(), loadOwners(), loadSales()]);
+
+  // Analytics is Owner-only — stays hidden (default display:none in the HTML)
+  // for everyone else, admins included.
+  const myEmailLower = session.user.email.trim().toLowerCase();
+  if (owners.some(o => o.email.trim().toLowerCase() === myEmailLower)) {
+    document.getElementById('nav-analytics').style.display = 'flex';
+  }
 
   // If the URL names a saved panel other than Overview, jump straight there
   // instead of rendering Overview first and immediately replacing it — that
