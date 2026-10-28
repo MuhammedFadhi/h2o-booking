@@ -783,7 +783,7 @@ SADA.InspectionReport = (function () {
   async function renewOrCreateWarrantyOnServiceVisit(bookingId, jobType, installerName) {
     if (jobType !== 'quarterly_service' && jobType !== 'maintenance' && jobType !== 'annual_service') return;
     const { data: b } = await window.db.from('bookings')
-      .select('id, customer_phone, product_model').eq('id', bookingId).maybeSingle();
+      .select('id, customer_phone, product_model, warranty_id').eq('id', bookingId).maybeSingle();
     if (!b) return;
     const { data: cust } = await window.db.from('customers').select('id').eq('phone', b.customer_phone).maybeSingle();
     if (!cust) return;
@@ -794,16 +794,25 @@ SADA.InspectionReport = (function () {
     const isAnnual = jobType === 'annual_service';
     const performedBy = installerName ? `${installerName} (installer)` : 'installer';
 
-    // Prefer a real, QR-registered warranty. If the customer has more than
-    // one, only renew when the booking's product matches exactly one of
-    // them — guessing wrong would silently reset the wrong unit's clock.
+    // Prefer a real, QR-registered warranty. The booking's own warranty_id
+    // (set when it was created against a specific unit) is the one reliable
+    // way to tell two units of the identical product apart for the same
+    // customer — product_model name matching alone can't, since both units
+    // would match equally. Only fall back to guessing by product name when
+    // the booking has no such link at all, and only when that's unambiguous
+    // (exactly one real unit, or exactly one whose product matches) —
+    // guessing wrong would silently reset the wrong unit's clock.
     const { data: realUnits } = await window.db.from('warranties')
       .select('id, product_type, filter_interval_override_days').eq('customer_id', cid).eq('source', 'install');
     let realWarrantyId = null, realProductType = null, realFilterOverride = null;
-    if (realUnits && realUnits.length === 1) { realWarrantyId = realUnits[0].id; realProductType = realUnits[0].product_type; realFilterOverride = realUnits[0].filter_interval_override_days; }
-    else if (realUnits && realUnits.length > 1) {
-      const match = realUnits.find(u => u.product_type === b.product_model);
-      if (match) { realWarrantyId = match.id; realProductType = match.product_type; realFilterOverride = match.filter_interval_override_days; }
+    if (b.warranty_id && realUnits) {
+      const linked = realUnits.find(u => u.id === b.warranty_id);
+      if (linked) { realWarrantyId = linked.id; realProductType = linked.product_type; realFilterOverride = linked.filter_interval_override_days; }
+    }
+    if (!realWarrantyId && realUnits && realUnits.length === 1) { realWarrantyId = realUnits[0].id; realProductType = realUnits[0].product_type; realFilterOverride = realUnits[0].filter_interval_override_days; }
+    else if (!realWarrantyId && realUnits && realUnits.length > 1) {
+      const matches = realUnits.filter(u => u.product_type === b.product_model);
+      if (matches.length === 1) { realWarrantyId = matches[0].id; realProductType = matches[0].product_type; realFilterOverride = matches[0].filter_interval_override_days; }
     }
 
     if (realWarrantyId) {
