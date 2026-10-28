@@ -821,13 +821,20 @@ SADA.InspectionReport = (function () {
       // through filters much faster than a home one) always wins over the
       // product's shared default — see admin's Filter Change Schedule modal.
       const realFilterDays = realFilterOverride || realTerms.filter;
-      const patch = isAnnual ? { service_expiry: pushDate(realTerms.service) } : { filter_expiry: pushDate(realFilterDays) };
+      // An Annual Service visit replaces the filter too, in practice — push
+      // both dates forward and log both, not just the service one.
+      const patch = isAnnual
+        ? { service_expiry: pushDate(realTerms.service), filter_expiry: pushDate(realFilterDays) }
+        : { filter_expiry: pushDate(realFilterDays) };
       const upd = await window.db.from('warranties').update(patch).eq('id', realWarrantyId);
       if (upd.error) { console.warn('[IR] real warranty renewal failed:', upd.error.message); return; }
-      const hist = await window.db.from('warranty_service_history').insert({
-        warranty_id: realWarrantyId, service_type: isAnnual ? 'service' : 'filter',
-        source: 'job', performed_on: todayIso, performed_by: performedBy
-      });
+      const historyRows = isAnnual
+        ? [
+            { warranty_id: realWarrantyId, service_type: 'service', source: 'job', performed_on: todayIso, performed_by: performedBy },
+            { warranty_id: realWarrantyId, service_type: 'filter', notes: 'Filter replaced as part of the Annual Service visit', source: 'job', performed_on: todayIso, performed_by: performedBy }
+          ]
+        : [{ warranty_id: realWarrantyId, service_type: 'filter', source: 'job', performed_on: todayIso, performed_by: performedBy }];
+      const hist = await window.db.from('warranty_service_history').insert(historyRows);
       if (hist.error) console.warn('[IR] service history log failed:', hist.error.message);
       return;
     }
@@ -838,7 +845,11 @@ SADA.InspectionReport = (function () {
     let warrantyId = existing?.id;
     if (warrantyId) {
       const existingTerms = await productIntervals(existing.product_type);
-      const patch = isAnnual ? { service_expiry: pushDate(existingTerms.service) } : { filter_expiry: pushDate(existingTerms.filter) };
+      // Same reasoning as the real-unit branch above — Annual Service
+      // replaces the filter too.
+      const patch = isAnnual
+        ? { service_expiry: pushDate(existingTerms.service), filter_expiry: pushDate(existingTerms.filter) }
+        : { filter_expiry: pushDate(existingTerms.filter) };
       const upd = await window.db.from('warranties').update(patch).eq('id', warrantyId);
       if (upd.error) console.warn('[IR] self-reported warranty renewal failed:', upd.error.message);
     } else {
@@ -861,10 +872,13 @@ SADA.InspectionReport = (function () {
     }
     if (!warrantyId) return;
 
-    const hist = await window.db.from('warranty_service_history').insert({
-      warranty_id: warrantyId, service_type: isAnnual ? 'service' : 'filter',
-      source: 'manual', performed_on: todayIso, performed_by: 'customer (self-reported)'
-    });
+    const historyRows = isAnnual
+      ? [
+          { warranty_id: warrantyId, service_type: 'service', source: 'manual', performed_on: todayIso, performed_by: 'customer (self-reported)' },
+          { warranty_id: warrantyId, service_type: 'filter', notes: 'Filter replaced as part of the Annual Service visit', source: 'manual', performed_on: todayIso, performed_by: 'customer (self-reported)' }
+        ]
+      : [{ warranty_id: warrantyId, service_type: 'filter', source: 'manual', performed_on: todayIso, performed_by: 'customer (self-reported)' }];
+    const hist = await window.db.from('warranty_service_history').insert(historyRows);
     if (hist.error) console.warn('[IR] self-reported service history log failed:', hist.error.message);
   }
 
