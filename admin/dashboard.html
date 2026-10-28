@@ -1031,7 +1031,7 @@
               <button class="btn btn-ghost" id="wa-mic-btn" onclick="startWaRecording()" title="Record a voice note" style="display:none;padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5a3 3 0 0 1 3-3a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3a3 3 0 0 1-3-3z"/><path d="M5 10a7 7 0 0 0 14 0M8 21h8m-4-4v4"/></g></svg></button>
               <div style="position:relative;flex:1;">
                 <div id="wa-template-dropdown" style="display:none;position:absolute;bottom:100%;left:0;right:0;margin-bottom:6px;background:var(--white);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);max-height:200px;overflow-y:auto;z-index:20;"></div>
-                <input type="text" id="wa-thread-input" class="form-input" placeholder="Type a reply… (/ for templates)" autocomplete="off" style="width:100%;" oninput="onWaTemplateInput()" onkeydown="handleWaInputKeydown(event)" onblur="setTimeout(closeWaTemplateDropdown, 150)" onpaste="handleWaInputPaste(event)">
+                <textarea id="wa-thread-input" class="form-input" placeholder="Type a reply… (/ for templates, Shift+Enter for a new line)" rows="1" style="width:100%;resize:none;overflow-y:hidden;max-height:120px;" oninput="onWaTemplateInput();autoGrowWaInput()" onkeydown="handleWaInputKeydown(event)" onblur="setTimeout(closeWaTemplateDropdown, 150)" onpaste="handleWaInputPaste(event)"></textarea>
               </div>
               <button class="btn btn-primary" id="wa-thread-send-btn" onclick="sendWhatsappMessage()">Send</button>
             </div>
@@ -9697,6 +9697,7 @@ async function selectWhatsappConversation(id) {
   document.getElementById('wa-thread-messages').innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
   document.getElementById('wa-thread-error').style.display = 'none';
   document.getElementById('wa-thread-input').value = '';
+  autoGrowWaInput();
 
   await loadWhatsappMessages();
 
@@ -9923,6 +9924,7 @@ async function sendWhatsappMessage() {
     const pendingMedia = waPendingTemplateMedia;
     const replyTarget = waReplyTarget;
     input.value = '';
+    autoGrowWaInput();
     clearWaTemplateMedia();
     closeWaTemplateDropdown();
     clearWaReply();
@@ -9955,6 +9957,7 @@ async function sendWhatsappMessage() {
       waMessages = waMessages.filter(m => m._tempId !== tempId);
       renderWhatsappMessages(waMessages);
       input.value = text;
+      autoGrowWaInput();
       document.getElementById('wa-thread-error').style.display = 'block';
       document.getElementById('wa-thread-error').textContent = err.message;
     } finally {
@@ -10038,6 +10041,7 @@ async function sendWaPendingAttachment() {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || 'Upload failed.');
     input.value = '';
+    autoGrowWaInput();
     cancelWaPendingAttachment();
     clearWaReply();
     await loadWhatsappMessages();
@@ -10255,6 +10259,7 @@ function selectWaTemplate(i) {
   const slashIndex = beforeCursor.lastIndexOf('/');
   const newValue = beforeCursor.slice(0, slashIndex) + (t.message || '') + afterCursor;
   input.value = newValue;
+  autoGrowWaInput();
   const newCursor = slashIndex + (t.message || '').length;
   input.setSelectionRange(newCursor, newCursor);
   input.focus();
@@ -10269,7 +10274,19 @@ function handleWaInputKeydown(event) {
     if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); selectWaTemplate(waTemplateDropdownIndex); return; }
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeWaTemplateDropdown(); return; }
   }
-  if (event.key === 'Enter') { event.preventDefault(); sendWhatsappMessage(); }
+  // Enter sends; Shift+Enter inserts a real line break — the reply box is a
+  // <textarea> precisely so a pasted or typed multi-line template (e.g.
+  // "Name:-\nContact:-\nLocation:-") keeps its line breaks instead of a
+  // single-line <input> silently collapsing them into one line.
+  if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendWhatsappMessage(); }
+}
+
+// Grows the reply textarea to fit its content (up to the CSS max-height,
+// after which it scrolls) instead of staying a fixed single-line box.
+function autoGrowWaInput() {
+  const el = document.getElementById('wa-thread-input');
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
 }
 
 function showWaTemplateMedia(mediaUrl) {
