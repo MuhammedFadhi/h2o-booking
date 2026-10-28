@@ -9364,7 +9364,7 @@ function renderWhatsappConversationList() {
     return;
   }
   el.innerHTML = rows.map(c => `
-    <div onclick="waRowClick(event,'${c.id}')" onmouseenter="waPeekStart(event,'${c.id}')" onmousedown="waPeekStart(event,'${c.id}')" onmouseup="waPeekEnd()" onmouseleave="waPeekEnd()" ontouchstart="waPeekStart(event,'${c.id}')" ontouchend="waPeekEnd()" ontouchmove="clearTimeout(waPeekTimer)" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};${c.status === 'not_interested' ? 'opacity:0.55;filter:grayscale(0.6);' : ''}">
+    <div onclick="waRowClick(event,'${c.id}')" onmouseenter="waPeekHoverStart(event,'${c.id}')" onmousedown="waPeekStart(event,'${c.id}')" onmouseup="waPeekEnd()" onmouseleave="waPeekRowLeave()" ontouchstart="waPeekStart(event,'${c.id}')" ontouchend="waPeekEnd()" ontouchmove="clearTimeout(waPeekTimer)" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};${c.status === 'not_interested' ? 'opacity:0.55;filter:grayscale(0.6);' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
         <div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escB(c.contact_name || c.phone)}</div>
         ${c.unread_count > 0 ? `<span style="background:#16A34A;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;flex-shrink:0;">${c.unread_count}</span>` : ''}
@@ -9390,29 +9390,44 @@ function renderWhatsappConversationList() {
   }
 }
 
-// ── Long-press / hover peek — holding (touch/mouse-down) or simply
-// hovering (desktop mouse) over a conversation row shows its last few
-// messages without leaving the list (same idea as iOS's peek-and-release),
+// ── Long-press / hover peek — holding (touch/mouse-down) shows it fast
+// (450ms, a deliberate gesture); just hovering (desktop mouse, no click)
+// needs a much longer dwell (5s) so idly passing the cursor over the list
+// doesn't keep popping panels up. Same idea as iOS's peek-and-release,
 // instead of having to fully open the thread just to check context. A
-// short hold (under the delay below) is treated as an ordinary click and
+// short hold (under the press delay) is treated as an ordinary click and
 // opens the conversation as before; waPeekSuppressClick stops that same
 // release from ALSO firing the click once a peek has actually shown.
-// mouseenter reuses the same timer/guard as mousedown — event.type is
-// 'mouseenter' there, so the left-click-only check below never applies to
-// it; mouseleave (already wired) clears the timer either way.
+//
+// The popup can be scrolled (pointer-events enabled, unlike the original
+// press-only version) — waPeekRowLeave gives a short grace period before
+// actually closing, so moving the mouse from the row onto the popup itself
+// doesn't instantly hide it; waPeekPopupEnter/Leave extend that while the
+// cursor is actually over the popup.
 let waPeekTimer = null;
+let waPeekHoverTimer = null;
+let waPeekCloseTimer = null;
 let waPeekShown = false;
 let waPeekSuppressClick = false;
 
 function waPeekStart(event, conversationId) {
   if (event.type === 'mousedown' && event.button !== 0) return; // left click / touch only
   clearTimeout(waPeekTimer);
-  waPeekShown = false;
-  waPeekTimer = setTimeout(() => { waPeekShown = true; showWaPeek(conversationId, event); }, 450);
+  waPeekTimer = setTimeout(() => { if (!waPeekShown) { waPeekShown = true; showWaPeek(conversationId, event); } }, 450);
 }
 
+function waPeekHoverStart(event, conversationId) {
+  clearTimeout(waPeekHoverTimer);
+  waPeekHoverTimer = setTimeout(() => { if (!waPeekShown) { waPeekShown = true; showWaPeek(conversationId, event); } }, 5000);
+}
+
+// Explicit release (press-hold ends on the row) — closes immediately and
+// suppresses the click that follows, same peek-and-release behavior as
+// before. Not used for a plain mouseleave — see waPeekRowLeave.
 function waPeekEnd() {
   clearTimeout(waPeekTimer);
+  clearTimeout(waPeekHoverTimer);
+  clearTimeout(waPeekCloseTimer);
   if (waPeekShown) {
     hideWaPeek();
     waPeekSuppressClick = true;
@@ -9420,6 +9435,21 @@ function waPeekEnd() {
   }
   waPeekShown = false;
 }
+
+// Mouse actually left the row (not a release) — don't close immediately;
+// it may just be moving onto the popup to scroll it. waPeekPopupEnter
+// cancels this if the cursor lands there in time.
+function waPeekRowLeave() {
+  clearTimeout(waPeekTimer);
+  clearTimeout(waPeekHoverTimer);
+  clearTimeout(waPeekCloseTimer);
+  waPeekCloseTimer = setTimeout(() => {
+    if (waPeekShown) { hideWaPeek(); waPeekShown = false; }
+  }, 250);
+}
+
+function waPeekPopupEnter() { clearTimeout(waPeekCloseTimer); }
+function waPeekPopupLeave() { clearTimeout(waPeekCloseTimer); if (waPeekShown) { hideWaPeek(); waPeekShown = false; } }
 
 function waRowClick(event, conversationId) {
   if (waPeekSuppressClick) { waPeekSuppressClick = false; return; }
@@ -9431,7 +9461,9 @@ function waPeekPopup() {
   if (!el) {
     el = document.createElement('div');
     el.id = 'wa-peek-popup';
-    el.style.cssText = 'display:none;position:fixed;z-index:500;background:#111827;color:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.35);padding:10px;width:260px;max-height:320px;overflow-y:auto;pointer-events:none;';
+    el.style.cssText = 'display:none;position:fixed;z-index:500;background:#111827;color:#fff;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.35);padding:10px;width:260px;max-height:320px;overflow-y:auto;';
+    el.onmouseenter = waPeekPopupEnter;
+    el.onmouseleave = waPeekPopupLeave;
     document.body.appendChild(el);
   }
   return el;
