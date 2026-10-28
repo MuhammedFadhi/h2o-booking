@@ -9364,7 +9364,7 @@ function renderWhatsappConversationList() {
     return;
   }
   el.innerHTML = rows.map(c => `
-    <div onclick="waRowClick(event,'${c.id}')" onmousedown="waPeekStart(event,'${c.id}')" onmouseup="waPeekEnd()" onmouseleave="waPeekEnd()" ontouchstart="waPeekStart(event,'${c.id}')" ontouchend="waPeekEnd()" ontouchmove="clearTimeout(waPeekTimer)" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};${c.status === 'not_interested' ? 'opacity:0.55;filter:grayscale(0.6);' : ''}">
+    <div onclick="waRowClick(event,'${c.id}')" onmouseenter="waPeekStart(event,'${c.id}')" onmousedown="waPeekStart(event,'${c.id}')" onmouseup="waPeekEnd()" onmouseleave="waPeekEnd()" ontouchstart="waPeekStart(event,'${c.id}')" ontouchend="waPeekEnd()" ontouchmove="clearTimeout(waPeekTimer)" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};${c.status === 'not_interested' ? 'opacity:0.55;filter:grayscale(0.6);' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
         <div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escB(c.contact_name || c.phone)}</div>
         ${c.unread_count > 0 ? `<span style="background:#16A34A;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;flex-shrink:0;">${c.unread_count}</span>` : ''}
@@ -9390,12 +9390,16 @@ function renderWhatsappConversationList() {
   }
 }
 
-// ── Long-press peek — holding a conversation row shows its last few
+// ── Long-press / hover peek — holding (touch/mouse-down) or simply
+// hovering (desktop mouse) over a conversation row shows its last few
 // messages without leaving the list (same idea as iOS's peek-and-release),
 // instead of having to fully open the thread just to check context. A
 // short hold (under the delay below) is treated as an ordinary click and
 // opens the conversation as before; waPeekSuppressClick stops that same
 // release from ALSO firing the click once a peek has actually shown.
+// mouseenter reuses the same timer/guard as mousedown — event.type is
+// 'mouseenter' there, so the left-click-only check below never applies to
+// it; mouseleave (already wired) clears the timer either way.
 let waPeekTimer = null;
 let waPeekShown = false;
 let waPeekSuppressClick = false;
@@ -9860,14 +9864,14 @@ function renderWhatsappMessages(messages) {
     const time = m.sent_at ? new Date(m.sent_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
     const isAudio = m.media_url && /audio|voice/i.test(m.message_type || '');
     const isImage = m.media_url && /image/i.test(m.message_type || '');
-    const isVideo = m.media_url && /video/i.test(m.message_type || '');
     const caption = m.body ? `<div style="margin-top:4px;">${escB(m.body)}</div>` : '';
     const body = isAudio
       ? `<audio controls src="${escB(m.media_url)}" style="max-width:220px;height:34px;"></audio>${caption}`
       : isImage
       ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener"><img src="${escB(m.media_url)}" style="max-width:220px;max-height:220px;border-radius:8px;display:block;"></a>${caption}`
-      : isVideo
-      ? `<video controls src="${escB(m.media_url)}" style="max-width:220px;max-height:220px;border-radius:8px;display:block;"></video>${caption}`
+      // Video dropped back to a plain file link for now (was <video
+      // controls>, showing the browser's own first-frame poster, which read
+      // as an unwanted thumbnail) — same treatment as any other document.
       : (m.media_url && m.thumbnail_url)
       // A PDF with its first-page thumbnail already rendered (see v97) —
       // the thumbnail links to the actual file, same as the image case.
