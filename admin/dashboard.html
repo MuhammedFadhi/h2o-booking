@@ -8793,12 +8793,18 @@ function renderWarranties() {
     <div style="font-size:11px;color:var(--muted);margin-top:10px;">Showing ${rows.length} of ${allWarranties.length} units — ${W.esc(activeLabel)}${q ? ` matching "${W.esc(q)}"` : ''}.</div>`;
 }
 
-// Every filter-change occurrence from the unit's next due date through one
-// year from today, stepping by the product's own interval — e.g. a 90-day
-// filter yields ~4 dates. Not stored anywhere; purely computed for display.
-function filterChangeSchedule(filterExpiry, intervalDays, horizonDays) {
+// Every filter-change occurrence from the unit's next due date through the
+// end of its actual coverage, stepping by the product's own interval — e.g.
+// a 90-day filter over a 2-year warranty yields ~8 dates. Not stored
+// anywhere; purely computed for display. horizonDate is the unit's own
+// warranty_expiry when known; falls back to 2 years from today (matching
+// warranty_interval_days' own default) for a unit with none set yet (e.g.
+// still pending activation).
+function filterChangeSchedule(filterExpiry, intervalDays, horizonDate) {
   if (!filterExpiry || !intervalDays) return [];
-  const horizon = new Date(); horizon.setDate(horizon.getDate() + (horizonDays || 365));
+  let horizon;
+  if (horizonDate) horizon = new Date(horizonDate);
+  else { horizon = new Date(); horizon.setDate(horizon.getDate() + 730); }
   const dates = [];
   let d = new Date(filterExpiry);
   while (d <= horizon) {
@@ -8824,13 +8830,16 @@ function renderFilterScheduleModal(w) {
   const filterDays = w.filter_interval_override_days || productDays;
   document.getElementById('fsched-interval-input').value = filterDays;
   document.getElementById('fsched-reset-link').style.display = w.filter_interval_override_days ? 'inline' : 'none';
-  document.getElementById('fsched-list-title').textContent = `Upcoming dates — next 12 months (every ${filterDays}d)`;
+  const horizon = w.warranty_expiry || null;
+  document.getElementById('fsched-list-title').textContent = horizon
+    ? `Upcoming dates — until warranty ends ${W.fmtDate(horizon)} (every ${filterDays}d)`
+    : `Upcoming dates — next 2 years (every ${filterDays}d)`;
   document.getElementById('fsched-date-input').value = w.filter_expiry ? w.filter_expiry.slice(0, 10) : '';
-  const schedule = filterChangeSchedule(w.filter_expiry, filterDays, 365);
+  const schedule = filterChangeSchedule(w.filter_expiry, filterDays, horizon);
   document.getElementById('fsched-list').innerHTML = schedule.length
     ? schedule.map((d, i) => `<span style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;">#${i + 1} · ${W.fmtDate(d)}</span>`).join('')
     : (w.filter_expiry
-        ? `<div style="font-size:12px;color:var(--muted);">Next filter change is due ${W.fmtDate(w.filter_expiry)} — more than a year away.</div>`
+        ? `<div style="font-size:12px;color:var(--muted);">Next filter change is due ${W.fmtDate(w.filter_expiry)} — after the warranty's coverage window.</div>`
         : `<div style="font-size:12px;color:var(--muted);">No filter-change date set yet.</div>`);
 }
 
@@ -8846,6 +8855,9 @@ function openFilterSchedule(id) {
 // the date/interval fields, without saving. Wired to both inputs' oninput.
 function previewFilterSchedule() {
   const W = window.SADA.Warranty;
+  const id = document.getElementById('fsched-warranty-id').value;
+  const w = allWarranties.find(x => x.id === id);
+  const horizon = w?.warranty_expiry || null;
   const dateVal = document.getElementById('fsched-date-input').value;
   const intervalDays = parseInt(document.getElementById('fsched-interval-input').value, 10);
   const listEl = document.getElementById('fsched-list');
@@ -8853,11 +8865,13 @@ function previewFilterSchedule() {
     listEl.innerHTML = `<div style="font-size:12px;color:var(--muted);">Enter a date and an interval to preview the schedule.</div>`;
     return;
   }
-  document.getElementById('fsched-list-title').textContent = `Upcoming dates — next 12 months (every ${intervalDays}d)`;
-  const schedule = filterChangeSchedule(dateVal, intervalDays, 365);
+  document.getElementById('fsched-list-title').textContent = horizon
+    ? `Upcoming dates — until warranty ends ${W.fmtDate(horizon)} (every ${intervalDays}d)`
+    : `Upcoming dates — next 2 years (every ${intervalDays}d)`;
+  const schedule = filterChangeSchedule(dateVal, intervalDays, horizon);
   listEl.innerHTML = schedule.length
     ? schedule.map((d, i) => `<span style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;">#${i + 1} · ${W.fmtDate(d)}</span>`).join('')
-    : `<div style="font-size:12px;color:var(--muted);">Next filter change is due ${W.fmtDate(dateVal)} — more than a year away.</div>`;
+    : `<div style="font-size:12px;color:var(--muted);">Next filter change is due ${W.fmtDate(dateVal)} — after the warranty's coverage window.</div>`;
 }
 
 // "Use product default" — resets the interval field to the product's own
