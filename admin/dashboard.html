@@ -9366,11 +9366,11 @@ const WA_CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height
 const WA_CHECKS_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="m7 12l5 5L22 7M2 12l5 5m5-5l5-5"/></svg>';
 const WA_FAILED_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1.67c.955 0 1.845.467 2.39 1.247l.105.16l8.114 13.548a2.914 2.914 0 0 1-2.307 4.363l-.195.008H3.882a2.914 2.914 0 0 1-2.582-4.2l.099-.185l8.11-13.538A2.91 2.91 0 0 1 12 1.67M12.01 15l-.127.007a1 1 0 0 0 0 1.986L12 17l.127-.007a1 1 0 0 0 0-1.986zM12 8a1 1 0 0 0-.993.883L11 9v4l.007.117a1 1 0 0 0 1.986 0L13 13V9l-.007-.117A1 1 0 0 0 12 8"/></svg>';
 
-function waStatusIcon(status) {
+function waStatusIcon(status, errorText) {
   // Rendered in the timestamp row below the bubble (light background), not
   // on the blue bubble itself — so these need to be actual greys, not a
   // near-white meant for sitting on blue.
-  if (status === 'failed') return `<span style="color:#DC2626;" title="Failed to deliver">${WA_FAILED_SVG}</span>`;
+  if (status === 'failed') return `<span style="color:#DC2626;" title="${escB(errorText || 'Failed to deliver')}">${WA_FAILED_SVG}</span>`;
   if (status === 'read') return `<span style="color:#22C55E;" title="Read">${WA_CHECKS_SVG}</span>`;
   if (status === 'delivered') return `<span style="color:var(--muted);" title="Delivered">${WA_CHECKS_SVG}</span>`;
   return `<span style="color:var(--muted);" title="Sent">${WA_CHECK_SVG}</span>`; // "sent" + any unrecognized value
@@ -9435,7 +9435,7 @@ function renderWhatsappMessages(messages) {
           </a>${caption}`
       : m.body ? escB(m.body)
       : '';
-    const status = out ? `<span style="display:inline-flex;align-items:center;">${waStatusIcon(m.status)}</span>` : '';
+    const status = out ? `<span style="display:inline-flex;align-items:center;">${waStatusIcon(m.status, m.status_error)}</span>` : '';
     const quoted = waQuotedBlock(m.reply_to_wa_message_id, messages, out);
     const replyBtn = m.wa_message_id ? `<button onclick="startWaReply('${m.wa_message_id}')" title="Reply" style="background:none;border:none;padding:0;cursor:pointer;color:inherit;opacity:0.6;display:inline-flex;align-items:center;"><svg xmlns="http://www.w3.org/2000/svg" width="0.9em" height="0.9em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4l4-4m-4 4h11a4 4 0 0 1 4 4v1"/></svg></button>` : '';
     return `<div style="align-self:${out ? 'flex-end' : 'flex-start'};max-width:65%;">
