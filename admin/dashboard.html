@@ -9893,59 +9893,76 @@ function renderWaReplyBanner() {
   el.style.display = 'flex';
 }
 
+// True re-entrancy guard, not just the Send button's disabled state — Enter
+// in the reply box calls this directly (handleWaInputKeydown), and nothing
+// stopped a second Enter (or click) from re-entering mid-send: the text
+// path only went empty-text-no-op by the accident of clearing input.value
+// early, and the attachment path (sendWaPendingAttachment) didn't clear
+// waPendingAttachmentFile until AFTER its upload resolved, so a second
+// Enter pressed while the first upload was still in flight re-sent the
+// exact same file as a genuine second request. This flag blocks re-entry
+// outright, for both paths, the instant any send starts.
+let waSendInFlight = false;
+
 async function sendWhatsappMessage() {
-  // A staged file (attach button or pasted image — see stageWaAttachment)
-  // takes over Send/Enter: the reply box is its caption, not a separate
-  // text message, same as WhatsApp's own composer.
-  if (waPendingAttachmentFile) { await sendWaPendingAttachment(); return; }
-  const input = document.getElementById('wa-thread-input');
-  const text = input.value.trim();
-  if (!text || !waCurrentConversationId) return;
-  const btn = document.getElementById('wa-thread-send-btn');
-  btn.disabled = true;
-  btn.textContent = 'Sending…';
-  document.getElementById('wa-thread-error').style.display = 'none';
-
-  const pendingMedia = waPendingTemplateMedia;
-  const replyTarget = waReplyTarget;
-  input.value = '';
-  clearWaTemplateMedia();
-  closeWaTemplateDropdown();
-  clearWaReply();
-
-  // Optimistic echo — same reasoning as the CRM chat's send path: don't
-  // make every send wait on a second round-trip before showing anything.
-  // _tempId identifies THIS send's own placeholder so it can be swapped for
-  // the real row below without touching any other concurrent send's
-  // placeholder. reply_to_wa_message_id is included so the quote preview
-  // shows immediately instead of waiting for the next poll.
-  const tempId = `wa-temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  waMessages = [...waMessages, { direction: 'outbound', body: text, sent_at: new Date().toISOString(), status: 'sent', reply_to_wa_message_id: replyTarget?.waMessageId || null, _optimistic: true, _tempId: tempId }];
-  renderWhatsappMessages(waMessages);
-
+  if (waSendInFlight) return;
+  waSendInFlight = true;
   try {
-    // A template picked with a media_url attaches that file alongside the
-    // message as its caption, instead of sending plain text.
-    const result = pendingMedia
-      ? await waCall('send-quick-reply-media', { conversationId: waCurrentConversationId, mediaUrl: pendingMedia, body: text, replyToWaMessageId: replyTarget?.waMessageId || null })
-      : await waCall('send-message', { conversationId: waCurrentConversationId, body: text, replyToWaMessageId: replyTarget?.waMessageId || null });
-    // Swap the placeholder for the real, saved row now rather than leaving
-    // it for the next poll to naturally overwrite — see loadWhatsappMessages
-    // for why relying on that alone let the message flicker away.
-    waMessages = waMessages.map(m => m._tempId === tempId ? (result?.message || { ...m, _optimistic: false }) : m);
+    // A staged file (attach button or pasted image — see stageWaAttachment)
+    // takes over Send/Enter: the reply box is its caption, not a separate
+    // text message, same as WhatsApp's own composer.
+    if (waPendingAttachmentFile) { await sendWaPendingAttachment(); return; }
+    const input = document.getElementById('wa-thread-input');
+    const text = input.value.trim();
+    if (!text || !waCurrentConversationId) return;
+    const btn = document.getElementById('wa-thread-send-btn');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    document.getElementById('wa-thread-error').style.display = 'none';
+
+    const pendingMedia = waPendingTemplateMedia;
+    const replyTarget = waReplyTarget;
+    input.value = '';
+    clearWaTemplateMedia();
+    closeWaTemplateDropdown();
+    clearWaReply();
+
+    // Optimistic echo — same reasoning as the CRM chat's send path: don't
+    // make every send wait on a second round-trip before showing anything.
+    // _tempId identifies THIS send's own placeholder so it can be swapped for
+    // the real row below without touching any other concurrent send's
+    // placeholder. reply_to_wa_message_id is included so the quote preview
+    // shows immediately instead of waiting for the next poll.
+    const tempId = `wa-temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    waMessages = [...waMessages, { direction: 'outbound', body: text, sent_at: new Date().toISOString(), status: 'sent', reply_to_wa_message_id: replyTarget?.waMessageId || null, _optimistic: true, _tempId: tempId }];
     renderWhatsappMessages(waMessages);
-    const convo = waConversations.find(c => c.id === waCurrentConversationId);
-    if (convo) { convo.last_message_preview = text; convo.last_message_at = new Date().toISOString(); renderWhatsappConversationList(); }
-    assignWaConversationIfUnassigned(waCurrentConversationId);
-  } catch (err) {
-    waMessages = waMessages.filter(m => m._tempId !== tempId);
-    renderWhatsappMessages(waMessages);
-    input.value = text;
-    document.getElementById('wa-thread-error').style.display = 'block';
-    document.getElementById('wa-thread-error').textContent = err.message;
+
+    try {
+      // A template picked with a media_url attaches that file alongside the
+      // message as its caption, instead of sending plain text.
+      const result = pendingMedia
+        ? await waCall('send-quick-reply-media', { conversationId: waCurrentConversationId, mediaUrl: pendingMedia, body: text, replyToWaMessageId: replyTarget?.waMessageId || null })
+        : await waCall('send-message', { conversationId: waCurrentConversationId, body: text, replyToWaMessageId: replyTarget?.waMessageId || null });
+      // Swap the placeholder for the real, saved row now rather than leaving
+      // it for the next poll to naturally overwrite — see loadWhatsappMessages
+      // for why relying on that alone let the message flicker away.
+      waMessages = waMessages.map(m => m._tempId === tempId ? (result?.message || { ...m, _optimistic: false }) : m);
+      renderWhatsappMessages(waMessages);
+      const convo = waConversations.find(c => c.id === waCurrentConversationId);
+      if (convo) { convo.last_message_preview = text; convo.last_message_at = new Date().toISOString(); renderWhatsappConversationList(); }
+      assignWaConversationIfUnassigned(waCurrentConversationId);
+    } catch (err) {
+      waMessages = waMessages.filter(m => m._tempId !== tempId);
+      renderWhatsappMessages(waMessages);
+      input.value = text;
+      document.getElementById('wa-thread-error').style.display = 'block';
+      document.getElementById('wa-thread-error').textContent = err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Send';
+    }
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Send';
+    waSendInFlight = false;
   }
 }
 
