@@ -119,6 +119,48 @@ async function convertAudioToAac(buffer, filename) {
   };
 }
 
+// A small JPG of a PDF's first page, for the chat bubble thumbnail (see
+// v96) — same CloudConvert job/poll shape as convertAudioToAac above, just
+// a different conversion. Never throws past the caller's own try/catch:
+// a thumbnail is a nice-to-have, never worth failing or even slowing down
+// the actual send over.
+async function pdfFirstPageThumbnail(buffer, filename) {
+  if (!CLOUDCONVERT_API_KEY) return null;
+  const jobRes = await fetch('https://api.cloudconvert.com/v2/jobs', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${CLOUDCONVERT_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tasks: {
+        'import-1': { operation: 'import/base64', file: buffer.toString('base64'), filename: filename || 'document.pdf' },
+        'convert-1': { operation: 'convert', input: 'import-1', output_format: 'jpg', pages: '1', filename: 'page-1.jpg' },
+        'export-1': { operation: 'export/url', input: 'convert-1' }
+      }
+    })
+  });
+  const jobJson = await jobRes.json().catch(() => ({}));
+  if (!jobRes.ok) return null;
+  let job = jobJson?.data;
+  if (!job?.id) return null;
+
+  for (let i = 0; i < 20 && job.status !== 'finished' && job.status !== 'error'; i++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const pollRes = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.id}`, {
+      headers: { Authorization: `Bearer ${CLOUDCONVERT_API_KEY}` }
+    });
+    const pollJson = await pollRes.json().catch(() => ({}));
+    job = pollJson?.data || job;
+  }
+  if (job.status !== 'finished') return null;
+
+  const exportTask = (job.tasks || []).find((t) => t.operation === 'export/url' && t.status === 'finished');
+  const fileInfo = exportTask?.result?.files?.[0];
+  if (!fileInfo?.url) return null;
+
+  const imgRes = await fetch(fileInfo.url);
+  if (!imgRes.ok) return null;
+  return Buffer.from(await imgRes.arrayBuffer());
+}
+
 // Shared by the file-attach/voice-note path and the quick-reply-with-image
 // path: upload to Meta's media endpoint (the message-send API takes a
 // media id, not an inline file), send referencing that id, then re-host
@@ -172,6 +214,14 @@ async function sendMediaMessage({ conversationId, buffer, mimeType, filename, ca
   try { mediaUrl = await uploadToStorage(storagePath, buffer, mimeType); }
   catch (err) { console.error('whatsapp outbound media re-host failed:', err.message); }
 
+  let thumbnailUrl = null;
+  if (baseMime === 'application/pdf') {
+    try {
+      const thumbBuffer = await pdfFirstPageThumbnail(buffer, filename);
+      if (thumbBuffer) thumbnailUrl = await uploadToStorage(`${metaMediaId}_thumb.jpg`, thumbBuffer, 'image/jpeg');
+    } catch (err) { console.error('whatsapp outbound PDF thumbnail failed:', err.message); }
+  }
+
   const waMessageId = sendJson?.messages?.[0]?.id || null;
   const sentAt = new Date().toISOString();
   const inserted = await sb('POST', '/rest/v1/whatsapp_messages', {
@@ -182,6 +232,7 @@ async function sendMediaMessage({ conversationId, buffer, mimeType, filename, ca
     body: caption ? String(caption) : null,
     media_id: metaMediaId,
     media_url: mediaUrl,
+    thumbnail_url: thumbnailUrl,
     reply_to_wa_message_id: replyToWaMessageId ? String(replyToWaMessageId) : null,
     status: 'sent',
     sent_at: sentAt
