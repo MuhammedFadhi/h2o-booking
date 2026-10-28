@@ -260,6 +260,11 @@
     // x=cos/y=sin convention) and sweeps clockwise.
     var knob = pt(270 + frac * 360);
     var label = (days === null) ? '—' : String(days);
+    // Red number once inside the same "Action Required / Due Today /
+    // Overdue" window as the Home hero banner's own tiers (<=3 days,
+    // including negative/overdue) — everything else about the gauge
+    // (ring color, etc.) is untouched.
+    var labelColor = (days !== null && days <= 3) ? '#F87171' : '#fff';
     var gid = 'gaugeGrad' + (++_gaugeUid);
 
     // Static decorative ring of dots around the outside — purely visual,
@@ -292,7 +297,7 @@
           '</g>' +
         '</svg>' +
         '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
-          '<div style="font-size:51px;font-weight:500;color:#fff;line-height:1;">' + label + '</div>' +
+          '<div style="font-size:51px;font-weight:500;color:' + labelColor + ';line-height:1;">' + label + '</div>' +
           '<div style="font-size:12px;font-weight:500;color:rgba(255,255,255,0.55);letter-spacing:.1em;margin-top:5px;">DAYS LEFT</div>' +
           '<div style="margin-top:6px;max-width:116px;background:rgba(255,255,255,0.14);color:#fff;font-size:10px;font-weight:500;padding:4px 9px;border-radius:13px;letter-spacing:0;line-height:1.25;text-align:center;">' + esc(statusWord) + '</div>' +
           (dueText ? '<div style="margin-top:7px;max-width:125px;font-size:10px;font-weight:500;line-height:1.3;text-align:center;color:rgba(255,255,255,0.5);">' + esc(dueText) + '</div>' : '') +
