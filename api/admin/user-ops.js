@@ -61,7 +61,7 @@ module.exports = async function handler(req, res) {
     // is owner-only — a plain admin can't even list owners.
     const OWNER_ONLY_ACTIONS = new Set(['create-owner', 'grant-owner', 'edit-owner', 'list-owners', 'delete-owner']);
     if (OWNER_ONLY_ACTIONS.has(action) && !isOwner) {
-      return res.status(403).json({ error: 'Owner access required' });
+      return res.status(403).json({ error: 'Master Admin access required' });
     }
 
     if (action === 'create-installer') {
@@ -157,7 +157,7 @@ module.exports = async function handler(req, res) {
     if (action === 'delete-owner') {
       if (!email) return res.status(400).json({ error: 'email required' });
       if (email.toLowerCase() === (callerEmail || '').toLowerCase()) {
-        return res.status(400).json({ error: 'You cannot remove your own owner access.' });
+        return res.status(400).json({ error: 'You cannot remove your own master admin access.' });
       }
       await admin('DELETE', `/rest/v1/owner_emails?email=eq.${encodeURIComponent(email)}`, null);
       return res.status(200).json({ ok: true });

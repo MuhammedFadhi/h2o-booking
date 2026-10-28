@@ -1212,10 +1212,10 @@
 
       <div class="card" id="owners-card" style="margin-top:20px; display:none;">
         <div class="card-header">
-          <span class="card-title">Owners</span>
-          <button class="btn btn-primary" onclick="openOwnerModal()">+ Add Owner</button>
+          <span class="card-title">Master Admins</span>
+          <button class="btn btn-primary" onclick="openOwnerModal()">+ Add Master Admin</button>
         </div>
-        <div style="font-size:12px;color:var(--muted);margin:-4px 0 12px;">Owners sign in on the same login page as admins and have the same full access — it's just a separate identity/label.</div>
+        <div style="font-size:12px;color:var(--muted);margin:-4px 0 12px;">Master Admins sign in on the same login page as admins and have the same full access — it's just a separate identity/label.</div>
         <div id="owners-table">
           <div class="loading"><div class="spinner"></div></div>
         </div>
@@ -2298,24 +2298,24 @@
 <!-- ADD/EDIT OWNER MODAL -->
 <div class="modal-overlay" id="owner-modal">
   <div class="modal">
-    <h2 class="modal-title" id="owner-modal-title">Add Owner User</h2>
+    <h2 class="modal-title" id="owner-modal-title">Add Master Admin User</h2>
     <div class="form-group">
       <label>Full Name</label>
-      <input type="text" class="form-input" id="owner-name-input" placeholder="Owner's full name">
+      <input type="text" class="form-input" id="owner-name-input" placeholder="Master Admin's full name">
     </div>
     <div class="form-group">
       <label>Email Address</label>
-      <input type="email" class="form-input" id="owner-email-input" placeholder="owner@sadawater.com" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
+      <input type="email" class="form-input" id="owner-email-input" placeholder="masteradmin@sadawater.com" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
     </div>
     <div class="form-group">
       <label id="owner-password-label">Login Password</label>
-      <input type="password" class="form-input" id="owner-password-input" placeholder="Leave blank to grant an existing login owner access" autocomplete="new-password" data-lpignore="true" data-1p-ignore>
+      <input type="password" class="form-input" id="owner-password-input" placeholder="Leave blank to grant an existing login master admin access" autocomplete="new-password" data-lpignore="true" data-1p-ignore>
     </div>
-    <div id="owner-password-hint" style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:8px;">Set a password to create a brand-new owner login, or leave it blank to grant owner access to an email that already has one (e.g. an existing admin).</div>
+    <div id="owner-password-hint" style="font-size:12px;color:var(--muted);margin-top:-8px;margin-bottom:8px;">Set a password to create a brand-new master admin login, or leave it blank to grant master admin access to an email that already has one (e.g. an existing admin).</div>
     <div id="owner-error" style="display:none; background:#FEF2F2; border:1px solid #FECACA; color:#B71C1C; padding:12px; border-radius:10px; font-size:13px; margin-top:8px;"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('owner-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveOwnerUser()">Save Owner</button>
+      <button class="btn btn-primary" onclick="saveOwnerUser()">Save Master Admin</button>
     </div>
   </div>
 </div>
@@ -6163,7 +6163,7 @@ function renderOwnersTable() {
   const container = document.getElementById('owners-table');
   if (!container) return;
   if (!owners.length) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👑</div><div>No owners yet.</div></div>';
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👑</div><div>No master admins yet.</div></div>';
     return;
   }
   const myEmail = (document.getElementById('admin-email')?.textContent || '').trim().toLowerCase();
@@ -6176,14 +6176,14 @@ function renderOwnersTable() {
       <td>
         <div style="display:flex; gap:6px; flex-wrap:wrap;">
           <button class="btn btn-sm btn-ghost" onclick="openEditOwnerModal('${o.email}')">Edit</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteOwner('${o.email}')" ${isSelf ? 'disabled title="You cannot remove your own owner access"' : ''}>Remove</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteOwner('${o.email}')" ${isSelf ? 'disabled title="You cannot remove your own master admin access"' : ''}>Remove</button>
         </div>
       </td>
     </tr>`;
   }).join('');
   container.innerHTML = `
     <table>
-      <thead><tr><th>Owner</th><th>Added</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Master Admin</th><th>Added</th><th>Actions</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 }
@@ -6192,13 +6192,13 @@ let editingOwnerEmail = null; // null = add mode, otherwise the email being edit
 
 function openOwnerModal() {
   editingOwnerEmail = null;
-  document.getElementById('owner-modal-title').textContent = 'Add Owner User';
+  document.getElementById('owner-modal-title').textContent = 'Add Master Admin User';
   document.getElementById('owner-name-input').value = '';
   document.getElementById('owner-email-input').value = '';
   document.getElementById('owner-email-input').disabled = false;
   document.getElementById('owner-password-input').value = '';
   document.getElementById('owner-password-label').textContent = 'Login Password';
-  document.getElementById('owner-password-hint').textContent = 'Set a password to create a brand-new owner login, or leave it blank to grant owner access to an email that already has one (e.g. an existing admin).';
+  document.getElementById('owner-password-hint').textContent = 'Set a password to create a brand-new master admin login, or leave it blank to grant master admin access to an email that already has one (e.g. an existing admin).';
   document.getElementById('owner-error').style.display = 'none';
   document.getElementById('owner-modal').style.display = 'flex';
 }
@@ -6207,7 +6207,7 @@ function openEditOwnerModal(email) {
   const o = owners.find(x => x.email === email);
   if (!o) return;
   editingOwnerEmail = email;
-  document.getElementById('owner-modal-title').textContent = 'Edit Owner User';
+  document.getElementById('owner-modal-title').textContent = 'Edit Master Admin User';
   document.getElementById('owner-name-input').value = o.name || '';
   document.getElementById('owner-email-input').value = o.email;
   document.getElementById('owner-email-input').disabled = true;
@@ -6247,17 +6247,17 @@ async function saveOwnerUser() {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     errEl.style.display = 'block';
-    errEl.textContent = body.error || 'Failed to save owner.';
+    errEl.textContent = body.error || 'Failed to save master admin.';
     return;
   }
 
   closeModal('owner-modal');
-  showToast(editingOwnerEmail ? 'Owner updated' : 'Owner added successfully', 'success');
+  showToast(editingOwnerEmail ? 'Master Admin updated' : 'Master Admin added successfully', 'success');
   await loadOwners();
 }
 
 async function deleteOwner(email) {
-  if (!confirm(`Remove owner access for ${email}? Their login (if any) will remain, but they will no longer have owner privileges.`)) return;
+  if (!confirm(`Remove master admin access for ${email}? Their login (if any) will remain, but they will no longer have master admin privileges.`)) return;
 
   const { data: { session } } = await db.auth.getSession();
   if (!session) { showToast('Session expired. Please sign in again.', 'error'); return; }
@@ -6270,11 +6270,11 @@ async function deleteOwner(email) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    showToast('Failed to remove owner: ' + (body.error || res.statusText), 'error');
+    showToast('Failed to remove master admin: ' + (body.error || res.statusText), 'error');
     return;
   }
 
-  showToast('Owner access removed', 'success');
+  showToast('Master Admin access removed', 'success');
   await loadOwners();
 }
 
