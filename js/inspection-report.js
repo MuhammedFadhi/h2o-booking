@@ -798,17 +798,21 @@ SADA.InspectionReport = (function () {
     // one, only renew when the booking's product matches exactly one of
     // them — guessing wrong would silently reset the wrong unit's clock.
     const { data: realUnits } = await window.db.from('warranties')
-      .select('id, product_type').eq('customer_id', cid).eq('source', 'install');
-    let realWarrantyId = null, realProductType = null;
-    if (realUnits && realUnits.length === 1) { realWarrantyId = realUnits[0].id; realProductType = realUnits[0].product_type; }
+      .select('id, product_type, filter_interval_override_days').eq('customer_id', cid).eq('source', 'install');
+    let realWarrantyId = null, realProductType = null, realFilterOverride = null;
+    if (realUnits && realUnits.length === 1) { realWarrantyId = realUnits[0].id; realProductType = realUnits[0].product_type; realFilterOverride = realUnits[0].filter_interval_override_days; }
     else if (realUnits && realUnits.length > 1) {
       const match = realUnits.find(u => u.product_type === b.product_model);
-      if (match) { realWarrantyId = match.id; realProductType = match.product_type; }
+      if (match) { realWarrantyId = match.id; realProductType = match.product_type; realFilterOverride = match.filter_interval_override_days; }
     }
 
     if (realWarrantyId) {
       const realTerms = await productIntervals(realProductType);
-      const patch = isAnnual ? { service_expiry: pushDate(realTerms.service) } : { filter_expiry: pushDate(realTerms.filter) };
+      // A unit's own filter cadence (e.g. a hotel installation running
+      // through filters much faster than a home one) always wins over the
+      // product's shared default — see admin's Filter Change Schedule modal.
+      const realFilterDays = realFilterOverride || realTerms.filter;
+      const patch = isAnnual ? { service_expiry: pushDate(realTerms.service) } : { filter_expiry: pushDate(realFilterDays) };
       const upd = await window.db.from('warranties').update(patch).eq('id', realWarrantyId);
       if (upd.error) { console.warn('[IR] real warranty renewal failed:', upd.error.message); return; }
       const hist = await window.db.from('warranty_service_history').insert({

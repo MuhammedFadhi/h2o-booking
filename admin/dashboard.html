@@ -2097,6 +2097,31 @@
   </div>
 </div>
 
+<!-- FILTER CHANGE SCHEDULE MODAL -->
+<div class="modal-overlay" id="filter-schedule-modal" style="display:none;">
+  <div class="modal">
+    <h2 class="modal-title">Filter Change Schedule</h2>
+    <input type="hidden" id="fsched-warranty-id">
+    <div id="fsched-header" style="background:var(--bg);padding:16px;border-radius:12px;margin-bottom:12px;"></div>
+    <div class="form-group">
+      <label>Next Filter Due Date</label>
+      <input type="date" class="form-input" id="fsched-date-input" oninput="previewFilterSchedule()">
+    </div>
+    <div class="form-group">
+      <label>Filter Interval for this unit <span style="color:var(--muted);font-weight:400;">(days)</span></label>
+      <input type="number" class="form-input" id="fsched-interval-input" min="1" step="1" oninput="previewFilterSchedule()">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Real usage varies per unit — e.g. a hotel installation wears filters faster than a home one. Defaults to the product's own interval; override it here just for this unit. <a href="#" id="fsched-reset-link" onclick="resetFilterScheduleInterval();return false;">Use product default</a>.</div>
+    </div>
+    <div id="fsched-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px;" id="fsched-list-title">Upcoming dates</div>
+    <div id="fsched-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('filter-schedule-modal')">Close</button>
+      <button class="btn btn-primary" id="fsched-save" onclick="saveFilterScheduleDate()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- EDIT BOOKING CITY MODAL — a dropdown (region, then its cities) rather
      than free text, since the Services panel's region filter matches a
      customer's city by exact name against the cities table. A typo'd
@@ -4976,6 +5001,7 @@ async function saveProduct() {
   const errEl = document.getElementById('product-error');
   const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
   const id = document.getElementById('product-id').value;
+  const oldProduct = id ? allProducts.find(x => x.id === id) : null;
   const model_name = (document.getElementById('product-name').value || '').trim();
   const priceRaw = document.getElementById('product-price').value;
   const price_sar = priceRaw === '' ? null : parseFloat(priceRaw);
@@ -4993,16 +5019,42 @@ async function saveProduct() {
   if (!model_name) return fail('Enter a product name.');
   if (priceRaw !== '' && (isNaN(price_sar) || price_sar < 0)) return fail('Enter a valid price.');
 
+  // Editing an existing product's intervals? Existing customers with this
+  // product get their due dates shifted by the same amount, not reset — see
+  // v100. Confirm first since it's a bulk change to real customer data.
+  let deltaFilter = 0, deltaService = 0, deltaWarranty = 0;
+  if (oldProduct) {
+    deltaFilter = filter_interval_days - (oldProduct.filter_interval_days ?? 90);
+    deltaService = service_interval_days - (oldProduct.service_interval_days ?? 365);
+    deltaWarranty = warranty_interval_days - (oldProduct.warranty_interval_days ?? 730);
+    if (deltaFilter || deltaService || deltaWarranty) {
+      const { count } = await dbAdmin.from('warranties').select('id', { count: 'exact', head: true }).eq('product_type', oldProduct.model_name);
+      if (count > 0) {
+        const ok = confirm(`This will update Filter/Service/Warranty due dates for ${count} existing customer${count === 1 ? '' : 's'} who ${count === 1 ? 'has' : 'have'} this product. Continue?`);
+        if (!ok) return;
+      }
+    }
+  }
+
   const btn = document.getElementById('product-save');
   btn.disabled = true; btn.textContent = 'Saving…';
   const payload = { model_name, price_sar, sort_order, description, image_url, in_stock, is_catalogue, is_serialized, filter_interval_days, service_interval_days, warranty_interval_days };
   let error;
   if (id) ({ error } = await dbAdmin.from('product_models').update(payload).eq('id', id));
   else ({ error } = await dbAdmin.from('product_models').insert(payload));
-  btn.disabled = false; btn.textContent = 'Save Product';
   if (error) {
+    btn.disabled = false; btn.textContent = 'Save Product';
     return fail(/duplicate|unique/i.test(error.message) ? 'A product with that name already exists.' : error.message);
   }
+
+  if (oldProduct && (deltaFilter || deltaService || deltaWarranty)) {
+    const { error: shiftErr } = await dbAdmin.rpc('shift_warranty_dates_for_product', {
+      p_product_type: oldProduct.model_name, p_filter_delta: deltaFilter, p_service_delta: deltaService, p_warranty_delta: deltaWarranty
+    });
+    if (shiftErr) showToast("Product saved, but updating existing customers' dates failed: " + shiftErr.message, 'error');
+  }
+
+  btn.disabled = false; btn.textContent = 'Save Product';
   logActivity('product.save', `${id ? 'Updated' : 'Added'} product ${model_name}`, 'product', id || model_name);
   showToast('Product saved', 'success');
   closeModal('product-modal');
@@ -8724,6 +8776,7 @@ function renderWarranties() {
             <td><div style="display:flex;gap:6px;flex-wrap:wrap;">
               <button class="btn btn-primary btn-sm" onclick="openJobOrder('${w.id}')">+ Job</button>
               <button class="btn btn-ghost btn-sm" onclick="viewWarrantyHistory('${w.id}')">History</button>
+              <button class="btn btn-ghost btn-sm" onclick="openFilterSchedule('${w.id}')" title="Filter Change Schedule">${SCHEDULE_ICON_SVG} Schedule</button>
               ${w.customers?.id ? `<button class="btn btn-ghost btn-sm" onclick="openCustomerFollowupModal('${w.customers.id}')" title="Schedule a follow-up for this customer">${FOLLOWUP_ICON_SVG} Follow-up</button>` : ''}
               <button class="btn btn-ghost btn-sm" onclick="toggleServiceOptOut('${w.id}', ${!!w.service_opted_out})" title="${w.service_opted_out ? 'Re-enable service reminders' : 'Customer does not want service'}">${w.service_opted_out ? '🔔' : '🔕'}</button>
               ${(w.status || 'active') === 'active'
@@ -8738,6 +8791,117 @@ function renderWarranties() {
       </tbody>
     </table></div>
     <div style="font-size:11px;color:var(--muted);margin-top:10px;">Showing ${rows.length} of ${allWarranties.length} units — ${W.esc(activeLabel)}${q ? ` matching "${W.esc(q)}"` : ''}.</div>`;
+}
+
+// Every filter-change occurrence from the unit's next due date through one
+// year from today, stepping by the product's own interval — e.g. a 90-day
+// filter yields ~4 dates. Not stored anywhere; purely computed for display.
+function filterChangeSchedule(filterExpiry, intervalDays, horizonDays) {
+  if (!filterExpiry || !intervalDays) return [];
+  const horizon = new Date(); horizon.setDate(horizon.getDate() + (horizonDays || 365));
+  const dates = [];
+  let d = new Date(filterExpiry);
+  while (d <= horizon) {
+    dates.push(new Date(d));
+    d = new Date(d); d.setDate(d.getDate() + intervalDays);
+  }
+  return dates;
+}
+
+// Separate dedicated view (not folded into Booking Details) — the Schedule
+// button on each Active Units row. Two editable fields: the next due date,
+// and this unit's own filter interval override (real usage varies per unit
+// — see v101) — editing the override here is specific to this one customer,
+// unlike Products' interval which cascades to everyone with that product.
+function renderFilterScheduleModal(w) {
+  const W = window.SADA.Warranty;
+  document.getElementById('fsched-warranty-id').value = w.id;
+  document.getElementById('fsched-header').innerHTML = `
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Serial</div>
+    <div style="font-weight:700;color:var(--water);font-size:17px;font-family:ui-monospace,Menlo,monospace;">${W.esc(w.qr_code)}</div>
+    <div style="font-size:13px;margin-top:8px;">${W.esc(w.product_type)} · ${W.esc(w.customers?.name || '—')} · ${W.esc(w.customers?.phone || '')}</div>`;
+  const productDays = w.product_models?.filter_interval_days || 90;
+  const filterDays = w.filter_interval_override_days || productDays;
+  document.getElementById('fsched-interval-input').value = filterDays;
+  document.getElementById('fsched-reset-link').style.display = w.filter_interval_override_days ? 'inline' : 'none';
+  document.getElementById('fsched-list-title').textContent = `Upcoming dates — next 12 months (every ${filterDays}d)`;
+  document.getElementById('fsched-date-input').value = w.filter_expiry ? w.filter_expiry.slice(0, 10) : '';
+  const schedule = filterChangeSchedule(w.filter_expiry, filterDays, 365);
+  document.getElementById('fsched-list').innerHTML = schedule.length
+    ? schedule.map((d, i) => `<span style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;">#${i + 1} · ${W.fmtDate(d)}</span>`).join('')
+    : (w.filter_expiry
+        ? `<div style="font-size:12px;color:var(--muted);">Next filter change is due ${W.fmtDate(w.filter_expiry)} — more than a year away.</div>`
+        : `<div style="font-size:12px;color:var(--muted);">No filter-change date set yet.</div>`);
+}
+
+function openFilterSchedule(id) {
+  const w = allWarranties.find(x => x.id === id);
+  if (!w) return;
+  document.getElementById('fsched-error').style.display = 'none';
+  renderFilterScheduleModal(w);
+  openModal('filter-schedule-modal');
+}
+
+// Live preview — recomputes the list from whatever's currently typed into
+// the date/interval fields, without saving. Wired to both inputs' oninput.
+function previewFilterSchedule() {
+  const W = window.SADA.Warranty;
+  const dateVal = document.getElementById('fsched-date-input').value;
+  const intervalDays = parseInt(document.getElementById('fsched-interval-input').value, 10);
+  const listEl = document.getElementById('fsched-list');
+  if (!dateVal || !intervalDays || intervalDays < 1) {
+    listEl.innerHTML = `<div style="font-size:12px;color:var(--muted);">Enter a date and an interval to preview the schedule.</div>`;
+    return;
+  }
+  document.getElementById('fsched-list-title').textContent = `Upcoming dates — next 12 months (every ${intervalDays}d)`;
+  const schedule = filterChangeSchedule(dateVal, intervalDays, 365);
+  listEl.innerHTML = schedule.length
+    ? schedule.map((d, i) => `<span style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;">#${i + 1} · ${W.fmtDate(d)}</span>`).join('')
+    : `<div style="font-size:12px;color:var(--muted);">Next filter change is due ${W.fmtDate(dateVal)} — more than a year away.</div>`;
+}
+
+// "Use product default" — resets the interval field to the product's own
+// interval, then re-previews with it.
+function resetFilterScheduleInterval() {
+  const id = document.getElementById('fsched-warranty-id').value;
+  const w = allWarranties.find(x => x.id === id);
+  if (!w) return;
+  const productDays = w.product_models?.filter_interval_days || 90;
+  document.getElementById('fsched-interval-input').value = productDays;
+  previewFilterSchedule();
+}
+
+async function saveFilterScheduleDate() {
+  if (!(await ensureSession())) return;
+  const id = document.getElementById('fsched-warranty-id').value;
+  const w = allWarranties.find(x => x.id === id);
+  if (!w) return;
+  const errEl = document.getElementById('fsched-error');
+  errEl.style.display = 'none';
+  const dateVal = document.getElementById('fsched-date-input').value;
+  if (!dateVal) { errEl.style.display = 'block'; errEl.textContent = 'Pick a date.'; return; }
+  const intervalRaw = document.getElementById('fsched-interval-input').value;
+  const intervalDays = parseInt(intervalRaw, 10);
+  if (!intervalRaw || isNaN(intervalDays) || intervalDays < 1) { errEl.style.display = 'block'; errEl.textContent = 'Enter a valid number of days.'; return; }
+  const productDays = w.product_models?.filter_interval_days || 90;
+  // Only store an override when it actually differs from the product's own
+  // interval — otherwise leave it NULL so this unit keeps following the
+  // product automatically (including future product-wide cascades).
+  const overrideToSave = intervalDays === productDays ? null : intervalDays;
+
+  const btn = document.getElementById('fsched-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const { error } = await dbAdmin.from('warranties')
+    .update({ filter_expiry: dateVal, filter_interval_override_days: overrideToSave }).eq('id', id);
+  btn.disabled = false; btn.textContent = 'Save';
+  if (error) { errEl.style.display = 'block'; errEl.textContent = error.message; return; }
+
+  w.filter_expiry = dateVal;
+  w.filter_interval_override_days = overrideToSave;
+  logActivity('warranty.filter_schedule_edit', `Set filter due date to ${dateVal}${overrideToSave ? `, interval override ${overrideToSave}d` : ''}`, 'warranty', id);
+  showToast('Filter schedule updated', 'success');
+  renderFilterScheduleModal(w);
+  renderWarranties();
 }
 
 async function viewWarrantyHistory(id) {
@@ -8755,7 +8919,7 @@ async function viewWarrantyHistory(id) {
           ${w.customers?.phone ? `<button class="btn btn-ghost btn-sm" onclick="editCustomerName('${W.esc(w.customers.phone)}')" style="padding:1px 7px;font-size:11px;margin-left:6px;">${ICON_PENCIL}</button>` : ''}</div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        ${W.milestoneCard('Filter Replacement','Filter', w.filter_expiry, w.product_models?.filter_interval_days || 90)}
+        ${W.milestoneCard('Filter Replacement','Filter', w.filter_expiry, w.filter_interval_override_days || w.product_models?.filter_interval_days || 90)}
         ${W.milestoneCard('Annual RO Service','Service', w.service_expiry, w.product_models?.service_interval_days || 365)}
       </div>
       <div style="background:var(--bg);padding:16px;border-radius:12px;">
@@ -8958,6 +9122,7 @@ const LEAD_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" heigh
 
 // The Follow-ups icon (nav item, Overview tile, activity log, per-lead button).
 const FOLLOWUP_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M21 3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6.455L2 22.5V4a1 1 0 0 1 1-1zm-1 2H4v13.385L5.763 17H20zm-3 2v8h-2V7zm-6 1v1.999L13 10v2l-2-.001V14H9v-2.001L7 12v-2l2-.001V8z"/></svg>';
+const SCHEDULE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" style="vertical-align:-2px;"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M16 3v4M8 3v4M4 11h16"/></g></svg>';
 
 // Lead Source column icons — one per channel the external CRM webhook tags
 // a synced lead with (see migrations/v81_crm_webhook.sql), plus a generic
