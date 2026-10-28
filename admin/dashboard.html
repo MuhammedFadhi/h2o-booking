@@ -5082,7 +5082,7 @@ async function viewPromoUsage(id) {
     <td>${escB(b.customer_name || '—')}<div style="font-size:11px;color:var(--muted);">${escB(b.customer_phone || '')}</div></td>
     <td style="font-size:12px;">${escB(b.booking_reference || '')}</td>
     <td>${b.discount_amount != null ? 'SAR ' + Number(b.discount_amount).toLocaleString('en-US') : '—'}</td>
-    <td style="font-size:12px;">${b.created_at ? formatDateShort(b.created_at) : ''}</td>
+    <td style="font-size:12px;">${b.created_at ? formatTimestampShort(b.created_at) : ''}</td>
   </tr>`).join('');
   const body = (data && data.length)
     ? `<table class="data-table" style="width:100%;"><thead><tr><th>Customer</th><th>Ref</th><th>Discount</th><th>Date</th></tr></thead><tbody>${rows}</tbody></table>`
@@ -5125,7 +5125,7 @@ function renderInvoices() {
     <td style="font-size:12px;">${inv.bookings?.booking_reference ? escB(inv.bookings.booking_reference) : '—'}</td>
     <td>${escB(prettyMethod(inv.payment_method))}</td>
     <td>${inv.total != null ? 'SAR ' + Number(inv.total).toLocaleString('en-US') : '—'}${inv.vat_amount != null ? `<div style="font-size:10px;color:var(--muted);">incl. VAT ${Number(inv.vat_amount).toLocaleString('en-US')}</div>` : ''}</td>
-    <td style="font-size:12px;">${inv.issued_at ? formatDateShort(inv.issued_at) : '—'}</td>
+    <td style="font-size:12px;">${inv.issued_at ? formatTimestampShort(inv.issued_at) : '—'}</td>
     <td style="text-align:right;white-space:nowrap;">
       ${inv.file_url ? `<a class="btn btn-sm btn-ghost" href="${inv.file_url}" target="_blank" title="View / print">👁</a>` : '<span style="font-size:11px;color:var(--muted);">no file</span>'}
       <button class="btn btn-sm btn-ghost" onclick="smsInvoice('${inv.id}')" title="SMS invoice to customer">✉️</button>
@@ -6502,6 +6502,19 @@ function formatHour(hour) {
 
 function formatDateShort(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+// For a full timestamptz value (e.g. invoices.issued_at), not a bare date —
+// formatDateShort's `+ 'T00:00:00'` trick corrupts an already-complete
+// timestamp into an unparseable string (Invalid Date -> NaN/NaN/NaN). The
+// Date constructor already resolves a timezone-aware ISO string correctly;
+// its local getters below do the KSA-local conversion formatDateShort does
+// for a bare date, no manual offset math needed.
+function formatTimestampShort(ts) {
+  const d = new Date(ts);
   const dd = String(d.getDate()).padStart(2, '0');
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   return `${dd}/${mm}/${d.getFullYear()}`;
