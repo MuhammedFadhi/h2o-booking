@@ -24,6 +24,26 @@ SADA.InspectionReport = (function () {
 
   const TABLE = 'inspection_reports';
 
+  // Per-product Filter/Service/Warranty intervals (admin's Products panel).
+  // Not window.SADA.Warranty.modelMap() — installer/portal.html loads this
+  // module without warranty.js, so this needs its own small cache. Defaults
+  // match what every row had before product_models grew these columns.
+  let _intervalCache = null;
+  async function productIntervals(modelName) {
+    if (!_intervalCache) {
+      const { data } = await window.db.from('product_models')
+        .select('model_name, filter_interval_days, service_interval_days, warranty_interval_days');
+      _intervalCache = {};
+      (data || []).forEach(m => { _intervalCache[m.model_name] = m; });
+    }
+    const m = _intervalCache[modelName];
+    return {
+      filter: (m && m.filter_interval_days) || 90,
+      service: (m && m.service_interval_days) || 365,
+      warranty: (m && m.warranty_interval_days) || 730
+    };
+  }
+
   const CHECKLIST = [
     { key: 'water_quality', en: 'Overall Water Quality (Taste / Odor)', ar: 'جودة الماء (الطعم والرائحة)' },
     { key: 'faucet',        en: 'Faucet & Fittings',                    ar: 'الحنفية والوصلات' },
@@ -740,10 +760,11 @@ SADA.InspectionReport = (function () {
     const iso = (days) => { const x = new Date(installDate); x.setDate(x.getDate() + days); return x.toISOString(); };
     const regDate = installDate.toISOString().slice(0, 10);
     for (const model of toCreate) {
+      const terms = await productIntervals(model);
       await window.db.from('warranties').insert({
         customer_id: cid, qr_code: null, product_type: model, quantity: 1,
         booking_id: bookingId, status: 'pending', registration_date: regDate,
-        filter_expiry: iso(90), service_expiry: iso(365), warranty_expiry: null,
+        filter_expiry: iso(terms.filter), service_expiry: iso(terms.service), warranty_expiry: null,
         activated_by: null, activated_at: null
       });
     }
@@ -778,15 +799,16 @@ SADA.InspectionReport = (function () {
     // them — guessing wrong would silently reset the wrong unit's clock.
     const { data: realUnits } = await window.db.from('warranties')
       .select('id, product_type').eq('customer_id', cid).eq('source', 'install');
-    let realWarrantyId = null;
-    if (realUnits && realUnits.length === 1) realWarrantyId = realUnits[0].id;
+    let realWarrantyId = null, realProductType = null;
+    if (realUnits && realUnits.length === 1) { realWarrantyId = realUnits[0].id; realProductType = realUnits[0].product_type; }
     else if (realUnits && realUnits.length > 1) {
       const match = realUnits.find(u => u.product_type === b.product_model);
-      if (match) realWarrantyId = match.id;
+      if (match) { realWarrantyId = match.id; realProductType = match.product_type; }
     }
 
     if (realWarrantyId) {
-      const patch = isAnnual ? { service_expiry: pushDate(365) } : { filter_expiry: pushDate(90) };
+      const realTerms = await productIntervals(realProductType);
+      const patch = isAnnual ? { service_expiry: pushDate(realTerms.service) } : { filter_expiry: pushDate(realTerms.filter) };
       const upd = await window.db.from('warranties').update(patch).eq('id', realWarrantyId);
       if (upd.error) { console.warn('[IR] real warranty renewal failed:', upd.error.message); return; }
       const hist = await window.db.from('warranty_service_history').insert({
@@ -798,25 +820,28 @@ SADA.InspectionReport = (function () {
     }
 
     const { data: existing } = await window.db.from('warranties')
-      .select('id').eq('customer_id', cid).eq('source', 'self_reported').maybeSingle();
+      .select('id, product_type').eq('customer_id', cid).eq('source', 'self_reported').maybeSingle();
 
     let warrantyId = existing?.id;
     if (warrantyId) {
-      const patch = isAnnual ? { service_expiry: pushDate(365) } : { filter_expiry: pushDate(90) };
+      const existingTerms = await productIntervals(existing.product_type);
+      const patch = isAnnual ? { service_expiry: pushDate(existingTerms.service) } : { filter_expiry: pushDate(existingTerms.filter) };
       const upd = await window.db.from('warranties').update(patch).eq('id', warrantyId);
       if (upd.error) console.warn('[IR] self-reported warranty renewal failed:', upd.error.message);
     } else {
       // First-ever tracked event for this customer. If it's a Filter Change,
       // they almost certainly already owned the unit a while before we ever
-      // saw them — we have zero real history, so a full 365 days would
-      // assume today is day one of their cycle. 365-90 hedges toward
-      // reminding them a bit early rather than risk going quietly overdue.
-      // If the first event IS an Annual Service, the full 365 is correct —
-      // that genuinely just happened.
+      // saw them — we have zero real history, so a full service interval
+      // would assume today is day one of their cycle. (service - filter)
+      // hedges toward reminding them a bit early rather than risk going
+      // quietly overdue. If the first event IS an Annual Service, the full
+      // service interval is correct — that genuinely just happened.
+      const newTerms = await productIntervals(productType);
       const ins = await window.db.from('warranties').insert({
         customer_id: cid, qr_code: null, product_type: productType, quantity: 1,
         source: 'self_reported', booking_id: bookingId, status: 'active',
-        registration_date: todayIso, filter_expiry: pushDate(90), service_expiry: pushDate(isAnnual ? 365 : 365 - 90), warranty_expiry: null
+        registration_date: todayIso, filter_expiry: pushDate(newTerms.filter),
+        service_expiry: pushDate(isAnnual ? newTerms.service : Math.max(newTerms.service - newTerms.filter, 0)), warranty_expiry: null
       }).select('id').maybeSingle();
       if (ins.error) console.warn('[IR] self-reported warranty creation failed:', ins.error.message);
       warrantyId = ins.data?.id;

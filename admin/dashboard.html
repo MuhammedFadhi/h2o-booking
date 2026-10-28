@@ -742,6 +742,9 @@
     </div>
 
     <div class="nav-section">Units &amp; Sales</div>
+    <div class="nav-item" onclick="showPanel('products', this)">
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/><path d="M3.3 7 12 2l8.7 5a2 2 0 0 1 1 1.73v6.54a2 2 0 0 1-1 1.73l-8.7 5a2 2 0 0 1-2 0l-8.7-5a2 2 0 0 1-1-1.73V8.73a2 2 0 0 1 1-1.73Z"/></svg></span> Products
+    </div>
     <div class="nav-item" onclick="showPanel('warranties', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.46 20.846A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3a12 12 0 0 0 8.5 3a12 12 0 0 1-.09 7.06M15 19l2 2l4-4"/></svg></span> Active Units
     </div>
@@ -1334,6 +1337,18 @@
     </div>
 
     <!-- WARRANTIES PANEL -->
+    <!-- PRODUCTS PANEL -->
+    <div class="panel" id="panel-products">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+          <h3 style="margin:0;">Product Catalogue</h3>
+          <button class="btn btn-primary" onclick="openProductModal()">+ Add Product</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin:-8px 0 16px;">Prices, stock status and catalogue visibility feed the customer booking page and every "add product" picker in the dashboard.</div>
+        <div id="products-table"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+      </div>
+    </div>
+
     <div class="panel" id="panel-warranties">
       <div class="stat-grid" id="warranty-stats" style="margin-bottom:12px;"></div>
       <div class="stat-grid" id="warranty-region-stats" style="margin-bottom:16px;"></div>
@@ -1978,6 +1993,68 @@
   </div>
 </div>
 
+<!-- ADD/EDIT PRODUCT MODAL -->
+<div class="modal-overlay" id="product-modal">
+  <div class="modal">
+    <h2 class="modal-title" id="product-modal-title">Add Product</h2>
+    <input type="hidden" id="product-id">
+    <div class="form-group">
+      <label>Product Name</label>
+      <input class="form-input" id="product-name" placeholder="e.g. 5-Stage RO System">
+    </div>
+    <div style="display:flex;gap:10px;">
+      <div class="form-group" style="flex:1;">
+        <label>Price (SAR)</label>
+        <input class="form-input" id="product-price" type="number" min="0" step="0.01" placeholder="1200">
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label>Sort Order <span style="color:var(--muted);font-weight:400;">(lower shows first)</span></label>
+        <input class="form-input" id="product-sort" type="number" step="1" placeholder="999">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Description <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+      <textarea class="form-input" id="product-description" rows="2" placeholder="Shown to customers on the booking page"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Image <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="product-image" class="form-input" placeholder="https://... or upload from device" style="flex:1;" autocomplete="off" oninput="updateProductImagePreview()">
+        <input type="file" id="product-image-file-input" accept="image/*" style="display:none;" onchange="uploadProductImage()">
+        <button type="button" class="btn btn-ghost" id="product-image-upload-btn" onclick="document.getElementById('product-image-file-input').click()" style="flex-shrink:0;">Upload from device</button>
+      </div>
+      <div id="product-image-preview" style="display:none;margin-top:8px;"><img style="max-width:120px;max-height:120px;border-radius:8px;border:1px solid var(--border);object-fit:cover;"></div>
+    </div>
+    <div class="form-group" style="display:flex;flex-direction:column;gap:8px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="product-in-stock" checked style="width:auto;"> In stock
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="product-catalogue" checked style="width:auto;"> Show in customer booking catalogue
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="product-serialized" style="width:auto;" onchange="toggleProductIntervalsVisibility()"> Serialized unit (QR / warranty tracked)
+      </label>
+    </div>
+    <div class="form-group" id="product-intervals-group">
+      <label>Service Intervals <span style="color:var(--muted);font-weight:400;">(days — drive this product's Filter Change / Annual Service / Warranty due dates)</span></label>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;"><input class="form-input" id="product-filter-days" type="number" min="1" step="1" placeholder="90">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:center;">Filter Change</div></div>
+        <div style="flex:1;"><input class="form-input" id="product-service-days" type="number" min="1" step="1" placeholder="365">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:center;">Annual Service</div></div>
+        <div style="flex:1;"><input class="form-input" id="product-warranty-days" type="number" min="1" step="1" placeholder="730">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:center;">Warranty</div></div>
+      </div>
+    </div>
+    <div id="product-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('product-modal')">Cancel</button>
+      <button class="btn btn-primary" id="product-save" onclick="saveProduct()">Save Product</button>
+    </div>
+  </div>
+</div>
+
 <!-- PRODUCT BASKET EDITOR MODAL -->
 <div class="modal-overlay" id="basket-modal" style="display:none;">
   <div class="modal">
@@ -2341,6 +2418,7 @@ const panelTitles = {
   whatsapp: ['Whatsapp chat', ''],
   salesreport: ['Sales Report', 'Leads and bookings by sales agent — filter and export'],
   slots: ['Availability Slots', 'Control which time slots customers can book'],
+  products: ['Products', 'Manage the product catalogue — prices, stock, and what customers see'],
   installers: ['User Management', 'Add, remove and manage installers and admin users'],
   passwords: ['Manage Access', 'Create and reset installer login passwords'],
   sms: ['Send Booking Link', 'Send the booking link to a customer via SMS'],
@@ -2400,6 +2478,7 @@ function showPanel(name, el) {
   if (name === 'reports') loadInspectionReports();
   if (name === 'warranties') loadWarranties();
   if (name === 'promocodes') loadPromoCodes();
+  if (name === 'products') loadProducts();
   if (name === 'invoices') loadInvoices();
   if (name === 'followups') loadFollowups();
   if (name === 'activity') loadActivityLog();
@@ -3616,12 +3695,16 @@ async function submitAdminBooking() {
     // Filter (+90d) & Service (+365d) start at install; Warranty starts only on customer scan.
     if (startStatus === 'installed' && exC?.id) {
       const iso = (days) => { const x = new Date(nowIso); x.setDate(x.getDate() + days); return x.toISOString(); };
+      const catalogue = await getCatalogue();
       const pendings = [];
       abBasket.filter(l => l.is_serialized).forEach(l => {
+        const cat = catalogue.find(p => p.model_name === l.model);
+        const filterDays = cat?.filter_interval_days || 90;
+        const serviceDays = cat?.service_interval_days || 365;
         for (let i = 0; i < l.qty; i++) pendings.push({
           customer_id: exC.id, qr_code: null, product_type: l.model, quantity: 1,
           booking_id: bkId, status: 'pending', registration_date: nowIso.slice(0,10),
-          filter_expiry: iso(90), service_expiry: iso(365), warranty_expiry: null
+          filter_expiry: iso(filterDays), service_expiry: iso(serviceDays), warranty_expiry: null
         });
       });
       if (pendings.length) await dbAdmin.from('warranties').insert(pendings);
@@ -4095,7 +4178,7 @@ async function renderBookingWarrantyBlock(b) {
   host.innerHTML = `
     <div style="background:#EFF6FF; border:1px solid #BFDBFE; padding:16px; border-radius:12px;">
       <div style="font-size:13px; color:#1E40AF; margin-bottom:10px;">
-        🛡️ This completed installation has no warranty yet. Activating creates a 2-year warranty for
+        🛡️ This completed installation has no warranty yet. Activating creates a warranty for
         <strong>${W.esc(b.customer_name)}</strong>, dated to the install.
       </div>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
@@ -4333,7 +4416,7 @@ async function editCustomerPhone(oldPhone) {
 async function getCatalogue() {
   if (window.__catalogue) return window.__catalogue;
   const { data } = await dbAdmin.from('product_models')
-    .select('model_name, price_sar, is_catalogue, is_serialized, image_url, sort_order, in_stock')
+    .select('model_name, price_sar, is_catalogue, is_serialized, image_url, sort_order, in_stock, filter_interval_days, service_interval_days, warranty_interval_days')
     .order('sort_order', { ascending: true });
   window.__catalogue = data || [];
   return window.__catalogue;
@@ -4780,6 +4863,163 @@ async function deletePromo(id) {
   loadPromoCodes();
 }
 
+// ============================================================
+// PRODUCTS (catalogue management — pricing, stock, visibility)
+// ============================================================
+let allProducts = [];
+
+async function loadProducts() {
+  const host = document.getElementById('products-table');
+  const { data, error } = await dbAdmin.from('product_models').select('*').order('sort_order', { ascending: true });
+  if (error) { host.innerHTML = `<div style="color:#B71C1C;padding:12px;">${escB(error.message)}</div>`; return; }
+  allProducts = data || [];
+  window.__catalogue = null; // invalidate getCatalogue()'s cache so edits show up immediately in pickers/promo lists
+  renderProductsTable();
+}
+
+function renderProductsTable() {
+  const host = document.getElementById('products-table');
+  if (!allProducts.length) {
+    host.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);">No products yet. Add one to get started.</div>';
+    return;
+  }
+  const rows = allProducts.map(p => `<tr>
+    <td>${p.image_url ? `<img src="${escB(p.image_url)}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;" onerror="this.style.display='none'">` : ''}</td>
+    <td><strong>${escB(p.model_name)}</strong>${p.description ? `<div style="font-size:11px;color:var(--muted);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escB(p.description)}</div>` : ''}</td>
+    <td>${p.price_sar != null ? `SAR ${Number(p.price_sar).toLocaleString('en-US')}` : '—'}</td>
+    <td><span class="status-badge" style="background:${p.in_stock ? '#DCFCE7' : '#FEE2E2'};color:${p.in_stock ? '#166534' : '#B91C1C'};">${p.in_stock ? 'In stock' : 'Out of stock'}</span></td>
+    <td>${p.is_catalogue ? 'Visible' : '<span style="color:var(--muted);">Hidden</span>'}</td>
+    <td style="text-align:right;white-space:nowrap;">
+      <button class="btn btn-sm btn-ghost" onclick="openProductModal('${p.id}')" title="Edit">${ICON_PENCIL}</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteProduct('${p.id}')" title="Delete">🗑</button>
+    </td>
+  </tr>`).join('');
+  host.innerHTML = `<div style="overflow-x:auto;"><table class="data-table" style="width:100%;">
+    <thead><tr><th></th><th>Product</th><th>Price</th><th>Stock</th><th>Catalogue</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function openProductModal(id) {
+  const p = id ? allProducts.find(x => x.id === id) : null;
+  document.getElementById('product-modal-title').textContent = p ? 'Edit Product' : 'Add Product';
+  document.getElementById('product-id').value = p ? p.id : '';
+  document.getElementById('product-name').value = p ? p.model_name : '';
+  document.getElementById('product-price').value = p && p.price_sar != null ? p.price_sar : '';
+  document.getElementById('product-sort').value = p && p.sort_order != null ? p.sort_order : '';
+  document.getElementById('product-description').value = p && p.description ? p.description : '';
+  document.getElementById('product-image').value = p && p.image_url ? p.image_url : '';
+  document.getElementById('product-filter-days').value = p && p.filter_interval_days != null ? p.filter_interval_days : 90;
+  document.getElementById('product-service-days').value = p && p.service_interval_days != null ? p.service_interval_days : 365;
+  document.getElementById('product-warranty-days').value = p && p.warranty_interval_days != null ? p.warranty_interval_days : 730;
+  document.getElementById('product-in-stock').checked = p ? !!p.in_stock : true;
+  document.getElementById('product-catalogue').checked = p ? !!p.is_catalogue : true;
+  document.getElementById('product-serialized').checked = p ? !!p.is_serialized : false;
+  document.getElementById('product-error').style.display = 'none';
+  updateProductImagePreview();
+  toggleProductIntervalsVisibility();
+  openModal('product-modal');
+}
+
+// Filter/Service/Warranty intervals only ever apply to a serialized (QR /
+// warranty tracked) product — a dispenser never gets a warranty row at all,
+// so these fields would just be dead config for one. Hide them, live, as
+// the checkbox is toggled.
+function toggleProductIntervalsVisibility() {
+  document.getElementById('product-intervals-group').style.display =
+    document.getElementById('product-serialized').checked ? 'block' : 'none';
+}
+
+function updateProductImagePreview() {
+  const url = document.getElementById('product-image').value.trim();
+  const previewEl = document.getElementById('product-image-preview');
+  if (url) {
+    previewEl.querySelector('img').src = url;
+    previewEl.style.display = 'block';
+  } else {
+    previewEl.style.display = 'none';
+  }
+}
+
+// Same client-side upload()+getPublicUrl() convention as the WhatsApp
+// template image uploader — no server round-trip, the product-images
+// bucket's own RLS policy already allows any authenticated (admin/owner) write.
+async function uploadProductImage() {
+  const fileInput = document.getElementById('product-image-file-input');
+  const file = fileInput.files[0];
+  if (!file) return;
+  const btn = document.getElementById('product-image-upload-btn');
+  const errEl = document.getElementById('product-error');
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  const originalLabel = btn.textContent;
+  btn.textContent = 'Uploading…';
+  try {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `products/${Date.now()}_${safeName}`;
+    const { error } = await dbAdmin.storage.from('product-images').upload(path, file, { upsert: true });
+    if (error) throw new Error(error.message);
+    const { data } = dbAdmin.storage.from('product-images').getPublicUrl(path);
+    document.getElementById('product-image').value = data.publicUrl;
+    updateProductImagePreview();
+  } catch (err) {
+    errEl.style.display = 'block';
+    errEl.textContent = 'Upload failed: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+    fileInput.value = '';
+  }
+}
+
+async function saveProduct() {
+  if (!(await ensureSession())) return;
+  const errEl = document.getElementById('product-error');
+  const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
+  const id = document.getElementById('product-id').value;
+  const model_name = (document.getElementById('product-name').value || '').trim();
+  const priceRaw = document.getElementById('product-price').value;
+  const price_sar = priceRaw === '' ? null : parseFloat(priceRaw);
+  const sortRaw = document.getElementById('product-sort').value;
+  const sort_order = sortRaw === '' ? 999 : parseInt(sortRaw, 10);
+  const description = (document.getElementById('product-description').value || '').trim() || null;
+  const image_url = (document.getElementById('product-image').value || '').trim() || null;
+  const filter_interval_days = parseInt(document.getElementById('product-filter-days').value, 10) || 90;
+  const service_interval_days = parseInt(document.getElementById('product-service-days').value, 10) || 365;
+  const warranty_interval_days = parseInt(document.getElementById('product-warranty-days').value, 10) || 730;
+  const in_stock = document.getElementById('product-in-stock').checked;
+  const is_catalogue = document.getElementById('product-catalogue').checked;
+  const is_serialized = document.getElementById('product-serialized').checked;
+
+  if (!model_name) return fail('Enter a product name.');
+  if (priceRaw !== '' && (isNaN(price_sar) || price_sar < 0)) return fail('Enter a valid price.');
+
+  const btn = document.getElementById('product-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const payload = { model_name, price_sar, sort_order, description, image_url, in_stock, is_catalogue, is_serialized, filter_interval_days, service_interval_days, warranty_interval_days };
+  let error;
+  if (id) ({ error } = await dbAdmin.from('product_models').update(payload).eq('id', id));
+  else ({ error } = await dbAdmin.from('product_models').insert(payload));
+  btn.disabled = false; btn.textContent = 'Save Product';
+  if (error) {
+    return fail(/duplicate|unique/i.test(error.message) ? 'A product with that name already exists.' : error.message);
+  }
+  logActivity('product.save', `${id ? 'Updated' : 'Added'} product ${model_name}`, 'product', id || model_name);
+  showToast('Product saved', 'success');
+  closeModal('product-modal');
+  loadProducts();
+}
+
+async function deleteProduct(id) {
+  if (!(await ensureSession())) return;
+  const p = allProducts.find(x => x.id === id); if (!p) return;
+  if (!confirm(`Delete “${p.model_name}”? Existing bookings keep their record, but this removes it from the catalogue entirely.`)) return;
+  const { error } = await dbAdmin.from('product_models').delete().eq('id', id);
+  if (error) { showToast(error.message, 'error'); return; }
+  logActivity('product.delete', `Deleted product ${p.model_name}`, 'product', id);
+  showToast('Product deleted', 'success');
+  loadProducts();
+}
+
 // Show which bookings used a given code (who applied it + how much off).
 async function viewPromoUsage(id) {
   const p = allPromoCodes.find(x => x.id === id); if (!p) return;
@@ -4914,14 +5154,18 @@ async function activateWarrantyForBooking(bookingId) {
   const plus = (d) => { const x = new Date(); x.setDate(x.getDate() + d); return x.toISOString(); };
   const { data: { session } } = await dbAdmin.auth.getSession();
 
+  const productType = b.product_model || (serial ? serial.slice(0,4).toUpperCase() : 'RO');
+  const catalogue = await getCatalogue();
+  const cat = catalogue.find(p => p.model_name === productType);
+
   const { error } = await dbAdmin.from('warranties').insert({
     customer_id: cid,
     qr_code: serial,                       // may be null — booking is the dedup key
-    product_type: b.product_model || (serial ? serial.slice(0,4).toUpperCase() : 'RO'),
+    product_type: productType,
     registration_date: today,
-    filter_expiry: plus(90),
-    service_expiry: plus(365),
-    warranty_expiry: plus(730),
+    filter_expiry: plus(cat?.filter_interval_days || 90),
+    service_expiry: plus(cat?.service_interval_days || 365),
+    warranty_expiry: plus(cat?.warranty_interval_days || 730),
     quantity: b.product_qty || 1,
     booking_id: bookingId,
     status: 'active',
@@ -8511,8 +8755,8 @@ async function viewWarrantyHistory(id) {
           ${w.customers?.phone ? `<button class="btn btn-ghost btn-sm" onclick="editCustomerName('${W.esc(w.customers.phone)}')" style="padding:1px 7px;font-size:11px;margin-left:6px;">${ICON_PENCIL}</button>` : ''}</div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        ${W.milestoneCard('Filter Replacement','Filter', w.filter_expiry, 90)}
-        ${W.milestoneCard('Annual RO Service','Service', w.service_expiry, 365)}
+        ${W.milestoneCard('Filter Replacement','Filter', w.filter_expiry, w.product_models?.filter_interval_days || 90)}
+        ${W.milestoneCard('Annual RO Service','Service', w.service_expiry, w.product_models?.service_interval_days || 365)}
       </div>
       <div style="background:var(--bg);padding:16px;border-radius:12px;">
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Service History (${(hist||[]).length})</div>
