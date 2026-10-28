@@ -278,9 +278,14 @@
     return '' +
       '<div style="position:relative;width:288px;height:288px;margin:0 auto;">' +
         '<svg viewBox="0 0 264 264" style="width:288px;height:288px;">' +
+          // Light-to-solid tint of the status color passed in — was hardcoded
+          // to this same blue regardless of status (ok/soon/expired all
+          // looked identical), so an overdue ring never actually read as
+          // urgent. Same hue at both stops, just opacity, so it still reads
+          // as one smooth gradient for any color.
           '<defs><linearGradient id="' + gid + '" x1="0%" y1="0%" x2="100%" y2="100%">' +
-            '<stop offset="0%" stop-color="#E4E7FC"/>' +
-            '<stop offset="100%" stop-color="#5B7FDB"/>' +
+            '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.35"/>' +
+            '<stop offset="100%" stop-color="' + color + '" stop-opacity="1"/>' +
           '</linearGradient></defs>' +
           '<g transform="translate(20,20)">' +
             dots.join('') +
@@ -308,10 +313,16 @@
     var m = milestone(expiry, totalDays);
     var st = statusOf(expiry);
     var c = STATUS_COLORS[st];
+    // Red once inside the same "Action Required / Due Today / Overdue"
+    // window as the Home hero banner's own tiers (<=3 days, including
+    // negative/overdue) — statusOf()'s own "soon" cutoff is 14 days, which
+    // stays amber for the badge/other UI elsewhere; this ring just needs a
+    // tighter, more urgent threshold of its own.
+    var barColor = (m.remaining !== null && m.remaining <= 3) ? STATUS_COLORS.expired.bar : c.bar;
     var dueText = m.unknown ? '' : fmtDate(expiry);
     return '' +
       '<div style="flex:1 1 300px;max-width:320px;margin:0 auto;">' +
-        gaugeCircular(m.pct, c.bar, m.remaining, title, dueText) +
+        gaugeCircular(m.pct, barColor, m.remaining, title, dueText) +
       '</div>';
   }
 
