@@ -22,6 +22,7 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const WHATSAPP_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || '';
 const WHATSAPP_APP_SECRET = process.env.WHATSAPP_APP_SECRET || '';
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || '';
+const CLOUDCONVERT_API_KEY = process.env.CLOUDCONVERT_API_KEY || '';
 const GRAPH_VERSION = 'v21.0';
 
 // Raw-body route (see worker/index.js) — the signature is computed over the
@@ -80,12 +81,63 @@ async function uploadToStorage(path, buffer, contentType) {
   return `${SUPABASE_URL}/storage/v1/object/public/whatsapp-media/${path}`;
 }
 
+// A small JPG of a PDF's first page, for the chat bubble thumbnail (see
+// v97) — mirrors api/admin/whatsapp.js's own copy (these two files don't
+// share a module, same as sb()/uploadToStorage() above). A shorter poll
+// budget than the admin-send path's (8x1.2s vs 20x1.5s): this runs inside
+// the inbound webhook handler, which Meta expects a prompt response from,
+// so a thumbnail is worth trying but never worth risking a webhook timeout
+// (and a retried delivery) over. Never throws — a failure/timeout just
+// means no thumbnail, same as a failed media re-host already does.
+async function pdfFirstPageThumbnail(buffer, filename) {
+  if (!CLOUDCONVERT_API_KEY) return null;
+  try {
+    const jobRes = await fetch('https://api.cloudconvert.com/v2/jobs', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${CLOUDCONVERT_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tasks: {
+          'import-1': { operation: 'import/base64', file: buffer.toString('base64'), filename: filename || 'document.pdf' },
+          'convert-1': { operation: 'convert', input: 'import-1', output_format: 'jpg', pages: '1', filename: 'page-1.jpg' },
+          'export-1': { operation: 'export/url', input: 'convert-1' }
+        }
+      })
+    });
+    const jobJson = await jobRes.json().catch(() => ({}));
+    if (!jobRes.ok) return null;
+    let job = jobJson?.data;
+    if (!job?.id) return null;
+
+    for (let i = 0; i < 8 && job.status !== 'finished' && job.status !== 'error'; i++) {
+      await new Promise((r) => setTimeout(r, 1200));
+      const pollRes = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.id}`, {
+        headers: { Authorization: `Bearer ${CLOUDCONVERT_API_KEY}` }
+      });
+      const pollJson = await pollRes.json().catch(() => ({}));
+      job = pollJson?.data || job;
+    }
+    if (job.status !== 'finished') return null;
+
+    const exportTask = (job.tasks || []).find((t) => t.operation === 'export/url' && t.status === 'finished');
+    const fileInfo = exportTask?.result?.files?.[0];
+    if (!fileInfo?.url) return null;
+
+    const imgRes = await fetch(fileInfo.url);
+    if (!imgRes.ok) return null;
+    return Buffer.from(await imgRes.arrayBuffer());
+  } catch (err) {
+    console.error('whatsapp inbound PDF thumbnail failed:', err.message);
+    return null;
+  }
+}
+
 // Meta's media URLs expire within minutes, so every inbound attachment is
 // downloaded and re-hosted in our own storage immediately — anything we
 // deferred would be a broken link by the time someone opens the inbox.
 // niceFilename (WhatsApp's own document.filename, when the message carries
 // one) gets folded into the storage path so the UI can show a real
 // filename instead of just the opaque media id — see renderWhatsappMessages.
+// Returns { url, thumbnailUrl } — thumbnailUrl is only ever set for a PDF.
 async function fetchAndStoreMedia(mediaId, messageType, niceFilename) {
   const info = await (await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${mediaId}`, {
     headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}` }
@@ -99,7 +151,17 @@ async function fetchAndStoreMedia(mediaId, messageType, niceFilename) {
   const ext = (info.mime_type || '').split('/')[1]?.split(';')[0] || messageType;
   const safeName = niceFilename ? String(niceFilename).replace(/[^a-zA-Z0-9._-]/g, '_') : null;
   const path = safeName ? `${mediaId}_${safeName}` : `${mediaId}.${ext}`;
-  return uploadToStorage(path, buffer, info.mime_type);
+  const url = await uploadToStorage(path, buffer, info.mime_type);
+
+  let thumbnailUrl = null;
+  if ((info.mime_type || '').split(';')[0].trim().toLowerCase() === 'application/pdf') {
+    const thumbBuffer = await pdfFirstPageThumbnail(buffer, niceFilename);
+    if (thumbBuffer) {
+      try { thumbnailUrl = await uploadToStorage(`${mediaId}_thumb.jpg`, thumbBuffer, 'image/jpeg'); }
+      catch (err) { console.error('whatsapp inbound PDF thumbnail upload failed:', err.message); }
+    }
+  }
+  return { url, thumbnailUrl };
 }
 
 // Saudi-leaning normalizer like the rest of this app, but accepts any
@@ -140,9 +202,13 @@ async function handleInboundMessage(message, contact) {
 
   const { type, body, mediaId, filename } = messageBodyAndType(message);
   let mediaUrl = null;
+  let thumbnailUrl = null;
   if (mediaId) {
-    try { mediaUrl = await fetchAndStoreMedia(mediaId, type, filename); }
-    catch (err) { console.error('whatsapp media fetch failed:', mediaId, err.message); }
+    try {
+      const stored = await fetchAndStoreMedia(mediaId, type, filename);
+      mediaUrl = stored.url;
+      thumbnailUrl = stored.thumbnailUrl;
+    } catch (err) { console.error('whatsapp media fetch failed:', mediaId, err.message); }
   }
 
   const sentAt = message.timestamp ? new Date(Number(message.timestamp) * 1000).toISOString() : new Date().toISOString();
@@ -154,6 +220,7 @@ async function handleInboundMessage(message, contact) {
     body,
     media_id: mediaId,
     media_url: mediaUrl,
+    thumbnail_url: thumbnailUrl,
     // Present when the customer swiped-to-reply on a specific message in
     // their own app — Meta echoes that message's wamid back here.
     reply_to_wa_message_id: message.context?.id || null,
