@@ -125,7 +125,7 @@ async function convertAudioToAac(buffer, filename) {
 // a thumbnail is a nice-to-have, never worth failing or even slowing down
 // the actual send over.
 async function pdfFirstPageThumbnail(buffer, filename) {
-  if (!CLOUDCONVERT_API_KEY) return null;
+  if (!CLOUDCONVERT_API_KEY) { console.error('[wa pdf thumb] CLOUDCONVERT_API_KEY missing'); return null; }
   const jobRes = await fetch('https://api.cloudconvert.com/v2/jobs', {
     method: 'POST',
     headers: { Authorization: `Bearer ${CLOUDCONVERT_API_KEY}`, 'Content-Type': 'application/json' },
@@ -138,9 +138,9 @@ async function pdfFirstPageThumbnail(buffer, filename) {
     })
   });
   const jobJson = await jobRes.json().catch(() => ({}));
-  if (!jobRes.ok) return null;
+  if (!jobRes.ok) { console.error('[wa pdf thumb] job creation failed:', jobRes.status, JSON.stringify(jobJson)); return null; }
   let job = jobJson?.data;
-  if (!job?.id) return null;
+  if (!job?.id) { console.error('[wa pdf thumb] no job id in response:', JSON.stringify(jobJson)); return null; }
 
   for (let i = 0; i < 20 && job.status !== 'finished' && job.status !== 'error'; i++) {
     await new Promise((r) => setTimeout(r, 1500));
@@ -150,14 +150,18 @@ async function pdfFirstPageThumbnail(buffer, filename) {
     const pollJson = await pollRes.json().catch(() => ({}));
     job = pollJson?.data || job;
   }
-  if (job.status !== 'finished') return null;
+  if (job.status !== 'finished') {
+    const failedTasks = (job.tasks || []).filter((t) => t.status === 'error');
+    console.error('[wa pdf thumb] job did not finish, status:', job.status, 'failed tasks:', JSON.stringify(failedTasks));
+    return null;
+  }
 
   const exportTask = (job.tasks || []).find((t) => t.operation === 'export/url' && t.status === 'finished');
   const fileInfo = exportTask?.result?.files?.[0];
-  if (!fileInfo?.url) return null;
+  if (!fileInfo?.url) { console.error('[wa pdf thumb] no exported file url, tasks:', JSON.stringify(job.tasks)); return null; }
 
   const imgRes = await fetch(fileInfo.url);
-  if (!imgRes.ok) return null;
+  if (!imgRes.ok) { console.error('[wa pdf thumb] download of converted image failed:', imgRes.status); return null; }
   return Buffer.from(await imgRes.arrayBuffer());
 }
 
