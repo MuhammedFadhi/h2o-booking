@@ -172,7 +172,7 @@
     var R = 52, CX = 60, CY = 60;
     var circ = Math.PI * R;                       // half-circle length
     var dash = Math.max(0, Math.min(1, pct)) * circ;
-    var label = (days === null) ? '—' : (days < 0 ? '0' : String(days));
+    var label = (days === null) ? '—' : String(days);
     return '' +
       '<svg viewBox="0 0 120 72" style="width:110px;height:66px;">' +
         '<path d="M 8 60 A ' + R + ' ' + R + ' 0 0 1 112 60" fill="none" stroke="#E2E8F0" stroke-width="9" stroke-linecap="round"/>' +
@@ -259,7 +259,7 @@
     // Full ring, no gap — progress starts at 12 o'clock (deg 270 in this
     // x=cos/y=sin convention) and sweeps clockwise.
     var knob = pt(270 + frac * 360);
-    var label = (days === null) ? '—' : (days < 0 ? '0' : String(days));
+    var label = (days === null) ? '—' : String(days);
     var gid = 'gaugeGrad' + (++_gaugeUid);
 
     // Static decorative ring of dots around the outside — purely visual,
