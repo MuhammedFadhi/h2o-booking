@@ -9903,6 +9903,7 @@ async function sendWhatsappMessage() {
   if (!text || !waCurrentConversationId) return;
   const btn = document.getElementById('wa-thread-send-btn');
   btn.disabled = true;
+  btn.textContent = 'Sending…';
   document.getElementById('wa-thread-error').style.display = 'none';
 
   const pendingMedia = waPendingTemplateMedia;
@@ -9944,6 +9945,7 @@ async function sendWhatsappMessage() {
     document.getElementById('wa-thread-error').textContent = err.message;
   } finally {
     btn.disabled = false;
+    btn.textContent = 'Send';
   }
 }
 
@@ -9998,6 +10000,10 @@ async function sendWaPendingAttachment() {
   const sendBtn = document.getElementById('wa-thread-send-btn');
   attachBtn.disabled = true;
   sendBtn.disabled = true;
+  // A disabled button looks identical to an enabled one otherwise (no
+  // .btn:disabled styling) — the label change is what actually tells the
+  // admin their click registered, so they don't click Send again unsure.
+  sendBtn.textContent = 'Sending…';
   document.getElementById('wa-thread-error').style.display = 'none';
   try {
     const { data: { session } } = await db.auth.getSession();
@@ -10025,6 +10031,7 @@ async function sendWaPendingAttachment() {
   } finally {
     attachBtn.disabled = false;
     sendBtn.disabled = false;
+    sendBtn.textContent = 'Send';
   }
 }
 
