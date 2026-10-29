@@ -9920,7 +9920,10 @@ function renderWhatsappMessages(messages) {
     const out = m.direction === 'outbound';
     const time = m.sent_at ? new Date(m.sent_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
     const isAudio = m.media_url && /audio|voice/i.test(m.message_type || '');
-    const isImage = m.media_url && /image/i.test(m.message_type || '');
+    // A sticker is just a .webp image under a different WhatsApp message
+    // type — without matching it here it fell through to the generic file-
+    // link branch (filename + document icon) instead of actually showing it.
+    const isImage = m.media_url && /image|sticker/i.test(m.message_type || '');
     const isLocation = m.media_url && m.message_type === 'location';
     const caption = m.body ? `<div style="margin-top:4px;">${escB(m.body)}</div>` : '';
     const body = isAudio
