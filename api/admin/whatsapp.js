@@ -243,7 +243,9 @@ async function sendMediaMessage({ conversationId, buffer, mimeType, filename, ca
   }, { Prefer: 'return=representation' });
   await sb('PATCH', `/rest/v1/whatsapp_conversations?id=eq.${conversationId}`, {
     last_message_at: sentAt,
-    last_message_preview: caption ? String(caption).slice(0, 200) : `[${waType}]`
+    last_message_preview: caption ? String(caption).slice(0, 200) : `[${waType}]`,
+    last_message_direction: 'outbound',
+    last_message_status: 'sent'
   });
   return inserted?.[0];
 }
@@ -358,7 +360,9 @@ module.exports = async function handler(req, res) {
       }, { Prefer: 'return=representation' });
       await sb('PATCH', `/rest/v1/whatsapp_conversations?id=eq.${conversationId}`, {
         last_message_at: sentAt,
-        last_message_preview: text.slice(0, 200)
+        last_message_preview: text.slice(0, 200),
+        last_message_direction: 'outbound',
+        last_message_status: 'sent'
       });
       return res.status(200).json({ ok: true, message: inserted?.[0] });
     }
