@@ -1365,6 +1365,7 @@
               <option value="">All units</option>
               <optgroup label="Needs attention">
                 <option value="attention">⚠ Anything past due or due soon</option>
+                <option value="needs_attention_today">⚠ Needs action today (active, not opted out)</option>
                 <option value="any_past">Anything past due</option>
               </optgroup>
               <optgroup label="Filter (90-day)">
@@ -2599,9 +2600,10 @@ function applyBookingsQuickFilter(preset, pushUrl = true) {
 
 // Same idea as applyBookingsQuickFilter, for the Active Units panel — reuses
 // setWarrantyFilter() (the panel's own stat-card click handler) so region/
-// city reset and re-render stay in exactly one place; war-filter's values
-// already match exactly what Overview's "Warranties Need Attention" tile
-// counts, so no new preset mapping is needed here.
+// city reset and re-render stay in exactly one place. The preset passed in
+// from Overview is 'needs_attention_today' specifically (see
+// renderWarranties()'s switch), not the broader 'attention' option, so the
+// tile's number and the filtered table it links to always agree.
 function applyWarrantyQuickFilter(preset, pushUrl = true) {
   setWarrantyFilter(preset);
   if (pushUrl) {
@@ -7916,7 +7918,7 @@ async function loadOverview() {
   statsEl.innerHTML =
     stat('<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm12-4v4M8 3v4m-4 4h16"/><path d="M8 15h2v2H8z"/></g></svg>', '#EFF6FF', '#1D4ED8', todayBookings.length, "Today's Bookings", 'bookings', '', 'today') +
     stat('<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M6.5 7h11m-11 10h11M6 20v-2a6 6 0 1 1 12 0v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1"/><path d="M6 4v2a6 6 0 1 0 12 0V4a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1"/></g></svg>', '#FFF7ED', '#92400E', pendingInstalls.length, 'Pending Installs', 'bookings', '', 'pending') +
-    stat('<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.04 19.745c-.942.551-1.964.976-3.04 1.255A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 .195 6.015M19 16v3m0 3v.01"/></svg>', '#FEF3C7', '#B45309', warrAttention.length, 'Warranties Need Attention', 'warranties', warrAttention.length ? 'color:#B45309;' : '', 'attention') +
+    stat('<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.04 19.745c-.942.551-1.964.976-3.04 1.255A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 .195 6.015M19 16v3m0 3v.01"/></svg>', '#FEF3C7', '#B45309', warrAttention.length, 'Warranties Need Attention', 'warranties', warrAttention.length ? 'color:#B45309;' : '', 'needs_attention_today') +
     stat(FOLLOWUP_ICON_SVG, '#FEE2E2', '#B91C1C', overdueFups.length, 'Follow-ups Due', 'followups', overdueFups.length ? 'color:#B91C1C;' : '', 'due');
 
   // ---- actionable lists ----
@@ -8821,6 +8823,17 @@ function renderWarranties() {
         return ['soon','past'].includes(fOf(w.filter_expiry))
             || ['soon','past'].includes(fOf(w.service_expiry))
             || fOf(w.warranty_expiry) === 'past';
+      // Exactly what Overview's "Warranties Need Attention" tile counts —
+      // narrower than 'attention' above on purpose: a paused/pending/
+      // deactivated warranty or one opted out of service reminders isn't
+      // something anyone is going to action today, and an expired 2-year
+      // warranty alone (filter/service not due) isn't a visit to schedule,
+      // just a coverage fact — so neither counts here the way they do in
+      // the general "anything overdue" browse filter above.
+      case 'needs_attention_today':
+        return (w.status || 'active') === 'active' && !w.service_opted_out && (
+          ['soon','past'].includes(fOf(w.filter_expiry)) ||
+          ['soon','past'].includes(fOf(w.service_expiry)));
       case 'any_past':
         return fOf(w.filter_expiry) === 'past' || fOf(w.service_expiry) === 'past' || fOf(w.warranty_expiry) === 'past';
       case 'filter_due':  return ['soon','past'].includes(fOf(w.filter_expiry));
