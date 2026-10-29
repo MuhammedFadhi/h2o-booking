@@ -206,7 +206,12 @@ function messageBodyAndType(message) {
   if (type === 'location') {
     const loc = message.location || {};
     const label = loc.name || loc.address || (loc.latitude && loc.longitude ? `${loc.latitude}, ${loc.longitude}` : null);
-    return { type, body: label ? `📍 ${label}` : '📍 Shared a location', mediaId: null, filename: null };
+    // No media to download here — the "media" IS the coordinates, so the
+    // Google Maps link goes straight into mediaUrl (via directUrl below)
+    // instead of going through fetchAndStoreMedia, letting the dashboard
+    // render a tappable map-pin card the same way it does for a file link.
+    const mapsUrl = (loc.latitude != null && loc.longitude != null) ? `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}` : null;
+    return { type, body: label ? `📍 ${label}` : '📍 Shared a location', mediaId: null, filename: null, directUrl: mapsUrl };
   }
   if (type === 'contacts') {
     const names = (message.contacts || []).map((c) => c.name?.formatted_name).filter(Boolean).join(', ');
@@ -239,8 +244,8 @@ async function handleInboundMessage(message, contact) {
   if (!phone) return; // can't file it anywhere sensible without a phone
   const conversationId = await findOrCreateConversation(phone, contact?.profile?.name);
 
-  const { type, body, mediaId, filename } = messageBodyAndType(message);
-  let mediaUrl = null;
+  const { type, body, mediaId, filename, directUrl } = messageBodyAndType(message);
+  let mediaUrl = directUrl || null;
   let thumbnailUrl = null;
   if (mediaId) {
     try {
