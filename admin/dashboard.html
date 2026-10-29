@@ -9918,11 +9918,21 @@ function renderWhatsappMessages(messages) {
     const time = m.sent_at ? new Date(m.sent_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
     const isAudio = m.media_url && /audio|voice/i.test(m.message_type || '');
     const isImage = m.media_url && /image/i.test(m.message_type || '');
+    const isLocation = m.media_url && m.message_type === 'location';
     const caption = m.body ? `<div style="margin-top:4px;">${escB(m.body)}</div>` : '';
     const body = isAudio
       ? `<audio controls src="${escB(m.media_url)}" style="max-width:220px;height:34px;"></audio>${caption}`
       : isImage
       ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener"><img src="${escB(m.media_url)}" style="max-width:220px;max-height:220px;border-radius:8px;display:block;"></a>${caption}`
+      // A shared location — media_url is a Google Maps link (built from the
+      // coordinates in the webhook, see messageBodyAndType), not a hosted
+      // file, so this opens Maps directly instead of trying to show a
+      // generic filename like the document branch below would.
+      : isLocation
+      ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none;">
+            <span style="flex-shrink:0;width:30px;height:30px;border-radius:50%;background:rgba(220,38,38,0.12);color:#DC2626;display:flex;align-items:center;justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" width="1.1em" height="1.1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0"/><circle cx="12" cy="10" r="3"/></g></svg></span>
+            <span style="overflow-wrap:anywhere;">${m.body ? escB(m.body.replace(/^📍\s*/, '')) : 'Shared a location'}</span>
+          </a>`
       // Video dropped back to a plain file link for now (was <video
       // controls>, showing the browser's own first-frame poster, which read
       // as an unwanted thumbnail) — same treatment as any other document.
