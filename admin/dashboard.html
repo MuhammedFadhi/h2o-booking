@@ -873,6 +873,7 @@
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn btn-primary btn-sm" onclick="openAdminBookingModal()" style="white-space:nowrap;">+ Book for Customer</button>
             <button class="btn btn-ghost btn-sm" onclick="openServiceBookingModal()" style="white-space:nowrap; display:inline-flex; align-items:center; gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 10h3V7L6.5 3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8z"/></svg> Service / Repair</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportBookingsCSV()" title="Export the currently filtered bookings as CSV" style="white-space:nowrap; display:inline-flex; align-items:center; gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m4-5l5 5l5-5m-5 5V3"/></svg> Export CSV</button>
           </div>
         </div>
       </div>
@@ -8094,9 +8095,79 @@ async function exportCustomersCSV() {
   showToast('Customers exported', 'success');
 }
 
+// Exports whatever the Bookings table is currently showing, not a blind
+// full dump — mirrors loadBookings()'s own filter-building (duplicated
+// rather than shared; loadBookings() is deeply tied to its own table-render
+// and sort state, so splitting a shared helper out risked destabilizing it
+// for a feature that just needs read access to the same filtered rows).
 async function exportBookingsCSV() {
   const W = window.SADA.Warranty;
-  const rows = (await dbAdmin.from('bookings').select('*, installers(name)').order('slot_date', { ascending:false })).data || [];
+
+  let q = dbAdmin.from('bookings')
+    .select('*, installers(name)')
+    .order('slot_date', { ascending: true })
+    .order('slot_hour', { ascending: true });
+
+  const status = document.getElementById('filter-status').value;
+  const jobType = document.getElementById('filter-type')?.value ?? '';
+  const installerFilter = document.getElementById('filter-installer')?.value ?? '';
+  const dateFrom = document.getElementById('filter-date-from').value;
+  const dateTo = document.getElementById('filter-date-to').value;
+  const range = document.getElementById('filter-range')?.value ?? 'month';
+  const search = document.getElementById('search-bookings').value.trim().toLowerCase();
+
+  if (installerFilter === 'unassigned') q = q.is('installer_id', null);
+  else if (installerFilter) q = q.eq('installer_id', installerFilter);
+
+  if (status === 'serviced') {
+    q = q.eq('status', 'installed').neq('booking_type', 'installation').not('booking_type', 'is', null);
+  } else if (status === 'installed') {
+    q = q.eq('status', 'installed').or('booking_type.eq.installation,booking_type.is.null');
+  } else if (status === 'pending') {
+    q = q.in('status', ['upcoming', 'in_progress']);
+  } else if (status) {
+    q = q.eq('status', status);
+  }
+  if (jobType === 'installation') {
+    q = q.or('booking_type.eq.installation,booking_type.is.null');
+  } else if (jobType === 'service') {
+    q = q.not('booking_type', 'is', null).neq('booking_type', 'installation');
+  } else if (jobType === 'quarterly_service') {
+    q = q.or('booking_type.eq.quarterly_service,booking_type.eq.maintenance');
+  } else if (jobType) {
+    q = q.eq('booking_type', jobType);
+  }
+  if (dateFrom || dateTo) {
+    if (dateFrom) q = q.gte('slot_date', dateFrom);
+    if (dateTo) q = q.lte('slot_date', dateTo);
+  } else if (range) {
+    const todayISO = W.localDateISO(new Date());
+    const plus = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return W.localDateISO(d); };
+    if (range === 'today') q = q.eq('slot_date', todayISO);
+    else if (range === 'week') q = q.gte('slot_date', todayISO).lte('slot_date', plus(7));
+    else if (range === 'month') q = q.gte('slot_date', todayISO).lte('slot_date', plus(30));
+    else if (range === 'two_months') q = q.gte('slot_date', todayISO).lte('slot_date', plus(60));
+    else if (range === 'past') q = q.lt('slot_date', todayISO);
+  }
+
+  const { data, error } = await q;
+  if (error) { showToast('Could not export bookings.', 'error'); return; }
+
+  let rows = data || [];
+  if (search) {
+    rows = rows.filter(b =>
+      b.customer_name?.toLowerCase().includes(search) ||
+      b.customer_phone?.toLowerCase().includes(search) ||
+      b.booking_reference?.toLowerCase().includes(search));
+  }
+  const cityId = document.getElementById('filter-city')?.value || '';
+  if (cityId) {
+    const cityName = (window.citiesData || []).find(c => String(c.id) === cityId)?.name || '';
+    if (cityName) rows = rows.filter(b => (b.city_name || '').trim().toLowerCase() === cityName.trim().toLowerCase());
+  }
+
+  if (!rows.length) { showToast('No bookings match the current filters.', 'error'); return; }
+
   const csv = toCSV(rows, [
     { label:'Reference', key:'booking_reference' },
     { label:'Customer', key:'customer_name' }, { label:'Phone', key:'customer_phone' },
@@ -8105,7 +8176,7 @@ async function exportBookingsCSV() {
     { label:'Status', key:'status' }, { label:'Installer', get:r=>r.installers?.name }
   ]);
   downloadCSV(`sada-bookings-${W.localDateISO(new Date())}.csv`, csv);
-  showToast('Bookings exported', 'success');
+  showToast(`${rows.length} booking${rows.length === 1 ? '' : 's'} exported`, 'success');
 }
 
 // ============================================================
