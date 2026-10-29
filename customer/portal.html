@@ -745,16 +745,16 @@ async function loadHome() {
 // product, dispensers never getting a warranty like admin's own activation
 // flow.
 //
-// Eligibility is based on TOTALS, not a booking_id link: how many real
-// units has this customer ever bought across all their Installation
-// bookings, vs. how many warranties do they already have ACTIVATED (status
-// active/paused — not pending, not deactivated), linked to a booking or
-// not. A warranty created before booking_id existed — or activated
-// directly by admin — has no link to any specific booking, so matching
-// per-booking alone would wrongly re-offer activation for a unit that's
-// already covered. Credits existing warranties to the OLDEST installations
-// first, so "which booking still needs one" falls out of the running total
-// rather than a direct link.
+// Eligibility checks each booking's OWN directly-linked active/paused
+// warranties first; only a warranty with no booking_id at all (created
+// before that link existed, or activated directly by admin) falls back to a
+// generic pool credited to the OLDEST uncovered installation first. Totals
+// alone (ignoring the direct link) would misattribute an active warranty to
+// the wrong booking whenever bookings got activated out of chronological
+// order — e.g. a newer booking activated before an older one still pending
+// — leaving the older one stuck "pending" forever and the newer one
+// wrongly re-offered for activation (which then fails, since it's already
+// active).
 //
 // 'pending' is deliberately NOT counted as covered: it's the row the
 // installer's job-completion step auto-creates (js/inspection-report.js,
@@ -764,14 +764,30 @@ async function loadHome() {
 // the only way left to activate it. Treating pending the same as "not yet
 // activated" lets the customer finish the job right here instead.
 async function findActivatableBooking(units) {
-  const existingCount = (units || []).filter(u => (u.status === 'active' || u.status === 'paused') && !isBookDispenser(u.product_type)).length;
+  const activeUnits = (units || []).filter(u => (u.status === 'active' || u.status === 'paused') && !isBookDispenser(u.product_type));
+
+  // A warranty already linked to a specific booking_id counts ONLY toward
+  // that booking, no matter how old/new it is — only warranties with no
+  // booking_id (pre-link-era rows, or ones an admin activated directly) fall
+  // back to the generic "credit the oldest booking first" pool below. Without
+  // this split, a customer whose newer booking got activated before an older
+  // one (e.g. an installer skipped straight to the latest job) has that
+  // active warranty wrongly credited to the OLDER booking by the totals-only
+  // count, leaving the older one perpetually "pending" while the newer one —
+  // which is actually already covered — gets re-offered for activation and
+  // fails with a duplicate-serial error when the customer tries.
+  const linkedActiveCountByBooking = {};
+  let unlinkedPool = 0;
+  for (const u of activeUnits) {
+    if (u.booking_id) linkedActiveCountByBooking[u.booking_id] = (linkedActiveCountByBooking[u.booking_id] || 0) + 1;
+    else unlinkedPool++;
+  }
 
   const { data: bookings } = await db.from('bookings')
     .select('id, booking_reference, booking_type, product_model, product_qty, created_at, booking_items(product_model, qty, is_serialized)')
     .eq('customer_phone', customer.phone)
     .order('created_at', { ascending: true });
 
-  let covered = 0;
   for (const b of (bookings || [])) {
     if (b.booking_type && b.booking_type !== 'installation') continue;
     const items = (b.booking_items && b.booking_items.length)
@@ -780,8 +796,17 @@ async function findActivatableBooking(units) {
     const real = items.filter(it => it.is_serialized !== false && !isBookDispenser(it.product_model));
     if (!real.length) continue;
     const targetQty = real.reduce((s, it) => s + (it.qty || 1), 0);
-    if (covered + targetQty <= existingCount) { covered += targetQty; continue; }
-    const already = Math.max(0, existingCount - covered);
+
+    const directlyCovered = Math.min(linkedActiveCountByBooking[b.id] || 0, targetQty);
+    let remaining = targetQty - directlyCovered;
+    if (remaining <= 0) continue; // this booking's own linked warranty(ies) already cover it
+
+    const fromPool = Math.min(unlinkedPool, remaining);
+    unlinkedPool -= fromPool;
+    remaining -= fromPool;
+    if (remaining <= 0) continue; // the generic (unlinked) pool finishes covering it
+
+    const already = directlyCovered + fromPool;
     return {
       booking: b,
       productLabel: real.map(it => it.product_model).join(', '),
