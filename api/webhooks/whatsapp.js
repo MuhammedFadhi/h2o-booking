@@ -286,7 +286,13 @@ async function handleInboundMessage(message, contact) {
   await sb('PATCH', `/rest/v1/whatsapp_conversations?id=eq.${conversationId}`, {
     last_message_at: sentAt,
     last_message_preview: preview.slice(0, 200),
-    unread_count: current + 1
+    unread_count: current + 1,
+    // WhatsApp's own chat list never shows ticks on a message THEY sent —
+    // only clearing last_message_status (rather than leaving a stale
+    // outbound one behind) matters here; last_message_direction is what the
+    // list actually keys its tick display off of.
+    last_message_direction: 'inbound',
+    last_message_status: null
   });
 }
 
@@ -295,10 +301,25 @@ async function handleStatusUpdate(status) {
   const allowed = new Set(['sent', 'delivered', 'read', 'failed']);
   if (!allowed.has(status.status)) return;
   const errorMsg = status.errors?.[0]?.title || null;
-  await sb('PATCH', `/rest/v1/whatsapp_messages?wa_message_id=eq.${encodeURIComponent(status.id)}`, {
+  const updated = await sb('PATCH', `/rest/v1/whatsapp_messages?wa_message_id=eq.${encodeURIComponent(status.id)}`, {
     status: status.status,
     status_error: errorMsg
-  }).catch((err) => console.error('whatsapp status update failed:', status.id, err.message));
+  }, { Prefer: 'return=representation' }).catch((err) => { console.error('whatsapp status update failed:', status.id, err.message); return null; });
+
+  // Only reflects onto the conversation list's tick when this status
+  // belongs to that conversation's most recent outbound message — a status
+  // arriving late for an older message shouldn't override what's already
+  // shown for a newer one sent since.
+  const msg = updated?.[0];
+  if (!msg) return;
+  try {
+    const latest = await sb('GET', `/rest/v1/whatsapp_messages?conversation_id=eq.${msg.conversation_id}&direction=eq.outbound&select=wa_message_id&order=sent_at.desc&limit=1`);
+    if (latest?.[0]?.wa_message_id === status.id) {
+      await sb('PATCH', `/rest/v1/whatsapp_conversations?id=eq.${msg.conversation_id}`, { last_message_status: status.status });
+    }
+  } catch (err) {
+    console.error('whatsapp conversation status sync failed:', msg.conversation_id, err.message);
+  }
 }
 
 module.exports = async function handler(req, res) {
