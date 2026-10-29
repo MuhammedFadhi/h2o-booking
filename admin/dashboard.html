@@ -57,7 +57,36 @@
       position: fixed;
       left: 0; top: 0; bottom: 0;
       z-index: 100;
+      transition: transform 0.22s ease;
     }
+    /* Collapsing the sidebar — e.g. to give a panel like WhatsApp's full-
+       width chat more room — just slides it off-screen and zeroes .main's
+       offset, rather than removing/re-adding it from the DOM. The toggle
+       button is a fixed-position sibling (not a child of .sidebar), so the
+       sidebar's own transform doesn't drag it along. Desktop only — the
+       768px breakpoint below turns the sidebar into a bottom nav bar, where
+       "collapsing" it doesn't apply. */
+    body.sidebar-collapsed .sidebar { transform: translateX(-100%); }
+    body.sidebar-collapsed .main { margin-left: 0; }
+    .sidebar-collapse-btn {
+      position: fixed;
+      top: 20px;
+      left: calc(var(--sidebar-w) - 14px);
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--deep);
+      color: #fff;
+      border: 2px solid var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      z-index: 101;
+      transition: left 0.22s ease;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    .sidebar-collapse-btn svg { transition: transform 0.22s ease; width: 14px; height: 14px; }
+    body.sidebar-collapsed .sidebar-collapse-btn { left: 14px; }
+    body.sidebar-collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
+    @media (max-width: 768px) { .sidebar-collapse-btn { display: none; } }
     .sidebar-logo {
       padding: 12px 24px;
       border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -135,6 +164,7 @@
       min-width: 0;
       display: flex;
       flex-direction: column;
+      transition: margin-left 0.22s ease;
     }
     .topbar {
       background: white;
@@ -796,6 +826,10 @@
     <button class="logout-btn" onclick="logout()">Sign Out</button>
   </div>
 </aside>
+
+<button class="sidebar-collapse-btn" onclick="toggleSidebar()" id="sidebar-collapse-btn" title="Hide sidebar">
+  <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18l-6-6l6-6"/></svg>
+</button>
 
 <!-- MAIN -->
 <main class="main">
@@ -2433,6 +2467,26 @@ function setDefaultDate() {
   const today = localDateISO(new Date());
   document.getElementById('slot-date').value = today;
 }
+
+// Hides the nav sidebar to give the current panel (WhatsApp's chat most of
+// all) full width, via the small collapse button pinned to the sidebar's
+// edge. Persisted per-browser via localStorage so it stays hidden across
+// panel switches and page reloads until toggled back; wrapped in try/catch
+// since localStorage can throw (private browsing, blocked storage) and this
+// is a pure UI nicety, never worth failing over.
+function setSidebarCollapsed(collapsed) {
+  document.body.classList.toggle('sidebar-collapsed', collapsed);
+  document.getElementById('sidebar-collapse-btn').title = collapsed ? 'Show sidebar' : 'Hide sidebar';
+  try { localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0'); } catch {}
+}
+function toggleSidebar() {
+  setSidebarCollapsed(!document.body.classList.contains('sidebar-collapsed'));
+}
+(function restoreSidebarCollapsed() {
+  let saved = false;
+  try { saved = localStorage.getItem('sidebarCollapsed') === '1'; } catch {}
+  if (saved) document.body.classList.add('sidebar-collapsed');
+})();
 
 // ============================================================
 // NAVIGATION
