@@ -2488,6 +2488,24 @@ function toggleSidebar() {
   if (saved) document.body.classList.add('sidebar-collapsed');
 })();
 
+// #wa-panel-row's CSS starts at a fixed calc(100vh - 180px) (just so there's
+// a sane size before this ever runs) — 180px was eyeballed against one
+// browser/zoom combination and doesn't hold everywhere, leaving a gap below
+// the panel on others. This measures its own actual top position and fills
+// exactly to the real bottom of the viewport instead, so it's correct
+// regardless of browser chrome, zoom level, or window size. Re-run on
+// resize and whenever the WhatsApp panel becomes active (see showPanel()).
+function sizeWaPanelRow() {
+  const row = document.getElementById('wa-panel-row');
+  if (!row || !document.getElementById('panel-whatsapp')?.classList.contains('active')) return;
+  const top = row.getBoundingClientRect().top;
+  // Leaves .content's own 28px bottom padding below the panel (desktop —
+  // on mobile the 768px media query's !important rules take over entirely,
+  // this call is a harmless no-op there).
+  row.style.height = Math.max(window.innerHeight - top - 28, 520) + 'px';
+}
+window.addEventListener('resize', sizeWaPanelRow);
+
 // ============================================================
 // NAVIGATION
 // ============================================================
@@ -2554,7 +2572,7 @@ function showPanel(name, el) {
   if (name === 'passwords') populatePasswordInstallers();
   if (name === 'bookings') loadBookings();
   if (name === 'leads') loadLeadsAdmin();
-  if (name === 'whatsapp') loadWhatsappConversations();
+  if (name === 'whatsapp') { loadWhatsappConversations(); sizeWaPanelRow(); }
   if (name === 'salesreport') loadSalesReport();
   if (name === 'sms-settings') loadSMSSettings();
   if (name === 'customers') loadCustomers();
