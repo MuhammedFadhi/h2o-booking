@@ -884,6 +884,7 @@
               <option value="">All Statuses</option>
               <option value="upcoming">Upcoming</option>
               <option value="in_progress">In Progress</option>
+              <option value="pending">Pending (Upcoming + In Progress)</option>
               <option value="installed">Installed</option>
               <option value="serviced">Serviced</option>
               <option value="completed">Completed</option>
@@ -1431,6 +1432,7 @@
             </div>
             <select class="form-input" id="fup-filter" onchange="renderFollowups()" style="min-width:130px;">
               <option value="pending">Pending</option>
+              <option value="due">Due / Overdue</option>
               <option value="">All</option>
               <option value="done">Done</option>
             </select>
@@ -2478,12 +2480,14 @@ function showPanel(name, el) {
   document.getElementById('topbar-sub').textContent = sub;
 
   // Remember which panel is open so refreshing the page lands back here
-  // instead of always resetting to Overview. qf (the Bookings quick-filter
-  // preset) only makes sense while on Bookings — drop it on any other panel.
+  // instead of always resetting to Overview. qf (a quick-filter preset) only
+  // makes sense on the panels that actually read one back out — drop it
+  // otherwise. The panel's own applyXQuickFilter() call (right after this,
+  // when one runs) re-adds it via its own history update.
   const url = new URL(window.location.href);
   if (name === 'overview') url.searchParams.delete('panel');
   else url.searchParams.set('panel', name);
-  if (name !== 'bookings') url.searchParams.delete('qf');
+  if (!['bookings', 'warranties', 'followups'].includes(name)) url.searchParams.delete('qf');
   history.replaceState({}, '', url);
 
   if (name === 'overview') loadOverview();
@@ -2574,6 +2578,13 @@ function applyBookingsQuickFilter(preset, pushUrl = true) {
     typeEl.value = 'service'; fromEl.value = monthStart; toEl.value = monthEnd;
   } else if (preset === 'upcoming-services') {
     typeEl.value = 'service'; statusEl.value = 'upcoming';
+  } else if (preset === 'today') {
+    // Matches Overview's "Today's Bookings" tile (slot_date === today).
+    rangeEl.value = 'today';
+  } else if (preset === 'pending') {
+    // Matches Overview's "Pending Installs" tile (status upcoming OR
+    // in_progress) — see the 'pending' status special-case in loadBookings().
+    statusEl.value = 'pending';
   }
 
   if (pushUrl) {
@@ -2585,10 +2596,55 @@ function applyBookingsQuickFilter(preset, pushUrl = true) {
   loadBookings();
 }
 
+// Same idea as applyBookingsQuickFilter, for the Active Units panel — reuses
+// setWarrantyFilter() (the panel's own stat-card click handler) so region/
+// city reset and re-render stay in exactly one place; war-filter's values
+// already match exactly what Overview's "Warranties Need Attention" tile
+// counts, so no new preset mapping is needed here.
+function applyWarrantyQuickFilter(preset, pushUrl = true) {
+  setWarrantyFilter(preset);
+  if (pushUrl) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('panel', 'warranties');
+    url.searchParams.set('qf', preset);
+    history.pushState({}, '', url);
+  }
+}
+
+// Same idea for Follow-ups — fup-filter only ever had pending/all/done, so
+// 'due' is a new value (pending AND due today-or-overdue, see
+// renderFollowupList/renderFollowupCalendar) matching Overview's
+// "Follow-ups Due" tile exactly. Forces List view since a due-only set is
+// easier to scan as a flat list than hunting across a calendar month.
+function applyFollowupsQuickFilter(preset, pushUrl = true) {
+  document.getElementById('fup-filter').value = preset;
+  setFollowupView('list');
+  if (pushUrl) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('panel', 'followups');
+    url.searchParams.set('qf', preset);
+    history.pushState({}, '', url);
+  }
+}
+
+// Navigates to the given panel from Overview, then applies that panel's
+// quick-filter preset matching the clicked tile — used by the Overview
+// stat() cards (see renderOverview's stat()), so ?panel=<x>&qf=<preset> is
+// shareable/bookmarkable the same way the Bookings-panel-internal cards
+// already are.
+function applyOverviewQuickFilter(panel, preset) {
+  showPanel(panel, navElFor(panel));
+  if (panel === 'bookings') applyBookingsQuickFilter(preset);
+  else if (panel === 'warranties') applyWarrantyQuickFilter(preset);
+  else if (panel === 'followups') applyFollowupsQuickFilter(preset);
+}
+
 // Restores whichever panel ?panel=<name> names (so refreshing, or sharing a
 // link, lands back on the same page instead of always resetting to
-// Overview), plus the Bookings quick-filter preset if ?qf=<preset> is also
-// there. Used on initial load and on browser back/forward.
+// Overview), plus that panel's quick-filter preset if ?qf=<preset> is also
+// there (Bookings, Active Units, and Follow-ups are the panels with a
+// quick-filter preset to restore). Used on initial load and on browser
+// back/forward.
 function restorePanelFromURL() {
   const params = new URLSearchParams(window.location.search);
   const panel = params.get('panel');
@@ -2597,7 +2653,10 @@ function restorePanelFromURL() {
   if (!el) return;
   showPanel(panel, el);
   const qf = params.get('qf');
-  if (panel === 'bookings' && qf) applyBookingsQuickFilter(qf, false);
+  if (!qf) return;
+  if (panel === 'bookings') applyBookingsQuickFilter(qf, false);
+  else if (panel === 'warranties') applyWarrantyQuickFilter(qf, false);
+  else if (panel === 'followups') applyFollowupsQuickFilter(qf, false);
 }
 window.addEventListener('popstate', restorePanelFromURL);
 
@@ -2628,6 +2687,10 @@ async function loadBookings() {
     q = q.eq('status', 'installed').neq('booking_type', 'installation').not('booking_type', 'is', null);
   } else if (status === 'installed') {
     q = q.eq('status', 'installed').or('booking_type.eq.installation,booking_type.is.null');
+  } else if (status === 'pending') {
+    // Matches Overview's "Pending Installs" tile — upcoming OR in_progress,
+    // a status select being single-valued otherwise.
+    q = q.in('status', ['upcoming', 'in_progress']);
   } else if (status) {
     q = q.eq('status', status);
   }
@@ -7838,18 +7901,22 @@ async function loadOverview() {
   // matches the sidebar Follow-ups badge's own convention (updateFollowupBadge()).
   const overdueFups = followups.filter(f => f.status === 'pending' && daysU(f.followup_date) <= 0);
 
-  const stat = (icon, iconBg, iconFg, val, label, panel, tone) => `
-    <div class="stat-card" style="cursor:pointer;" onclick="showPanel('${panel}', [...document.querySelectorAll('.nav-item')].find(n=>(n.getAttribute('onclick')||'').includes(\"'${panel}'\")))">
+  // qf, when given, is a quick-filter preset that panel reads back out of
+  // the URL (?panel=<x>&qf=<preset>) — see applyOverviewQuickFilter() — so
+  // the tile lands on the actual filtered view it's counting, not just the
+  // panel in general, and the resulting link is shareable/bookmarkable.
+  const stat = (icon, iconBg, iconFg, val, label, panel, tone, qf) => `
+    <div class="stat-card" style="cursor:pointer;" onclick="${qf ? `applyOverviewQuickFilter('${panel}','${qf}')` : `showPanel('${panel}', navElFor('${panel}'))`}">
       <div class="stat-icon" style="background:${iconBg}; color:${iconFg};">${icon}</div>
       <div class="stat-value" style="${tone||''}">${val}</div>
       <div class="stat-label">${label}</div>
     </div>`;
 
   statsEl.innerHTML =
-    stat('<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm12-4v4M8 3v4m-4 4h16"/><path d="M8 15h2v2H8z"/></g></svg>', '#EFF6FF', '#1D4ED8', todayBookings.length, "Today's Bookings", 'bookings') +
-    stat('<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M6.5 7h11m-11 10h11M6 20v-2a6 6 0 1 1 12 0v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1"/><path d="M6 4v2a6 6 0 1 0 12 0V4a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1"/></g></svg>', '#FFF7ED', '#92400E', pendingInstalls.length, 'Pending Installs', 'bookings') +
-    stat('<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.04 19.745c-.942.551-1.964.976-3.04 1.255A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 .195 6.015M19 16v3m0 3v.01"/></svg>', '#FEF3C7', '#B45309', warrAttention.length, 'Warranties Need Attention', 'warranties', warrAttention.length ? 'color:#B45309;' : '') +
-    stat(FOLLOWUP_ICON_SVG, '#FEE2E2', '#B91C1C', overdueFups.length, 'Follow-ups Due', 'followups', overdueFups.length ? 'color:#B91C1C;' : '');
+    stat('<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm12-4v4M8 3v4m-4 4h16"/><path d="M8 15h2v2H8z"/></g></svg>', '#EFF6FF', '#1D4ED8', todayBookings.length, "Today's Bookings", 'bookings', '', 'today') +
+    stat('<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M6.5 7h11m-11 10h11M6 20v-2a6 6 0 1 1 12 0v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1"/><path d="M6 4v2a6 6 0 1 0 12 0V4a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1"/></g></svg>', '#FFF7ED', '#92400E', pendingInstalls.length, 'Pending Installs', 'bookings', '', 'pending') +
+    stat('<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.04 19.745c-.942.551-1.964.976-3.04 1.255A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 .195 6.015M19 16v3m0 3v.01"/></svg>', '#FEF3C7', '#B45309', warrAttention.length, 'Warranties Need Attention', 'warranties', warrAttention.length ? 'color:#B45309;' : '', 'attention') +
+    stat(FOLLOWUP_ICON_SVG, '#FEE2E2', '#B91C1C', overdueFups.length, 'Follow-ups Due', 'followups', overdueFups.length ? 'color:#B91C1C;' : '', 'due');
 
   // ---- actionable lists ----
   const fmtWhen = (b) => `${W ? W.fmtDate(b.slot_date) : b.slot_date}${b.slot_hour!=null ? ' · ' + formatHour(b.slot_hour) : ''}`;
@@ -10578,11 +10645,19 @@ function followupColor(x) {
   return W.STATUS_COLORS.ok;
 }
 
+// 'due' (matching Overview's "Follow-ups Due" tile) isn't a real status —
+// it means pending AND due today-or-overdue — so it needs its own match
+// instead of the plain x.status === f every other filter value uses.
+function followupMatchesFilter(x, f) {
+  if (f === 'due') return x.status === 'pending' && window.SADA.Warranty.daysUntil(x.followup_date) <= 0;
+  return !f || x.status === f;
+}
+
 function renderFollowupCalendar() {
   const W = window.SADA.Warranty;
   const f = document.getElementById('fup-filter').value;
   const el = document.getElementById('followups-list');
-  const rows = allFollowups.filter(x => !f || x.status === f);
+  const rows = allFollowups.filter(x => followupMatchesFilter(x, f));
 
   const year = followupCalMonth.getFullYear();
   const month = followupCalMonth.getMonth();
@@ -10654,7 +10729,7 @@ function renderFollowupList() {
   const W = window.SADA.Warranty;
   const f = document.getElementById('fup-filter').value;
   const el = document.getElementById('followups-list');
-  const rows = allFollowups.filter(x => !f || x.status === f)
+  const rows = allFollowups.filter(x => followupMatchesFilter(x, f))
     .sort((a,b) => a.followup_date.localeCompare(b.followup_date));
   if (!rows.length) {
     el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">No follow-ups.</div>';
