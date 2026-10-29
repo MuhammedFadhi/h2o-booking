@@ -87,6 +87,10 @@
     body.sidebar-collapsed .sidebar-collapse-btn { left: 14px; }
     body.sidebar-collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
     @media (max-width: 768px) { .sidebar-collapse-btn { display: none; } }
+    /* Collapsed, the button sits right where the topbar title starts (it's
+       at the main-content edge now) and visually clips its first letter —
+       push the title over just enough to clear the button. */
+    body.sidebar-collapsed .topbar { padding-left: 56px; }
     .sidebar-logo {
       padding: 12px 24px;
       border-bottom: 1px solid rgba(255,255,255,0.08);
