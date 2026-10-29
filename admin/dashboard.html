@@ -2492,6 +2492,16 @@ function toggleSidebar() {
   if (saved) document.body.classList.add('sidebar-collapsed');
 })();
 
+// Desktop has no real phone app to hand a tel: link to, so clicking one
+// just pops Chrome/Edge's "Open Pick an app?" protocol-handler chooser —
+// useless and annoying there. Click-to-call only makes sense on an actual
+// phone, so tel: links (WhatsApp's conversation list + open-thread header)
+// are mobile-viewport only; same breakpoint the rest of the layout already
+// switches to a mobile nav/thread view at.
+function isMobileViewport() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
 // #wa-panel-row's CSS starts at a fixed calc(100vh - 180px) (just so there's
 // a sane size before this ever runs) — 180px was eyeballed against one
 // browser/zoom combination and doesn't hold everywhere, leaving a gap below
@@ -9590,13 +9600,16 @@ function renderWhatsappConversationList() {
     el.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;">${waStatusFilter || q ? 'No conversations match.' : 'No conversations yet.'}</div>`;
     return;
   }
+  const callable = isMobileViewport();
   el.innerHTML = rows.map(c => `
     <div onclick="waRowClick(event,'${c.id}')" onmouseenter="waPeekHoverStart(event,'${c.id}')" onmousedown="waPeekStart(event,'${c.id}')" onmouseup="waPeekEnd()" onmouseleave="waPeekRowLeave()" ontouchstart="waPeekStart(event,'${c.id}')" ontouchend="waPeekEnd()" ontouchmove="clearTimeout(waPeekTimer)" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};${c.status === 'not_interested' ? 'opacity:0.55;filter:grayscale(0.6);' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
         <div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escB(c.contact_name || c.phone)}</div>
         ${c.unread_count > 0 ? `<span style="background:#16A34A;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;flex-shrink:0;">${c.unread_count}</span>` : ''}
       </div>
-      <a href="tel:${escB(c.phone || '')}" onclick="event.stopPropagation()" style="display:block;font-size:11px;color:var(--muted);margin-top:2px;text-decoration:none;">${escB(c.phone)}</a>
+      ${callable
+        ? `<a href="tel:${escB(c.phone || '')}" onclick="event.stopPropagation()" style="display:block;font-size:11px;color:var(--muted);margin-top:2px;text-decoration:none;">${escB(c.phone)}</a>`
+        : `<div style="font-size:11px;color:var(--muted);margin-top:2px;">${escB(c.phone)}</div>`}
       <div style="font-size:12px;color:var(--muted);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:4px;">
         ${c.last_message_direction === 'outbound' ? `<span style="display:inline-flex;flex-shrink:0;">${waStatusIcon(c.last_message_status)}</span>` : ''}
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escB(c.last_message_preview || '—')}</span>
@@ -9983,7 +9996,11 @@ async function selectWhatsappConversation(id) {
   document.getElementById('wa-thread-name').textContent = convo?.contact_name || convo?.phone || '—';
   const threadPhoneEl = document.getElementById('wa-thread-phone');
   threadPhoneEl.textContent = convo?.phone || '';
-  threadPhoneEl.href = convo?.phone ? `tel:${convo.phone}` : '#';
+  // No href at all (rather than '#') on desktop — an <a> with no href isn't
+  // a real link, so it won't trigger the "Open Pick an app?" chooser or
+  // show a pointer cursor; see isMobileViewport().
+  if (convo?.phone && isMobileViewport()) threadPhoneEl.href = `tel:${convo.phone}`;
+  else threadPhoneEl.removeAttribute('href');
   document.getElementById('wa-thread-empty').style.display = 'none';
   document.getElementById('wa-thread-messages').style.display = 'flex';
   document.getElementById('wa-thread-composer').style.display = 'flex';
