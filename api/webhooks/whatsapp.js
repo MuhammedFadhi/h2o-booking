@@ -261,8 +261,12 @@ async function handleInboundMessage(message, contact) {
     media_url: mediaUrl,
     thumbnail_url: thumbnailUrl,
     // Present when the customer swiped-to-reply on a specific message in
-    // their own app — Meta echoes that message's wamid back here.
-    reply_to_wa_message_id: message.context?.id || null,
+    // their own app — Meta echoes that message's wamid back here. A
+    // reaction instead names its target via message.reaction.message_id
+    // (no context field) — reusing this same column lets the dashboard
+    // attach the reaction to that message as a badge instead of a quoted
+    // block, same as WhatsApp's own UI.
+    reply_to_wa_message_id: type === 'reaction' ? (message.reaction?.message_id || null) : (message.context?.id || null),
     status: 'sent',
     sent_at: sentAt
   }, { Prefer: 'resolution=ignore-duplicates' });
