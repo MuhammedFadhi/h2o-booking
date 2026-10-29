@@ -9592,9 +9592,10 @@ async function assignWaConversationIfUnassigned(conversationId) {
   const convo = waConversations.find(c => c.id === conversationId);
   if (!convo || convo.assigned_admin_name) return;
   const name = currentAdminDisplayName();
-  if (!name) return;
+  if (!name) { console.warn('[WA assign] currentAdminDisplayName() returned empty — not assigning.'); return; }
   const { error } = await dbAdmin.from('whatsapp_conversations').update({ assigned_admin_name: name }).eq('id', conversationId);
   if (!error) { convo.assigned_admin_name = name; renderWhatsappConversationList(); }
+  else console.warn('[WA assign] update failed:', error.message);
 }
 
 // ── Conversation follow-ups (v89) — same list+add pattern as the lead
@@ -9989,6 +9990,12 @@ async function sendWhatsappMessage() {
     const input = document.getElementById('wa-thread-input');
     const text = input.value.trim();
     if (!text || !waCurrentConversationId) return;
+    // Captured now, not re-read after the await below — waCurrentConversationId
+    // is a live global that changes the instant the admin opens a different
+    // conversation. Re-reading it post-await meant switching chats mid-send
+    // silently assigned (or updated the preview of) whatever conversation
+    // happened to be open when the send finished, not the one actually sent to.
+    const conversationId = waCurrentConversationId;
     const btn = document.getElementById('wa-thread-send-btn');
     btn.disabled = true;
     btn.textContent = 'Sending…';
@@ -10016,16 +10023,16 @@ async function sendWhatsappMessage() {
       // A template picked with a media_url attaches that file alongside the
       // message as its caption, instead of sending plain text.
       const result = pendingMedia
-        ? await waCall('send-quick-reply-media', { conversationId: waCurrentConversationId, mediaUrl: pendingMedia, body: text, replyToWaMessageId: replyTarget?.waMessageId || null })
-        : await waCall('send-message', { conversationId: waCurrentConversationId, body: text, replyToWaMessageId: replyTarget?.waMessageId || null });
+        ? await waCall('send-quick-reply-media', { conversationId, mediaUrl: pendingMedia, body: text, replyToWaMessageId: replyTarget?.waMessageId || null })
+        : await waCall('send-message', { conversationId, body: text, replyToWaMessageId: replyTarget?.waMessageId || null });
       // Swap the placeholder for the real, saved row now rather than leaving
       // it for the next poll to naturally overwrite — see loadWhatsappMessages
       // for why relying on that alone let the message flicker away.
       waMessages = waMessages.map(m => m._tempId === tempId ? (result?.message || { ...m, _optimistic: false }) : m);
       renderWhatsappMessages(waMessages);
-      const convo = waConversations.find(c => c.id === waCurrentConversationId);
+      const convo = waConversations.find(c => c.id === conversationId);
       if (convo) { convo.last_message_preview = text; convo.last_message_at = new Date().toISOString(); renderWhatsappConversationList(); }
-      assignWaConversationIfUnassigned(waCurrentConversationId);
+      assignWaConversationIfUnassigned(conversationId);
     } catch (err) {
       waMessages = waMessages.filter(m => m._tempId !== tempId);
       renderWhatsappMessages(waMessages);
@@ -10087,6 +10094,9 @@ function cancelWaPendingAttachment() {
 async function sendWaPendingAttachment() {
   const file = waPendingAttachmentFile;
   if (!file || !waCurrentConversationId) return;
+  // Captured now, not re-read after the upload's await — see the same note
+  // in sendWhatsappMessage.
+  const conversationId = waCurrentConversationId;
   const input = document.getElementById('wa-thread-input');
   const caption = input.value.trim();
   const attachBtn = document.getElementById('wa-attach-btn');
@@ -10102,7 +10112,7 @@ async function sendWaPendingAttachment() {
     const { data: { session } } = await db.auth.getSession();
     if (!session) throw new Error('Session expired. Please sign in again.');
     const form = new FormData();
-    form.append('conversationId', waCurrentConversationId);
+    form.append('conversationId', conversationId);
     form.append('file', file);
     if (caption) form.append('caption', caption);
     if (waReplyTarget) form.append('replyToWaMessageId', waReplyTarget.waMessageId);
@@ -10118,7 +10128,7 @@ async function sendWaPendingAttachment() {
     cancelWaPendingAttachment();
     clearWaReply();
     await loadWhatsappMessages();
-    assignWaConversationIfUnassigned(waCurrentConversationId);
+    assignWaConversationIfUnassigned(conversationId);
   } catch (err) {
     document.getElementById('wa-thread-error').style.display = 'block';
     document.getElementById('wa-thread-error').textContent = err.message;
@@ -10258,6 +10268,9 @@ function discardWaRecording() {
 
 async function sendWaVoiceNote() {
   if (!waRecordedBlob || !waCurrentConversationId) return;
+  // Captured now, not re-read after the upload's await — see the same note
+  // in sendWhatsappMessage.
+  const conversationId = waCurrentConversationId;
   const sendBtn = document.getElementById('wa-record-send-btn');
   sendBtn.disabled = true;
   document.getElementById('wa-thread-error').style.display = 'none';
@@ -10267,7 +10280,7 @@ async function sendWaVoiceNote() {
     const { data: { session } } = await db.auth.getSession();
     if (!session) throw new Error('Session expired. Please sign in again.');
     const form = new FormData();
-    form.append('conversationId', waCurrentConversationId);
+    form.append('conversationId', conversationId);
     form.append('file', file);
     if (waReplyTarget) form.append('replyToWaMessageId', waReplyTarget.waMessageId);
     const res = await fetch('/api/admin/whatsapp', {
@@ -10280,7 +10293,7 @@ async function sendWaVoiceNote() {
     resetWaRecordBar();
     clearWaReply();
     await loadWhatsappMessages();
-    assignWaConversationIfUnassigned(waCurrentConversationId);
+    assignWaConversationIfUnassigned(conversationId);
   } catch (err) {
     document.getElementById('wa-thread-error').style.display = 'block';
     document.getElementById('wa-thread-error').textContent = err.message;
