@@ -195,7 +195,42 @@ async function findOrCreateConversation(phone, contactName) {
 function messageBodyAndType(message) {
   const type = message.type || 'text';
   if (type === 'text') return { type, body: message.text?.body || null, mediaId: null, filename: null };
-  const media = message[type]; // image/audio/video/document all carry { id, mime_type, caption?, ... }
+
+  // These types carry no { id, caption } media object, so without a summary
+  // here they'd store with body=null and media_url=null — an empty bubble
+  // with nothing to show, even though the customer did send something.
+  if (type === 'reaction') {
+    const emoji = message.reaction?.emoji;
+    return { type, body: emoji ? `Reacted ${emoji}` : 'Reacted', mediaId: null, filename: null };
+  }
+  if (type === 'location') {
+    const loc = message.location || {};
+    const label = loc.name || loc.address || (loc.latitude && loc.longitude ? `${loc.latitude}, ${loc.longitude}` : null);
+    return { type, body: label ? `📍 ${label}` : '📍 Shared a location', mediaId: null, filename: null };
+  }
+  if (type === 'contacts') {
+    const names = (message.contacts || []).map((c) => c.name?.formatted_name).filter(Boolean).join(', ');
+    return { type, body: names ? `👤 ${names}` : 'Shared a contact', mediaId: null, filename: null };
+  }
+  if (type === 'interactive') {
+    const reply = message.interactive?.button_reply || message.interactive?.list_reply;
+    return { type, body: reply?.title || 'Interactive reply', mediaId: null, filename: null };
+  }
+  if (type === 'button') {
+    return { type, body: message.button?.text || 'Button reply', mediaId: null, filename: null };
+  }
+  if (type === 'order') {
+    const items = message.order?.product_items?.length || 0;
+    return { type, body: items ? `🛒 Order (${items} item${items === 1 ? '' : 's'})` : '🛒 Order', mediaId: null, filename: null };
+  }
+  if (type === 'system') {
+    return { type, body: message.system?.body || 'System message', mediaId: null, filename: null };
+  }
+  if (type === 'unsupported') {
+    return { type, body: 'Unsupported message type', mediaId: null, filename: null };
+  }
+
+  const media = message[type]; // image/audio/video/document/sticker all carry { id, mime_type, caption?, ... }
   return { type, body: media?.caption || null, mediaId: media?.id || null, filename: media?.filename || null };
 }
 

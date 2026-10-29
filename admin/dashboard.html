@@ -9918,7 +9918,10 @@ function renderWhatsappMessages(messages) {
             <span style="overflow-wrap:anywhere;">${escB(waFilenameFromUrl(m.media_url))}</span>
           </a>${caption}`
       : m.body ? escB(m.body)
-      : '';
+      // Nothing to show (no text, no media) — a reaction/location/etc. the
+      // webhook didn't capture a summary for, rather than render a blank
+      // bubble with nothing in it at all.
+      : `<span style="opacity:0.6;font-style:italic;">[${escB(m.message_type || 'message')}]</span>`;
     const status = out ? `<span style="display:inline-flex;align-items:center;">${waStatusIcon(m.status, m.status_error)}</span>` : '';
     const quoted = waQuotedBlock(m.reply_to_wa_message_id, messages, out);
     const replyBtn = m.wa_message_id ? `<button onclick="startWaReply('${m.wa_message_id}')" title="Reply" style="background:none;border:none;padding:0;cursor:pointer;color:inherit;opacity:0.6;display:inline-flex;align-items:center;"><svg xmlns="http://www.w3.org/2000/svg" width="0.9em" height="0.9em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l-4-4l4-4m-4 4h11a4 4 0 0 1 4 4v1"/></svg></button>` : '';
