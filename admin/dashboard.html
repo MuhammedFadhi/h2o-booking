@@ -6903,6 +6903,7 @@ let allCustomers = [];
 // ============================================================
 let allLeads = [];
 let allLeadFollowups = [];
+let allLeadWaStatus = {}; // whatsapp_conversation_id -> whatsapp_conversations.status, for WhatsApp-sourced leads — see loadLeadsAdmin()
 
 async function loadLeadsAdmin() {
   const container = document.getElementById('leads-table');
@@ -6914,6 +6915,20 @@ async function loadLeadsAdmin() {
   if (error) { container.innerHTML = `<div class="empty-state">⚠️ Failed to load leads: ${escB(error.message)}</div>`; return; }
   allLeads = data || [];
   allLeadFollowups = fups || [];
+
+  // For leads that came from WhatsApp, also pull the conversation's live
+  // status — shown as a small secondary badge next to the lead's own
+  // Open/Converted/Lost pill (see renderLeadsAdminTable's waStatusBadge),
+  // so the finer-grained chat status (Unanswered/Not interested/etc.) is
+  // visible without touching leads.status itself, which Sales Report's
+  // conversion math depends on staying exactly open/converted/lost.
+  const waIds = [...new Set(allLeads.map(l => l.whatsapp_conversation_id).filter(Boolean))];
+  allLeadWaStatus = {};
+  if (waIds.length) {
+    const { data: convos } = await dbAdmin.from('whatsapp_conversations').select('id,status').in('id', waIds);
+    (convos || []).forEach(c => { allLeadWaStatus[c.id] = c.status; });
+  }
+
   renderLeadsAdminTable();
 }
 
@@ -6940,6 +6955,18 @@ function renderLeadsAdminTable() {
     const map = { open: ['Open', '#2563EB'], converted: ['Converted', '#16A34A'], lost: ['Lost', '#94A3B8'] };
     const [label, color] = map[s] || [s, '#6B7280'];
     return `<span class="status-badge" style="background:${color}22;color:${color};">${label}</span>`;
+  };
+
+  // Secondary badge for WhatsApp-sourced leads showing the chat's own,
+  // finer-grained status (Unanswered/Not interested/Follow-up/etc.) — see
+  // loadLeadsAdmin()'s allLeadWaStatus. Reuses WA_STATUS_META (the
+  // WhatsApp panel's own status colors/labels) so it reads as "the same
+  // status, shown here too" rather than a second, different vocabulary.
+  const waStatusBadge = (l) => {
+    const waStatus = l.whatsapp_conversation_id ? allLeadWaStatus[l.whatsapp_conversation_id] : null;
+    if (!waStatus) return '';
+    const meta = WA_STATUS_META[waStatus] || WA_STATUS_META.new;
+    return `<span class="status-badge" style="background:${meta.bg};color:${meta.fg};margin-top:4px;display:inline-block;" title="Live WhatsApp chat status">💬 ${meta.label}</span>`;
   };
 
   const priorityPill = (p) => {
@@ -6977,7 +7004,7 @@ function renderLeadsAdminTable() {
           <td>${escB(l.created_by_name || '—')}</td>
           <td style="font-size:12px;color:var(--muted);">${new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
           <td>${priorityPill(l.priority)}</td>
-          <td>${statusPill(l.status)}</td>
+          <td>${statusPill(l.status)}${waStatusBadge(l) ? '<br>' + waStatusBadge(l) : ''}</td>
           <td>${followupCell(l)}</td>
           <td data-label="">${deleteLeadBtn(l)}</td>
         </tr>`).join('')}</tbody>
