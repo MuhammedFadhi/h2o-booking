@@ -2721,11 +2721,23 @@ function applyFollowupsQuickFilter(preset, pushUrl = true) {
 // stat() cards (see renderOverview's stat()), so ?panel=<x>&qf=<preset> is
 // shareable/bookmarkable the same way the Bookings-panel-internal cards
 // already are.
+//
+// The filter is applied BEFORE showPanel(), not after — showPanel('bookings',
+// ...) itself fires its own loadBookings() using whatever's currently in the
+// filter dropdowns (stale, from whatever was last shown), and loadBookings()
+// is a filter-PARAMETERIZED query (different SQL per filter), so firing it
+// again right after with the real filter raced the two: whichever response
+// landed last won, so the correct filtered count/list could flash and then
+// get silently overwritten by the stale one. Setting the filter first means
+// both calls query the same thing, so the race no longer matters. (Active
+// Units / Follow-ups don't have this problem — their panel-load fetches the
+// full unfiltered set once and the preset only affects a client-side
+// re-render of already-loaded data, not a second competing query.)
 function applyOverviewQuickFilter(panel, preset) {
-  showPanel(panel, navElFor(panel));
   if (panel === 'bookings') applyBookingsQuickFilter(preset);
   else if (panel === 'warranties') applyWarrantyQuickFilter(preset);
   else if (panel === 'followups') applyFollowupsQuickFilter(preset);
+  showPanel(panel, navElFor(panel));
 }
 
 // Restores whichever panel ?panel=<name> names (so refreshing, or sharing a
