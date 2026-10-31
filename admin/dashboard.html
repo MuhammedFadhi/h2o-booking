@@ -979,6 +979,7 @@
             <span class="search-wrap"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="lead-search" placeholder="Search by name or phone..." oninput="renderLeadsAdminTable()" style="min-width:220px;" autocomplete="off"></span>
             <select id="lead-status-filter" class="form-input" onchange="renderLeadsAdminTable()">
               <option value="">All statuses</option>
+              <option value="unassigned">Unassigned</option>
               <option value="open">Open</option>
               <option value="unanswered">Unanswered</option>
               <option value="not_interested">Not interested</option>
@@ -6909,13 +6910,15 @@ let allCustomers = [];
 let allLeads = [];
 let allLeadFollowups = [];
 
-// Leads pipeline status (v101/v103) — widened from the old open/converted/
-// lost to mirror WhatsApp's own conversation status vocabulary, so a
-// WhatsApp-sourced lead's status can sync 1:1 instead of flattening into
-// open/lost (see WA_TO_LEAD_STATUS). 'not_interested' replaced 'lost' —
-// existing 'lost' rows were remapped by the v101 migration; lost_reason is
-// unchanged, just no longer tied to a status literally called "lost".
+// Leads pipeline status (v101, widened v103) — mirrors WhatsApp's own
+// conversation status vocabulary exactly, so a WhatsApp-sourced lead's
+// status can sync 1:1 (see WA_TO_LEAD_STATUS). 'not_interested' replaced
+// the old 'lost'; 'unassigned' is what a WhatsApp-auto-created lead starts
+// as, before any admin has actually engaged with the conversation —
+// sales-agent-created leads are unaffected, they still start 'open'
+// (api/sales/ops.js's createLead).
 const LEAD_STATUS_MAP = {
+  unassigned:     ['Unassigned',     '#6B7280'],
   open:           ['Open',           '#2563EB'],
   unanswered:     ['Unanswered',     '#EF4444'],
   not_interested: ['Not interested', '#9CA3AF'],
@@ -9863,13 +9866,12 @@ function unmarkWaNotInterested() {
   if (waCurrentConversationId) changeWaConversationStatus(waCurrentConversationId, 'open');
 }
 
-// WhatsApp's status set and Leads' (v101) now share almost the same
-// vocabulary, so this maps mostly 1:1 — 'unassigned' (WhatsApp-only, no
-// Leads equivalent) just means the lead is still open.
-// This only syncs the status field, not a follow-up reminder on the lead
-// side (Leads has its own separate follow-up table, unlinked to WhatsApp's).
+// WhatsApp's status set and Leads' (v101, widened v103) now share the exact
+// same vocabulary, so this is a straight 1:1 map. This only syncs the status
+// field, not a follow-up reminder on the lead side (Leads has its own
+// separate follow-up table, unlinked to WhatsApp's).
 const WA_TO_LEAD_STATUS = {
-  unassigned: 'open', open: 'open', unanswered: 'unanswered', follow_up: 'follow_up',
+  unassigned: 'unassigned', open: 'open', unanswered: 'unanswered', follow_up: 'follow_up',
   not_interested: 'not_interested', converted: 'converted'
 };
 
