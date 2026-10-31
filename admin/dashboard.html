@@ -978,10 +978,12 @@
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <span class="search-wrap"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="lead-search" placeholder="Search by name or phone..." oninput="renderLeadsAdminTable()" style="min-width:220px;" autocomplete="off"></span>
             <select id="lead-status-filter" class="form-input" onchange="renderLeadsAdminTable()">
-              <option value="open">Open</option>
-              <option value="converted">Converted</option>
-              <option value="lost">Lost</option>
               <option value="">All statuses</option>
+              <option value="open">Open</option>
+              <option value="unanswered">Unanswered</option>
+              <option value="not_interested">Not interested</option>
+              <option value="follow_up">Follow-up</option>
+              <option value="converted">Converted</option>
             </select>
             <select id="lead-priority-filter" class="form-input" onchange="renderLeadsAdminTable()">
               <option value="">All priorities</option>
@@ -6897,13 +6899,85 @@ async function isSMSEnabled(key) {
 let allCustomers = [];
 
 // ============================================================
-// LEADS — added by the sales team; read-only here. Sales users convert a
-// lead to a booking or mark it lost from their own portal (api/sales/ops.js);
-// admin RLS (is_admin()) gives full read access directly, same as bookings.
+// LEADS — added by the sales team, or auto-created from WhatsApp/CRM. Sales
+// users convert a lead to a booking or mark it not interested from their own
+// portal (api/sales/ops.js); admin RLS (is_admin()) gives full read access
+// directly, same as bookings. leads.status (v101) is a richer pipeline than
+// just open/converted — see LEAD_STATUS_MAP — and can be set here directly
+// via leadStatusSelect, not just by the sales portal or WhatsApp sync.
 // ============================================================
 let allLeads = [];
 let allLeadFollowups = [];
 let allLeadWaStatus = {}; // whatsapp_conversation_id -> whatsapp_conversations.status, for WhatsApp-sourced leads — see loadLeadsAdmin()
+
+// Leads pipeline status (v101/v103) — widened from the old open/converted/
+// lost to mirror WhatsApp's own conversation status vocabulary, so a
+// WhatsApp-sourced lead's status can sync 1:1 instead of flattening into
+// open/lost (see WA_TO_LEAD_STATUS). 'not_interested' replaced 'lost' —
+// existing 'lost' rows were remapped by the v101 migration; lost_reason is
+// unchanged, just no longer tied to a status literally called "lost".
+const LEAD_STATUS_MAP = {
+  open:           ['Open',           '#2563EB'],
+  unanswered:     ['Unanswered',     '#EF4444'],
+  not_interested: ['Not interested', '#9CA3AF'],
+  follow_up:      ['Follow-up',      '#D97706'],
+  converted:      ['Converted',      '#16A34A']
+};
+
+// Same pill-trigger + colored-dot dropdown pattern as WhatsApp's
+// waStatusSelect — lets an admin set a lead's status directly, alongside the
+// existing automatic sources (lead creation, WhatsApp sync, sales-portal
+// convert/mark-not-interested actions).
+function leadStatusSelect(l) {
+  const current = l.status || 'open';
+  const [label, color] = LEAD_STATUS_MAP[current] || [current, '#6B7280'];
+  const items = Object.entries(LEAD_STATUS_MAP)
+    .map(([k, [lbl, c]]) => `<div onclick="event.stopPropagation();selectLeadStatus('${l.id}','${k}')" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'" style="display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12px;font-weight:700;color:${c};cursor:pointer;white-space:nowrap;">
+        <span style="width:7px;height:7px;border-radius:50%;background:${c};flex-shrink:0;"></span>${lbl}
+      </div>`).join('');
+  return `<div style="position:relative;flex-shrink:0;" onclick="event.stopPropagation()">
+      <button onclick="toggleLeadStatusDropdown(event,'${l.id}')" style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border:none;border-radius:20px;padding:4px 10px;background:${color}22;color:${color};cursor:pointer;">
+        ${label}<svg xmlns="http://www.w3.org/2000/svg" width="0.8em" height="0.8em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="m6 9l6 6l6-6"/></svg>
+      </button>
+      <div class="lead-status-dropdown" data-lead="${l.id}" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);border:1px solid var(--border);z-index:150;padding:4px 0;min-width:170px;">${items}</div>
+    </div>`;
+}
+
+function closeLeadStatusDropdowns() {
+  document.querySelectorAll('.lead-status-dropdown').forEach(el => { el.style.display = 'none'; });
+}
+document.addEventListener('click', closeLeadStatusDropdowns);
+
+function toggleLeadStatusDropdown(event, leadId) {
+  event.stopPropagation();
+  const el = document.querySelector(`.lead-status-dropdown[data-lead="${leadId}"]`);
+  if (!el) return;
+  const wasOpen = el.style.display === 'block';
+  closeLeadStatusDropdowns();
+  el.style.display = wasOpen ? 'none' : 'block';
+}
+
+function selectLeadStatus(leadId, status) {
+  closeLeadStatusDropdowns();
+  changeLeadStatus(leadId, status);
+}
+
+async function changeLeadStatus(leadId, status) {
+  const lead = allLeads.find(l => l.id === leadId);
+  if (!lead) return;
+  const prevStatus = lead.status;
+  lead.status = status; // optimistic
+  renderLeadsAdminTable();
+
+  const { error } = await dbAdmin.from('leads').update({ status, updated_at: new Date().toISOString() }).eq('id', leadId);
+  if (error) {
+    lead.status = prevStatus;
+    renderLeadsAdminTable();
+    showToast('Failed to update status: ' + error.message, 'error');
+    return;
+  }
+  logActivity('lead.status_change', `Set ${lead.name || lead.phone}'s lead status to ${LEAD_STATUS_MAP[status]?.[0] || status}`, 'lead', leadId);
+}
 
 async function loadLeadsAdmin() {
   const container = document.getElementById('leads-table');
@@ -6917,11 +6991,12 @@ async function loadLeadsAdmin() {
   allLeadFollowups = fups || [];
 
   // For leads that came from WhatsApp, also pull the conversation's live
-  // status — shown as a small secondary badge next to the lead's own
-  // Open/Converted/Lost pill (see renderLeadsAdminTable's waStatusBadge),
-  // so the finer-grained chat status (Unanswered/Not interested/etc.) is
-  // visible without touching leads.status itself, which Sales Report's
-  // conversion math depends on staying exactly open/converted/lost.
+  // status — shown as a small secondary badge next to the lead's own status
+  // pill (see renderLeadsAdminTable's waStatusBadge). leads.status is kept in
+  // sync with this automatically (syncLeadStatusFromWaStatus), but an admin
+  // can also override it by hand via leadStatusSelect, so the two can
+  // legitimately differ — this badge is "what the live chat says" regardless
+  // of what the lead's own status has been manually set to.
   const waIds = [...new Set(allLeads.map(l => l.whatsapp_conversation_id).filter(Boolean))];
   allLeadWaStatus = {};
   if (waIds.length) {
@@ -6950,12 +7025,6 @@ function renderLeadsAdminTable() {
   if (q) rows = rows.filter(l => (l.name || '').toLowerCase().includes(q) || (l.phone || '').toLowerCase().includes(q));
   countEl.textContent = `${rows.length} lead${rows.length === 1 ? '' : 's'}`;
   if (!rows.length) { container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${LEAD_ICON_SVG}</div><div>No leads found.</div></div>`; return; }
-
-  const statusPill = (s) => {
-    const map = { open: ['Open', '#2563EB'], converted: ['Converted', '#16A34A'], lost: ['Lost', '#94A3B8'] };
-    const [label, color] = map[s] || [s, '#6B7280'];
-    return `<span class="status-badge" style="background:${color}22;color:${color};">${label}</span>`;
-  };
 
   // Secondary badge for WhatsApp-sourced leads showing the chat's own,
   // finer-grained status (Unanswered/Not interested/Follow-up/etc.) — see
@@ -7000,11 +7069,11 @@ function renderLeadsAdminTable() {
           <td>${escB(l.city_name || '—')}</td>
           <td>${escB(l.product_interest || '—')}</td>
           <td>${leadSourceCell(l)}</td>
-          <td style="display:none;max-width:220px;font-size:12px;color:var(--muted);">${escB(l.notes || '—')}${l.status === 'lost' && l.lost_reason ? `<br><em>Lost: ${escB(l.lost_reason)}</em>` : ''}</td>
+          <td style="display:none;max-width:220px;font-size:12px;color:var(--muted);">${escB(l.notes || '—')}${l.status === 'not_interested' && l.lost_reason ? `<br><em>Reason: ${escB(l.lost_reason)}</em>` : ''}</td>
           <td>${escB(l.created_by_name || '—')}</td>
           <td style="font-size:12px;color:var(--muted);">${new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
           <td>${priorityPill(l.priority)}</td>
-          <td>${statusPill(l.status)}${waStatusBadge(l) ? '<br>' + waStatusBadge(l) : ''}</td>
+          <td>${leadStatusSelect(l)}${waStatusBadge(l) ? '<br>' + waStatusBadge(l) : ''}</td>
           <td>${followupCell(l)}</td>
           <td data-label="">${deleteLeadBtn(l)}</td>
         </tr>`).join('')}</tbody>
@@ -7036,9 +7105,8 @@ let currentLeadFollowupLeadId = null;
 // priority/notes), so adding or reviewing a follow-up doesn't require
 // flipping back to the table to remember who this lead is.
 function leadDetailsHtml(lead) {
-  const statusMap = { open: ['Open', '#2563EB'], converted: ['Converted', '#16A34A'], lost: ['Lost', '#94A3B8'] };
   const priorityMap = { hot: ['Hot', '#DC2626'], warm: ['Warm', '#D97706'], cold: ['Cold', '#2563EB'] };
-  const [sLabel, sColor] = statusMap[lead.status] || [lead.status || '—', '#6B7280'];
+  const [sLabel, sColor] = LEAD_STATUS_MAP[lead.status] || [lead.status || '—', '#6B7280'];
   const [pLabel, pColor] = priorityMap[lead.priority || 'warm'] || ['Warm', '#D97706'];
   const field = (label, value) => `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">${label}</div><div style="font-size:13px;color:var(--text);">${value ? escB(value) : '—'}</div></div>`;
   const badge = (label, color) => `<span style="background:${color}22;color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;">${label}</span>`;
@@ -7348,13 +7416,13 @@ function salesReportBookingOnlyStatus(bs) {
   return 'booked';
 }
 
-// A lead's lifecycle stage: 'lead'/'lost' come straight from leads.status; once
-// converted, whether it's 'booked' or 'installed' depends on the linked
-// booking's own status.
+// A lead's lifecycle stage: not_interested maps to 'lost'; open/unanswered/
+// follow_up are all still an unconverted 'lead'; once converted, whether
+// it's 'booked' or 'installed' depends on the linked booking's own status.
 function salesReportStatusKey(l) {
-  if (l.status === 'lost') return 'lost';
-  if (l.status === 'open') return 'lead';
-  return salesReportBookingOnlyStatus(salesReportBookingStatus[l.converted_booking_id]);
+  if (l.status === 'not_interested') return 'lost';
+  if (l.status === 'converted') return salesReportBookingOnlyStatus(salesReportBookingStatus[l.converted_booking_id]);
+  return 'lead';
 }
 
 // Unified report rows: every lead, PLUS every booking that isn't linked from
@@ -9815,16 +9883,14 @@ function unmarkWaNotInterested() {
   if (waCurrentConversationId) changeWaConversationStatus(waCurrentConversationId, 'new');
 }
 
-// WhatsApp's status set is richer than Leads' (leads.status is CHECK-
-// constrained to just open/converted/lost — see v52_leads.sql) — everything
-// that isn't a clear "lost" or "converted" just means the lead is still
-// active, so it maps to 'open'. 'follow_up' included: it's not a real Leads
-// status value either way, and — per explicit instruction — this only syncs
-// the status field, not a follow-up reminder on the lead side (Leads has
-// its own separate follow-up table, unlinked to WhatsApp's).
+// WhatsApp's status set and Leads' (v101) now share almost the same
+// vocabulary, so this maps mostly 1:1 — 'new' and 'lead' (WhatsApp-only
+// states with no Leads equivalent) both just mean the lead is still open.
+// This only syncs the status field, not a follow-up reminder on the lead
+// side (Leads has its own separate follow-up table, unlinked to WhatsApp's).
 const WA_TO_LEAD_STATUS = {
-  new: 'open', unanswered: 'open', follow_up: 'open', lead: 'open',
-  not_interested: 'lost', converted: 'converted'
+  new: 'open', lead: 'open', unanswered: 'unanswered', follow_up: 'follow_up',
+  not_interested: 'not_interested', converted: 'converted'
 };
 
 // No-op if this conversation has no linked lead — not every conversation

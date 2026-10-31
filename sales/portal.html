@@ -328,7 +328,7 @@
     <div class="lead-filter" role="tablist" aria-label="Filter leads">
       <button type="button" class="active" data-lf="open">Open</button>
       <button type="button" data-lf="converted">Converted</button>
-      <button type="button" data-lf="lost">Lost</button>
+      <button type="button" data-lf="not_interested">Not interested</button>
       <button type="button" data-lf="all">All</button>
     </div>
     <div class="count" id="lead-count"></div>
@@ -897,9 +897,17 @@
 
   const LEAD_STATUS = {
     open: { label: 'Open', color: '#2563EB' },
-    converted: { label: 'Converted', color: '#16A34A' },
-    lost: { label: 'Lost', color: '#94A3B8' }
+    unanswered: { label: 'Unanswered', color: '#EF4444' },
+    not_interested: { label: 'Not interested', color: '#94A3B8' },
+    follow_up: { label: 'Follow-up', color: '#D97706' },
+    converted: { label: 'Converted', color: '#16A34A' }
   };
+  // open/unanswered/follow_up are all still "live" — a lead can land in
+  // unanswered/follow_up without this portal ever touching it (WhatsApp sync,
+  // or an admin setting it by hand), so Convert/Mark-not-interested and the
+  // "Open" filter tab treat all three as one active bucket. Must match
+  // LEAD_TERMINAL_STATUSES in api/sales/ops.js.
+  const LEAD_ACTIVE_STATUSES = ['open', 'unanswered', 'follow_up'];
   const LEAD_PRIORITY = {
     hot:  { label: 'Hot',  color: '#DC2626' },
     warm: { label: 'Warm', color: '#D97706' },
@@ -909,7 +917,7 @@
   async function fetchLeads(force) {
     if (leads && !force) return leads;
     leads = (await api('my-leads')).leads || [];
-    const openCount = leads.filter((l) => l.status === 'open').length;
+    const openCount = leads.filter((l) => LEAD_ACTIVE_STATUSES.includes(l.status)).length;
     $('side-count-leads').textContent = openCount;
     return leads;
   }
@@ -948,7 +956,9 @@
 
   function renderLeads() {
     const q = $('lead-search').value.trim().toLowerCase();
-    let rows = leadFilter === 'all' ? (leads || []) : (leads || []).filter((l) => l.status === leadFilter);
+    let rows = leadFilter === 'all' ? (leads || [])
+      : leadFilter === 'open' ? (leads || []).filter((l) => LEAD_ACTIVE_STATUSES.includes(l.status))
+      : (leads || []).filter((l) => l.status === leadFilter);
     if (q) rows = rows.filter((l) => [l.name, l.phone].some((v) => String(v || '').toLowerCase().includes(q)));
     $('lead-count').textContent = `${rows.length} lead${rows.length === 1 ? '' : 's'}`;
     if (!rows.length) {
@@ -971,12 +981,12 @@
         <div class="bk-meta">
           <div><span class="k">Added</span> ${when}${meta.length ? ' · ' + meta.map(esc).join(' · ') : ''}</div>
           ${l.notes ? `<div><span class="k">Notes</span> ${esc(l.notes)}</div>` : ''}
-          ${l.status === 'lost' && l.lost_reason ? `<div><span class="k">Lost reason</span> ${esc(l.lost_reason)}</div>` : ''}
+          ${l.status === 'not_interested' && l.lost_reason ? `<div><span class="k">Reason</span> ${esc(l.lost_reason)}</div>` : ''}
         </div>
         ${(() => { const f = nextFollowupFor(l.id); return f ? followupBadge(f) : ''; })()}
         <div class="lead-actions">
-          ${l.status === 'open' ? `<button class="btn btn-primary btn-sm" data-convert="${esc(l.id)}">Convert to Booking</button>
-          <button class="btn btn-ghost btn-sm" data-lost="${esc(l.id)}">Mark Lost</button>` : ''}
+          ${LEAD_ACTIVE_STATUSES.includes(l.status) ? `<button class="btn btn-primary btn-sm" data-convert="${esc(l.id)}">Convert to Booking</button>
+          <button class="btn btn-ghost btn-sm" data-lost="${esc(l.id)}">Not Interested</button>` : ''}
           <button class="btn btn-ghost btn-sm" data-followup="${esc(l.id)}">${FOLLOWUP_ICON_SVG} Follow-up</button>
           <button class="btn btn-ghost btn-sm" data-edit="${esc(l.id)}">✏️ Edit</button>
         </div>
@@ -1018,14 +1028,17 @@
     return 'booked';
   }
 
-  // A lead's lifecycle stage: 'lead'/'lost' come straight from leads.status;
-  // once converted, whether it's 'booked' or 'installed' depends on the linked
-  // booking's own status — read from myBookings, already loaded for My Booking.
+  // A lead's lifecycle stage: not_interested maps to 'lost'; open/unanswered/
+  // follow_up are all still an unconverted 'lead'; once converted, whether
+  // it's 'booked' or 'installed' depends on the linked booking's own status —
+  // read from myBookings, already loaded for My Booking.
   function reportStatusKey(l) {
-    if (l.status === 'lost') return 'lost';
-    if (l.status === 'open') return 'lead';
-    const b = (myBookings || []).find((x) => x.id === l.converted_booking_id);
-    return reportBookingOnlyStatus(b ? b.status : null);
+    if (l.status === 'not_interested') return 'lost';
+    if (l.status === 'converted') {
+      const b = (myBookings || []).find((x) => x.id === l.converted_booking_id);
+      return reportBookingOnlyStatus(b ? b.status : null);
+    }
+    return 'lead';
   }
 
   // Unified report rows: every lead, PLUS every one of the sales user's own
@@ -1369,11 +1382,11 @@
   async function markLeadLost(id) {
     const l = (leads || []).find((x) => x.id === id);
     if (!l) return;
-    const reason = prompt(`Mark ${l.name} as lost. Reason (optional):`);
+    const reason = prompt(`Mark ${l.name} as not interested. Reason (optional):`);
     if (reason === null) return;
     try {
       await api('mark-lead-lost', { leadId: id, reason: reason.trim() || undefined });
-      toast('Lead marked lost');
+      toast('Lead marked not interested');
       await fetchLeads(true);
       renderLeads();
     } catch (e) { toast(e.message); }

@@ -24,6 +24,12 @@ const ALLOWED_SOURCES = new Set([
 const DISPENSER_COLORS = ['Black', 'White'];
 const LEAD_PRIORITIES = new Set(['hot', 'warm', 'cold']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// leads.status (v101): open/unanswered/follow_up are all still "live" — a
+// WhatsApp-sourced lead can land in any of them without ever touching this
+// portal, and an admin can now also set them by hand (admin/dashboard.html's
+// leadStatusSelect) — so convert/mark-not-interested must accept all three,
+// not just 'open'. Only not_interested/converted are dead ends.
+const LEAD_TERMINAL_STATUSES = new Set(['not_interested', 'converted']);
 
 // expose=true marks a message written for the salesperson (safe to show as-is).
 // Anything without it — raw database/upstream errors — is replaced by a generic one.
@@ -144,7 +150,7 @@ async function createBooking(user, body) {
     const rows = await sb('GET', `/rest/v1/leads?id=eq.${leadId}&select=id,created_by_user,status`);
     lead = rows && rows[0];
     if (!lead || lead.created_by_user !== user.userId) throw bad(404, 'Lead not found.');
-    if (lead.status !== 'open') throw bad(400, 'This lead has already been converted or marked lost.');
+    if (LEAD_TERMINAL_STATUSES.has(lead.status)) throw bad(400, 'This lead has already been converted or marked not interested.');
   }
 
   // ── price the basket from the catalogue (never trust browser prices) ──
@@ -300,8 +306,8 @@ async function createLead(user, body) {
 
 // ── update-lead ─────────────────────────────────────────────────────────────
 // Lets a sales user fix their own lead's name/phone/city after adding it —
-// same ownership check as mark-lead-lost. Not restricted to 'open' leads:
-// even a converted/lost one is still worth correcting for the record.
+// same ownership check as mark-lead-lost. Not restricted to open leads:
+// even a converted/not_interested one is still worth correcting for the record.
 async function updateLead(user, body) {
   const leadId = clean(body.leadId, 40);
   if (!UUID_RE.test(leadId)) throw bad(400, 'Unknown lead.');
@@ -341,10 +347,10 @@ async function markLeadLost(user, body) {
   const rows = await sb('GET', `/rest/v1/leads?id=eq.${leadId}&select=id,created_by_user,status`);
   const lead = rows && rows[0];
   if (!lead || lead.created_by_user !== user.userId) throw bad(404, 'Lead not found.');
-  if (lead.status !== 'open') throw bad(400, 'This lead is no longer open.');
+  if (LEAD_TERMINAL_STATUSES.has(lead.status)) throw bad(400, 'This lead is already closed.');
 
   await sb('PATCH', `/rest/v1/leads?id=eq.${leadId}`, {
-    status: 'lost', lost_reason: reason, updated_at: new Date().toISOString()
+    status: 'not_interested', lost_reason: reason, updated_at: new Date().toISOString()
   });
   return { ok: true };
 }
