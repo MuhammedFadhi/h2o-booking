@@ -193,15 +193,16 @@ async function findOrCreateConversation(phone, contactName) {
   // Every brand-new conversation becomes a lead automatically (admin
   // request — a manual "Lead" status pick in the dashboard used to be the
   // only trigger, see admin/dashboard.html's ensureWaLead, which this
-  // mirrors). created_by_name is a fixed label, not an admin's name — no
-  // admin is involved in an inbound webhook — so Sales Report's per-agent
-  // stats bucket these separately instead of crediting whichever admin
-  // happens to open the chat later.
+  // mirrors). Starts 'unassigned', same as the conversation itself (v104) —
+  // nobody's engaged with it yet. created_by_name is a fixed label, not an
+  // admin's name — no admin is involved in an inbound webhook — so Sales
+  // Report's per-agent stats bucket these separately instead of crediting
+  // whichever admin happens to open the chat later.
   await sb('POST', '/rest/v1/leads', {
     name: contactName || phone,
     phone,
     source: 'WhatsApp',
-    status: 'open',
+    status: 'unassigned',
     priority: 'warm',
     created_by_name: 'WhatsApp (auto)',
     whatsapp_conversation_id: conversationId
