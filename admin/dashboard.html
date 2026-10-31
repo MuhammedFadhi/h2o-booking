@@ -9788,6 +9788,30 @@ function unmarkWaNotInterested() {
   if (waCurrentConversationId) changeWaConversationStatus(waCurrentConversationId, 'new');
 }
 
+// WhatsApp's status set is richer than Leads' (leads.status is CHECK-
+// constrained to just open/converted/lost — see v52_leads.sql) — everything
+// that isn't a clear "lost" or "converted" just means the lead is still
+// active, so it maps to 'open'. 'follow_up' included: it's not a real Leads
+// status value either way, and — per explicit instruction — this only syncs
+// the status field, not a follow-up reminder on the lead side (Leads has
+// its own separate follow-up table, unlinked to WhatsApp's).
+const WA_TO_LEAD_STATUS = {
+  new: 'open', unanswered: 'open', follow_up: 'open', lead: 'open',
+  not_interested: 'lost', converted: 'converted'
+};
+
+// No-op if this conversation has no linked lead — not every conversation
+// does (anything predating the auto-create-on-arrival behavior, or one
+// where that insert happened to fail, was never backfilled on purpose).
+async function syncLeadStatusFromWaStatus(conversationId, waStatus) {
+  const leadStatus = WA_TO_LEAD_STATUS[waStatus];
+  if (!leadStatus) return;
+  const { data: existing } = await dbAdmin.from('leads').select('id,status').eq('whatsapp_conversation_id', conversationId).limit(1);
+  const lead = existing?.[0];
+  if (!lead || lead.status === leadStatus) return;
+  await dbAdmin.from('leads').update({ status: leadStatus }).eq('id', lead.id);
+}
+
 async function changeWaConversationStatus(conversationId, status) {
   if (status === 'follow_up') return; // not directly selectable — see WA_STATUS_META
   const convo = waConversations.find(c => c.id === conversationId);
@@ -9806,6 +9830,7 @@ async function changeWaConversationStatus(conversationId, status) {
 
   if (status === 'lead') await ensureWaLead(convo);
   if (status === 'converted') openWaConvertModal(conversationId);
+  await syncLeadStatusFromWaStatus(conversationId, status);
 }
 
 // Converting to "lead" status creates a real Leads-page row so it enters the
@@ -9945,6 +9970,7 @@ async function saveWaFollowup() {
   await dbAdmin.from('whatsapp_conversations').update({ status: 'follow_up' }).eq('id', currentWaFollowupConversationId);
   const convo = waConversations.find(c => c.id === currentWaFollowupConversationId);
   if (convo) convo.status = 'follow_up';
+  await syncLeadStatusFromWaStatus(currentWaFollowupConversationId, 'follow_up');
 
   logActivity('whatsapp.followup_add', `Added follow-up for WhatsApp conversation with ${convo?.contact_name || convo?.phone || ''} (${date})`, 'whatsapp_conversation', currentWaFollowupConversationId);
   document.getElementById('wfup-note').value = '';
@@ -9973,6 +9999,7 @@ async function setWaFollowupStatus(id, status) {
       await dbAdmin.from('whatsapp_conversations').update({ status: 'lead' }).eq('id', fup.conversation_id);
       convo.status = 'lead';
       await ensureWaLead(convo);
+      await syncLeadStatusFromWaStatus(fup.conversation_id, 'lead');
     }
   }
 
