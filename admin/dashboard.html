@@ -9582,16 +9582,22 @@ async function loadWaQuickReplies() {
   }
 }
 
-// ── Conversation pipeline status (v89) ─────────────────────────────────────
+// ── Conversation pipeline status (v89, widened v102) ───────────────────────
+// 'unassigned' is the true default — nobody's touched it. 'open' means an
+// admin has actually started the conversation (see
+// assignWaConversationIfUnassigned, which flips it on a first reply).
+// 'lead' was dropped — every new conversation already auto-creates a Leads
+// row on arrival (api/webhooks/whatsapp.js's findOrCreateConversation), so a
+// separate "Lead" status stopped meaning anything distinct from "open".
 // 'follow_up' is deliberately never offered as a manual choice (see
 // waStatusSelect) — it only ever gets set by saveWaFollowup(), and only ever
 // gets cleared by setWaFollowupStatus('done'), so it always corresponds to a
 // real pending whatsapp_followups row.
 const WA_STATUS_META = {
-  new:            { label: 'New',            dot: '#6B7280', bg: '#F3F4F6', fg: '#374151' },
+  unassigned:     { label: 'Unassigned',      dot: '#6B7280', bg: '#F3F4F6', fg: '#374151' },
+  open:           { label: 'Open',            dot: '#2563EB', bg: '#DBEAFE', fg: '#1D4ED8' },
   unanswered:     { label: 'Unanswered',      dot: '#EF4444', bg: '#FEE2E2', fg: '#B91C1C' },
   not_interested: { label: 'Not interested',  dot: '#9CA3AF', bg: '#F3F4F6', fg: '#6B7280' },
-  lead:           { label: 'Lead',            dot: '#8B5CF6', bg: '#EDE9FE', fg: '#6D28D9' },
   follow_up:      { label: 'Follow-up',       dot: '#D97706', bg: '#FEF3C7', fg: '#B45309' },
   converted:      { label: 'Converted',       dot: '#16A34A', bg: '#DCFCE7', fg: '#15803D' }
 };
@@ -9602,8 +9608,8 @@ const WA_STATUS_META = {
 // single document-level click listener (see closeWaStatusDropdowns) rather
 // than relying on native blur/outside-click behavior.
 function waStatusSelect(c) {
-  const current = c.status || 'new';
-  const meta = WA_STATUS_META[current] || WA_STATUS_META.new;
+  const current = c.status || 'unassigned';
+  const meta = WA_STATUS_META[current] || WA_STATUS_META.unassigned;
   const items = Object.entries(WA_STATUS_META)
     .filter(([k]) => k !== 'follow_up' || current === 'follow_up')
     .map(([k, m]) => `<div onclick="event.stopPropagation();selectWaStatus('${c.id}','${k}')" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'" style="display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12px;font-weight:700;color:${m.fg};cursor:pointer;white-space:nowrap;">
@@ -9654,7 +9660,7 @@ function renderWaStatusFilterBar() {
   const el = document.getElementById('wa-status-filter-bar');
   if (!el) return;
   const counts = {};
-  waConversations.forEach(c => { const s = c.status || 'new'; counts[s] = (counts[s] || 0) + 1; });
+  waConversations.forEach(c => { const s = c.status || 'unassigned'; counts[s] = (counts[s] || 0) + 1; });
   const chip = (key, label, count) => {
     const active = waStatusFilter === key;
     return `<button onclick="setWaStatusFilter('${key}')" style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;border:1px solid ${active ? 'transparent' : 'var(--border)'};background:${active ? 'var(--text)' : '#fff'};color:${active ? '#fff' : 'var(--text)'};cursor:pointer;white-space:nowrap;flex-shrink:0;">${escB(label)}${count ? `<span style="font-size:10px;font-weight:800;opacity:${active ? 0.85 : 0.55};">${count}</span>` : ''}</button>`;
@@ -9672,7 +9678,7 @@ function renderWhatsappConversationList() {
   renderWaStatusFilterBar();
   const q = (document.getElementById('wa-convo-search')?.value || '').trim().toLowerCase();
   let rows = waConversations;
-  if (waStatusFilter) rows = rows.filter(c => (c.status || 'new') === waStatusFilter);
+  if (waStatusFilter) rows = rows.filter(c => (c.status || 'unassigned') === waStatusFilter);
   if (q) rows = rows.filter(c => (c.contact_name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q));
   const el = document.getElementById('wa-convo-list');
   if (!rows.length) {
@@ -9852,16 +9858,18 @@ function applyWaThreadStatusUI(convo) {
 }
 
 function unmarkWaNotInterested() {
-  if (waCurrentConversationId) changeWaConversationStatus(waCurrentConversationId, 'new');
+  // Reopening from "not interested" is itself an admin acting on the
+  // conversation right now, so it goes to 'open' rather than 'unassigned'.
+  if (waCurrentConversationId) changeWaConversationStatus(waCurrentConversationId, 'open');
 }
 
 // WhatsApp's status set and Leads' (v101) now share almost the same
-// vocabulary, so this maps mostly 1:1 — 'new' and 'lead' (WhatsApp-only
-// states with no Leads equivalent) both just mean the lead is still open.
+// vocabulary, so this maps mostly 1:1 — 'unassigned' (WhatsApp-only, no
+// Leads equivalent) just means the lead is still open.
 // This only syncs the status field, not a follow-up reminder on the lead
 // side (Leads has its own separate follow-up table, unlinked to WhatsApp's).
 const WA_TO_LEAD_STATUS = {
-  new: 'open', lead: 'open', unanswered: 'unanswered', follow_up: 'follow_up',
+  unassigned: 'open', open: 'open', unanswered: 'unanswered', follow_up: 'follow_up',
   not_interested: 'not_interested', converted: 'converted'
 };
 
@@ -9893,15 +9901,17 @@ async function changeWaConversationStatus(conversationId, status) {
     return;
   }
 
-  if (status === 'lead') await ensureWaLead(convo);
+  if (status === 'open') await ensureWaLead(convo);
   if (status === 'converted') openWaConvertModal(conversationId);
   await syncLeadStatusFromWaStatus(conversationId, status);
 }
 
-// Converting to "lead" status creates a real Leads-page row so it enters the
-// normal sales follow-up pipeline — deduped via leads.whatsapp_conversation_id
-// (added in v83 for the old CRM-relay feature, reused here) so re-selecting
-// "lead" after it's already been created doesn't spawn a duplicate.
+// Reaching "open" status is a safety net, not the primary creation path —
+// every new conversation already auto-creates a Leads row on arrival
+// (api/webhooks/whatsapp.js's findOrCreateConversation). This only matters
+// if that insert failed, or for conversations that predate it — deduped via
+// leads.whatsapp_conversation_id (added in v83 for the old CRM-relay
+// feature, reused here) so it's a no-op once a lead already exists.
 async function ensureWaLead(convo) {
   const { data: existing, error: exErr } = await dbAdmin.from('leads').select('id').eq('whatsapp_conversation_id', convo.id).limit(1);
   if (exErr) { showToast('Could not check for an existing lead: ' + exErr.message, 'error'); return; }
@@ -9932,15 +9942,28 @@ async function openWaConvertModal(conversationId) {
 }
 
 // First admin to send a reply in a conversation "owns" it — permanent,
-// no reassignment UI (see waStatusSelect's sibling, the assigned pill).
+// no reassignment UI (see waStatusSelect's sibling, the assigned pill). This
+// is also exactly "someone starts chat" — the trigger that moves a brand-new
+// conversation from 'unassigned' to 'open' (see WA_STATUS_META). Only
+// auto-advances from 'unassigned': if an admin already set some other status
+// by hand before replying, that choice isn't overwritten.
 async function assignWaConversationIfUnassigned(conversationId) {
   const convo = waConversations.find(c => c.id === conversationId);
   if (!convo || convo.assigned_admin_name) return;
   const name = currentAdminDisplayName();
   if (!name) { console.warn('[WA assign] currentAdminDisplayName() returned empty — not assigning.'); return; }
-  const { error } = await dbAdmin.from('whatsapp_conversations').update({ assigned_admin_name: name }).eq('id', conversationId);
-  if (!error) { convo.assigned_admin_name = name; renderWhatsappConversationList(); }
-  else console.warn('[WA assign] update failed:', error.message);
+  const shouldOpen = !convo.status || convo.status === 'unassigned';
+  const patch = shouldOpen ? { assigned_admin_name: name, status: 'open' } : { assigned_admin_name: name };
+  const { error } = await dbAdmin.from('whatsapp_conversations').update(patch).eq('id', conversationId);
+  if (!error) {
+    convo.assigned_admin_name = name;
+    if (shouldOpen) {
+      convo.status = 'open';
+      await ensureWaLead(convo);
+      await syncLeadStatusFromWaStatus(conversationId, 'open');
+    }
+    renderWhatsappConversationList();
+  } else console.warn('[WA assign] update failed:', error.message);
 }
 
 // ── Conversation follow-ups (v89) — same list+add pattern as the lead
@@ -9949,7 +9972,7 @@ async function assignWaConversationIfUnassigned(conversationId) {
 // mirrors leadDetailsHtml() for the lead one. Phone/status/assigned admin,
 // the fields the WhatsApp conversation list itself shows.
 function waConvoDetailsHtml(convo) {
-  const meta = WA_STATUS_META[convo.status || 'new'] || WA_STATUS_META.new;
+  const meta = WA_STATUS_META[convo.status || 'unassigned'] || WA_STATUS_META.unassigned;
   const field = (label, value) => `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;">${label}</div><div style="font-size:13px;color:var(--text);">${value ? escB(value) : '—'}</div></div>`;
   return `
     <div style="background:var(--bg);border-radius:10px;padding:12px 14px;margin:-8px 0 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -10056,15 +10079,15 @@ async function setWaFollowupStatus(id, status) {
   if (fup) fup.status = status;
 
   // Marking a follow-up done means it's been worked — move the conversation
-  // on to "lead" (and make sure that Leads-page row exists). Reopening it
+  // back to "open" (and make sure its Leads-page row exists). Reopening it
   // back to pending doesn't reverse this; only an explicit status change does.
   if (status === 'done' && fup) {
     const convo = waConversations.find(c => c.id === fup.conversation_id);
     if (convo) {
-      await dbAdmin.from('whatsapp_conversations').update({ status: 'lead' }).eq('id', fup.conversation_id);
-      convo.status = 'lead';
+      await dbAdmin.from('whatsapp_conversations').update({ status: 'open' }).eq('id', fup.conversation_id);
+      convo.status = 'open';
       await ensureWaLead(convo);
-      await syncLeadStatusFromWaStatus(fup.conversation_id, 'lead');
+      await syncLeadStatusFromWaStatus(fup.conversation_id, 'open');
     }
   }
 
