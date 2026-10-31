@@ -6909,6 +6909,7 @@ let allCustomers = [];
 // ============================================================
 let allLeads = [];
 let allLeadFollowups = [];
+let allLeadWaAssignee = {}; // whatsapp_conversation_id -> whatsapp_conversations.assigned_admin_name, for the "Added by" column on WhatsApp-auto leads — see loadLeadsAdmin()
 
 // Leads pipeline status (v103, widened v105) — mirrors WhatsApp's own
 // conversation status vocabulary exactly, so a WhatsApp-sourced lead's
@@ -6991,6 +6992,18 @@ async function loadLeadsAdmin() {
   if (error) { container.innerHTML = `<div class="empty-state">⚠️ Failed to load leads: ${escB(error.message)}</div>`; return; }
   allLeads = data || [];
   allLeadFollowups = fups || [];
+
+  // "Added by" shows "WhatsApp (auto)" verbatim as created_by_name — not
+  // useful on its own, since no admin actually added it. For leads linked to
+  // a conversation, show who's actually chatting (the conversation's
+  // assigned_admin_name) instead — see renderLeadsAdminTable's addedByCell.
+  const waIds = [...new Set(allLeads.map(l => l.whatsapp_conversation_id).filter(Boolean))];
+  allLeadWaAssignee = {};
+  if (waIds.length) {
+    const { data: convos } = await dbAdmin.from('whatsapp_conversations').select('id,assigned_admin_name').in('id', waIds);
+    (convos || []).forEach(c => { allLeadWaAssignee[c.id] = c.assigned_admin_name; });
+  }
+
   renderLeadsAdminTable();
 }
 
@@ -7019,6 +7032,16 @@ function renderLeadsAdminTable() {
     return `<span class="status-badge" style="background:${color}22;color:${color};">${label}</span>`;
   };
 
+  // "WhatsApp (auto)" as a literal name isn't useful — show who's actually
+  // chatting instead (the linked conversation's assigned admin), or "—"
+  // while nobody's replied yet. Any other lead just shows its real creator.
+  const addedByCell = (l) => {
+    if (l.created_by_name === 'WhatsApp (auto)' && l.whatsapp_conversation_id) {
+      return escB(allLeadWaAssignee[l.whatsapp_conversation_id] || '—');
+    }
+    return escB(l.created_by_name || '—');
+  };
+
   const followupCell = (l) => {
     const W = window.SADA.Warranty;
     const f = nextLeadFollowup(l.id);
@@ -7045,7 +7068,7 @@ function renderLeadsAdminTable() {
           <td>${escB(l.product_interest || '—')}</td>
           <td>${leadSourceCell(l)}</td>
           <td style="display:none;max-width:220px;font-size:12px;color:var(--muted);">${escB(l.notes || '—')}${l.status === 'not_interested' && l.lost_reason ? `<br><em>Reason: ${escB(l.lost_reason)}</em>` : ''}</td>
-          <td>${escB(l.created_by_name || '—')}</td>
+          <td>${addedByCell(l)}</td>
           <td style="font-size:12px;color:var(--muted);">${new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
           <td>${priorityPill(l.priority)}</td>
           <td>${leadStatusSelect(l)}</td>
