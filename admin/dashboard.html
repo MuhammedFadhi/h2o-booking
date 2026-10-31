@@ -9943,22 +9943,30 @@ async function openWaConvertModal(conversationId) {
   document.getElementById('ab-phone').value = convo.phone || '';
 }
 
-// First admin to send a reply in a conversation "owns" it — permanent,
-// no reassignment UI (see waStatusSelect's sibling, the assigned pill). This
-// is also exactly "someone starts chat" — the trigger that moves a brand-new
-// conversation from 'unassigned' to 'open' (see WA_STATUS_META). Only
-// auto-advances from 'unassigned': if an admin already set some other status
-// by hand before replying, that choice isn't overwritten.
+// Called after every admin-sent reply. Two independent things happen here,
+// not one gated behind the other: (1) the first admin to reply "owns" the
+// conversation — permanent, no reassignment UI (see waStatusSelect's
+// sibling, the assigned pill); (2) replying is exactly "someone starts
+// chat" — the trigger that moves the conversation from 'unassigned' to
+// 'open' (see WA_STATUS_META). A conversation assigned before this status
+// existed (or re-opened and replied to again) must still flip to 'open' on
+// a later reply, so (2) is checked on every call, not just the first.
 async function assignWaConversationIfUnassigned(conversationId) {
   const convo = waConversations.find(c => c.id === conversationId);
-  if (!convo || convo.assigned_admin_name) return;
-  const name = currentAdminDisplayName();
-  if (!name) { console.warn('[WA assign] currentAdminDisplayName() returned empty — not assigning.'); return; }
+  if (!convo) return;
+  const patch = {};
+  if (!convo.assigned_admin_name) {
+    const name = currentAdminDisplayName();
+    if (name) patch.assigned_admin_name = name;
+    else console.warn('[WA assign] currentAdminDisplayName() returned empty — not assigning.');
+  }
   const shouldOpen = !convo.status || convo.status === 'unassigned';
-  const patch = shouldOpen ? { assigned_admin_name: name, status: 'open' } : { assigned_admin_name: name };
+  if (shouldOpen) patch.status = 'open';
+  if (!Object.keys(patch).length) return;
+
   const { error } = await dbAdmin.from('whatsapp_conversations').update(patch).eq('id', conversationId);
   if (!error) {
-    convo.assigned_admin_name = name;
+    if (patch.assigned_admin_name) convo.assigned_admin_name = patch.assigned_admin_name;
     if (shouldOpen) {
       convo.status = 'open';
       await ensureWaLead(convo);
