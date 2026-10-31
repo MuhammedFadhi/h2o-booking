@@ -189,7 +189,24 @@ async function findOrCreateConversation(phone, contactName) {
     return existing[0].id;
   }
   const created = await sb('POST', '/rest/v1/whatsapp_conversations', { phone, contact_name: contactName || null }, { Prefer: 'return=representation' });
-  return created[0].id;
+  const conversationId = created[0].id;
+  // Every brand-new conversation becomes a lead automatically (admin
+  // request — a manual "Lead" status pick in the dashboard used to be the
+  // only trigger, see admin/dashboard.html's ensureWaLead, which this
+  // mirrors). created_by_name is a fixed label, not an admin's name — no
+  // admin is involved in an inbound webhook — so Sales Report's per-agent
+  // stats bucket these separately instead of crediting whichever admin
+  // happens to open the chat later.
+  await sb('POST', '/rest/v1/leads', {
+    name: contactName || phone,
+    phone,
+    source: 'WhatsApp',
+    status: 'open',
+    priority: 'warm',
+    created_by_name: 'WhatsApp (auto)',
+    whatsapp_conversation_id: conversationId
+  }).catch((err) => console.error('whatsapp auto-lead creation failed:', conversationId, err.message));
+  return conversationId;
 }
 
 function messageBodyAndType(message) {
