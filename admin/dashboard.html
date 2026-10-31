@@ -6966,7 +6966,7 @@ function renderLeadsAdminTable() {
     const waStatus = l.whatsapp_conversation_id ? allLeadWaStatus[l.whatsapp_conversation_id] : null;
     if (!waStatus) return '';
     const meta = WA_STATUS_META[waStatus] || WA_STATUS_META.new;
-    return `<span class="status-badge" style="background:${meta.bg};color:${meta.fg};margin-top:4px;display:inline-block;" title="Live WhatsApp chat status">💬 ${meta.label}</span>`;
+    return `<span class="status-badge" style="background:${meta.bg};color:${meta.fg};margin-top:4px;display:inline-block;" title="Live WhatsApp chat status">${meta.label}</span>`;
   };
 
   const priorityPill = (p) => {
