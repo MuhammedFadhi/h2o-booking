@@ -5,9 +5,10 @@
 -- admin/dashboard.html's WA_TO_LEAD_STATUS). 'not_interested' takes over
 -- 'lost''s role — same lost_reason column, existing 'lost' rows remapped.
 
+ALTER TABLE leads DROP CONSTRAINT IF EXISTS leads_status_check;
+
 UPDATE leads SET status = 'not_interested' WHERE status = 'lost';
 
-ALTER TABLE leads DROP CONSTRAINT IF EXISTS leads_status_check;
 ALTER TABLE leads ADD CONSTRAINT leads_status_check
   CHECK (status IN ('open', 'unanswered', 'not_interested', 'follow_up', 'converted'));
 
