@@ -6908,7 +6908,6 @@ let allCustomers = [];
 // ============================================================
 let allLeads = [];
 let allLeadFollowups = [];
-let allLeadWaStatus = {}; // whatsapp_conversation_id -> whatsapp_conversations.status, for WhatsApp-sourced leads — see loadLeadsAdmin()
 
 // Leads pipeline status (v101/v103) — widened from the old open/converted/
 // lost to mirror WhatsApp's own conversation status vocabulary, so a
@@ -6989,21 +6988,6 @@ async function loadLeadsAdmin() {
   if (error) { container.innerHTML = `<div class="empty-state">⚠️ Failed to load leads: ${escB(error.message)}</div>`; return; }
   allLeads = data || [];
   allLeadFollowups = fups || [];
-
-  // For leads that came from WhatsApp, also pull the conversation's live
-  // status — shown as a small secondary badge next to the lead's own status
-  // pill (see renderLeadsAdminTable's waStatusBadge). leads.status is kept in
-  // sync with this automatically (syncLeadStatusFromWaStatus), but an admin
-  // can also override it by hand via leadStatusSelect, so the two can
-  // legitimately differ — this badge is "what the live chat says" regardless
-  // of what the lead's own status has been manually set to.
-  const waIds = [...new Set(allLeads.map(l => l.whatsapp_conversation_id).filter(Boolean))];
-  allLeadWaStatus = {};
-  if (waIds.length) {
-    const { data: convos } = await dbAdmin.from('whatsapp_conversations').select('id,status').in('id', waIds);
-    (convos || []).forEach(c => { allLeadWaStatus[c.id] = c.status; });
-  }
-
   renderLeadsAdminTable();
 }
 
@@ -7025,18 +7009,6 @@ function renderLeadsAdminTable() {
   if (q) rows = rows.filter(l => (l.name || '').toLowerCase().includes(q) || (l.phone || '').toLowerCase().includes(q));
   countEl.textContent = `${rows.length} lead${rows.length === 1 ? '' : 's'}`;
   if (!rows.length) { container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${LEAD_ICON_SVG}</div><div>No leads found.</div></div>`; return; }
-
-  // Secondary badge for WhatsApp-sourced leads showing the chat's own,
-  // finer-grained status (Unanswered/Not interested/Follow-up/etc.) — see
-  // loadLeadsAdmin()'s allLeadWaStatus. Reuses WA_STATUS_META (the
-  // WhatsApp panel's own status colors/labels) so it reads as "the same
-  // status, shown here too" rather than a second, different vocabulary.
-  const waStatusBadge = (l) => {
-    const waStatus = l.whatsapp_conversation_id ? allLeadWaStatus[l.whatsapp_conversation_id] : null;
-    if (!waStatus) return '';
-    const meta = WA_STATUS_META[waStatus] || WA_STATUS_META.new;
-    return `<span class="status-badge" style="background:${meta.bg};color:${meta.fg};margin-top:4px;display:inline-block;" title="Live WhatsApp chat status">${meta.label}</span>`;
-  };
 
   const priorityPill = (p) => {
     const map = { hot: ['Hot', '#DC2626'], warm: ['Warm', '#D97706'], cold: ['Cold', '#2563EB'] };
@@ -7073,7 +7045,7 @@ function renderLeadsAdminTable() {
           <td>${escB(l.created_by_name || '—')}</td>
           <td style="font-size:12px;color:var(--muted);">${new Date(l.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
           <td>${priorityPill(l.priority)}</td>
-          <td>${leadStatusSelect(l)}${waStatusBadge(l) ? '<br>' + waStatusBadge(l) : ''}</td>
+          <td>${leadStatusSelect(l)}</td>
           <td>${followupCell(l)}</td>
           <td data-label="">${deleteLeadBtn(l)}</td>
         </tr>`).join('')}</tbody>
