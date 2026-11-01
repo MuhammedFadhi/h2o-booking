@@ -1469,23 +1469,23 @@
         <div class="card-header">
           <span class="card-title">Follow-ups</span>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <div style="display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;">
-              <button id="fup-view-cal"  class="btn btn-sm" onclick="setFollowupView('calendar')" style="border:0;border-radius:0;">📅 Calendar</button>
-              <button id="fup-view-list" class="btn btn-sm btn-ghost" onclick="setFollowupView('list')" style="border:0;border-radius:0;">☰ List</button>
+            <div style="display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;flex:0 0 auto;">
+              <button id="fup-view-cal"  class="btn btn-sm" onclick="setFollowupView('calendar')" style="border:0;border-radius:0;display:flex;align-items:center;gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><path d="M16 2v4M8 2v4m-5 4h18"/></g></svg> Calendar</button>
+              <button id="fup-view-list" class="btn btn-sm btn-ghost" onclick="setFollowupView('list')" style="border:0;border-radius:0;display:flex;align-items:center;gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg> List</button>
             </div>
-            <select class="form-input" id="fup-filter" onchange="renderFollowups()" style="min-width:130px;">
+            <select class="form-input" id="fup-filter" onchange="renderFollowups()" style="width:150px;flex:0 0 auto;">
               <option value="pending">Pending</option>
               <option value="due">Due / Overdue</option>
               <option value="">All</option>
               <option value="done">Done</option>
             </select>
-            <select class="form-input" id="fup-kind-filter" onchange="renderFollowups()" style="min-width:130px;">
+            <select class="form-input" id="fup-kind-filter" onchange="renderFollowups()" style="width:150px;flex:0 0 auto;">
               <option value="">All sources</option>
               <option value="customer">Active Units</option>
               <option value="lead">Lead</option>
               <option value="whatsapp">WhatsApp</option>
             </select>
-            <button class="btn btn-primary btn-sm" onclick="openFollowupModal(null,null)">+ New Customer Follow-up</button>
+            <button class="btn btn-primary btn-sm" onclick="openFollowupModal(null,null)" style="flex:0 0 auto;">+ New Customer Follow-up</button>
           </div>
         </div>
         <div style="font-size:12px;color:var(--muted);padding:10px 20px 0;">
@@ -11076,6 +11076,19 @@ function openFollowupOnDay(iso) {
   });
 }
 
+// Source pill colors, reused for both the kind column and the (currently
+// unused) badge spots — kept in one place so Leads/WhatsApp tag colors stay
+// consistent with their own panels' own status-badge palettes.
+const FOLLOWUP_KIND_META = {
+  customer: ['Active Units', '#2563EB'],
+  lead:     ['Lead',         '#7C3AED'],
+  whatsapp: ['WhatsApp',     '#15803D']
+};
+const ICON_CHECK = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 12l5 5l10-10"/></svg>';
+const ICON_UNDO = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13l-4-4l4-4m-4 4h11a4 4 0 0 1 0 8h-1"/></svg>';
+const ICON_EYE = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M1 12s4-8 11-8s11 8 11 8s-4 8-11 8s-11-8-11-8"/><circle cx="12" cy="12" r="3"/></g></svg>';
+const ICON_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>';
+
 function renderFollowupList() {
   const W = window.SADA.Warranty;
   const f = document.getElementById('fup-filter').value;
@@ -11087,41 +11100,43 @@ function renderFollowupList() {
     el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">No follow-ups.</div>';
     return;
   }
-  el.innerHTML = rows.map(x => {
-    const c = followupColor(x);
-    const isLead = x.kind === 'lead';
-    const isWa = x.kind === 'whatsapp';
-    const kindTag = isLead
-      ? `<span style="background:#F3E8FF;color:#7C3AED;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;text-transform:uppercase;letter-spacing:.3px;margin-right:6px;">Lead</span>`
-      : isWa
-      ? `<span style="background:#DCFCE7;color:#15803D;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;text-transform:uppercase;letter-spacing:.3px;margin-right:6px;">WhatsApp</span>`
-      : '';
-    const statusFn = isLead ? 'setLeadFollowupStatus' : isWa ? 'setWaFollowupStatus' : 'setFollowupStatus';
-    const deleteFn = isLead ? 'deleteLeadFollowup' : isWa ? 'deleteWaFollowup' : 'deleteFollowup';
-    const editBtn = isLead
-      ? `<button class="btn btn-ghost btn-sm" onclick="openLeadFollowupModal('${x.lead_id}')">👁 View</button>`
-      : isWa
-      ? `<button class="btn btn-ghost btn-sm" onclick="openWaFollowupModal('${x.conversation_id}')">👁 View</button>`
-      : `<button class="btn btn-ghost btn-sm" onclick="openFollowupModal(null,'${x.id}')">${ICON_PENCIL} Edit</button>`;
-    return `
-      <div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:10px;border-left:3px solid ${c.bar};">
-        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
-          <div>${kindTag}<strong>${W.esc(x.name || '—')}</strong>
-            <span style="font-size:12px;color:var(--muted);"> · ${W.esc(x.phone || '')}</span></div>
-          <span style="background:${c.bg};color:${c.fg};font-size:11px;font-weight:700;padding:3px 9px;border-radius:9px;white-space:nowrap;">
-            ${W.fmtDate(x.followup_date)} · ${x.status === 'done' ? 'DONE' : W.humanDays(x.followup_date)}</span>
-        </div>
-        <div style="font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word;">${W.esc(x.note)}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:6px;">${x.created_by ? 'By ' + W.esc(x.created_by) + ' · ' : ''}${W.fmtDate(x.created_at)}</div>
-        <div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap;">
-          ${x.status === 'pending'
-            ? `<button class="btn btn-primary btn-sm" onclick="${statusFn}('${x.id}','done')">✓ Mark Done</button>`
-            : `<button class="btn btn-ghost btn-sm" onclick="${statusFn}('${x.id}','pending')">↩ Reopen</button>`}
-          ${editBtn}
-          <button class="btn btn-ghost btn-sm" onclick="${deleteFn}('${x.id}')">🗑 Delete</button>
-        </div>
-      </div>`;
-  }).join('');
+  el.innerHTML = `
+    <table>
+      <thead><tr>
+        <th style="width:36px;">#</th><th>Source</th><th>Contact</th><th>Note</th><th>Added</th><th>Due</th><th></th>
+      </tr></thead>
+      <tbody>${rows.map((x, i) => {
+        const c = followupColor(x);
+        const isLead = x.kind === 'lead';
+        const isWa = x.kind === 'whatsapp';
+        const [kindLabel, kindColor] = FOLLOWUP_KIND_META[x.kind] || FOLLOWUP_KIND_META.customer;
+        const statusFn = isLead ? 'setLeadFollowupStatus' : isWa ? 'setWaFollowupStatus' : 'setFollowupStatus';
+        const deleteFn = isLead ? 'deleteLeadFollowup' : isWa ? 'deleteWaFollowup' : 'deleteFollowup';
+        const editBtn = isLead
+          ? `<button class="btn btn-ghost btn-sm" onclick="openLeadFollowupModal('${x.lead_id}')" title="View">${ICON_EYE}</button>`
+          : isWa
+          ? `<button class="btn btn-ghost btn-sm" onclick="openWaFollowupModal('${x.conversation_id}')" title="View">${ICON_EYE}</button>`
+          : `<button class="btn btn-ghost btn-sm" onclick="openFollowupModal(null,'${x.id}')" title="Edit">${ICON_PENCIL}</button>`;
+        return `
+          <tr>
+            <td style="color:var(--muted);font-weight:700;">${i + 1}</td>
+            <td><span class="status-badge" style="background:${kindColor}1A;color:${kindColor};">${kindLabel}</span></td>
+            <td><div style="font-weight:600;">${W.esc(x.name || '—')}</div><div style="font-size:12px;color:var(--muted);">${W.esc(x.phone || '—')}</div></td>
+            <td style="max-width:260px;white-space:pre-wrap;word-break:break-word;">${W.esc(x.note)}</td>
+            <td style="font-size:12px;color:var(--muted);white-space:nowrap;">${x.created_by ? W.esc(x.created_by) + '<br>' : ''}${W.fmtDate(x.created_at)}</td>
+            <td><span style="background:${c.bg};color:${c.fg};font-size:11px;font-weight:700;padding:3px 9px;border-radius:9px;white-space:nowrap;display:inline-block;">${W.fmtDate(x.followup_date)} · ${x.status === 'done' ? 'DONE' : W.humanDays(x.followup_date)}</span></td>
+            <td>
+              <div style="display:flex;gap:6px;flex-wrap:nowrap;justify-content:flex-end;">
+                ${x.status === 'pending'
+                  ? `<button class="btn btn-primary btn-sm" onclick="${statusFn}('${x.id}','done')" title="Mark Done">${ICON_CHECK}</button>`
+                  : `<button class="btn btn-ghost btn-sm" onclick="${statusFn}('${x.id}','pending')" title="Reopen">${ICON_UNDO}</button>`}
+                ${editBtn}
+                <button class="btn btn-ghost btn-sm" onclick="${deleteFn}('${x.id}')" title="Delete" style="color:#B91C1C;">${ICON_TRASH}</button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('')}</tbody>
+    </table>`;
 }
 
 async function setFollowupStatus(id, status) {
