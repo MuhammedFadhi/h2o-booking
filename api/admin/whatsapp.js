@@ -335,7 +335,10 @@ module.exports = async function handler(req, res) {
       const convo = (await sb('GET', `/rest/v1/whatsapp_conversations?id=eq.${encodeURIComponent(conversationId)}&select=phone`))?.[0];
       if (!convo) throw bad(404, 'Conversation not found.');
 
-      const sendBody = { messaging_product: 'whatsapp', to: convo.phone.replace('+', ''), type: 'text', text: { body: text } };
+      // preview_url makes WhatsApp fetch and render a rich card (thumbnail,
+      // title, address) for the first link in the body — same as the native
+      // app does when you paste a link — instead of sending it as plain text.
+      const sendBody = { messaging_product: 'whatsapp', to: convo.phone.replace('+', ''), type: 'text', text: { body: text, preview_url: true } };
       if (replyToWaMessageId) sendBody.context = { message_id: String(replyToWaMessageId) };
 
       const sendRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WHATSAPP_PHONE_NUMBER_ID}/messages`, {
