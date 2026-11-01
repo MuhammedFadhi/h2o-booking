@@ -976,8 +976,8 @@
         <div class="card-header">
           <span class="card-title">Leads</span>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <span class="search-wrap"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="lead-search" placeholder="Search by name or phone..." oninput="renderLeadsAdminTable()" style="min-width:220px;" autocomplete="off"></span>
-            <select id="lead-status-filter" class="form-input" onchange="renderLeadsAdminTable()">
+            <span class="search-wrap" style="flex:0 0 auto;"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="lead-search" placeholder="Search by name or phone..." oninput="renderLeadsAdminTable()" style="width:220px;" autocomplete="off"></span>
+            <select id="lead-status-filter" class="form-input" onchange="renderLeadsAdminTable()" style="width:160px;flex:0 0 auto;">
               <option value="">All statuses</option>
               <option value="unassigned">Unassigned</option>
               <option value="open">Open</option>
@@ -986,7 +986,7 @@
               <option value="follow_up">Follow-up</option>
               <option value="converted">Converted</option>
             </select>
-            <select id="lead-priority-filter" class="form-input" onchange="renderLeadsAdminTable()">
+            <select id="lead-priority-filter" class="form-input" onchange="renderLeadsAdminTable()" style="width:150px;flex:0 0 auto;">
               <option value="">All priorities</option>
               <option value="hot">Hot</option>
               <option value="warm">Warm</option>
