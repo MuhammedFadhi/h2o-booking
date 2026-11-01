@@ -1479,11 +1479,17 @@
               <option value="">All</option>
               <option value="done">Done</option>
             </select>
+            <select class="form-input" id="fup-kind-filter" onchange="renderFollowups()" style="min-width:130px;">
+              <option value="">All sources</option>
+              <option value="customer">Active Units</option>
+              <option value="lead">Lead</option>
+              <option value="whatsapp">WhatsApp</option>
+            </select>
             <button class="btn btn-primary btn-sm" onclick="openFollowupModal(null,null)">+ New Customer Follow-up</button>
           </div>
         </div>
         <div style="font-size:12px;color:var(--muted);padding:10px 20px 0;">
-          Shows both customer follow-ups and lead follow-ups together — lead ones are marked with the lead icon and a purple "Lead" tag. Add a lead follow-up from its row in the Leads panel.
+          Shows Active Units, Lead, and WhatsApp follow-ups together — lead and WhatsApp ones are marked with a tag, use the source filter to narrow to one. Add a lead follow-up from its row in the Leads panel, a WhatsApp one from its row in the WhatsApp panel.
         </div>
 
         <!-- Calendar month navigator (hidden in list view) -->
@@ -11000,8 +11006,9 @@ function followupMatchesFilter(x, f) {
 function renderFollowupCalendar() {
   const W = window.SADA.Warranty;
   const f = document.getElementById('fup-filter').value;
+  const kind = document.getElementById('fup-kind-filter').value;
   const el = document.getElementById('followups-list');
-  const rows = allFollowups.filter(x => followupMatchesFilter(x, f));
+  const rows = allFollowups.filter(x => followupMatchesFilter(x, f) && (!kind || x.kind === kind));
 
   const year = followupCalMonth.getFullYear();
   const month = followupCalMonth.getMonth();
@@ -11072,8 +11079,9 @@ function openFollowupOnDay(iso) {
 function renderFollowupList() {
   const W = window.SADA.Warranty;
   const f = document.getElementById('fup-filter').value;
+  const kind = document.getElementById('fup-kind-filter').value;
   const el = document.getElementById('followups-list');
-  const rows = allFollowups.filter(x => followupMatchesFilter(x, f))
+  const rows = allFollowups.filter(x => followupMatchesFilter(x, f) && (!kind || x.kind === kind))
     .sort((a,b) => a.followup_date.localeCompare(b.followup_date));
   if (!rows.length) {
     el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">No follow-ups.</div>';
