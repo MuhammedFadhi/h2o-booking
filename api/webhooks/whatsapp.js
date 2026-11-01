@@ -232,8 +232,19 @@ function messageBodyAndType(message) {
     return { type, body: label ? `📍 ${label}` : '📍 Shared a location', mediaId: null, filename: null, directUrl: mapsUrl };
   }
   if (type === 'contacts') {
-    const names = (message.contacts || []).map((c) => c.name?.formatted_name).filter(Boolean).join(', ');
-    return { type, body: names ? `👤 ${names}` : 'Shared a contact', mediaId: null, filename: null };
+    // Only name was ever captured here — the whole point of sharing a
+    // contact is the phone number, which was silently dropped. The admin
+    // dashboard renders this as a tappable card (like the location one)
+    // using directUrl as a tel: link, so the first contact's number is what
+    // actually matters; extra contacts in the same share just get counted.
+    const list = message.contacts || [];
+    const first = list[0] || {};
+    const name = first.name?.formatted_name || null;
+    const phone = first.phones?.[0]?.phone || first.phones?.[0]?.wa_id || null;
+    const more = list.length > 1 ? ` (+${list.length - 1} more)` : '';
+    const label = [name, phone].filter(Boolean).join(' · ') || 'Shared a contact';
+    const telUrl = phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : null;
+    return { type, body: `${label}${more}`, mediaId: null, filename: null, directUrl: telUrl };
   }
   if (type === 'interactive') {
     const reply = message.interactive?.button_reply || message.interactive?.list_reply;
