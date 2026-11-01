@@ -10298,6 +10298,13 @@ function renderWhatsappMessages(messages) {
     el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px;">No messages yet.</div>';
     return;
   }
+  // This rebuilds every bubble's innerHTML, which destroys and recreates any
+  // <audio> element — killing a voice note's playback mid-way. The 5s poll
+  // (loadWhatsappMessages) calls this unconditionally, so a note never got
+  // the chance to play past whichever second the next poll landed on. Skip
+  // the rebuild entirely while one is actively playing; the next poll a few
+  // seconds later (once it's paused/finished) picks up whatever changed.
+  if ([...el.querySelectorAll('audio')].some(a => !a.paused && !a.ended)) return;
   const wasAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
 
   // Reactions attach to the message they're reacting to as a small badge
