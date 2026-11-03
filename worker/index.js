@@ -25,7 +25,11 @@ const ROUTE_LOADERS = {
   '/api/admin/whatsapp': () => require('../api/admin/whatsapp.js'),
   '/api/sales/ops': () => require('../api/sales/ops.js'),
   '/api/webhooks/crm': () => require('../api/webhooks/crm.js'),
-  '/api/webhooks/whatsapp': () => require('../api/webhooks/whatsapp.js')
+  '/api/webhooks/whatsapp': () => require('../api/webhooks/whatsapp.js'),
+  '/api/public/bookings': () => require('../api/public/bookings.js'),
+  '/api/public/warranties': () => require('../api/public/warranties.js'),
+  '/api/public/leads': () => require('../api/public/leads.js'),
+  '/api/public/customers': () => require('../api/public/customers.js')
 };
 
 // auth-sms-hook and both webhooks verify an HMAC over the exact raw bytes

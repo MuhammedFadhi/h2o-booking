@@ -152,6 +152,8 @@ SUPABASE_SERVICE_ROLE_KEY = <from Supabase Dashboard → Settings → API>
 | `api/admin/_auth.js` | Vercel: admin JWT verification |
 | `api/notify-installers.js` | Vercel: broadcast SMS on new booking |
 | `api/notify-report.js` | Vercel: SMS on inspection report submit |
+| `api/public/_auth.js` | Public API: X-API-Key check (`PUBLIC_API_KEYS` env var) + pagination helper |
+| `api/public/bookings.js` `warranties.js` `leads.js` `customers.js` | Public API: read-only, API-key-gated endpoints for external apps |
 | `assets/*.png` `assets/manifest-*.json` | PWA icons + manifests |
 | `css/inspection-report.css` `js/inspection-report.js` | Inspection report drawer (loaded by admin + installer) |
 | `migrations/*.sql` `sql/*.sql` | See migration order above |
