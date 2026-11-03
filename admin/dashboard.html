@@ -782,6 +782,9 @@
     <div class="nav-item" onclick="showPanel('warranties', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.46 20.846A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3a12 12 0 0 0 8.5 3a12 12 0 0 1-.09 7.06M15 19l2 2l4-4"/></svg></span> Active Units
     </div>
+    <div class="nav-item" onclick="showPanel('amc', this)">
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/><path d="m9 15l2 2l4-4"/></g></svg></span> AMC Contracts
+    </div>
     <div class="nav-item" onclick="showPanel('customers', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 6v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2M10 16h6"/><path d="M11 11a2 2 0 1 0 4 0a2 2 0 1 0-4 0M4 8h3m-3 4h3m-3 4h3"/></g></svg></span> Customers
     </div>
@@ -1440,6 +1443,32 @@
       </div>
     </div>
 
+    <!-- AMC CONTRACTS PANEL -->
+    <div class="panel" id="panel-amc">
+      <div class="stat-grid" id="amc-stats" style="margin-bottom:16px;"></div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">AMC Contracts</span>
+          <button class="btn btn-primary btn-sm" onclick="openAmcModal()" style="flex:0 0 auto;">+ New AMC Contract</button>
+        </div>
+        <div class="filter-bar" style="padding:16px 20px 0;">
+          <select class="form-input" id="amc-filter" onchange="renderAmcTable()" style="width:170px;flex:0 0 auto;">
+            <option value="">All contracts</option>
+            <option value="active">Active</option>
+            <option value="expiring">Expiring soon (30d)</option>
+            <option value="expired">Needs renewal</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <span class="search-wrap" style="flex:0 0 auto;"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" id="amc-search" placeholder="QR, name, phone..."
+            oninput="renderAmcTable()" autocomplete="off" name="amc_search_q"
+            data-lpignore="true" data-1p-ignore data-form-type="other" style="min-width:230px;"></span>
+        </div>
+        <div style="padding:16px 20px;">
+          <div id="amc-list"><div class="loading"><div class="spinner"></div> Loading AMC contracts...</div></div>
+        </div>
+      </div>
+    </div>
+
     <!-- PROMO CODES PANEL -->
     <div class="panel" id="panel-promocodes">
       <div class="card">
@@ -1878,8 +1907,9 @@
 
         <div class="form-group">
           <label>Which unit?</label>
-          <select class="form-input" id="sb-unit"></select>
+          <select class="form-input" id="sb-unit" onchange="sbUnitChanged()"></select>
           <div id="sb-unit-help" style="font-size:11px;color:var(--muted);margin-top:4px;display:none;"></div>
+          <div id="sb-amc-banner" style="display:none;margin-top:8px;background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;padding:9px 12px;border-radius:9px;font-size:12px;font-weight:600;"></div>
         </div>
 
         <!-- Location: inherited by default, overridable -->
@@ -1948,6 +1978,7 @@
         <div><strong id="pay-booking-ref"></strong></div>
         <div style="color:var(--muted);" id="pay-customer"></div>
       </div>
+      <div id="pay-amc-banner" style="display:none;margin-bottom:14px;background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;padding:9px 12px;border-radius:9px;font-size:12px;font-weight:600;"></div>
       <div class="form-group">
         <label>Payment Method</label>
         <select class="form-input" id="pay-method">
@@ -1979,6 +2010,93 @@
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button class="btn btn-ghost" onclick="closeModal('payment-modal')">Cancel</button>
         <button class="btn btn-primary" id="pay-save" onclick="submitPayment()">Complete Booking</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AMC CONTRACT MODAL (new + renew) -->
+<div class="modal-overlay" id="amc-modal" style="display:none;">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <span class="modal-title" id="amc-modal-title">New AMC Contract</span>
+      <button class="modal-close" onclick="closeModal('amc-modal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="amc-id">
+      <input type="hidden" id="amc-warranty-id">
+      <input type="hidden" id="amc-customer-id">
+
+      <div class="form-group" id="amc-lookup-group">
+        <label>Customer Phone</label>
+        <div style="display:flex;gap:8px;">
+          <input type="tel" class="form-input" id="amc-phone" placeholder="05XXXXXXXX" style="flex:1;"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();amcLookupPhone();}">
+          <button type="button" class="btn btn-primary" onclick="amcLookupPhone()" id="amc-lookup-btn" style="white-space:nowrap;">Find</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Only customers with a registered unit (QR scanned) can get an AMC contract.</div>
+      </div>
+
+      <div id="amc-notfound" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;"></div>
+
+      <div id="amc-details" style="display:none;">
+        <div id="amc-customer-card" style="background:#F0F6FF;border:1px solid #DBEAFE;border-radius:12px;padding:14px;margin-bottom:16px;"></div>
+
+        <div class="form-group">
+          <label>Which unit?</label>
+          <select class="form-input" id="amc-unit" onchange="amcUnitPicked()"></select>
+        </div>
+
+        <div style="display:flex;gap:12px;">
+          <div class="form-group" style="flex:1;">
+            <label>Start Date</label>
+            <input type="date" class="form-input" id="amc-start-date" onchange="amcUpdateEndDateDisplay()">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Ends</label>
+            <input type="text" class="form-input" id="amc-end-date-display" disabled style="background:#F8FAFC;color:var(--muted);">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;">
+          <div class="form-group" style="flex:1;">
+            <label>Amount Paid (SAR)</label>
+            <input type="number" class="form-input" id="amc-amount" min="0" step="0.01" placeholder="e.g. 399">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Standard Price <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+            <input type="number" class="form-input" id="amc-standard-price" min="0" step="0.01" placeholder="e.g. 466">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;">
+          <div class="form-group" style="flex:1;">
+            <label>Payment Method</label>
+            <select class="form-input" id="amc-payment-method">
+              <option value="">Select…</option>
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="tabby">Tabby</option>
+              <option value="tamara">Tamara</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Reference <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+            <input class="form-input" id="amc-payment-reference" placeholder="e.g. receipt #">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Notes (optional)</label>
+          <textarea class="form-input" id="amc-notes" rows="2"></textarea>
+        </div>
+      </div>
+
+      <div id="amc-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="closeModal('amc-modal')">Cancel</button>
+        <button class="btn btn-primary" id="amc-save" onclick="saveAmcContract()" disabled>Save Contract</button>
       </div>
     </div>
   </div>
@@ -2549,6 +2667,7 @@ const panelTitles = {
   customers: ['Customers', 'View and manage your customer database'],
   reports: ['Inspection Reports', 'View and export installer inspection reports'],
   warranties: ['Active Units', 'Registered units, coverage and service history'],
+  amc: ['AMC Contracts', 'Prepaid annual maintenance contracts — per unit'],
   promocodes: ['Promo Codes', 'Create and manage discount codes'],
   invoices: ['Invoice Data', 'VAT invoices linked to bookings'],
   followups: ['Follow-ups', 'Scheduled customer and lead callbacks — internal only'],
@@ -2601,6 +2720,7 @@ function showPanel(name, el) {
   if (name === 'customers') loadCustomers();
   if (name === 'reports') loadInspectionReports();
   if (name === 'warranties') loadWarranties();
+  if (name === 'amc') loadAmc();
   if (name === 'promocodes') loadPromoCodes();
   if (name === 'products') loadProducts();
   if (name === 'invoices') loadInvoices();
@@ -3061,17 +3181,28 @@ const SERVICE_VISIT_PRICES = { quarterly_service: 89, annual_service: 199 };
 
 async function adminMarkComplete(bookingId) {
   const { data: b } = await dbAdmin.from('bookings')
-    .select('id, customer_name, customer_phone, booking_reference, status, booking_type, order_total, discount_amount, payment_method, invoice_number, invoice_url')
+    .select('id, customer_name, customer_phone, booking_reference, status, booking_type, warranty_id, order_total, discount_amount, payment_method, invoice_number, invoice_url')
     .eq('id', bookingId).maybeSingle();
   if (!b) { showToast('Booking not found', 'error'); return; }
   paymentModalBookingId = bookingId;
+
+  // AMC check — if this unit's already prepaid, don't let the SERVICE_VISIT_PRICES
+  // fallback below suggest charging again.
+  const amc = await fetchActiveAmcContract(b.warranty_id);
+  const amcBanner = document.getElementById('pay-amc-banner');
+  if (amc) {
+    amcBanner.style.display = 'block';
+    amcBanner.textContent = `✅ AMC active — prepaid ${Number(amc.amount_paid).toFixed(0)} SAR, covers through ${formatDateShort(amc.end_date)}. Consider marking this Free of Charge.`;
+  } else {
+    amcBanner.style.display = 'none';
+  }
 
   // Prefill (for re-editing an already-completed booking or resuming)
   document.getElementById('pay-booking-ref').textContent = b.booking_reference || '';
   document.getElementById('pay-customer').textContent = `${b.customer_name || ''} · ${b.customer_phone || ''}`;
   const net = (b.order_total != null ? b.order_total : 0) - (b.discount_amount || 0);
   document.getElementById('pay-amount').value = net > 0 ? net : (SERVICE_VISIT_PRICES[b.booking_type] || '');
-  document.getElementById('pay-method').value = b.payment_method || '';
+  document.getElementById('pay-method').value = b.payment_method || (amc ? 'foc' : '');
   document.getElementById('pay-invoice-no').value = b.invoice_number || '';
   document.getElementById('pay-invoice-file').value = '';
   document.getElementById('pay-existing-file').innerHTML = b.invoice_url
@@ -3194,6 +3325,7 @@ let sbUnits = [];           // warranties/products the customer owns
 let sbSelectedSlotId = null;
 let sbForceBooking = false;  // true after admin confirms double-booking an already-taken slot
 let sbNewCustPhone = null;  // phone that failed lookup, carried into the inline "add new customer" form
+let sbUnitAmc = {};         // warranty_id -> active amc_contracts row, for the picked unit's AMC banner
 
 async function openServiceBookingModal() {
   document.getElementById('sb-phone').value = '';
@@ -3378,9 +3510,20 @@ async function renderServiceCustomer(bookings) {
   // is for, instead of leaving it unrecorded.
   const usel = document.getElementById('sb-unit');
   const help = document.getElementById('sb-unit-help');
+  sbUnitAmc = {};
   if (sbUnits.length) {
     usel.innerHTML = sbUnits.map((u,i) => `<option value="${i}">${escB(u.label)}</option>`).join('');
     help.style.display = 'none';
+    // Batch-fetch active AMC contracts for these units so sbUnitChanged() can
+    // flag "already prepaid" without a query per selection change.
+    const ids = sbUnits.map(u => u.id).filter(Boolean);
+    if (ids.length) {
+      const today = new Date().toISOString().slice(0,10);
+      const { data: contracts } = await dbAdmin.from('amc_contracts')
+        .select('warranty_id, end_date, amount_paid').in('warranty_id', ids)
+        .eq('status', 'active').gte('end_date', today).order('start_date', { ascending: false });
+      (contracts || []).forEach(c => { if (!sbUnitAmc[c.warranty_id]) sbUnitAmc[c.warranty_id] = c; });
+    }
   } else {
     const cat = await getCatalogue();
     const list = cat.filter(p => p.is_catalogue).length ? cat.filter(p => p.is_catalogue) : cat;
@@ -3389,6 +3532,7 @@ async function renderServiceCustomer(bookings) {
     help.textContent = 'No registered unit on file — select which product this visit is for.';
     help.style.display = 'block';
   }
+  sbUnitChanged();
 
   // Location summary
   renderServiceLocation();
@@ -3423,6 +3567,22 @@ function sbTypeChanged() {
   if (t === 'relocation') {
     document.getElementById('sb-loc-change').checked = true;
     document.getElementById('sb-loc-new-wrap').style.display = 'block';
+  }
+  sbUnitChanged();
+}
+
+// Shows a banner when the selected unit already has an active, prepaid AMC
+// contract covering it — informational only, doesn't touch the charge field.
+function sbUnitChanged() {
+  const banner = document.getElementById('sb-amc-banner');
+  const idx = document.getElementById('sb-unit').value;
+  const unit = (idx !== '' && !idx.startsWith('cat:') && sbUnits[idx]) ? sbUnits[idx] : null;
+  const c = unit ? sbUnitAmc[unit.id] : null;
+  if (c) {
+    banner.style.display = 'block';
+    banner.textContent = `✅ AMC active — prepaid ${Number(c.amount_paid).toFixed(0)} SAR, covers through ${formatDateShort(c.end_date)}. No charge needed.`;
+  } else {
+    banner.style.display = 'none';
   }
 }
 
@@ -3608,6 +3768,353 @@ async function submitServiceBooking() {
   } finally {
     btn.disabled = false; btn.textContent = 'Create Booking';
   }
+}
+
+// ============================================================
+// AMC (Annual Maintenance Contract) — a per-unit prepaid service contract.
+// A customer pays a discounted amount upfront covering the normal quarterly
+// filter-change + annual-service cadence for 12 months. status only tracks
+// active/cancelled — "expiring"/"expired" are DERIVED display states from
+// end_date, same pattern renderWarranties() uses for filter/service due
+// dates (warrantyFilterOf()). Renewing inserts a new row; the old contract
+// stays as history. See migrations/v104_amc_contracts.sql.
+// ============================================================
+let allAmcContracts = [];
+const AMC_RENEWAL_SOON_DAYS = 30;
+
+// Most recent still-covering contract for a unit, or null. Shared by the
+// Service Booking modal, the Mark Complete payment modal, and the Active
+// Units table badge — so "is this unit already prepaid" is answered the
+// same way everywhere.
+async function fetchActiveAmcContract(warrantyId) {
+  if (!warrantyId) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const { data } = await dbAdmin.from('amc_contracts')
+    .select('id, end_date, amount_paid, standard_price')
+    .eq('warranty_id', warrantyId).eq('status', 'active').gte('end_date', today)
+    .order('start_date', { ascending: false }).limit(1).maybeSingle();
+  return data || null;
+}
+
+function amcClassify(c) {
+  if (c.status === 'cancelled') return 'cancelled';
+  const days = Math.floor((new Date(c.end_date + 'T00:00:00') - new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00')) / 86400000);
+  if (days < 0) return 'expired';
+  if (days <= AMC_RENEWAL_SOON_DAYS) return 'expiring';
+  return 'active';
+}
+
+async function loadAmc() {
+  const el = document.getElementById('amc-list');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading AMC contracts...</div>';
+  const { data, error } = await dbAdmin.from('amc_contracts')
+    .select('*, warranties(qr_code, product_type), customers(name, phone, city)')
+    .order('start_date', { ascending: false });
+  if (error) {
+    console.error(error);
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">Could not load AMC contracts.</div>';
+    return;
+  }
+  allAmcContracts = data || [];
+  renderAmcStats();
+  renderAmcTable();
+}
+
+function renderAmcStats() {
+  const active = allAmcContracts.filter(c => amcClassify(c) === 'active').length;
+  const expiring = allAmcContracts.filter(c => amcClassify(c) === 'expiring').length;
+  const expired = allAmcContracts.filter(c => amcClassify(c) === 'expired').length;
+  const collected = allAmcContracts
+    .filter(c => amcClassify(c) !== 'cancelled')
+    .reduce((s, c) => s + Number(c.amount_paid || 0), 0);
+
+  const activeKey = document.getElementById('amc-filter')?.value || '';
+  const card = (key, label, val, color, sub) => `
+    <div class="stat-card" onclick="setAmcFilter('${key}')"
+         style="cursor:pointer; ${activeKey === key ? 'outline:2px solid ' + color + '; outline-offset:-2px;' : ''}"
+         title="Click to filter">
+      <div class="stat-label">${label}</div>
+      <div class="stat-value" style="color:${color};">${val}</div>
+      ${sub ? `<div style="font-size:11px; color:var(--muted); margin-top:2px;">${sub}</div>` : ''}
+    </div>`;
+
+  document.getElementById('amc-stats').innerHTML =
+    card('active', 'Active', active, '#16A34A', 'Covered right now') +
+    card('expiring', 'Expiring Soon', expiring, expiring ? '#D97706' : 'var(--muted)', `Within ${AMC_RENEWAL_SOON_DAYS} days`) +
+    card('expired', 'Needs Renewal', expired, expired ? '#DC2626' : 'var(--muted)', 'Past end date') +
+    card('', 'Prepaid Collected', `SAR ${collected.toLocaleString('en-US')}`, 'var(--water)', 'All non-cancelled contracts');
+}
+
+function setAmcFilter(key) {
+  document.getElementById('amc-filter').value = key;
+  renderAmcStats();
+  renderAmcTable();
+}
+
+const AMC_STATUS_META = {
+  active:    ['Active', '#16A34A'],
+  expiring:  ['Expiring Soon', '#D97706'],
+  expired:   ['Needs Renewal', '#DC2626'],
+  cancelled: ['Cancelled', '#6B7280']
+};
+
+function renderAmcTable() {
+  const el = document.getElementById('amc-list');
+  const filter = document.getElementById('amc-filter').value;
+  const q = (document.getElementById('amc-search').value || '').toLowerCase().trim();
+
+  let rows = allAmcContracts.filter(c => !filter || amcClassify(c) === filter);
+  if (q) {
+    rows = rows.filter(c => {
+      const hay = [c.warranties?.qr_code, c.warranties?.product_type, c.customers?.name, c.customers?.phone]
+        .filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  if (!rows.length) {
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">No AMC contracts match this filter.</div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead><tr>
+        <th>#</th><th>Unit</th><th>Customer</th><th>Period</th><th>Amount Paid</th><th>Status</th><th>Actions</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map((c, i) => {
+          const st = amcClassify(c);
+          const [label, color] = AMC_STATUS_META[st];
+          const savings = (c.standard_price && c.standard_price > c.amount_paid)
+            ? `<div style="font-size:11px;color:var(--muted);">saved ${(c.standard_price - c.amount_paid).toFixed(0)}</div>` : '';
+          return `
+          <tr>
+            <td style="color:var(--muted);">${i + 1}</td>
+            <td>
+              <div style="font-weight:600;">${escB(c.warranties?.product_type || 'Unit')}</div>
+              <div style="font-size:11px;color:var(--muted);">${escB(c.warranties?.qr_code || '—')}</div>
+            </td>
+            <td>
+              <div style="font-weight:600;">${escB(c.customers?.name || 'Unnamed')}</div>
+              <div style="font-size:11px;color:var(--muted);">${escB(displayPhoneAdmin(c.customers?.phone || ''))}</div>
+            </td>
+            <td style="font-size:12px;">${formatDateShort(c.start_date)} → ${formatDateShort(c.end_date)}</td>
+            <td>SAR ${Number(c.amount_paid).toFixed(0)}${savings}</td>
+            <td><span style="background:${color}1A;color:${color};font-size:11px;font-weight:700;padding:3px 8px;border-radius:9px;">${label}</span></td>
+            <td style="white-space:nowrap;">
+              <button class="btn btn-ghost btn-sm" onclick="openAmcModal('${c.id}')" title="Edit">${ICON_PENCIL}</button>
+              ${st !== 'cancelled' ? `<button class="btn btn-ghost btn-sm" onclick="renewAmcContract('${c.id}')" title="Renew">${ICON_UNDO}</button>` : ''}
+              ${st !== 'cancelled' ? `<button class="btn btn-ghost btn-sm" onclick="cancelAmcContract('${c.id}')" title="Cancel">${ICON_TRASH}</button>` : ''}
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+function amcResetModal() {
+  document.getElementById('amc-id').value = '';
+  document.getElementById('amc-warranty-id').value = '';
+  document.getElementById('amc-customer-id').value = '';
+  document.getElementById('amc-phone').value = '';
+  document.getElementById('amc-notfound').style.display = 'none';
+  document.getElementById('amc-details').style.display = 'none';
+  document.getElementById('amc-lookup-group').style.display = 'block';
+  document.getElementById('amc-customer-card').innerHTML = '';
+  document.getElementById('amc-unit').innerHTML = '';
+  document.getElementById('amc-start-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('amc-amount').value = '';
+  document.getElementById('amc-standard-price').value = '';
+  document.getElementById('amc-payment-method').value = '';
+  document.getElementById('amc-payment-reference').value = '';
+  document.getElementById('amc-notes').value = '';
+  document.getElementById('amc-error').style.display = 'none';
+  document.getElementById('amc-save').disabled = true;
+  amcUpdateEndDateDisplay();
+}
+
+function amcUpdateEndDateDisplay() {
+  const startRaw = document.getElementById('amc-start-date').value;
+  const start = startRaw ? new Date(startRaw + 'T00:00:00') : new Date();
+  const end = new Date(start); end.setDate(end.getDate() + 365);
+  document.getElementById('amc-end-date-display').value = formatDateShort(end.toISOString().slice(0, 10)) + ' (12 months)';
+}
+
+function amcUnitPicked() {
+  document.getElementById('amc-warranty-id').value = document.getElementById('amc-unit').value;
+}
+
+function amcShowCustomerCard(customer, warranty) {
+  document.getElementById('amc-customer-card').innerHTML = `
+    <div style="font-weight:800;font-size:15px;color:var(--text);">${escB(customer?.name || 'Unnamed customer')}</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:2px;">${escB(displayPhoneAdmin(customer?.phone || ''))}${customer?.city ? ' · ' + escB(customer.city) : ''}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:6px;">${escB(warranty?.product_type || 'Unit')}${warranty?.qr_code ? ' · ' + escB(warranty.qr_code) : ''}</div>`;
+}
+
+async function openAmcModal(contractId) {
+  amcResetModal();
+  document.getElementById('amc-modal-title').textContent = contractId ? 'Edit AMC Contract' : 'New AMC Contract';
+  if (contractId) {
+    let c = allAmcContracts.find(x => x.id === contractId);
+    if (!c) {
+      const { data } = await dbAdmin.from('amc_contracts')
+        .select('*, warranties(qr_code, product_type), customers(name, phone, city)').eq('id', contractId).maybeSingle();
+      c = data;
+    }
+    if (!c) { showToast('Contract not found', 'error'); return; }
+    document.getElementById('amc-id').value = c.id;
+    document.getElementById('amc-warranty-id').value = c.warranty_id;
+    document.getElementById('amc-customer-id').value = c.customer_id || '';
+    document.getElementById('amc-lookup-group').style.display = 'none';
+    amcShowCustomerCard(c.customers, c.warranties);
+    document.getElementById('amc-unit').innerHTML =
+      `<option value="${c.warranty_id}">${escB(c.warranties?.product_type || 'Unit')}${c.warranties?.qr_code ? ' · ' + escB(c.warranties.qr_code) : ''}</option>`;
+    document.getElementById('amc-start-date').value = c.start_date;
+    document.getElementById('amc-amount').value = c.amount_paid;
+    document.getElementById('amc-standard-price').value = c.standard_price || '';
+    document.getElementById('amc-payment-method').value = c.payment_method || '';
+    document.getElementById('amc-payment-reference').value = c.payment_reference || '';
+    document.getElementById('amc-notes').value = c.notes || '';
+    amcUpdateEndDateDisplay();
+    document.getElementById('amc-details').style.display = 'block';
+    document.getElementById('amc-save').disabled = false;
+  }
+  openModal('amc-modal');
+}
+
+// Pre-fills a fresh contract (new row — the old one stays as history) for
+// the same unit/customer, starting the day after the old one ends (or today,
+// whichever is later), with amount fields left blank for re-entry since
+// prices can change between renewals.
+async function renewAmcContract(contractId) {
+  const c = allAmcContracts.find(x => x.id === contractId);
+  if (!c) { showToast('Contract not found', 'error'); return; }
+  amcResetModal();
+  document.getElementById('amc-modal-title').textContent = 'Renew AMC Contract';
+  document.getElementById('amc-warranty-id').value = c.warranty_id;
+  document.getElementById('amc-customer-id').value = c.customer_id || '';
+  document.getElementById('amc-lookup-group').style.display = 'none';
+  amcShowCustomerCard(c.customers, c.warranties);
+  document.getElementById('amc-unit').innerHTML =
+    `<option value="${c.warranty_id}">${escB(c.warranties?.product_type || 'Unit')}${c.warranties?.qr_code ? ' · ' + escB(c.warranties.qr_code) : ''}</option>`;
+  const today = new Date();
+  const afterOld = new Date(c.end_date + 'T00:00:00'); afterOld.setDate(afterOld.getDate() + 1);
+  document.getElementById('amc-start-date').value = (afterOld > today ? afterOld : today).toISOString().slice(0, 10);
+  amcUpdateEndDateDisplay();
+  document.getElementById('amc-details').style.display = 'block';
+  document.getElementById('amc-save').disabled = false;
+  openModal('amc-modal');
+}
+
+async function amcLookupPhone() {
+  const raw = (document.getElementById('amc-phone').value || '').trim().replace(/\s/g, '');
+  const nf = document.getElementById('amc-notfound');
+  const btn = document.getElementById('amc-lookup-btn');
+  nf.style.display = 'none';
+  document.getElementById('amc-details').style.display = 'none';
+  document.getElementById('amc-save').disabled = true;
+  if (!raw) { nf.style.display = 'block'; nf.textContent = 'Enter a phone number first.'; return; }
+  const phone = (typeof formatSaudiPhone === 'function') ? formatSaudiPhone(raw) : raw;
+
+  btn.disabled = true; btn.textContent = 'Finding…';
+  try {
+    const { data: cust } = await dbAdmin.from('customers').select('id, name, phone, city').eq('phone', phone).maybeSingle();
+    if (!cust) {
+      nf.style.display = 'block'; nf.textContent = 'No customer found for that number.';
+      return;
+    }
+    const { data: warrs } = await dbAdmin.from('warranties')
+      .select('id, product_type, qr_code, status').eq('customer_id', cust.id).neq('status', 'deactivated');
+    if (!warrs || !warrs.length) {
+      nf.style.display = 'block';
+      nf.textContent = `${cust.name || 'This customer'} has no registered unit (QR scanned) yet — AMC needs one.`;
+      return;
+    }
+
+    document.getElementById('amc-customer-id').value = cust.id;
+    amcShowCustomerCard(cust, warrs[0]);
+    document.getElementById('amc-unit').innerHTML = warrs.map(w =>
+      `<option value="${w.id}">${escB(w.product_type || 'RO unit')}${w.qr_code ? ' · ' + escB(w.qr_code) : ''}</option>`).join('');
+    document.getElementById('amc-warranty-id').value = warrs[0].id;
+    document.getElementById('amc-details').style.display = 'block';
+    document.getElementById('amc-save').disabled = false;
+  } catch (e) {
+    nf.style.display = 'block'; nf.textContent = 'Lookup failed: ' + (e.message || e);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Find';
+  }
+}
+
+async function saveAmcContract() {
+  if (!(await ensureSession())) return;
+  const errEl = document.getElementById('amc-error');
+  const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
+  errEl.style.display = 'none';
+
+  const id = document.getElementById('amc-id').value || null;
+  const warrantyId = document.getElementById('amc-warranty-id').value;
+  const customerId = document.getElementById('amc-customer-id').value || null;
+  const startDate = document.getElementById('amc-start-date').value;
+  const amountRaw = document.getElementById('amc-amount').value;
+  const amount = amountRaw === '' ? null : parseFloat(amountRaw);
+  const stdRaw = document.getElementById('amc-standard-price').value;
+  const standardPrice = stdRaw === '' ? null : parseFloat(stdRaw);
+  const paymentMethod = document.getElementById('amc-payment-method').value || null;
+  const paymentReference = (document.getElementById('amc-payment-reference').value || '').trim() || null;
+  const notes = (document.getElementById('amc-notes').value || '').trim() || null;
+
+  if (!warrantyId) return fail('Pick a unit.');
+  if (!startDate) return fail('Pick a start date.');
+  if (amount == null || isNaN(amount) || amount < 0) return fail('Enter a valid amount paid.');
+  if (standardPrice != null && (isNaN(standardPrice) || standardPrice < 0)) return fail('Standard price must be a positive number, or left blank.');
+
+  const end = new Date(startDate + 'T00:00:00'); end.setDate(end.getDate() + 365);
+  const endDate = end.toISOString().slice(0, 10);
+
+  const btn = document.getElementById('amc-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const patch = {
+      warranty_id: warrantyId, customer_id: customerId,
+      start_date: startDate, end_date: endDate,
+      amount_paid: amount, standard_price: standardPrice,
+      payment_method: paymentMethod, payment_reference: paymentReference,
+      notes, updated_at: new Date().toISOString()
+    };
+    if (id) {
+      const { error } = await dbAdmin.from('amc_contracts').update(patch).eq('id', id);
+      if (error) throw error;
+      logActivity('amc.update', `Updated AMC contract (${endDate})`, 'amc_contract', id);
+      showToast('AMC contract updated', 'success');
+    } else {
+      patch.created_by_name = currentAdminDisplayName();
+      patch.status = 'active';
+      const { data: inserted, error } = await dbAdmin.from('amc_contracts').insert(patch).select('id').single();
+      if (error) throw error;
+      logActivity('amc.create', `Created AMC contract, prepaid SAR ${amount} through ${endDate}`, 'amc_contract', inserted?.id);
+      showToast('AMC contract created', 'success');
+    }
+    closeModal('amc-modal');
+    loadAmc();
+  } catch (e) {
+    fail(e.message || String(e));
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Contract';
+  }
+}
+
+async function cancelAmcContract(id) {
+  if (!(await ensureSession())) return;
+  if (!confirm('Cancel this AMC contract? This can’t be undone.')) return;
+  const { error } = await dbAdmin.from('amc_contracts')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) { showToast('Failed to cancel: ' + error.message, 'error'); return; }
+  logActivity('amc.cancel', 'Cancelled AMC contract', 'amc_contract', id);
+  showToast('AMC contract cancelled', 'success');
+  loadAmc();
 }
 
 async function openAdminBookingModal() {
@@ -8060,6 +8567,7 @@ async function viewCustomerUnits(phone) {
  * WARRANTIES  (ported from the standalone PHP CRM at h2o.sadawater.com/regis/)
  * ========================================================================*/
 let allWarranties = [];
+let warrantyAmcIds = new Set(); // warranty ids with an active AMC contract — see loadWarranties()
 let allFollowups  = [];
 let warrantyCustomers = [];
 
@@ -8942,6 +9450,14 @@ async function loadWarranties() {
     return;
   }
   allWarranties = await window.SADA.Warranty.attachModels(data || []);
+
+  // Which of these units are currently covered by a prepaid AMC contract —
+  // batched into one query so the table can flag it without a query per row.
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: amcRows } = await dbAdmin.from('amc_contracts')
+    .select('warranty_id').eq('status', 'active').gte('end_date', today);
+  warrantyAmcIds = new Set((amcRows || []).map(r => r.warranty_id));
+
   renderWarrantyStats();
   renderWarrantyRegionStats();
   renderWarranties();
@@ -9127,7 +9643,8 @@ function renderWarranties() {
                 ${w.quantity > 1 ? `<div style="font-size:10px;color:#92400E;font-weight:700;">×${w.quantity} units</div>` : ''}
                 <span style="display:inline-block;margin-top:3px;background:${stBadge.bg};color:${stBadge.fg};font-size:9px;font-weight:800;padding:1px 6px;border-radius:7px;">${stBadge.t}</span>
                 ${w.service_opted_out ? `<span style="display:inline-block;margin-top:3px;margin-left:3px;background:#E0E7FF;color:#3730A3;font-size:9px;font-weight:800;padding:1px 6px;border-radius:7px;">No service</span>` : ''}
-                ${w.booking_id ? `<span title="Linked to a booking" style="display:inline-block;margin-top:3px;margin-left:3px;font-size:10px;">🔗</span>` : ''}</td>
+                ${w.booking_id ? `<span title="Linked to a booking" style="display:inline-block;margin-top:3px;margin-left:3px;font-size:10px;">🔗</span>` : ''}
+                ${warrantyAmcIds.has(w.id) ? `<span title="Active AMC contract — already prepaid" style="display:inline-block;margin-top:3px;margin-left:3px;background:#DBEAFE;color:#1D4ED8;font-size:9px;font-weight:800;padding:1px 6px;border-radius:7px;">AMC</span>` : ''}</td>
             <td>
               ${w.customers?.name
                 ? `<strong>${W.esc(w.customers.name)}</strong>`
