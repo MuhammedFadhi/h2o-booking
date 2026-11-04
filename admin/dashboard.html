@@ -1991,6 +1991,14 @@
           <option value="foc">FOC (Free of Charge)</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Promo Code <span style="color:var(--muted);font-weight:400;">(optional — for free/discounted service visits)</span></label>
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" id="pay-promo-code" placeholder="e.g. FIRSTFILTERFREE" style="text-transform:uppercase;flex:1;">
+          <button class="btn btn-ghost" type="button" onclick="applyServicePromo()" style="flex:0 0 auto;">Apply</button>
+        </div>
+        <div id="pay-promo-result" style="font-size:12px;margin-top:6px;"></div>
+      </div>
       <div style="display:flex;gap:10px;">
         <div class="form-group" style="flex:1;">
           <label>Invoice Number</label>
@@ -2146,6 +2154,25 @@
           <input type="checkbox" id="promo-all-products" checked style="width:auto;" onchange="promoAllProductsToggle()"> Applies to all products
         </label>
         <div id="promo-products-list" style="display:none;margin-top:8px;max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:10px 12px;"></div>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="promo-services-enabled" style="width:auto;" onchange="promoServicesToggle()"> Also usable on service visits (Filter Change / Annual Service / Repair)
+        </label>
+        <div id="promo-services-options" style="display:none;margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;">
+            <input type="checkbox" id="promo-all-services" checked style="width:auto;" onchange="promoAllServicesToggle()"> All service types
+          </label>
+          <div id="promo-services-list" style="display:none;">
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;"><input type="checkbox" class="promo-service-cb" value="quarterly_service,maintenance" style="width:auto;"> Filter Change</label>
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;"><input type="checkbox" class="promo-service-cb" value="annual_service" style="width:auto;"> Annual Service</label>
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;"><input type="checkbox" class="promo-service-cb" value="repair" style="width:auto;"> Repair</label>
+          </div>
+          <div class="form-group" style="margin-top:10px;margin-bottom:0;">
+            <label>Max free/discounted visits per unit <span style="color:var(--muted);font-weight:400;">(optional — blank = unlimited, 1 = first visit only)</span></label>
+            <input class="form-input" id="promo-max-uses-per-unit" type="number" min="1" step="1" placeholder="e.g. 1">
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label>Notes <span style="color:var(--muted);font-weight:400;">(internal, optional)</span></label>
@@ -3174,6 +3201,10 @@ function checkAdminPassword(action) {
 // are recorded (invoice file optional). This gates installed → completed.
 // ============================================================
 let paymentModalBookingId = null;
+let paymentModalWarrantyId = null;
+let paymentModalBookingType = null;
+let paymentBaseAmount = null;
+let appliedServicePromo = null;  // { code, discount_amount } once applied in this modal session
 
 // Flat-rate service visits with no product sale attached — no basket total
 // to fall back on, so the invoice amount is just a fixed call-out fee.
@@ -3181,10 +3212,15 @@ const SERVICE_VISIT_PRICES = { quarterly_service: 89, annual_service: 199 };
 
 async function adminMarkComplete(bookingId) {
   const { data: b } = await dbAdmin.from('bookings')
-    .select('id, customer_name, customer_phone, booking_reference, status, booking_type, warranty_id, order_total, discount_amount, payment_method, invoice_number, invoice_url')
+    .select('id, customer_name, customer_phone, booking_reference, status, booking_type, warranty_id, order_total, discount_amount, payment_method, invoice_number, invoice_url, promo_code')
     .eq('id', bookingId).maybeSingle();
   if (!b) { showToast('Booking not found', 'error'); return; }
   paymentModalBookingId = bookingId;
+  paymentModalWarrantyId = b.warranty_id || null;
+  paymentModalBookingType = b.booking_type;
+  appliedServicePromo = null;
+  document.getElementById('pay-promo-code').value = b.promo_code || '';
+  document.getElementById('pay-promo-result').textContent = '';
 
   // AMC check — if this unit's already prepaid, don't let the SERVICE_VISIT_PRICES
   // fallback below suggest charging again.
@@ -3201,7 +3237,9 @@ async function adminMarkComplete(bookingId) {
   document.getElementById('pay-booking-ref').textContent = b.booking_reference || '';
   document.getElementById('pay-customer').textContent = `${b.customer_name || ''} · ${b.customer_phone || ''}`;
   const net = (b.order_total != null ? b.order_total : 0) - (b.discount_amount || 0);
-  document.getElementById('pay-amount').value = net > 0 ? net : (SERVICE_VISIT_PRICES[b.booking_type] || '');
+  const baseAmount = net > 0 ? net : (SERVICE_VISIT_PRICES[b.booking_type] || 0);
+  paymentBaseAmount = baseAmount || null;
+  document.getElementById('pay-amount').value = baseAmount || '';
   document.getElementById('pay-method').value = b.payment_method || (amc ? 'foc' : '');
   document.getElementById('pay-invoice-no').value = b.invoice_number || '';
   document.getElementById('pay-invoice-file').value = '';
@@ -3209,6 +3247,43 @@ async function adminMarkComplete(bookingId) {
     ? `<a href="${b.invoice_url}" target="_blank" style="font-size:12px;color:var(--water);">📎 Current invoice file</a>` : '';
   document.getElementById('pay-error').style.display = 'none';
   openModal('payment-modal');
+}
+
+// Validates a promo code against this booking's type/unit and, if it
+// checks out, discounts #pay-amount and stashes it for submitPayment() to
+// persist. Separate from the basket-promo flows (abApplyPromo /
+// applyBasketPromo) — there's no basket here, just a flat visit fee.
+async function applyServicePromo() {
+  const resultEl = document.getElementById('pay-promo-result');
+  const code = (document.getElementById('pay-promo-code').value || '').trim();
+  const fail = (m) => { resultEl.style.color = '#B71C1C'; resultEl.textContent = m; appliedServicePromo = null; };
+  if (!code) { resultEl.textContent = ''; appliedServicePromo = null; return; }
+
+  const { data: promo } = await dbAdmin.from('promo_codes').select('*').ilike('code', code).maybeSingle();
+  if (!promo) return fail('Code not found.');
+  if (!promo.is_active) return fail('This code is inactive.');
+  const today = new Date().toISOString().slice(0, 10);
+  if (promo.valid_from && today < promo.valid_from) return fail('This code isn’t valid yet.');
+  if (promo.valid_until && today > promo.valid_until) return fail('This code has expired.');
+  if (!promo.applies_to_services) return fail('This code isn’t set up for service visits.');
+  if (promo.service_types && promo.service_types.length && !promo.service_types.includes(paymentModalBookingType)) {
+    return fail('This code doesn’t apply to this booking type.');
+  }
+  if (promo.max_uses_per_unit) {
+    if (!paymentModalWarrantyId) return fail('This code is limited per unit, but this booking isn’t linked to a unit.');
+    const { count } = await dbAdmin.from('bookings').select('id', { count: 'exact', head: true })
+      .eq('warranty_id', paymentModalWarrantyId).ilike('promo_code', promo.code).eq('status', 'completed');
+    if ((count || 0) >= promo.max_uses_per_unit) return fail('This code’s free visit(s) have already been used on this unit.');
+  }
+
+  const base = paymentBaseAmount || parseFloat(document.getElementById('pay-amount').value) || 0;
+  let discount = promo.discount_type === 'percent' ? base * promo.discount_value / 100 : promo.discount_value;
+  discount = Math.min(Math.max(discount, 0), base);
+  const finalAmount = Math.round((base - discount) * 100) / 100;
+  document.getElementById('pay-amount').value = finalAmount;
+  appliedServicePromo = { code: promo.code, discount_amount: discount };
+  resultEl.style.color = '#166534';
+  resultEl.textContent = `✅ ${promo.code} applied — ${discount.toFixed(2)} SAR off (was ${base.toFixed(2)} SAR).`;
 }
 
 async function submitPayment() {
@@ -3263,14 +3338,19 @@ async function submitPayment() {
       completed_by: 'admin'
     };
     if (invoiceUrl) patch.invoice_url = invoiceUrl;
+    if (appliedServicePromo) {
+      patch.promo_code = appliedServicePromo.code;
+      patch.discount_amount = appliedServicePromo.discount_amount;
+    }
     const { error: uErr } = await dbAdmin.from('bookings').update(patch).eq('id', bookingId);
     if (uErr) throw uErr;
 
     // Promo usage counts on completion, not on booking creation — only bump it the
     // first time a booking transitions into 'completed', never on a re-edit of an
     // already-completed booking's payment/invoice details.
-    if (b?.promo_code && !wasAlreadyCompleted) {
-      dbAdmin.rpc('increment_promo_usage', { p_code: b.promo_code }).then(()=>{}).catch(()=>{});
+    const promoToCount = appliedServicePromo?.code || b?.promo_code;
+    if (promoToCount && !wasAlreadyCompleted) {
+      dbAdmin.rpc('increment_promo_usage', { p_code: promoToCount }).then(()=>{}).catch(()=>{});
     }
 
     // Create / update the invoice record (VAT 15% derived from the gross total if given).
@@ -5449,7 +5529,7 @@ function renderPromoCodes() {
       ? `${p.valid_from ? formatDateShort(p.valid_from) : '—'} → ${p.valid_until ? formatDateShort(p.valid_until) : '—'}`
       : 'No limit';
     return `<tr>
-      <td><strong style="font-family:monospace;font-size:14px;letter-spacing:.5px;">${escB(p.code)}</strong>${p.notes ? `<div style="font-size:11px;color:var(--muted);">${escB(p.notes)}</div>` : ''}${p.applicable_products && p.applicable_products.length ? `<div style="font-size:11px;color:var(--muted);" title="${escB(p.applicable_products.join(', '))}">🎯 ${p.applicable_products.length} product${p.applicable_products.length !== 1 ? 's' : ''}</div>` : ''}</td>
+      <td><strong style="font-family:monospace;font-size:14px;letter-spacing:.5px;">${escB(p.code)}</strong>${p.notes ? `<div style="font-size:11px;color:var(--muted);">${escB(p.notes)}</div>` : ''}${p.applicable_products && p.applicable_products.length ? `<div style="font-size:11px;color:var(--muted);" title="${escB(p.applicable_products.join(', '))}">🎯 ${p.applicable_products.length} product${p.applicable_products.length !== 1 ? 's' : ''}</div>` : ''}${p.applies_to_services ? `<div style="font-size:11px;color:#2563EB;">🔧 Service visits${p.max_uses_per_unit ? ` (max ${p.max_uses_per_unit}/unit)` : ''}</div>` : ''}</td>
       <td><strong>${offer}</strong> off</td>
       <td style="font-size:12px;">${validity}</td>
       <td style="text-align:center;"><strong style="font-size:16px;">${p.usage_count || 0}</strong><div style="font-size:10px;color:var(--muted);">uses</div></td>
@@ -5488,6 +5568,18 @@ async function openPromoModal(id) {
   document.getElementById('promo-all-products').checked = !restricted;
   await renderPromoProductsList(restricted ? p.applicable_products : []);
   promoAllProductsToggle();
+
+  const servicesEnabled = !!(p && p.applies_to_services);
+  document.getElementById('promo-services-enabled').checked = servicesEnabled;
+  const serviceTypes = (p && p.service_types) || [];
+  document.getElementById('promo-all-services').checked = !serviceTypes.length;
+  document.querySelectorAll('.promo-service-cb').forEach(cb => {
+    cb.checked = cb.value.split(',').some(v => serviceTypes.includes(v));
+  });
+  document.getElementById('promo-max-uses-per-unit').value = (p && p.max_uses_per_unit) || '';
+  promoServicesToggle();
+  promoAllServicesToggle();
+
   promoTypeHint();
   openModal('promo-modal');
 }
@@ -5495,6 +5587,16 @@ async function openPromoModal(id) {
 function promoAllProductsToggle() {
   const all = document.getElementById('promo-all-products').checked;
   document.getElementById('promo-products-list').style.display = all ? 'none' : 'block';
+}
+
+function promoServicesToggle() {
+  const on = document.getElementById('promo-services-enabled').checked;
+  document.getElementById('promo-services-options').style.display = on ? 'block' : 'none';
+}
+
+function promoAllServicesToggle() {
+  const all = document.getElementById('promo-all-services').checked;
+  document.getElementById('promo-services-list').style.display = all ? 'none' : 'block';
 }
 
 // Checkbox list of catalogue products the admin can restrict a code to.
@@ -5522,6 +5624,12 @@ async function savePromo() {
   const notes = (document.getElementById('promo-notes').value || '').trim() || null;
   const allProducts = document.getElementById('promo-all-products').checked;
   const applicable_products = allProducts ? null : Array.from(document.querySelectorAll('.promo-product-cb:checked')).map(cb => cb.value);
+  const servicesEnabled = document.getElementById('promo-services-enabled').checked;
+  const allServices = document.getElementById('promo-all-services').checked;
+  const service_types = (!servicesEnabled || allServices) ? null
+    : Array.from(document.querySelectorAll('.promo-service-cb:checked')).flatMap(cb => cb.value.split(','));
+  const maxUsesRaw = document.getElementById('promo-max-uses-per-unit').value;
+  const max_uses_per_unit = maxUsesRaw ? parseInt(maxUsesRaw, 10) : null;
 
   const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
   if (!code) return fail('Enter a code.');
@@ -5529,10 +5637,15 @@ async function savePromo() {
   if (type === 'percent' && value > 100) return fail('Percentage can\u2019t exceed 100%.');
   if (from && until && until < from) return fail('“Valid Until” is before “Valid From”.');
   if (!allProducts && applicable_products.length === 0) return fail('Select at least one product, or uncheck “Applies to all products”.');
+  if (servicesEnabled && !allServices && (!service_types || service_types.length === 0)) return fail('Select at least one service type, or check “All service types”.');
 
   const btn = document.getElementById('promo-save');
   btn.disabled = true; btn.textContent = 'Saving…';
-  const payload = { code, discount_type: type, discount_value: value, valid_from: from, valid_until: until, is_active: active, notes, applicable_products, updated_at: new Date().toISOString() };
+  const payload = {
+    code, discount_type: type, discount_value: value, valid_from: from, valid_until: until, is_active: active, notes, applicable_products,
+    applies_to_services: servicesEnabled, service_types, max_uses_per_unit,
+    updated_at: new Date().toISOString()
+  };
   let error;
   if (id) ({ error } = await dbAdmin.from('promo_codes').update(payload).eq('id', id));
   else ({ error } = await dbAdmin.from('promo_codes').insert(payload));
