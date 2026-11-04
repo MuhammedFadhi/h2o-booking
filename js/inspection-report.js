@@ -755,7 +755,26 @@ SADA.InspectionReport = (function () {
     if (!cid) return;
     const { data: existing } = await window.db.from('warranties').select('id').eq('booking_id', bookingId);
     if (existing && existing.length >= units.length) return;
-    const toCreate = units.slice((existing || []).length);
+    let toCreate = units.slice((existing || []).length);
+
+    // The customer may have scanned their QR sticker moments before this ran
+    // (same on-site visit) — that flow (activate_pending_warranty) has no
+    // booking context, so it creates a real, active warranty with no
+    // booking_id. Claim those instead of minting duplicate pending
+    // placeholders for the same physical unit. Scoped to the last few hours
+    // so an unrelated older unit never gets mis-linked to today's booking.
+    const sinceIso = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    const { data: orphans } = await window.db.from('warranties')
+      .select('id').eq('customer_id', cid).eq('source', 'install').eq('status', 'active')
+      .is('booking_id', null).gte('created_at', sinceIso);
+    if (orphans && orphans.length) {
+      const claim = orphans.slice(0, toCreate.length);
+      for (const o of claim) {
+        await window.db.from('warranties').update({ booking_id: bookingId }).eq('id', o.id);
+      }
+      toCreate = toCreate.slice(claim.length);
+    }
+
     const installDate = new Date();
     const iso = (days) => { const x = new Date(installDate); x.setDate(x.getDate() + days); return x.toISOString(); };
     const regDate = installDate.toISOString().slice(0, 10);
