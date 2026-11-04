@@ -2157,20 +2157,27 @@
       </div>
       <div class="form-group">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="promo-services-enabled" style="width:auto;" onchange="promoServicesToggle()"> Also usable on service visits (Filter Change / Annual Service / Repair)
+          <input type="checkbox" id="promo-services-enabled" style="width:auto;" onchange="promoServicesToggle()"> Also usable on service visits
         </label>
-        <div id="promo-services-options" style="display:none;margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;">
-            <input type="checkbox" id="promo-all-services" checked style="width:auto;" onchange="promoAllServicesToggle()"> All service types
+        <div style="font-size:12px;color:var(--muted);margin:-2px 0 0 26px;">e.g. Filter Change, Annual Service, Repair — not just product purchases</div>
+
+        <div id="promo-services-options" style="display:none;margin-top:10px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.3px;margin-bottom:8px;">WHICH VISIT TYPES?</div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:13px;font-weight:400;text-transform:none;">
+            <input type="radio" name="promo-service-scope" id="promo-all-services" checked style="width:auto;" onchange="promoAllServicesToggle()"> All types
           </label>
-          <div id="promo-services-list" style="display:none;">
-            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;"><input type="checkbox" class="promo-service-cb" value="quarterly_service,maintenance" style="width:auto;"> Filter Change</label>
-            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;"><input type="checkbox" class="promo-service-cb" value="annual_service" style="width:auto;"> Annual Service</label>
-            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;"><input type="checkbox" class="promo-service-cb" value="repair" style="width:auto;"> Repair</label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:13px;font-weight:400;text-transform:none;">
+            <input type="radio" name="promo-service-scope" id="promo-specific-services" style="width:auto;" onchange="promoAllServicesToggle()"> Specific types only
+          </label>
+          <div id="promo-services-list" style="display:none;margin:2px 0 4px 24px;">
+            <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;"><input type="checkbox" class="promo-service-cb" value="quarterly_service,maintenance" style="width:auto;"> Filter Change</label>
+            <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;"><input type="checkbox" class="promo-service-cb" value="annual_service" style="width:auto;"> Annual Service</label>
+            <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;"><input type="checkbox" class="promo-service-cb" value="repair" style="width:auto;"> Repair</label>
           </div>
-          <div class="form-group" style="margin-top:10px;margin-bottom:0;">
-            <label>Max free/discounted visits per unit <span style="color:var(--muted);font-weight:400;">(optional — blank = unlimited, 1 = first visit only)</span></label>
-            <input class="form-input" id="promo-max-uses-per-unit" type="number" min="1" step="1" placeholder="e.g. 1">
+
+          <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;">
+            <label style="font-size:11px;margin-bottom:4px;">Limit per unit <span style="color:var(--muted);font-weight:400;text-transform:none;">(optional)</span></label>
+            <input class="form-input" id="promo-max-uses-per-unit" type="number" min="1" step="1" placeholder="Blank = unlimited · 1 = first visit only">
           </div>
         </div>
       </div>
@@ -5573,6 +5580,7 @@ async function openPromoModal(id) {
   document.getElementById('promo-services-enabled').checked = servicesEnabled;
   const serviceTypes = (p && p.service_types) || [];
   document.getElementById('promo-all-services').checked = !serviceTypes.length;
+  document.getElementById('promo-specific-services').checked = !!serviceTypes.length;
   document.querySelectorAll('.promo-service-cb').forEach(cb => {
     cb.checked = cb.value.split(',').some(v => serviceTypes.includes(v));
   });
