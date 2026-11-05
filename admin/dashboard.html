@@ -3240,6 +3240,15 @@ async function adminMarkComplete(bookingId) {
   appliedServicePromo = null;
   document.getElementById('pay-promo-code').value = b.promo_code || '';
   document.getElementById('pay-promo-result').textContent = '';
+  // bookings.warranty_id is only ever set via the "which unit?" picker on a
+  // SERVICE VISIT booking — an installation booking has no such picker (the
+  // unit doesn't exist yet), so it stays null even once the install creates
+  // one. The install flow links the other direction instead
+  // (warranties.booking_id), so fall back to that for installs.
+  if (!paymentModalWarrantyId) {
+    const { data: linkedWarranty } = await dbAdmin.from('warranties').select('id').eq('booking_id', bookingId).maybeSingle();
+    paymentModalWarrantyId = linkedWarranty ? linkedWarranty.id : null;
+  }
   let autoServicePromoCode = null;
   if (paymentModalWarrantyId) {
     const { data: w } = await dbAdmin.from('warranties').select('product_type, service_promo_code').eq('id', paymentModalWarrantyId).maybeSingle();
