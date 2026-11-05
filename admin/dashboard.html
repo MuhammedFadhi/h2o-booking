@@ -2150,16 +2150,17 @@
         </label>
       </div>
       <div class="form-group">
-        <label style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.3px;margin-bottom:8px;display:block;">PRODUCT PURCHASES</label>
+        <label style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.3px;margin-bottom:8px;display:block;">WHICH PRODUCTS / UNITS</label>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:13px;font-weight:400;text-transform:none;">
-          <input type="radio" name="promo-product-scope" id="promo-all-products" checked style="width:auto;" onchange="promoAllProductsToggle()"> Applies to all products
+          <input type="radio" name="promo-product-scope" id="promo-all-products" checked style="width:auto;" onchange="promoAllProductsToggle()"> All products
         </label>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:13px;font-weight:400;text-transform:none;">
           <input type="radio" name="promo-product-scope" id="promo-specific-products" style="width:auto;" onchange="promoAllProductsToggle()"> Specific products only
         </label>
         <div id="promo-products-list" style="display:none;margin:2px 0 8px 24px;max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:10px 12px;"></div>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;">
-          <input type="radio" name="promo-product-scope" id="promo-no-products" style="width:auto;" onchange="promoAllProductsToggle()"> Not for product purchases <span style="color:var(--muted);">(service visits only)</span>
+        <div style="font-size:12px;color:var(--muted);margin:2px 0 10px 0;">Used both to restrict the product-purchase discount below, and (if "Also usable on service visits" is on) to restrict which units' services qualify.</div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;border-top:1px solid var(--border);padding-top:10px;">
+          <input type="checkbox" id="promo-discounts-products" checked style="width:auto;"> Discount the product purchase <span style="color:var(--muted);">(uncheck for a service-visits-only code — the product selection above still restricts which units qualify)</span>
         </label>
       </div>
       <div class="form-group">
@@ -4343,6 +4344,7 @@ function abRenderBasket() {
 // Mirrors promoDiscountFor() in customer/book.html — kept as a separate copy since these
 // are independent static pages with no shared JS module.
 function abPromoDiscountFor(lines, promo) {
+  if (promo.discounts_products === false) return 0;
   const restrict = Array.isArray(promo.applicable_products) ? new Set(promo.applicable_products) : null;
   return lines.reduce((sum, l) => {
     if (restrict && !restrict.has(l.model)) return sum;
@@ -5267,6 +5269,7 @@ let basketEditState = { bookingId: null, lines: [], promo: null };
 // naturally proportional to quantity already, since it's a % of that line's
 // own subtotal. Each line's discount is capped at that line's own value.
 function basketPromoDiscountFor(lines, promo) {
+  if (promo.discounts_products === false) return 0;
   const restrict = Array.isArray(promo.applicable_products) ? new Set(promo.applicable_products) : null;
   return lines.reduce((sum, l) => {
     if (restrict && !restrict.has(l.model)) return sum;
@@ -5589,12 +5592,11 @@ async function openPromoModal(id) {
   document.getElementById('promo-error').style.display = 'none';
   const products = p ? p.applicable_products : undefined;
   const specificProducts = Array.isArray(products) && products.length > 0;
-  const noProducts = Array.isArray(products) && products.length === 0;
-  document.getElementById('promo-all-products').checked = !specificProducts && !noProducts;
+  document.getElementById('promo-all-products').checked = !specificProducts;
   document.getElementById('promo-specific-products').checked = specificProducts;
-  document.getElementById('promo-no-products').checked = noProducts;
   await renderPromoProductsList(specificProducts ? products : []);
   promoAllProductsToggle();
+  document.getElementById('promo-discounts-products').checked = p ? (p.discounts_products !== false) : true;
 
   const servicesEnabled = !!(p && p.applies_to_services);
   document.getElementById('promo-services-enabled').checked = servicesEnabled;
@@ -5652,10 +5654,9 @@ async function savePromo() {
   const notes = (document.getElementById('promo-notes').value || '').trim() || null;
   const allProducts = document.getElementById('promo-all-products').checked;
   const specificProducts = document.getElementById('promo-specific-products').checked;
-  const noProducts = document.getElementById('promo-no-products').checked;
   const applicable_products = allProducts ? null
-    : noProducts ? []
     : Array.from(document.querySelectorAll('.promo-product-cb:checked')).map(cb => cb.value);
+  const discounts_products = document.getElementById('promo-discounts-products').checked;
   const servicesEnabled = document.getElementById('promo-services-enabled').checked;
   const allServices = document.getElementById('promo-all-services').checked;
   const service_types = (!servicesEnabled || allServices) ? null
@@ -5668,15 +5669,15 @@ async function savePromo() {
   if (!(value >= 0) || isNaN(value)) return fail('Enter a valid discount value.');
   if (type === 'percent' && value > 100) return fail('Percentage can\u2019t exceed 100%.');
   if (from && until && until < from) return fail('“Valid Until” is before “Valid From”.');
-  if (specificProducts && applicable_products.length === 0) return fail('Select at least one product, or choose a different product option.');
-  if (noProducts && !servicesEnabled) return fail('This code won’t apply to anything — enable “Also usable on service visits”, or choose “Applies to all products”.');
+  if (specificProducts && applicable_products.length === 0) return fail('Select at least one product, or choose “All products”.');
+  if (!discounts_products && !servicesEnabled) return fail('This code won’t apply to anything — enable “Also usable on service visits”, or re-check “Discount the product purchase”.');
   if (servicesEnabled && !allServices && (!service_types || service_types.length === 0)) return fail('Select at least one service type, or check “All service types”.');
 
   const btn = document.getElementById('promo-save');
   btn.disabled = true; btn.textContent = 'Saving…';
   const payload = {
     code, discount_type: type, discount_value: value, valid_from: from, valid_until: until, is_active: active, notes, applicable_products,
-    applies_to_services: servicesEnabled, service_types, max_uses_per_unit,
+    discounts_products, applies_to_services: servicesEnabled, service_types, max_uses_per_unit,
     updated_at: new Date().toISOString()
   };
   let error;
