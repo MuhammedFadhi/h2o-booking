@@ -3403,12 +3403,12 @@ async function submitPayment() {
     // visit for this same warranty auto-detects and applies it (see
     // adminMarkComplete()) instead of the admin retyping it every time.
     if (promoToCount && paymentModalWarrantyId) {
-      dbAdmin.from('promo_codes').select('applies_to_services').ilike('code', promoToCount).maybeSingle()
-        .then(({ data: promoRow }) => {
-          if (promoRow?.applies_to_services) {
-            dbAdmin.from('warranties').update({ service_promo_code: promoToCount }).eq('id', paymentModalWarrantyId).then(()=>{}).catch(()=>{});
-          }
-        }).catch(()=>{});
+      const { data: promoRow, error: promoLookupErr } = await dbAdmin.from('promo_codes').select('applies_to_services').ilike('code', promoToCount).maybeSingle();
+      if (promoLookupErr) console.error('service-promo remember: promo lookup failed', promoLookupErr);
+      else if (promoRow?.applies_to_services) {
+        const { error: stampErr } = await dbAdmin.from('warranties').update({ service_promo_code: promoToCount }).eq('id', paymentModalWarrantyId);
+        if (stampErr) console.error('service-promo remember: warranty stamp failed', stampErr);
+      }
     }
 
     // Create / update the invoice record (VAT 15% derived from the gross total if given).
