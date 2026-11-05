@@ -1910,6 +1910,7 @@
           <select class="form-input" id="sb-unit" onchange="sbUnitChanged()"></select>
           <div id="sb-unit-help" style="font-size:11px;color:var(--muted);margin-top:4px;display:none;"></div>
           <div id="sb-amc-banner" style="display:none;margin-top:8px;background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;padding:9px 12px;border-radius:9px;font-size:12px;font-weight:600;"></div>
+          <div id="sb-promo-banner" style="display:none;margin-top:8px;padding:9px 12px;border-radius:9px;font-size:12px;font-weight:600;"></div>
         </div>
 
         <!-- Location: inherited by default, overridable -->
@@ -3537,13 +3538,14 @@ async function sbLookup() {
     let units = [];
     if (sbCustomer.id) {
       const { data: warrs } = await dbAdmin.from('warranties')
-        .select('id, product_type, qr_code, status, filter_expiry, service_expiry')
+        .select('id, product_type, qr_code, status, filter_expiry, service_expiry, service_promo_code')
         .eq('customer_id', sbCustomer.id).neq('status','deactivated');
       units = (warrs || []).map(w => ({
         id: w.id,
         label: `${w.product_type || 'RO unit'}${w.qr_code ? ' · ' + w.qr_code : ''}`,
         product: w.product_type, serial: w.qr_code,
-        filter: w.filter_expiry, service: w.service_expiry
+        filter: w.filter_expiry, service: w.service_expiry,
+        promoCode: w.service_promo_code || null
       }));
     }
     if (!units.length) {
@@ -3712,6 +3714,43 @@ function sbUnitChanged() {
   } else {
     banner.style.display = 'none';
   }
+  sbCheckServicePromo(unit);
+}
+
+// Mirrors the eligibility checks in applyServicePromo() (service_types,
+// applicable_products, max_uses_per_unit) so the admin sees up front — while
+// booking, not only at Mark Complete — whether this unit's remembered promo
+// (warranties.service_promo_code, see submitPayment()) will actually apply.
+// Informational only; applyServicePromo() is still the source of truth.
+async function sbCheckServicePromo(unit) {
+  const banner = document.getElementById('sb-promo-banner');
+  banner.style.display = 'none';
+  if (!unit || !unit.promoCode) return;
+  const jobType = document.getElementById('sb-jobtype').value;
+
+  const { data: promo } = await dbAdmin.from('promo_codes').select('*').ilike('code', unit.promoCode).maybeSingle();
+  if (!promo || !promo.is_active || !promo.applies_to_services) return;
+  const today = new Date().toISOString().slice(0, 10);
+  if (promo.valid_from && today < promo.valid_from) return;
+  if (promo.valid_until && today > promo.valid_until) return;
+  if (promo.service_types && promo.service_types.length && !promo.service_types.includes(jobType)) return;
+  if (promo.applicable_products && promo.applicable_products.length && !promo.applicable_products.includes(unit.product)) return;
+
+  if (promo.max_uses_per_unit) {
+    const { count } = await dbAdmin.from('bookings').select('id', { count: 'exact', head: true })
+      .eq('warranty_id', unit.id).ilike('promo_code', promo.code).eq('status', 'completed');
+    if ((count || 0) >= promo.max_uses_per_unit) {
+      banner.style.background = '#FFFBEB'; banner.style.border = '1px solid #FDE68A'; banner.style.color = '#92400E';
+      banner.textContent = `⚠️ ${promo.code} — this unit has already used its free/discounted visit(s). This booking will be charged normally.`;
+      banner.style.display = 'block';
+      return;
+    }
+  }
+
+  const off = promo.discount_type === 'percent' ? `${promo.discount_value}% off` : `SAR ${promo.discount_value} off`;
+  banner.style.background = '#EFF6FF'; banner.style.border = '1px solid #BFDBFE'; banner.style.color = '#1E40AF';
+  banner.textContent = `🎉 ${promo.code} applies to this visit — ${off}, applied automatically when it's marked complete.`;
+  banner.style.display = 'block';
 }
 
 async function sbLoadRegions() {
