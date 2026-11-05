@@ -1910,6 +1910,7 @@
           <select class="form-input" id="sb-unit" onchange="sbUnitChanged()"></select>
           <div id="sb-unit-help" style="font-size:11px;color:var(--muted);margin-top:4px;display:none;"></div>
           <div id="sb-amc-banner" style="display:none;margin-top:8px;background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;padding:9px 12px;border-radius:9px;font-size:12px;font-weight:600;"></div>
+          <div id="sb-promo-banner" style="display:none;margin-top:8px;padding:9px 12px;border-radius:9px;font-size:12px;font-weight:600;"></div>
         </div>
 
         <!-- Location: inherited by default, overridable -->
@@ -3225,6 +3226,7 @@ let appliedServicePromo = null;  // { code, discount_amount } once applied in th
 // Flat-rate service visits with no product sale attached — no basket total
 // to fall back on, so the invoice amount is just a fixed call-out fee.
 const SERVICE_VISIT_PRICES = { quarterly_service: 89, annual_service: 199 };
+const SERVICE_BOOKING_TYPES = ['quarterly_service', 'maintenance', 'annual_service', 'repair'];
 
 async function adminMarkComplete(bookingId) {
   const { data: b } = await dbAdmin.from('bookings')
@@ -3238,9 +3240,16 @@ async function adminMarkComplete(bookingId) {
   appliedServicePromo = null;
   document.getElementById('pay-promo-code').value = b.promo_code || '';
   document.getElementById('pay-promo-result').textContent = '';
+  let autoServicePromoCode = null;
   if (paymentModalWarrantyId) {
-    const { data: w } = await dbAdmin.from('warranties').select('product_type').eq('id', paymentModalWarrantyId).maybeSingle();
+    const { data: w } = await dbAdmin.from('warranties').select('product_type, service_promo_code').eq('id', paymentModalWarrantyId).maybeSingle();
     paymentModalProductType = w ? w.product_type : null;
+    // No promo typed on THIS booking yet, but the unit has one remembered from
+    // a prior booking (see submitPayment()) — auto-fill it below once the
+    // amount/base is set, so the admin doesn't have to retype it every visit.
+    if (!b.promo_code && w?.service_promo_code && SERVICE_BOOKING_TYPES.includes(b.booking_type)) {
+      autoServicePromoCode = w.service_promo_code;
+    }
   }
 
   // AMC check — if this unit's already prepaid, don't let the SERVICE_VISIT_PRICES
@@ -3268,6 +3277,11 @@ async function adminMarkComplete(bookingId) {
     ? `<a href="${b.invoice_url}" target="_blank" style="font-size:12px;color:var(--water);">📎 Current invoice file</a>` : '';
   document.getElementById('pay-error').style.display = 'none';
   openModal('payment-modal');
+
+  if (autoServicePromoCode) {
+    document.getElementById('pay-promo-code').value = autoServicePromoCode;
+    await applyServicePromo();
+  }
 }
 
 // Validates a promo code against this booking's type/unit and, if it
@@ -3375,6 +3389,17 @@ async function submitPayment() {
     const promoToCount = appliedServicePromo?.code || b?.promo_code;
     if (promoToCount && !wasAlreadyCompleted) {
       dbAdmin.rpc('increment_promo_usage', { p_code: promoToCount }).then(()=>{}).catch(()=>{});
+    }
+    // Remember a service-enabled code on the unit itself, so the NEXT service
+    // visit for this same warranty auto-detects and applies it (see
+    // adminMarkComplete()) instead of the admin retyping it every time.
+    if (promoToCount && paymentModalWarrantyId) {
+      dbAdmin.from('promo_codes').select('applies_to_services').ilike('code', promoToCount).maybeSingle()
+        .then(({ data: promoRow }) => {
+          if (promoRow?.applies_to_services) {
+            dbAdmin.from('warranties').update({ service_promo_code: promoToCount }).eq('id', paymentModalWarrantyId).then(()=>{}).catch(()=>{});
+          }
+        }).catch(()=>{});
     }
 
     // Create / update the invoice record (VAT 15% derived from the gross total if given).
@@ -3513,14 +3538,21 @@ async function sbLookup() {
     let units = [];
     if (sbCustomer.id) {
       const { data: warrs } = await dbAdmin.from('warranties')
-        .select('id, product_type, qr_code, status, filter_expiry, service_expiry')
+        .select('id, product_type, qr_code, status, filter_expiry, service_expiry, service_promo_code')
         .eq('customer_id', sbCustomer.id).neq('status','deactivated');
-      units = (warrs || []).map(w => ({
-        id: w.id,
-        label: `${w.product_type || 'RO unit'}${w.qr_code ? ' · ' + w.qr_code : ''}`,
-        product: w.product_type, serial: w.qr_code,
-        filter: w.filter_expiry, service: w.service_expiry
-      }));
+      units = (warrs || []).map(w => {
+        // No scanned QR/serial yet (e.g. active but never scanned on site) — fall
+        // back to the filter-due date so two units of the same model are still
+        // distinguishable in the picker, instead of two identical-looking rows.
+        const suffix = w.qr_code ? w.qr_code : (w.filter_expiry ? `no serial, filter due ${formatDateShort(w.filter_expiry)}` : `no serial · #${w.id.slice(0, 8)}`);
+        return {
+          id: w.id,
+          label: `${w.product_type || 'RO unit'} · ${suffix}`,
+          product: w.product_type, serial: w.qr_code,
+          filter: w.filter_expiry, service: w.service_expiry,
+          promoCode: w.service_promo_code || null
+        };
+      });
     }
     if (!units.length) {
       const models = [...new Set(bookings.map(b => b.product_model).filter(Boolean))];
@@ -3688,6 +3720,43 @@ function sbUnitChanged() {
   } else {
     banner.style.display = 'none';
   }
+  sbCheckServicePromo(unit);
+}
+
+// Mirrors the eligibility checks in applyServicePromo() (service_types,
+// applicable_products, max_uses_per_unit) so the admin sees up front — while
+// booking, not only at Mark Complete — whether this unit's remembered promo
+// (warranties.service_promo_code, see submitPayment()) will actually apply.
+// Informational only; applyServicePromo() is still the source of truth.
+async function sbCheckServicePromo(unit) {
+  const banner = document.getElementById('sb-promo-banner');
+  banner.style.display = 'none';
+  if (!unit || !unit.promoCode) return;
+  const jobType = document.getElementById('sb-jobtype').value;
+
+  const { data: promo } = await dbAdmin.from('promo_codes').select('*').ilike('code', unit.promoCode).maybeSingle();
+  if (!promo || !promo.is_active || !promo.applies_to_services) return;
+  const today = new Date().toISOString().slice(0, 10);
+  if (promo.valid_from && today < promo.valid_from) return;
+  if (promo.valid_until && today > promo.valid_until) return;
+  if (promo.service_types && promo.service_types.length && !promo.service_types.includes(jobType)) return;
+  if (promo.applicable_products && promo.applicable_products.length && !promo.applicable_products.includes(unit.product)) return;
+
+  if (promo.max_uses_per_unit) {
+    const { count } = await dbAdmin.from('bookings').select('id', { count: 'exact', head: true })
+      .eq('warranty_id', unit.id).ilike('promo_code', promo.code).eq('status', 'completed');
+    if ((count || 0) >= promo.max_uses_per_unit) {
+      banner.style.background = '#FFFBEB'; banner.style.border = '1px solid #FDE68A'; banner.style.color = '#92400E';
+      banner.textContent = `⚠️ ${promo.code} — this unit has already used its free/discounted visit(s). This booking will be charged normally.`;
+      banner.style.display = 'block';
+      return;
+    }
+  }
+
+  const off = promo.discount_type === 'percent' ? `${promo.discount_value}% off` : `SAR ${promo.discount_value} off`;
+  banner.style.background = '#EFF6FF'; banner.style.border = '1px solid #BFDBFE'; banner.style.color = '#1E40AF';
+  banner.textContent = `🎉 ${promo.code} applies to this visit — ${off}, applied automatically when it's marked complete.`;
+  banner.style.display = 'block';
 }
 
 async function sbLoadRegions() {
