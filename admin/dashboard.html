@@ -2166,7 +2166,7 @@
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
           <input type="checkbox" id="promo-services-enabled" style="width:auto;" onchange="promoServicesToggle()"> Also usable on service visits
         </label>
-        <div style="font-size:12px;color:var(--muted);margin:-2px 0 0 26px;">e.g. Filter Change, Annual Service, Repair — not just product purchases</div>
+        <div style="font-size:12px;color:var(--muted);margin:-2px 0 0 26px;">e.g. Filter Change, Annual Service, Repair — not just product purchases. If "Specific products only" is selected above, service visits only qualify for units of those same products.</div>
 
         <div id="promo-services-options" style="display:none;margin-top:10px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;">
           <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.3px;margin-bottom:8px;">WHICH VISIT TYPES?</div>
@@ -3217,6 +3217,7 @@ function checkAdminPassword(action) {
 let paymentModalBookingId = null;
 let paymentModalWarrantyId = null;
 let paymentModalBookingType = null;
+let paymentModalProductType = null;
 let paymentBaseAmount = null;
 let appliedServicePromo = null;  // { code, discount_amount } once applied in this modal session
 
@@ -3232,9 +3233,14 @@ async function adminMarkComplete(bookingId) {
   paymentModalBookingId = bookingId;
   paymentModalWarrantyId = b.warranty_id || null;
   paymentModalBookingType = b.booking_type;
+  paymentModalProductType = null;
   appliedServicePromo = null;
   document.getElementById('pay-promo-code').value = b.promo_code || '';
   document.getElementById('pay-promo-result').textContent = '';
+  if (paymentModalWarrantyId) {
+    const { data: w } = await dbAdmin.from('warranties').select('product_type').eq('id', paymentModalWarrantyId).maybeSingle();
+    paymentModalProductType = w ? w.product_type : null;
+  }
 
   // AMC check — if this unit's already prepaid, don't let the SERVICE_VISIT_PRICES
   // fallback below suggest charging again.
@@ -3282,6 +3288,9 @@ async function applyServicePromo() {
   if (!promo.applies_to_services) return fail('This code isn’t set up for service visits.');
   if (promo.service_types && promo.service_types.length && !promo.service_types.includes(paymentModalBookingType)) {
     return fail('This code doesn’t apply to this booking type.');
+  }
+  if (promo.applicable_products && promo.applicable_products.length && !promo.applicable_products.includes(paymentModalProductType)) {
+    return fail('This code doesn’t apply to this unit’s product.');
   }
   if (promo.max_uses_per_unit) {
     if (!paymentModalWarrantyId) return fail('This code is limited per unit, but this booking isn’t linked to a unit.');
