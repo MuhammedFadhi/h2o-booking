@@ -1442,7 +1442,7 @@ function bookBasketTotal() { return bookBasketLines().reduce((s, l) => s + l.pri
 // naturally proportional to quantity already, since it's a % of that line's
 // own subtotal. Each line's discount is capped at that line's own value.
 function bookPromoDiscountFor(lines, promo) {
-  const restrict = promo.applicable_products && promo.applicable_products.length ? new Set(promo.applicable_products) : null;
+  const restrict = Array.isArray(promo.applicable_products) ? new Set(promo.applicable_products) : null;
   return lines.reduce((sum, l) => {
     if (restrict && !restrict.has(l.model)) return sum;
     const lineSubtotal = l.price * l.qty;

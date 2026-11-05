@@ -540,7 +540,7 @@
   // api/sales/ops.js — this copy is display-only, the server re-prices for real.
   function discountFor(lines) {
     if (!promo) return 0;
-    const restrict = promo.applicable_products && promo.applicable_products.length ? new Set(promo.applicable_products) : null;
+    const restrict = Array.isArray(promo.applicable_products) ? new Set(promo.applicable_products) : null;
     return lines.reduce((sum, l) => {
       if (restrict && !restrict.has(l.model)) return sum;
       const lineSubtotal = l.unit * l.qty;

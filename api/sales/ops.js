@@ -90,7 +90,7 @@ async function lookupPromo(rawCode) {
 // this had drifted out of sync with (every code applied to every line here,
 // unrestricted).
 function promoDiscount(lines, promo) {
-  const restrict = promo.applicable_products && promo.applicable_products.length ? new Set(promo.applicable_products) : null;
+  const restrict = Array.isArray(promo.applicable_products) ? new Set(promo.applicable_products) : null;
   return lines.reduce((sum, l) => {
     if (restrict && !restrict.has(l.model)) return sum;
     const lineSubtotal = l.unit_price * l.qty;
