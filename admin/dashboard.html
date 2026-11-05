@@ -9877,7 +9877,8 @@ function renderWarranties() {
                 <span style="display:inline-block;margin-top:3px;background:${stBadge.bg};color:${stBadge.fg};font-size:9px;font-weight:800;padding:1px 6px;border-radius:7px;">${stBadge.t}</span>
                 ${w.service_opted_out ? `<span style="display:inline-block;margin-top:3px;margin-left:3px;background:#E0E7FF;color:#3730A3;font-size:9px;font-weight:800;padding:1px 6px;border-radius:7px;">No service</span>` : ''}
                 ${w.booking_id ? `<span title="Linked to a booking" style="display:inline-block;margin-top:3px;margin-left:3px;font-size:10px;">🔗</span>` : ''}
-                ${warrantyAmcIds.has(w.id) ? `<span title="Active AMC contract — already prepaid" style="display:inline-block;margin-top:3px;margin-left:3px;background:#DBEAFE;color:#1D4ED8;font-size:9px;font-weight:800;padding:1px 6px;border-radius:7px;">AMC</span>` : ''}</td>
+                ${warrantyAmcIds.has(w.id) ? `<span title="Active AMC contract — already prepaid" style="display:inline-block;margin-top:3px;margin-left:3px;background:#DBEAFE;color:#1D4ED8;font-size:9px;font-weight:800;padding:1px 6px;border-radius:7px;">AMC</span>` : ''}
+                ${w.service_promo_code ? `<span title="${W.esc(w.service_promo_code)} is saved on this unit — applies automatically on its next eligible service visit" style="display:inline-block;margin-top:3px;margin-left:3px;background:#EFF6FF;color:#1E40AF;font-size:9px;font-weight:800;padding:1px 6px;border-radius:7px;">🎉 ${W.esc(w.service_promo_code)}</span>` : ''}</td>
             <td>
               ${w.customers?.name
                 ? `<strong>${W.esc(w.customers.name)}</strong>`
