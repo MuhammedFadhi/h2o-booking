@@ -4376,7 +4376,11 @@ async function abApplyPromo() {
   abRenderBasket();
   const off = abPromo.discount_type === 'percent' ? `${abPromo.discount_value}% off` : `SAR ${abPromo.discount_value} off`;
   if (abPromoDiscountFor(abBasket, abPromo) <= 0 && abBasket.length) {
-    show(`Code applied, but it doesn’t cover any product in this basket.`, false);
+    if (abPromo.applies_to_services) {
+      show(`✓ Code saved on this booking — no product discount, but it’ll be ready to apply on this unit’s service visits later (at Mark Complete).`, true);
+    } else {
+      show(`Code applied, but it doesn’t cover any product in this basket.`, false);
+    }
   } else {
     show(`✓ Code applied — ${off}!`, true);
   }
@@ -5300,7 +5304,11 @@ async function applyBasketPromo() {
   renderBasketLines();
   const off = data.discount_type === 'percent' ? `${data.discount_value}% off` : `SAR ${data.discount_value} off`;
   if (basketPromoDiscountFor(basketEditState.lines, data) <= 0 && basketEditState.lines.length) {
-    show(`Code applied, but it doesn’t cover any product in this basket.`, false);
+    if (data.applies_to_services) {
+      show(`✓ Code saved on this booking — no product discount, but it’ll be ready to apply on this unit’s service visits later (at Mark Complete).`, true);
+    } else {
+      show(`Code applied, but it doesn’t cover any product in this basket.`, false);
+    }
   } else {
     show(`✓ Code applied — ${off}!`, true);
   }
