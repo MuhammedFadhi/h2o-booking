@@ -3540,13 +3540,19 @@ async function sbLookup() {
       const { data: warrs } = await dbAdmin.from('warranties')
         .select('id, product_type, qr_code, status, filter_expiry, service_expiry, service_promo_code')
         .eq('customer_id', sbCustomer.id).neq('status','deactivated');
-      units = (warrs || []).map(w => ({
-        id: w.id,
-        label: `${w.product_type || 'RO unit'}${w.qr_code ? ' · ' + w.qr_code : ''}`,
-        product: w.product_type, serial: w.qr_code,
-        filter: w.filter_expiry, service: w.service_expiry,
-        promoCode: w.service_promo_code || null
-      }));
+      units = (warrs || []).map(w => {
+        // No scanned QR/serial yet (e.g. active but never scanned on site) — fall
+        // back to the filter-due date so two units of the same model are still
+        // distinguishable in the picker, instead of two identical-looking rows.
+        const suffix = w.qr_code ? w.qr_code : (w.filter_expiry ? `no serial, filter due ${formatDateShort(w.filter_expiry)}` : `no serial · #${w.id.slice(0, 8)}`);
+        return {
+          id: w.id,
+          label: `${w.product_type || 'RO unit'} · ${suffix}`,
+          product: w.product_type, serial: w.qr_code,
+          filter: w.filter_expiry, service: w.service_expiry,
+          promoCode: w.service_promo_code || null
+        };
+      });
     }
     if (!units.length) {
       const models = [...new Set(bookings.map(b => b.product_model).filter(Boolean))];
