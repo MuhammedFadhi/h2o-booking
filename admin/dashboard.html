@@ -3225,6 +3225,7 @@ let appliedServicePromo = null;  // { code, discount_amount } once applied in th
 // Flat-rate service visits with no product sale attached — no basket total
 // to fall back on, so the invoice amount is just a fixed call-out fee.
 const SERVICE_VISIT_PRICES = { quarterly_service: 89, annual_service: 199 };
+const SERVICE_BOOKING_TYPES = ['quarterly_service', 'maintenance', 'annual_service', 'repair'];
 
 async function adminMarkComplete(bookingId) {
   const { data: b } = await dbAdmin.from('bookings')
@@ -3238,9 +3239,16 @@ async function adminMarkComplete(bookingId) {
   appliedServicePromo = null;
   document.getElementById('pay-promo-code').value = b.promo_code || '';
   document.getElementById('pay-promo-result').textContent = '';
+  let autoServicePromoCode = null;
   if (paymentModalWarrantyId) {
-    const { data: w } = await dbAdmin.from('warranties').select('product_type').eq('id', paymentModalWarrantyId).maybeSingle();
+    const { data: w } = await dbAdmin.from('warranties').select('product_type, service_promo_code').eq('id', paymentModalWarrantyId).maybeSingle();
     paymentModalProductType = w ? w.product_type : null;
+    // No promo typed on THIS booking yet, but the unit has one remembered from
+    // a prior booking (see submitPayment()) — auto-fill it below once the
+    // amount/base is set, so the admin doesn't have to retype it every visit.
+    if (!b.promo_code && w?.service_promo_code && SERVICE_BOOKING_TYPES.includes(b.booking_type)) {
+      autoServicePromoCode = w.service_promo_code;
+    }
   }
 
   // AMC check — if this unit's already prepaid, don't let the SERVICE_VISIT_PRICES
@@ -3268,6 +3276,11 @@ async function adminMarkComplete(bookingId) {
     ? `<a href="${b.invoice_url}" target="_blank" style="font-size:12px;color:var(--water);">📎 Current invoice file</a>` : '';
   document.getElementById('pay-error').style.display = 'none';
   openModal('payment-modal');
+
+  if (autoServicePromoCode) {
+    document.getElementById('pay-promo-code').value = autoServicePromoCode;
+    await applyServicePromo();
+  }
 }
 
 // Validates a promo code against this booking's type/unit and, if it
@@ -3375,6 +3388,17 @@ async function submitPayment() {
     const promoToCount = appliedServicePromo?.code || b?.promo_code;
     if (promoToCount && !wasAlreadyCompleted) {
       dbAdmin.rpc('increment_promo_usage', { p_code: promoToCount }).then(()=>{}).catch(()=>{});
+    }
+    // Remember a service-enabled code on the unit itself, so the NEXT service
+    // visit for this same warranty auto-detects and applies it (see
+    // adminMarkComplete()) instead of the admin retyping it every time.
+    if (promoToCount && paymentModalWarrantyId) {
+      dbAdmin.from('promo_codes').select('applies_to_services').ilike('code', promoToCount).maybeSingle()
+        .then(({ data: promoRow }) => {
+          if (promoRow?.applies_to_services) {
+            dbAdmin.from('warranties').update({ service_promo_code: promoToCount }).eq('id', paymentModalWarrantyId).then(()=>{}).catch(()=>{});
+          }
+        }).catch(()=>{});
     }
 
     // Create / update the invoice record (VAT 15% derived from the gross total if given).
