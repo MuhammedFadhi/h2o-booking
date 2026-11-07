@@ -4586,18 +4586,42 @@ async function submitAdminBooking() {
     if (startStatus === 'installed' && exC?.id) {
       const iso = (days) => { const x = new Date(nowIso); x.setDate(x.getDate() + days); return x.toISOString(); };
       const catalogue = await getCatalogue();
-      const pendings = [];
+      const units = [];
       abBasket.filter(l => l.is_serialized).forEach(l => {
-        const cat = catalogue.find(p => p.model_name === l.model);
-        const filterDays = cat?.filter_interval_days || 90;
-        const serviceDays = cat?.service_interval_days || 365;
-        for (let i = 0; i < l.qty; i++) pendings.push({
-          customer_id: exC.id, qr_code: null, product_type: l.model, quantity: 1,
-          booking_id: bkId, status: 'pending', registration_date: nowIso.slice(0,10),
-          filter_expiry: iso(filterDays), service_expiry: iso(serviceDays), warranty_expiry: null
-        });
+        for (let i = 0; i < l.qty; i++) units.push(l.model);
       });
-      if (pendings.length) await dbAdmin.from('warranties').insert(pendings);
+      if (units.length) {
+        // The unit's QR sticker may already have been scanned moments before this
+        // booking was saved (e.g. backfilling an install that just happened) — that
+        // flow (activate_pending_warranty) has no booking context, so it creates a
+        // real, active warranty with no booking_id. Claim those instead of minting
+        // duplicate pending placeholders for the same physical unit. Scoped to the
+        // last few hours so an unrelated older unit never gets mis-linked. Mirrors
+        // the same safeguard in js/inspection-report.js.
+        const sinceIso = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+        const { data: orphans } = await dbAdmin.from('warranties')
+          .select('id').eq('customer_id', exC.id).eq('source', 'install').eq('status', 'active')
+          .is('booking_id', null).gte('created_at', sinceIso);
+        let remaining = units.slice();
+        if (orphans && orphans.length) {
+          const claim = orphans.slice(0, remaining.length);
+          for (const o of claim) {
+            await dbAdmin.from('warranties').update({ booking_id: bkId }).eq('id', o.id);
+          }
+          remaining = remaining.slice(claim.length);
+        }
+        const pendings = remaining.map(model => {
+          const cat = catalogue.find(p => p.model_name === model);
+          const filterDays = cat?.filter_interval_days || 90;
+          const serviceDays = cat?.service_interval_days || 365;
+          return {
+            customer_id: exC.id, qr_code: null, product_type: model, quantity: 1,
+            booking_id: bkId, status: 'pending', registration_date: nowIso.slice(0,10),
+            filter_expiry: iso(filterDays), service_expiry: iso(serviceDays), warranty_expiry: null
+          };
+        });
+        if (pendings.length) await dbAdmin.from('warranties').insert(pendings);
+      }
     }
 
     const unitCount = abBasket.reduce((s,l)=>s+l.qty,0);
