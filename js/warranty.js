@@ -320,7 +320,7 @@
       '</div>';
   }
 
-  function unitCard(u, idx, gaugeStyle) {
+  function unitCard(u, idx, gaugeStyle, servicePromoLabel) {
     // A self-reported row (standalone service visit, no SA'DA install/QR) gets
     // honest framing instead of implying formal SA'DA product coverage: no
     // warranty badge/countdown, "first serviced" instead of "installed".
@@ -379,6 +379,7 @@
           '<div style="font-size:15px;font-weight:500;color:' + titleColor + ';word-break:break-word;">' + esc(u.product_type) + '</div>' +
           (u.qr_code ? '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:500;color:' + mutedColor + ';word-break:break-all;margin-top:2px;">' + esc(u.qr_code) + '</div>' : '') +
           (u.quantity > 1 ? '<div style="font-size:10px;color:#92400E;background:#FEF3C7;display:inline-block;padding:2px 7px;border-radius:8px;margin-top:4px;font-weight:700;">×' + u.quantity + ' units on this record</div>' : '') +
+          (servicePromoLabel ? '<div style="font-size:10px;color:#1E40AF;background:#EFF6FF;display:inline-block;padding:2px 7px;border-radius:8px;margin-top:4px;font-weight:700;">🎉 ' + esc(servicePromoLabel) + '</div>' : '') +
         '</div>' +
         '<span style="background:' + wc.bg + ';color:' + wc.fg + ';font-size:10px;font-weight:800;padding:4px 9px;border-radius:10px;white-space:nowrap;">' +
           statusBadge + '</span>' +
