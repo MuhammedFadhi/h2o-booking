@@ -2151,7 +2151,7 @@
         </label>
       </div>
       <div class="form-group">
-        <label style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.3px;margin-bottom:8px;display:block;">WHICH PRODUCTS / UNITS</label>
+        <label style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.3px;margin-bottom:8px;display:block;">STEP 1 — WHICH PRODUCTS / UNITS</label>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:13px;font-weight:400;text-transform:none;">
           <input type="radio" name="promo-product-scope" id="promo-all-products" checked style="width:auto;" onchange="promoAllProductsToggle()"> All products
         </label>
@@ -2159,18 +2159,18 @@
           <input type="radio" name="promo-product-scope" id="promo-specific-products" style="width:auto;" onchange="promoAllProductsToggle()"> Specific products only
         </label>
         <div id="promo-products-list" style="display:none;margin:2px 0 8px 24px;max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:10px 12px;"></div>
-        <div style="font-size:12px;color:var(--muted);margin:2px 0 10px 0;">Used both to restrict the product-purchase discount below, and (if "Also usable on service visits" is on) to restrict which units' services qualify.</div>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;border-top:1px solid var(--border);padding-top:10px;">
-          <input type="checkbox" id="promo-discounts-products" checked style="width:auto;"> Discount the product purchase <span style="color:var(--muted);">(uncheck for a service-visits-only code — the product selection above still restricts which units qualify)</span>
-        </label>
+        <div style="font-size:12px;color:var(--muted);margin:2px 0 0 0;">If limited to specific products, that also limits which units qualify for a service visit below.</div>
       </div>
       <div class="form-group">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="promo-services-enabled" style="width:auto;" onchange="promoServicesToggle()"> Also usable on service visits
+        <label style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.3px;margin-bottom:8px;display:block;">STEP 2 — WHAT THIS CODE DISCOUNTS</label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;font-size:13px;font-weight:400;text-transform:none;">
+          <input type="checkbox" id="promo-discounts-products" checked style="width:auto;"> <strong>Buying the product</strong> <span style="color:var(--muted);">— discounts the unit price when it's sold</span>
         </label>
-        <div style="font-size:12px;color:var(--muted);margin:-2px 0 0 26px;">e.g. Filter Change, Annual Service, Repair — not just product purchases. If "Specific products only" is selected above, service visits only qualify for units of those same products.</div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;">
+          <input type="checkbox" id="promo-services-enabled" style="width:auto;" onchange="promoServicesToggle()"> <strong>A service visit</strong> <span style="color:var(--muted);">— e.g. Filter Change, Annual Service, Repair</span>
+        </label>
 
-        <div id="promo-services-options" style="display:none;margin-top:10px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;">
+        <div id="promo-services-options" style="display:none;margin-top:10px;margin-left:26px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;">
           <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.3px;margin-bottom:8px;">WHICH VISIT TYPES?</div>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:13px;font-weight:400;text-transform:none;">
             <input type="radio" name="promo-service-scope" id="promo-all-services" checked style="width:auto;" onchange="promoAllServicesToggle()"> All types
@@ -2185,7 +2185,7 @@
           </div>
 
           <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;">
-            <label style="font-size:11px;margin-bottom:4px;">Limit per unit <span style="color:var(--muted);font-weight:400;text-transform:none;">(optional)</span></label>
+            <label style="font-size:11px;margin-bottom:4px;">Free/discounted visits per unit <span style="color:var(--muted);font-weight:400;text-transform:none;">(optional)</span></label>
             <input class="form-input" id="promo-max-uses-per-unit" type="number" min="1" step="1" placeholder="Blank = unlimited · 1 = first visit only">
           </div>
         </div>
