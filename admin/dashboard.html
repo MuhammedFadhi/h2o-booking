@@ -2185,8 +2185,8 @@
           </div>
 
           <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;">
-            <label style="font-size:11px;margin-bottom:4px;">Free/discounted visits per unit <span style="color:var(--muted);font-weight:400;text-transform:none;">(optional)</span></label>
-            <input class="form-input" id="promo-max-uses-per-unit" type="number" min="1" step="1" placeholder="Blank = unlimited · 1 = first visit only">
+            <label style="font-size:11px;margin-bottom:4px;">Free/discounted visits per unit</label>
+            <input class="form-input" id="promo-max-uses-per-unit" type="number" min="1" step="1" placeholder="e.g. 1 = first visit only">
           </div>
         </div>
       </div>
@@ -5758,6 +5758,7 @@ async function savePromo() {
   if (specificProducts && applicable_products.length === 0) return fail('Select at least one product, or choose “All products”.');
   if (!discounts_products && !servicesEnabled) return fail('This code won’t apply to anything — enable “Also usable on service visits”, or re-check “Discount the product purchase”.');
   if (servicesEnabled && !allServices && (!service_types || service_types.length === 0)) return fail('Select at least one service type, or check “All service types”.');
+  if (servicesEnabled && !(max_uses_per_unit >= 1)) return fail('Enter how many free/discounted visits per unit this code allows (e.g. 1).');
 
   const btn = document.getElementById('promo-save');
   btn.disabled = true; btn.textContent = 'Saving…';
