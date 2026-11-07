@@ -219,7 +219,7 @@
   <section id="pane-new" hidden>
     <div id="form-area">
       <div class="card">
-        <h2>Customer</h2>
+
         <div class="row">
           <div class="field"><label for="f-name">Full name</label><input id="f-name" autocomplete="off" maxlength="80"></div>
           <div class="field"><label for="f-phone">Mobile number</label><input id="f-phone" type="tel" inputmode="numeric" placeholder="05XXXXXXXX" autocomplete="off" maxlength="16"></div>
@@ -540,7 +540,8 @@
   // api/sales/ops.js — this copy is display-only, the server re-prices for real.
   function discountFor(lines) {
     if (!promo) return 0;
-    const restrict = promo.applicable_products && promo.applicable_products.length ? new Set(promo.applicable_products) : null;
+    if (promo.discounts_products === false) return 0;
+    const restrict = Array.isArray(promo.applicable_products) ? new Set(promo.applicable_products) : null;
     return lines.reduce((sum, l) => {
       if (restrict && !restrict.has(l.model)) return sum;
       const lineSubtotal = l.unit * l.qty;
@@ -598,7 +599,11 @@
       $('f-promo').value = promo.code;
       const off = promo.discount_type === 'percent' ? promo.discount_value + '% off' : money(promo.discount_value) + ' off';
       if (basket.length && discountFor(currentLineData()) <= 0) {
-        promoMsg('Code applied, but it doesn’t cover any product in this basket.', false);
+        if (promo.applies_to_services) {
+          promoMsg('✓ Code saved — no product discount, but it’ll be ready to use on this unit’s service visits later.', true);
+        } else {
+          promoMsg('Code applied, but it doesn’t cover any product in this basket.', false);
+        }
       } else {
         promoMsg('✓ Code applied — ' + off, true);
       }

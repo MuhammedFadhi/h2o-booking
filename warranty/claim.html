@@ -109,8 +109,8 @@ input:focus{outline:none;border-color:var(--water);box-shadow:0 0 0 3px rgba(21,
       <div class="msg err" id="err-otp"></div>
       <div class="msg ok" id="ok-otp"></div>
       <div style="margin-bottom:5px;">
-        <label for="otp">6-Digit Code</label>
-        <input type="text" id="otp" inputmode="numeric" maxlength="6" placeholder="••••••"
+        <label for="otp">4-Digit Code</label>
+        <input type="text" id="otp" inputmode="numeric" maxlength="4" placeholder="••••"
                style="text-align:center;letter-spacing:.45em;font-weight:700;font-size:20px;">
       </div>
       <div class="timer" id="timer-text">Expires in <span id="countdown">2:00</span></div>
@@ -266,7 +266,7 @@ async function sendOTP() {
 
   // REPEAT SCAN (unit already active): require OTP before showing the profile.
   btn.disabled = true; btn.textContent = 'Sending…';
-  state.otp = Math.floor(100000 + Math.random() * 900000).toString();
+  state.otp = Math.floor(1000 + Math.random() * 9000).toString();
   state.otpAt = Date.now();
   state.attempts = 0;
   const sent = await sendSMS(state.phone, `SA'DA H2O: Your verification code is ${state.otp}. It expires in 2 minutes.`);
@@ -292,7 +292,7 @@ function startTimer() {
 }
 
 async function resendOTP() {
-  state.otp = Math.floor(100000 + Math.random() * 900000).toString();
+  state.otp = Math.floor(1000 + Math.random() * 9000).toString();
   state.otpAt = Date.now();
   state.attempts = 0;
   clr('err-otp');
@@ -308,7 +308,7 @@ async function resendOTP() {
 
 async function verifyOTP() {
   const v = document.getElementById('otp').value.trim();
-  if (!v || v.length !== 6) return err('err-otp', 'Please enter the 6-digit code.');
+  if (!v || v.length !== 4) return err('err-otp', 'Please enter the 4-digit code.');
   if (Date.now() - state.otpAt > OTP_EXPIRY_MS) {
     document.getElementById('otp').disabled = true;
     document.getElementById('btn-resend').disabled = false;

@@ -782,6 +782,9 @@
     <div class="nav-item" onclick="showPanel('warranties', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.46 20.846A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3a12 12 0 0 0 8.5 3a12 12 0 0 1-.09 7.06M15 19l2 2l4-4"/></svg></span> Active Units
     </div>
+    <div class="nav-item" onclick="showPanel('amc', this)">
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/><path d="m9 15l2 2l4-4"/></g></svg></span> AMC Contracts
+    </div>
     <div class="nav-item" onclick="showPanel('customers', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 6v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2M10 16h6"/><path d="M11 11a2 2 0 1 0 4 0a2 2 0 1 0-4 0M4 8h3m-3 4h3m-3 4h3"/></g></svg></span> Customers
     </div>
@@ -1440,6 +1443,32 @@
       </div>
     </div>
 
+    <!-- AMC CONTRACTS PANEL -->
+    <div class="panel" id="panel-amc">
+      <div class="stat-grid" id="amc-stats" style="margin-bottom:16px;"></div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">AMC Contracts</span>
+          <button class="btn btn-primary btn-sm" onclick="openAmcModal()" style="flex:0 0 auto;">+ New AMC Contract</button>
+        </div>
+        <div class="filter-bar" style="padding:16px 20px 0;">
+          <select class="form-input" id="amc-filter" onchange="renderAmcTable()" style="width:170px;flex:0 0 auto;">
+            <option value="">All contracts</option>
+            <option value="active">Active</option>
+            <option value="expiring">Expiring soon (30d)</option>
+            <option value="expired">Needs renewal</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <span class="search-wrap" style="flex:0 0 auto;"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" id="amc-search" placeholder="QR, name, phone..."
+            oninput="renderAmcTable()" autocomplete="off" name="amc_search_q"
+            data-lpignore="true" data-1p-ignore data-form-type="other" style="min-width:230px;"></span>
+        </div>
+        <div style="padding:16px 20px;">
+          <div id="amc-list"><div class="loading"><div class="spinner"></div> Loading AMC contracts...</div></div>
+        </div>
+      </div>
+    </div>
+
     <!-- PROMO CODES PANEL -->
     <div class="panel" id="panel-promocodes">
       <div class="card">
@@ -1878,8 +1907,10 @@
 
         <div class="form-group">
           <label>Which unit?</label>
-          <select class="form-input" id="sb-unit"></select>
+          <select class="form-input" id="sb-unit" onchange="sbUnitChanged()"></select>
           <div id="sb-unit-help" style="font-size:11px;color:var(--muted);margin-top:4px;display:none;"></div>
+          <div id="sb-amc-banner" style="display:none;margin-top:8px;background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;padding:9px 12px;border-radius:9px;font-size:12px;font-weight:600;"></div>
+          <div id="sb-promo-banner" style="display:none;margin-top:8px;padding:9px 12px;border-radius:9px;font-size:12px;font-weight:600;"></div>
         </div>
 
         <!-- Location: inherited by default, overridable -->
@@ -1948,6 +1979,7 @@
         <div><strong id="pay-booking-ref"></strong></div>
         <div style="color:var(--muted);" id="pay-customer"></div>
       </div>
+      <div id="pay-amc-banner" style="display:none;margin-bottom:14px;background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;padding:9px 12px;border-radius:9px;font-size:12px;font-weight:600;"></div>
       <div class="form-group">
         <label>Payment Method</label>
         <select class="form-input" id="pay-method">
@@ -1959,6 +1991,14 @@
           <option value="tamara">Tamara</option>
           <option value="foc">FOC (Free of Charge)</option>
         </select>
+      </div>
+      <div class="form-group">
+        <label>Promo Code <span style="color:var(--muted);font-weight:400;">(optional — for free/discounted service visits)</span></label>
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" id="pay-promo-code" placeholder="e.g. FIRSTFILTERFREE" style="text-transform:uppercase;flex:1;">
+          <button class="btn btn-ghost" type="button" onclick="applyServicePromo()" style="flex:0 0 auto;">Apply</button>
+        </div>
+        <div id="pay-promo-result" style="font-size:12px;margin-top:6px;"></div>
       </div>
       <div style="display:flex;gap:10px;">
         <div class="form-group" style="flex:1;">
@@ -1979,6 +2019,93 @@
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button class="btn btn-ghost" onclick="closeModal('payment-modal')">Cancel</button>
         <button class="btn btn-primary" id="pay-save" onclick="submitPayment()">Complete Booking</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AMC CONTRACT MODAL (new + renew) -->
+<div class="modal-overlay" id="amc-modal" style="display:none;">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <span class="modal-title" id="amc-modal-title">New AMC Contract</span>
+      <button class="modal-close" onclick="closeModal('amc-modal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="amc-id">
+      <input type="hidden" id="amc-warranty-id">
+      <input type="hidden" id="amc-customer-id">
+
+      <div class="form-group" id="amc-lookup-group">
+        <label>Customer Phone</label>
+        <div style="display:flex;gap:8px;">
+          <input type="tel" class="form-input" id="amc-phone" placeholder="05XXXXXXXX" style="flex:1;"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();amcLookupPhone();}">
+          <button type="button" class="btn btn-primary" onclick="amcLookupPhone()" id="amc-lookup-btn" style="white-space:nowrap;">Find</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Only customers with a registered unit (QR scanned) can get an AMC contract.</div>
+      </div>
+
+      <div id="amc-notfound" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;"></div>
+
+      <div id="amc-details" style="display:none;">
+        <div id="amc-customer-card" style="background:#F0F6FF;border:1px solid #DBEAFE;border-radius:12px;padding:14px;margin-bottom:16px;"></div>
+
+        <div class="form-group">
+          <label>Which unit?</label>
+          <select class="form-input" id="amc-unit" onchange="amcUnitPicked()"></select>
+        </div>
+
+        <div style="display:flex;gap:12px;">
+          <div class="form-group" style="flex:1;">
+            <label>Start Date</label>
+            <input type="date" class="form-input" id="amc-start-date" onchange="amcUpdateEndDateDisplay()">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Ends</label>
+            <input type="text" class="form-input" id="amc-end-date-display" disabled style="background:#F8FAFC;color:var(--muted);">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;">
+          <div class="form-group" style="flex:1;">
+            <label>Amount Paid (SAR)</label>
+            <input type="number" class="form-input" id="amc-amount" min="0" step="0.01" placeholder="e.g. 399">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Standard Price <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+            <input type="number" class="form-input" id="amc-standard-price" min="0" step="0.01" placeholder="e.g. 466">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;">
+          <div class="form-group" style="flex:1;">
+            <label>Payment Method</label>
+            <select class="form-input" id="amc-payment-method">
+              <option value="">Select…</option>
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="tabby">Tabby</option>
+              <option value="tamara">Tamara</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Reference <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+            <input class="form-input" id="amc-payment-reference" placeholder="e.g. receipt #">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Notes (optional)</label>
+          <textarea class="form-input" id="amc-notes" rows="2"></textarea>
+        </div>
+      </div>
+
+      <div id="amc-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="closeModal('amc-modal')">Cancel</button>
+        <button class="btn btn-primary" id="amc-save" onclick="saveAmcContract()" disabled>Save Contract</button>
       </div>
     </div>
   </div>
@@ -2024,10 +2151,44 @@
         </label>
       </div>
       <div class="form-group">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="promo-all-products" checked style="width:auto;" onchange="promoAllProductsToggle()"> Applies to all products
+        <label style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.3px;margin-bottom:8px;display:block;">STEP 1 — WHICH PRODUCTS / UNITS</label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:13px;font-weight:400;text-transform:none;">
+          <input type="radio" name="promo-product-scope" id="promo-all-products" checked style="width:auto;" onchange="promoAllProductsToggle()"> All products
         </label>
-        <div id="promo-products-list" style="display:none;margin-top:8px;max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:10px 12px;"></div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:13px;font-weight:400;text-transform:none;">
+          <input type="radio" name="promo-product-scope" id="promo-specific-products" style="width:auto;" onchange="promoAllProductsToggle()"> Specific products only
+        </label>
+        <div id="promo-products-list" style="display:none;margin:2px 0 8px 24px;max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:10px 12px;"></div>
+        <div style="font-size:12px;color:var(--muted);margin:2px 0 0 0;">If limited to specific products, that also limits which units qualify for a service visit below.</div>
+      </div>
+      <div class="form-group">
+        <label style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.3px;margin-bottom:8px;display:block;">STEP 2 — WHAT THIS CODE DISCOUNTS</label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;font-size:13px;font-weight:400;text-transform:none;">
+          <input type="checkbox" id="promo-discounts-products" checked style="width:auto;"> <strong>Buying the product</strong> <span style="color:var(--muted);">— discounts the unit price when it's sold</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;">
+          <input type="checkbox" id="promo-services-enabled" style="width:auto;" onchange="promoServicesToggle()"> <strong>A service visit</strong> <span style="color:var(--muted);">— e.g. Filter Change, Annual Service, Repair</span>
+        </label>
+
+        <div id="promo-services-options" style="display:none;margin-top:10px;margin-left:26px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.3px;margin-bottom:8px;">WHICH VISIT TYPES?</div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:13px;font-weight:400;text-transform:none;">
+            <input type="radio" name="promo-service-scope" id="promo-all-services" checked style="width:auto;" onchange="promoAllServicesToggle()"> All types
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;font-size:13px;font-weight:400;text-transform:none;">
+            <input type="radio" name="promo-service-scope" id="promo-specific-services" style="width:auto;" onchange="promoAllServicesToggle()"> Specific types only
+          </label>
+          <div id="promo-services-list" style="display:none;margin:2px 0 4px 24px;">
+            <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;"><input type="checkbox" class="promo-service-cb" value="quarterly_service,maintenance" style="width:auto;"> Filter Change</label>
+            <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;"><input type="checkbox" class="promo-service-cb" value="annual_service" style="width:auto;"> Annual Service</label>
+            <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;"><input type="checkbox" class="promo-service-cb" value="repair" style="width:auto;"> Repair</label>
+          </div>
+
+          <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;">
+            <label style="font-size:11px;margin-bottom:4px;">Free/discounted visits per unit</label>
+            <input class="form-input" id="promo-max-uses-per-unit" type="number" min="1" step="1" placeholder="e.g. 1 = first visit only">
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label>Notes <span style="color:var(--muted);font-weight:400;">(internal, optional)</span></label>
@@ -2549,6 +2710,7 @@ const panelTitles = {
   customers: ['Customers', 'View and manage your customer database'],
   reports: ['Inspection Reports', 'View and export installer inspection reports'],
   warranties: ['Active Units', 'Registered units, coverage and service history'],
+  amc: ['AMC Contracts', 'Prepaid annual maintenance contracts — per unit'],
   promocodes: ['Promo Codes', 'Create and manage discount codes'],
   invoices: ['Invoice Data', 'VAT invoices linked to bookings'],
   followups: ['Follow-ups', 'Scheduled customer and lead callbacks — internal only'],
@@ -2601,6 +2763,7 @@ function showPanel(name, el) {
   if (name === 'customers') loadCustomers();
   if (name === 'reports') loadInspectionReports();
   if (name === 'warranties') loadWarranties();
+  if (name === 'amc') loadAmc();
   if (name === 'promocodes') loadPromoCodes();
   if (name === 'products') loadProducts();
   if (name === 'invoices') loadInvoices();
@@ -3054,30 +3217,120 @@ function checkAdminPassword(action) {
 // are recorded (invoice file optional). This gates installed → completed.
 // ============================================================
 let paymentModalBookingId = null;
+let paymentModalWarrantyId = null;
+let paymentModalBookingType = null;
+let paymentModalProductType = null;
+let paymentBaseAmount = null;
+let appliedServicePromo = null;  // { code, discount_amount } once applied in this modal session
 
 // Flat-rate service visits with no product sale attached — no basket total
 // to fall back on, so the invoice amount is just a fixed call-out fee.
 const SERVICE_VISIT_PRICES = { quarterly_service: 89, annual_service: 199 };
+const SERVICE_BOOKING_TYPES = ['quarterly_service', 'maintenance', 'annual_service', 'repair'];
 
 async function adminMarkComplete(bookingId) {
   const { data: b } = await dbAdmin.from('bookings')
-    .select('id, customer_name, customer_phone, booking_reference, status, booking_type, order_total, discount_amount, payment_method, invoice_number, invoice_url')
+    .select('id, customer_name, customer_phone, booking_reference, status, booking_type, warranty_id, order_total, discount_amount, payment_method, invoice_number, invoice_url, promo_code')
     .eq('id', bookingId).maybeSingle();
   if (!b) { showToast('Booking not found', 'error'); return; }
   paymentModalBookingId = bookingId;
+  paymentModalWarrantyId = b.warranty_id || null;
+  paymentModalBookingType = b.booking_type;
+  paymentModalProductType = null;
+  appliedServicePromo = null;
+  document.getElementById('pay-promo-code').value = b.promo_code || '';
+  document.getElementById('pay-promo-result').textContent = '';
+  // bookings.warranty_id is only ever set via the "which unit?" picker on a
+  // SERVICE VISIT booking — an installation booking has no such picker (the
+  // unit doesn't exist yet), so it stays null even once the install creates
+  // one. The install flow links the other direction instead
+  // (warranties.booking_id), so fall back to that for installs.
+  if (!paymentModalWarrantyId) {
+    const { data: linkedWarranty } = await dbAdmin.from('warranties').select('id').eq('booking_id', bookingId).maybeSingle();
+    paymentModalWarrantyId = linkedWarranty ? linkedWarranty.id : null;
+  }
+  let autoServicePromoCode = null;
+  if (paymentModalWarrantyId) {
+    const { data: w } = await dbAdmin.from('warranties').select('product_type, service_promo_code').eq('id', paymentModalWarrantyId).maybeSingle();
+    paymentModalProductType = w ? w.product_type : null;
+    // No promo typed on THIS booking yet, but the unit has one remembered from
+    // a prior booking (see submitPayment()) — auto-fill it below once the
+    // amount/base is set, so the admin doesn't have to retype it every visit.
+    if (!b.promo_code && w?.service_promo_code && SERVICE_BOOKING_TYPES.includes(b.booking_type)) {
+      autoServicePromoCode = w.service_promo_code;
+    }
+  }
+
+  // AMC check — if this unit's already prepaid, don't let the SERVICE_VISIT_PRICES
+  // fallback below suggest charging again.
+  const amc = await fetchActiveAmcContract(b.warranty_id);
+  const amcBanner = document.getElementById('pay-amc-banner');
+  if (amc) {
+    amcBanner.style.display = 'block';
+    amcBanner.textContent = `✅ AMC active — prepaid ${Number(amc.amount_paid).toFixed(0)} SAR, covers through ${formatDateShort(amc.end_date)}. Consider marking this Free of Charge.`;
+  } else {
+    amcBanner.style.display = 'none';
+  }
 
   // Prefill (for re-editing an already-completed booking or resuming)
   document.getElementById('pay-booking-ref').textContent = b.booking_reference || '';
   document.getElementById('pay-customer').textContent = `${b.customer_name || ''} · ${b.customer_phone || ''}`;
   const net = (b.order_total != null ? b.order_total : 0) - (b.discount_amount || 0);
-  document.getElementById('pay-amount').value = net > 0 ? net : (SERVICE_VISIT_PRICES[b.booking_type] || '');
-  document.getElementById('pay-method').value = b.payment_method || '';
+  const baseAmount = net > 0 ? net : (SERVICE_VISIT_PRICES[b.booking_type] || 0);
+  paymentBaseAmount = baseAmount || null;
+  document.getElementById('pay-amount').value = baseAmount || '';
+  document.getElementById('pay-method').value = b.payment_method || (amc ? 'foc' : '');
   document.getElementById('pay-invoice-no').value = b.invoice_number || '';
   document.getElementById('pay-invoice-file').value = '';
   document.getElementById('pay-existing-file').innerHTML = b.invoice_url
     ? `<a href="${b.invoice_url}" target="_blank" style="font-size:12px;color:var(--water);">📎 Current invoice file</a>` : '';
   document.getElementById('pay-error').style.display = 'none';
   openModal('payment-modal');
+
+  if (autoServicePromoCode) {
+    document.getElementById('pay-promo-code').value = autoServicePromoCode;
+    await applyServicePromo();
+  }
+}
+
+// Validates a promo code against this booking's type/unit and, if it
+// checks out, discounts #pay-amount and stashes it for submitPayment() to
+// persist. Separate from the basket-promo flows (abApplyPromo /
+// applyBasketPromo) — there's no basket here, just a flat visit fee.
+async function applyServicePromo() {
+  const resultEl = document.getElementById('pay-promo-result');
+  const code = (document.getElementById('pay-promo-code').value || '').trim();
+  const fail = (m) => { resultEl.style.color = '#B71C1C'; resultEl.textContent = m; appliedServicePromo = null; };
+  if (!code) { resultEl.textContent = ''; appliedServicePromo = null; return; }
+
+  const { data: promo } = await dbAdmin.from('promo_codes').select('*').ilike('code', code).maybeSingle();
+  if (!promo) return fail('Code not found.');
+  if (!promo.is_active) return fail('This code is inactive.');
+  const today = new Date().toISOString().slice(0, 10);
+  if (promo.valid_from && today < promo.valid_from) return fail('This code isn’t valid yet.');
+  if (promo.valid_until && today > promo.valid_until) return fail('This code has expired.');
+  if (!promo.applies_to_services) return fail('This code isn’t set up for service visits.');
+  if (promo.service_types && promo.service_types.length && !promo.service_types.includes(paymentModalBookingType)) {
+    return fail('This code doesn’t apply to this booking type.');
+  }
+  if (promo.applicable_products && promo.applicable_products.length && !promo.applicable_products.includes(paymentModalProductType)) {
+    return fail('This code doesn’t apply to this unit’s product.');
+  }
+  if (promo.max_uses_per_unit) {
+    if (!paymentModalWarrantyId) return fail('This code is limited per unit, but this booking isn’t linked to a unit.');
+    const { count } = await dbAdmin.from('bookings').select('id', { count: 'exact', head: true })
+      .eq('warranty_id', paymentModalWarrantyId).ilike('promo_code', promo.code).eq('status', 'completed');
+    if ((count || 0) >= promo.max_uses_per_unit) return fail('This code’s free visit(s) have already been used on this unit.');
+  }
+
+  const base = paymentBaseAmount || parseFloat(document.getElementById('pay-amount').value) || 0;
+  let discount = promo.discount_type === 'percent' ? base * promo.discount_value / 100 : promo.discount_value;
+  discount = Math.min(Math.max(discount, 0), base);
+  const finalAmount = Math.round((base - discount) * 100) / 100;
+  document.getElementById('pay-amount').value = finalAmount;
+  appliedServicePromo = { code: promo.code, discount_amount: discount };
+  resultEl.style.color = '#166534';
+  resultEl.textContent = `✅ ${promo.code} applied — ${discount.toFixed(2)} SAR off (was ${base.toFixed(2)} SAR).`;
 }
 
 async function submitPayment() {
@@ -3132,14 +3385,30 @@ async function submitPayment() {
       completed_by: 'admin'
     };
     if (invoiceUrl) patch.invoice_url = invoiceUrl;
+    if (appliedServicePromo) {
+      patch.promo_code = appliedServicePromo.code;
+      patch.discount_amount = appliedServicePromo.discount_amount;
+    }
     const { error: uErr } = await dbAdmin.from('bookings').update(patch).eq('id', bookingId);
     if (uErr) throw uErr;
 
     // Promo usage counts on completion, not on booking creation — only bump it the
     // first time a booking transitions into 'completed', never on a re-edit of an
     // already-completed booking's payment/invoice details.
-    if (b?.promo_code && !wasAlreadyCompleted) {
-      dbAdmin.rpc('increment_promo_usage', { p_code: b.promo_code }).then(()=>{}).catch(()=>{});
+    const promoToCount = appliedServicePromo?.code || b?.promo_code;
+    if (promoToCount && !wasAlreadyCompleted) {
+      dbAdmin.rpc('increment_promo_usage', { p_code: promoToCount }).then(()=>{}).catch(()=>{});
+    }
+    // Remember a service-enabled code on the unit itself, so the NEXT service
+    // visit for this same warranty auto-detects and applies it (see
+    // adminMarkComplete()) instead of the admin retyping it every time.
+    if (promoToCount && paymentModalWarrantyId) {
+      const { data: promoRow, error: promoLookupErr } = await dbAdmin.from('promo_codes').select('applies_to_services').ilike('code', promoToCount).maybeSingle();
+      if (promoLookupErr) console.error('service-promo remember: promo lookup failed', promoLookupErr);
+      else if (promoRow?.applies_to_services) {
+        const { error: stampErr } = await dbAdmin.from('warranties').update({ service_promo_code: promoToCount }).eq('id', paymentModalWarrantyId);
+        if (stampErr) console.error('service-promo remember: warranty stamp failed', stampErr);
+      }
     }
 
     // Create / update the invoice record (VAT 15% derived from the gross total if given).
@@ -3194,6 +3463,7 @@ let sbUnits = [];           // warranties/products the customer owns
 let sbSelectedSlotId = null;
 let sbForceBooking = false;  // true after admin confirms double-booking an already-taken slot
 let sbNewCustPhone = null;  // phone that failed lookup, carried into the inline "add new customer" form
+let sbUnitAmc = {};         // warranty_id -> active amc_contracts row, for the picked unit's AMC banner
 
 async function openServiceBookingModal() {
   document.getElementById('sb-phone').value = '';
@@ -3277,14 +3547,21 @@ async function sbLookup() {
     let units = [];
     if (sbCustomer.id) {
       const { data: warrs } = await dbAdmin.from('warranties')
-        .select('id, product_type, qr_code, status, filter_expiry, service_expiry')
+        .select('id, product_type, qr_code, status, filter_expiry, service_expiry, service_promo_code')
         .eq('customer_id', sbCustomer.id).neq('status','deactivated');
-      units = (warrs || []).map(w => ({
-        id: w.id,
-        label: `${w.product_type || 'RO unit'}${w.qr_code ? ' · ' + w.qr_code : ''}`,
-        product: w.product_type, serial: w.qr_code,
-        filter: w.filter_expiry, service: w.service_expiry
-      }));
+      units = (warrs || []).map(w => {
+        // No scanned QR/serial yet (e.g. active but never scanned on site) — fall
+        // back to the filter-due date so two units of the same model are still
+        // distinguishable in the picker, instead of two identical-looking rows.
+        const suffix = w.qr_code ? w.qr_code : (w.filter_expiry ? `no serial, filter due ${formatDateShort(w.filter_expiry)}` : `no serial · #${w.id.slice(0, 8)}`);
+        return {
+          id: w.id,
+          label: `${w.product_type || 'RO unit'} · ${suffix}`,
+          product: w.product_type, serial: w.qr_code,
+          filter: w.filter_expiry, service: w.service_expiry,
+          promoCode: w.service_promo_code || null
+        };
+      });
     }
     if (!units.length) {
       const models = [...new Set(bookings.map(b => b.product_model).filter(Boolean))];
@@ -3378,9 +3655,20 @@ async function renderServiceCustomer(bookings) {
   // is for, instead of leaving it unrecorded.
   const usel = document.getElementById('sb-unit');
   const help = document.getElementById('sb-unit-help');
+  sbUnitAmc = {};
   if (sbUnits.length) {
     usel.innerHTML = sbUnits.map((u,i) => `<option value="${i}">${escB(u.label)}</option>`).join('');
     help.style.display = 'none';
+    // Batch-fetch active AMC contracts for these units so sbUnitChanged() can
+    // flag "already prepaid" without a query per selection change.
+    const ids = sbUnits.map(u => u.id).filter(Boolean);
+    if (ids.length) {
+      const today = new Date().toISOString().slice(0,10);
+      const { data: contracts } = await dbAdmin.from('amc_contracts')
+        .select('warranty_id, end_date, amount_paid').in('warranty_id', ids)
+        .eq('status', 'active').gte('end_date', today).order('start_date', { ascending: false });
+      (contracts || []).forEach(c => { if (!sbUnitAmc[c.warranty_id]) sbUnitAmc[c.warranty_id] = c; });
+    }
   } else {
     const cat = await getCatalogue();
     const list = cat.filter(p => p.is_catalogue).length ? cat.filter(p => p.is_catalogue) : cat;
@@ -3389,6 +3677,7 @@ async function renderServiceCustomer(bookings) {
     help.textContent = 'No registered unit on file — select which product this visit is for.';
     help.style.display = 'block';
   }
+  sbUnitChanged();
 
   // Location summary
   renderServiceLocation();
@@ -3424,6 +3713,59 @@ function sbTypeChanged() {
     document.getElementById('sb-loc-change').checked = true;
     document.getElementById('sb-loc-new-wrap').style.display = 'block';
   }
+  sbUnitChanged();
+}
+
+// Shows a banner when the selected unit already has an active, prepaid AMC
+// contract covering it — informational only, doesn't touch the charge field.
+function sbUnitChanged() {
+  const banner = document.getElementById('sb-amc-banner');
+  const idx = document.getElementById('sb-unit').value;
+  const unit = (idx !== '' && !idx.startsWith('cat:') && sbUnits[idx]) ? sbUnits[idx] : null;
+  const c = unit ? sbUnitAmc[unit.id] : null;
+  if (c) {
+    banner.style.display = 'block';
+    banner.textContent = `✅ AMC active — prepaid ${Number(c.amount_paid).toFixed(0)} SAR, covers through ${formatDateShort(c.end_date)}. No charge needed.`;
+  } else {
+    banner.style.display = 'none';
+  }
+  sbCheckServicePromo(unit);
+}
+
+// Mirrors the eligibility checks in applyServicePromo() (service_types,
+// applicable_products, max_uses_per_unit) so the admin sees up front — while
+// booking, not only at Mark Complete — whether this unit's remembered promo
+// (warranties.service_promo_code, see submitPayment()) will actually apply.
+// Informational only; applyServicePromo() is still the source of truth.
+async function sbCheckServicePromo(unit) {
+  const banner = document.getElementById('sb-promo-banner');
+  banner.style.display = 'none';
+  if (!unit || !unit.promoCode) return;
+  const jobType = document.getElementById('sb-jobtype').value;
+
+  const { data: promo } = await dbAdmin.from('promo_codes').select('*').ilike('code', unit.promoCode).maybeSingle();
+  if (!promo || !promo.is_active || !promo.applies_to_services) return;
+  const today = new Date().toISOString().slice(0, 10);
+  if (promo.valid_from && today < promo.valid_from) return;
+  if (promo.valid_until && today > promo.valid_until) return;
+  if (promo.service_types && promo.service_types.length && !promo.service_types.includes(jobType)) return;
+  if (promo.applicable_products && promo.applicable_products.length && !promo.applicable_products.includes(unit.product)) return;
+
+  if (promo.max_uses_per_unit) {
+    const { count } = await dbAdmin.from('bookings').select('id', { count: 'exact', head: true })
+      .eq('warranty_id', unit.id).ilike('promo_code', promo.code).eq('status', 'completed');
+    if ((count || 0) >= promo.max_uses_per_unit) {
+      banner.style.background = '#FFFBEB'; banner.style.border = '1px solid #FDE68A'; banner.style.color = '#92400E';
+      banner.textContent = `⚠️ ${promo.code} — this unit has already used its free/discounted visit(s). This booking will be charged normally.`;
+      banner.style.display = 'block';
+      return;
+    }
+  }
+
+  const off = promo.discount_type === 'percent' ? `${promo.discount_value}% off` : `SAR ${promo.discount_value} off`;
+  banner.style.background = '#EFF6FF'; banner.style.border = '1px solid #BFDBFE'; banner.style.color = '#1E40AF';
+  banner.textContent = `🎉 ${promo.code} applies to this visit — ${off}, applied automatically when it's marked complete.`;
+  banner.style.display = 'block';
 }
 
 async function sbLoadRegions() {
@@ -3610,6 +3952,353 @@ async function submitServiceBooking() {
   }
 }
 
+// ============================================================
+// AMC (Annual Maintenance Contract) — a per-unit prepaid service contract.
+// A customer pays a discounted amount upfront covering the normal quarterly
+// filter-change + annual-service cadence for 12 months. status only tracks
+// active/cancelled — "expiring"/"expired" are DERIVED display states from
+// end_date, same pattern renderWarranties() uses for filter/service due
+// dates (warrantyFilterOf()). Renewing inserts a new row; the old contract
+// stays as history. See migrations/v104_amc_contracts.sql.
+// ============================================================
+let allAmcContracts = [];
+const AMC_RENEWAL_SOON_DAYS = 30;
+
+// Most recent still-covering contract for a unit, or null. Shared by the
+// Service Booking modal, the Mark Complete payment modal, and the Active
+// Units table badge — so "is this unit already prepaid" is answered the
+// same way everywhere.
+async function fetchActiveAmcContract(warrantyId) {
+  if (!warrantyId) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const { data } = await dbAdmin.from('amc_contracts')
+    .select('id, end_date, amount_paid, standard_price')
+    .eq('warranty_id', warrantyId).eq('status', 'active').gte('end_date', today)
+    .order('start_date', { ascending: false }).limit(1).maybeSingle();
+  return data || null;
+}
+
+function amcClassify(c) {
+  if (c.status === 'cancelled') return 'cancelled';
+  const days = Math.floor((new Date(c.end_date + 'T00:00:00') - new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00')) / 86400000);
+  if (days < 0) return 'expired';
+  if (days <= AMC_RENEWAL_SOON_DAYS) return 'expiring';
+  return 'active';
+}
+
+async function loadAmc() {
+  const el = document.getElementById('amc-list');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading AMC contracts...</div>';
+  const { data, error } = await dbAdmin.from('amc_contracts')
+    .select('*, warranties(qr_code, product_type), customers(name, phone, city)')
+    .order('start_date', { ascending: false });
+  if (error) {
+    console.error(error);
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">Could not load AMC contracts.</div>';
+    return;
+  }
+  allAmcContracts = data || [];
+  renderAmcStats();
+  renderAmcTable();
+}
+
+function renderAmcStats() {
+  const active = allAmcContracts.filter(c => amcClassify(c) === 'active').length;
+  const expiring = allAmcContracts.filter(c => amcClassify(c) === 'expiring').length;
+  const expired = allAmcContracts.filter(c => amcClassify(c) === 'expired').length;
+  const collected = allAmcContracts
+    .filter(c => amcClassify(c) !== 'cancelled')
+    .reduce((s, c) => s + Number(c.amount_paid || 0), 0);
+
+  const activeKey = document.getElementById('amc-filter')?.value || '';
+  const card = (key, label, val, color, sub) => `
+    <div class="stat-card" onclick="setAmcFilter('${key}')"
+         style="cursor:pointer; ${activeKey === key ? 'outline:2px solid ' + color + '; outline-offset:-2px;' : ''}"
+         title="Click to filter">
+      <div class="stat-label">${label}</div>
+      <div class="stat-value" style="color:${color};">${val}</div>
+      ${sub ? `<div style="font-size:11px; color:var(--muted); margin-top:2px;">${sub}</div>` : ''}
+    </div>`;
+
+  document.getElementById('amc-stats').innerHTML =
+    card('active', 'Active', active, '#16A34A', 'Covered right now') +
+    card('expiring', 'Expiring Soon', expiring, expiring ? '#D97706' : 'var(--muted)', `Within ${AMC_RENEWAL_SOON_DAYS} days`) +
+    card('expired', 'Needs Renewal', expired, expired ? '#DC2626' : 'var(--muted)', 'Past end date') +
+    card('', 'Prepaid Collected', `SAR ${collected.toLocaleString('en-US')}`, 'var(--water)', 'All non-cancelled contracts');
+}
+
+function setAmcFilter(key) {
+  document.getElementById('amc-filter').value = key;
+  renderAmcStats();
+  renderAmcTable();
+}
+
+const AMC_STATUS_META = {
+  active:    ['Active', '#16A34A'],
+  expiring:  ['Expiring Soon', '#D97706'],
+  expired:   ['Needs Renewal', '#DC2626'],
+  cancelled: ['Cancelled', '#6B7280']
+};
+
+function renderAmcTable() {
+  const el = document.getElementById('amc-list');
+  const filter = document.getElementById('amc-filter').value;
+  const q = (document.getElementById('amc-search').value || '').toLowerCase().trim();
+
+  let rows = allAmcContracts.filter(c => !filter || amcClassify(c) === filter);
+  if (q) {
+    rows = rows.filter(c => {
+      const hay = [c.warranties?.qr_code, c.warranties?.product_type, c.customers?.name, c.customers?.phone]
+        .filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  if (!rows.length) {
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">No AMC contracts match this filter.</div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead><tr>
+        <th>#</th><th>Unit</th><th>Customer</th><th>Period</th><th>Amount Paid</th><th>Status</th><th>Actions</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map((c, i) => {
+          const st = amcClassify(c);
+          const [label, color] = AMC_STATUS_META[st];
+          const savings = (c.standard_price && c.standard_price > c.amount_paid)
+            ? `<div style="font-size:11px;color:var(--muted);">saved ${(c.standard_price - c.amount_paid).toFixed(0)}</div>` : '';
+          return `
+          <tr>
+            <td style="color:var(--muted);">${i + 1}</td>
+            <td>
+              <div style="font-weight:600;">${escB(c.warranties?.product_type || 'Unit')}</div>
+              <div style="font-size:11px;color:var(--muted);">${escB(c.warranties?.qr_code || '—')}</div>
+            </td>
+            <td>
+              <div style="font-weight:600;">${escB(c.customers?.name || 'Unnamed')}</div>
+              <div style="font-size:11px;color:var(--muted);">${escB(displayPhoneAdmin(c.customers?.phone || ''))}</div>
+            </td>
+            <td style="font-size:12px;">${formatDateShort(c.start_date)} → ${formatDateShort(c.end_date)}</td>
+            <td>SAR ${Number(c.amount_paid).toFixed(0)}${savings}</td>
+            <td><span style="background:${color}1A;color:${color};font-size:11px;font-weight:700;padding:3px 8px;border-radius:9px;">${label}</span></td>
+            <td style="white-space:nowrap;">
+              <button class="btn btn-ghost btn-sm" onclick="openAmcModal('${c.id}')" title="Edit">${ICON_PENCIL}</button>
+              ${st !== 'cancelled' ? `<button class="btn btn-ghost btn-sm" onclick="renewAmcContract('${c.id}')" title="Renew">${ICON_UNDO}</button>` : ''}
+              ${st !== 'cancelled' ? `<button class="btn btn-ghost btn-sm" onclick="cancelAmcContract('${c.id}')" title="Cancel">${ICON_TRASH}</button>` : ''}
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+function amcResetModal() {
+  document.getElementById('amc-id').value = '';
+  document.getElementById('amc-warranty-id').value = '';
+  document.getElementById('amc-customer-id').value = '';
+  document.getElementById('amc-phone').value = '';
+  document.getElementById('amc-notfound').style.display = 'none';
+  document.getElementById('amc-details').style.display = 'none';
+  document.getElementById('amc-lookup-group').style.display = 'block';
+  document.getElementById('amc-customer-card').innerHTML = '';
+  document.getElementById('amc-unit').innerHTML = '';
+  document.getElementById('amc-start-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('amc-amount').value = '';
+  document.getElementById('amc-standard-price').value = '';
+  document.getElementById('amc-payment-method').value = '';
+  document.getElementById('amc-payment-reference').value = '';
+  document.getElementById('amc-notes').value = '';
+  document.getElementById('amc-error').style.display = 'none';
+  document.getElementById('amc-save').disabled = true;
+  amcUpdateEndDateDisplay();
+}
+
+function amcUpdateEndDateDisplay() {
+  const startRaw = document.getElementById('amc-start-date').value;
+  const start = startRaw ? new Date(startRaw + 'T00:00:00') : new Date();
+  const end = new Date(start); end.setDate(end.getDate() + 365);
+  document.getElementById('amc-end-date-display').value = formatDateShort(end.toISOString().slice(0, 10)) + ' (12 months)';
+}
+
+function amcUnitPicked() {
+  document.getElementById('amc-warranty-id').value = document.getElementById('amc-unit').value;
+}
+
+function amcShowCustomerCard(customer, warranty) {
+  document.getElementById('amc-customer-card').innerHTML = `
+    <div style="font-weight:800;font-size:15px;color:var(--text);">${escB(customer?.name || 'Unnamed customer')}</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:2px;">${escB(displayPhoneAdmin(customer?.phone || ''))}${customer?.city ? ' · ' + escB(customer.city) : ''}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:6px;">${escB(warranty?.product_type || 'Unit')}${warranty?.qr_code ? ' · ' + escB(warranty.qr_code) : ''}</div>`;
+}
+
+async function openAmcModal(contractId) {
+  amcResetModal();
+  document.getElementById('amc-modal-title').textContent = contractId ? 'Edit AMC Contract' : 'New AMC Contract';
+  if (contractId) {
+    let c = allAmcContracts.find(x => x.id === contractId);
+    if (!c) {
+      const { data } = await dbAdmin.from('amc_contracts')
+        .select('*, warranties(qr_code, product_type), customers(name, phone, city)').eq('id', contractId).maybeSingle();
+      c = data;
+    }
+    if (!c) { showToast('Contract not found', 'error'); return; }
+    document.getElementById('amc-id').value = c.id;
+    document.getElementById('amc-warranty-id').value = c.warranty_id;
+    document.getElementById('amc-customer-id').value = c.customer_id || '';
+    document.getElementById('amc-lookup-group').style.display = 'none';
+    amcShowCustomerCard(c.customers, c.warranties);
+    document.getElementById('amc-unit').innerHTML =
+      `<option value="${c.warranty_id}">${escB(c.warranties?.product_type || 'Unit')}${c.warranties?.qr_code ? ' · ' + escB(c.warranties.qr_code) : ''}</option>`;
+    document.getElementById('amc-start-date').value = c.start_date;
+    document.getElementById('amc-amount').value = c.amount_paid;
+    document.getElementById('amc-standard-price').value = c.standard_price || '';
+    document.getElementById('amc-payment-method').value = c.payment_method || '';
+    document.getElementById('amc-payment-reference').value = c.payment_reference || '';
+    document.getElementById('amc-notes').value = c.notes || '';
+    amcUpdateEndDateDisplay();
+    document.getElementById('amc-details').style.display = 'block';
+    document.getElementById('amc-save').disabled = false;
+  }
+  openModal('amc-modal');
+}
+
+// Pre-fills a fresh contract (new row — the old one stays as history) for
+// the same unit/customer, starting the day after the old one ends (or today,
+// whichever is later), with amount fields left blank for re-entry since
+// prices can change between renewals.
+async function renewAmcContract(contractId) {
+  const c = allAmcContracts.find(x => x.id === contractId);
+  if (!c) { showToast('Contract not found', 'error'); return; }
+  amcResetModal();
+  document.getElementById('amc-modal-title').textContent = 'Renew AMC Contract';
+  document.getElementById('amc-warranty-id').value = c.warranty_id;
+  document.getElementById('amc-customer-id').value = c.customer_id || '';
+  document.getElementById('amc-lookup-group').style.display = 'none';
+  amcShowCustomerCard(c.customers, c.warranties);
+  document.getElementById('amc-unit').innerHTML =
+    `<option value="${c.warranty_id}">${escB(c.warranties?.product_type || 'Unit')}${c.warranties?.qr_code ? ' · ' + escB(c.warranties.qr_code) : ''}</option>`;
+  const today = new Date();
+  const afterOld = new Date(c.end_date + 'T00:00:00'); afterOld.setDate(afterOld.getDate() + 1);
+  document.getElementById('amc-start-date').value = (afterOld > today ? afterOld : today).toISOString().slice(0, 10);
+  amcUpdateEndDateDisplay();
+  document.getElementById('amc-details').style.display = 'block';
+  document.getElementById('amc-save').disabled = false;
+  openModal('amc-modal');
+}
+
+async function amcLookupPhone() {
+  const raw = (document.getElementById('amc-phone').value || '').trim().replace(/\s/g, '');
+  const nf = document.getElementById('amc-notfound');
+  const btn = document.getElementById('amc-lookup-btn');
+  nf.style.display = 'none';
+  document.getElementById('amc-details').style.display = 'none';
+  document.getElementById('amc-save').disabled = true;
+  if (!raw) { nf.style.display = 'block'; nf.textContent = 'Enter a phone number first.'; return; }
+  const phone = (typeof formatSaudiPhone === 'function') ? formatSaudiPhone(raw) : raw;
+
+  btn.disabled = true; btn.textContent = 'Finding…';
+  try {
+    const { data: cust } = await dbAdmin.from('customers').select('id, name, phone, city').eq('phone', phone).maybeSingle();
+    if (!cust) {
+      nf.style.display = 'block'; nf.textContent = 'No customer found for that number.';
+      return;
+    }
+    const { data: warrs } = await dbAdmin.from('warranties')
+      .select('id, product_type, qr_code, status').eq('customer_id', cust.id).neq('status', 'deactivated');
+    if (!warrs || !warrs.length) {
+      nf.style.display = 'block';
+      nf.textContent = `${cust.name || 'This customer'} has no registered unit (QR scanned) yet — AMC needs one.`;
+      return;
+    }
+
+    document.getElementById('amc-customer-id').value = cust.id;
+    amcShowCustomerCard(cust, warrs[0]);
+    document.getElementById('amc-unit').innerHTML = warrs.map(w =>
+      `<option value="${w.id}">${escB(w.product_type || 'RO unit')}${w.qr_code ? ' · ' + escB(w.qr_code) : ''}</option>`).join('');
+    document.getElementById('amc-warranty-id').value = warrs[0].id;
+    document.getElementById('amc-details').style.display = 'block';
+    document.getElementById('amc-save').disabled = false;
+  } catch (e) {
+    nf.style.display = 'block'; nf.textContent = 'Lookup failed: ' + (e.message || e);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Find';
+  }
+}
+
+async function saveAmcContract() {
+  if (!(await ensureSession())) return;
+  const errEl = document.getElementById('amc-error');
+  const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
+  errEl.style.display = 'none';
+
+  const id = document.getElementById('amc-id').value || null;
+  const warrantyId = document.getElementById('amc-warranty-id').value;
+  const customerId = document.getElementById('amc-customer-id').value || null;
+  const startDate = document.getElementById('amc-start-date').value;
+  const amountRaw = document.getElementById('amc-amount').value;
+  const amount = amountRaw === '' ? null : parseFloat(amountRaw);
+  const stdRaw = document.getElementById('amc-standard-price').value;
+  const standardPrice = stdRaw === '' ? null : parseFloat(stdRaw);
+  const paymentMethod = document.getElementById('amc-payment-method').value || null;
+  const paymentReference = (document.getElementById('amc-payment-reference').value || '').trim() || null;
+  const notes = (document.getElementById('amc-notes').value || '').trim() || null;
+
+  if (!warrantyId) return fail('Pick a unit.');
+  if (!startDate) return fail('Pick a start date.');
+  if (amount == null || isNaN(amount) || amount < 0) return fail('Enter a valid amount paid.');
+  if (standardPrice != null && (isNaN(standardPrice) || standardPrice < 0)) return fail('Standard price must be a positive number, or left blank.');
+
+  const end = new Date(startDate + 'T00:00:00'); end.setDate(end.getDate() + 365);
+  const endDate = end.toISOString().slice(0, 10);
+
+  const btn = document.getElementById('amc-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const patch = {
+      warranty_id: warrantyId, customer_id: customerId,
+      start_date: startDate, end_date: endDate,
+      amount_paid: amount, standard_price: standardPrice,
+      payment_method: paymentMethod, payment_reference: paymentReference,
+      notes, updated_at: new Date().toISOString()
+    };
+    if (id) {
+      const { error } = await dbAdmin.from('amc_contracts').update(patch).eq('id', id);
+      if (error) throw error;
+      logActivity('amc.update', `Updated AMC contract (${endDate})`, 'amc_contract', id);
+      showToast('AMC contract updated', 'success');
+    } else {
+      patch.created_by_name = currentAdminDisplayName();
+      patch.status = 'active';
+      const { data: inserted, error } = await dbAdmin.from('amc_contracts').insert(patch).select('id').single();
+      if (error) throw error;
+      logActivity('amc.create', `Created AMC contract, prepaid SAR ${amount} through ${endDate}`, 'amc_contract', inserted?.id);
+      showToast('AMC contract created', 'success');
+    }
+    closeModal('amc-modal');
+    loadAmc();
+  } catch (e) {
+    fail(e.message || String(e));
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Contract';
+  }
+}
+
+async function cancelAmcContract(id) {
+  if (!(await ensureSession())) return;
+  if (!confirm('Cancel this AMC contract? This can’t be undone.')) return;
+  const { error } = await dbAdmin.from('amc_contracts')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) { showToast('Failed to cancel: ' + error.message, 'error'); return; }
+  logActivity('amc.cancel', 'Cancelled AMC contract', 'amc_contract', id);
+  showToast('AMC contract cancelled', 'success');
+  loadAmc();
+}
+
 async function openAdminBookingModal() {
   abSelectedSlotId = null;
   abForceBooking = false;
@@ -3733,7 +4422,8 @@ function abRenderBasket() {
 // Mirrors promoDiscountFor() in customer/book.html — kept as a separate copy since these
 // are independent static pages with no shared JS module.
 function abPromoDiscountFor(lines, promo) {
-  const restrict = promo.applicable_products && promo.applicable_products.length ? new Set(promo.applicable_products) : null;
+  if (promo.discounts_products === false) return 0;
+  const restrict = Array.isArray(promo.applicable_products) ? new Set(promo.applicable_products) : null;
   return lines.reduce((sum, l) => {
     if (restrict && !restrict.has(l.model)) return sum;
     const lineSubtotal = (l.unit_price || 0) * l.qty;
@@ -3764,7 +4454,11 @@ async function abApplyPromo() {
   abRenderBasket();
   const off = abPromo.discount_type === 'percent' ? `${abPromo.discount_value}% off` : `SAR ${abPromo.discount_value} off`;
   if (abPromoDiscountFor(abBasket, abPromo) <= 0 && abBasket.length) {
-    show(`Code applied, but it doesn’t cover any product in this basket.`, false);
+    if (abPromo.applies_to_services) {
+      show(`✓ Code saved on this booking — no product discount, but it’ll be ready to apply on this unit’s service visits later (at Mark Complete).`, true);
+    } else {
+      show(`Code applied, but it doesn’t cover any product in this basket.`, false);
+    }
   } else {
     show(`✓ Code applied — ${off}!`, true);
   }
@@ -3892,18 +4586,42 @@ async function submitAdminBooking() {
     if (startStatus === 'installed' && exC?.id) {
       const iso = (days) => { const x = new Date(nowIso); x.setDate(x.getDate() + days); return x.toISOString(); };
       const catalogue = await getCatalogue();
-      const pendings = [];
+      const units = [];
       abBasket.filter(l => l.is_serialized).forEach(l => {
-        const cat = catalogue.find(p => p.model_name === l.model);
-        const filterDays = cat?.filter_interval_days || 90;
-        const serviceDays = cat?.service_interval_days || 365;
-        for (let i = 0; i < l.qty; i++) pendings.push({
-          customer_id: exC.id, qr_code: null, product_type: l.model, quantity: 1,
-          booking_id: bkId, status: 'pending', registration_date: nowIso.slice(0,10),
-          filter_expiry: iso(filterDays), service_expiry: iso(serviceDays), warranty_expiry: null
-        });
+        for (let i = 0; i < l.qty; i++) units.push(l.model);
       });
-      if (pendings.length) await dbAdmin.from('warranties').insert(pendings);
+      if (units.length) {
+        // The unit's QR sticker may already have been scanned moments before this
+        // booking was saved (e.g. backfilling an install that just happened) — that
+        // flow (activate_pending_warranty) has no booking context, so it creates a
+        // real, active warranty with no booking_id. Claim those instead of minting
+        // duplicate pending placeholders for the same physical unit. Scoped to the
+        // last few hours so an unrelated older unit never gets mis-linked. Mirrors
+        // the same safeguard in js/inspection-report.js.
+        const sinceIso = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+        const { data: orphans } = await dbAdmin.from('warranties')
+          .select('id').eq('customer_id', exC.id).eq('source', 'install').eq('status', 'active')
+          .is('booking_id', null).gte('created_at', sinceIso);
+        let remaining = units.slice();
+        if (orphans && orphans.length) {
+          const claim = orphans.slice(0, remaining.length);
+          for (const o of claim) {
+            await dbAdmin.from('warranties').update({ booking_id: bkId }).eq('id', o.id);
+          }
+          remaining = remaining.slice(claim.length);
+        }
+        const pendings = remaining.map(model => {
+          const cat = catalogue.find(p => p.model_name === model);
+          const filterDays = cat?.filter_interval_days || 90;
+          const serviceDays = cat?.service_interval_days || 365;
+          return {
+            customer_id: exC.id, qr_code: null, product_type: model, quantity: 1,
+            booking_id: bkId, status: 'pending', registration_date: nowIso.slice(0,10),
+            filter_expiry: iso(filterDays), service_expiry: iso(serviceDays), warranty_expiry: null
+          };
+        });
+        if (pendings.length) await dbAdmin.from('warranties').insert(pendings);
+      }
     }
 
     const unitCount = abBasket.reduce((s,l)=>s+l.qty,0);
@@ -4657,7 +5375,8 @@ let basketEditState = { bookingId: null, lines: [], promo: null };
 // naturally proportional to quantity already, since it's a % of that line's
 // own subtotal. Each line's discount is capped at that line's own value.
 function basketPromoDiscountFor(lines, promo) {
-  const restrict = promo.applicable_products && promo.applicable_products.length ? new Set(promo.applicable_products) : null;
+  if (promo.discounts_products === false) return 0;
+  const restrict = Array.isArray(promo.applicable_products) ? new Set(promo.applicable_products) : null;
   return lines.reduce((sum, l) => {
     if (restrict && !restrict.has(l.model)) return sum;
     const lineSubtotal = (l.unit_price || 0) * l.qty;
@@ -4687,7 +5406,11 @@ async function applyBasketPromo() {
   renderBasketLines();
   const off = data.discount_type === 'percent' ? `${data.discount_value}% off` : `SAR ${data.discount_value} off`;
   if (basketPromoDiscountFor(basketEditState.lines, data) <= 0 && basketEditState.lines.length) {
-    show(`Code applied, but it doesn’t cover any product in this basket.`, false);
+    if (data.applies_to_services) {
+      show(`✓ Code saved on this booking — no product discount, but it’ll be ready to apply on this unit’s service visits later (at Mark Complete).`, true);
+    } else {
+      show(`Code applied, but it doesn’t cover any product in this basket.`, false);
+    }
   } else {
     show(`✓ Code applied — ${off}!`, true);
   }
@@ -4942,7 +5665,7 @@ function renderPromoCodes() {
       ? `${p.valid_from ? formatDateShort(p.valid_from) : '—'} → ${p.valid_until ? formatDateShort(p.valid_until) : '—'}`
       : 'No limit';
     return `<tr>
-      <td><strong style="font-family:monospace;font-size:14px;letter-spacing:.5px;">${escB(p.code)}</strong>${p.notes ? `<div style="font-size:11px;color:var(--muted);">${escB(p.notes)}</div>` : ''}${p.applicable_products && p.applicable_products.length ? `<div style="font-size:11px;color:var(--muted);" title="${escB(p.applicable_products.join(', '))}">🎯 ${p.applicable_products.length} product${p.applicable_products.length !== 1 ? 's' : ''}</div>` : ''}</td>
+      <td><strong style="font-family:monospace;font-size:14px;letter-spacing:.5px;">${escB(p.code)}</strong>${p.notes ? `<div style="font-size:11px;color:var(--muted);">${escB(p.notes)}</div>` : ''}${p.applicable_products && p.applicable_products.length ? `<div style="font-size:11px;color:var(--muted);" title="${escB(p.applicable_products.join(', '))}">🎯 ${p.applicable_products.length} product${p.applicable_products.length !== 1 ? 's' : ''}</div>` : ''}${p.applies_to_services ? `<div style="font-size:11px;color:#2563EB;">🔧 Service visits${p.max_uses_per_unit ? ` (max ${p.max_uses_per_unit}/unit)` : ''}</div>` : ''}</td>
       <td><strong>${offer}</strong> off</td>
       <td style="font-size:12px;">${validity}</td>
       <td style="text-align:center;"><strong style="font-size:16px;">${p.usage_count || 0}</strong><div style="font-size:10px;color:var(--muted);">uses</div></td>
@@ -4977,17 +5700,43 @@ async function openPromoModal(id) {
   document.getElementById('promo-active').checked = p ? p.is_active : true;
   document.getElementById('promo-notes').value = p && p.notes ? p.notes : '';
   document.getElementById('promo-error').style.display = 'none';
-  const restricted = !!(p && p.applicable_products && p.applicable_products.length);
-  document.getElementById('promo-all-products').checked = !restricted;
-  await renderPromoProductsList(restricted ? p.applicable_products : []);
+  const products = p ? p.applicable_products : undefined;
+  const specificProducts = Array.isArray(products) && products.length > 0;
+  document.getElementById('promo-all-products').checked = !specificProducts;
+  document.getElementById('promo-specific-products').checked = specificProducts;
+  await renderPromoProductsList(specificProducts ? products : []);
   promoAllProductsToggle();
+  document.getElementById('promo-discounts-products').checked = p ? (p.discounts_products !== false) : true;
+
+  const servicesEnabled = !!(p && p.applies_to_services);
+  document.getElementById('promo-services-enabled').checked = servicesEnabled;
+  const serviceTypes = (p && p.service_types) || [];
+  document.getElementById('promo-all-services').checked = !serviceTypes.length;
+  document.getElementById('promo-specific-services').checked = !!serviceTypes.length;
+  document.querySelectorAll('.promo-service-cb').forEach(cb => {
+    cb.checked = cb.value.split(',').some(v => serviceTypes.includes(v));
+  });
+  document.getElementById('promo-max-uses-per-unit').value = (p && p.max_uses_per_unit) || '';
+  promoServicesToggle();
+  promoAllServicesToggle();
+
   promoTypeHint();
   openModal('promo-modal');
 }
 
 function promoAllProductsToggle() {
-  const all = document.getElementById('promo-all-products').checked;
-  document.getElementById('promo-products-list').style.display = all ? 'none' : 'block';
+  const specific = document.getElementById('promo-specific-products').checked;
+  document.getElementById('promo-products-list').style.display = specific ? 'block' : 'none';
+}
+
+function promoServicesToggle() {
+  const on = document.getElementById('promo-services-enabled').checked;
+  document.getElementById('promo-services-options').style.display = on ? 'block' : 'none';
+}
+
+function promoAllServicesToggle() {
+  const all = document.getElementById('promo-all-services').checked;
+  document.getElementById('promo-services-list').style.display = all ? 'none' : 'block';
 }
 
 // Checkbox list of catalogue products the admin can restrict a code to.
@@ -5014,18 +5763,34 @@ async function savePromo() {
   const active = document.getElementById('promo-active').checked;
   const notes = (document.getElementById('promo-notes').value || '').trim() || null;
   const allProducts = document.getElementById('promo-all-products').checked;
-  const applicable_products = allProducts ? null : Array.from(document.querySelectorAll('.promo-product-cb:checked')).map(cb => cb.value);
+  const specificProducts = document.getElementById('promo-specific-products').checked;
+  const applicable_products = allProducts ? null
+    : Array.from(document.querySelectorAll('.promo-product-cb:checked')).map(cb => cb.value);
+  const discounts_products = document.getElementById('promo-discounts-products').checked;
+  const servicesEnabled = document.getElementById('promo-services-enabled').checked;
+  const allServices = document.getElementById('promo-all-services').checked;
+  const service_types = (!servicesEnabled || allServices) ? null
+    : Array.from(document.querySelectorAll('.promo-service-cb:checked')).flatMap(cb => cb.value.split(','));
+  const maxUsesRaw = document.getElementById('promo-max-uses-per-unit').value;
+  const max_uses_per_unit = maxUsesRaw ? parseInt(maxUsesRaw, 10) : null;
 
   const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
   if (!code) return fail('Enter a code.');
   if (!(value >= 0) || isNaN(value)) return fail('Enter a valid discount value.');
   if (type === 'percent' && value > 100) return fail('Percentage can\u2019t exceed 100%.');
   if (from && until && until < from) return fail('“Valid Until” is before “Valid From”.');
-  if (!allProducts && applicable_products.length === 0) return fail('Select at least one product, or uncheck “Applies to all products”.');
+  if (specificProducts && applicable_products.length === 0) return fail('Select at least one product, or choose “All products”.');
+  if (!discounts_products && !servicesEnabled) return fail('This code won’t apply to anything — enable “Also usable on service visits”, or re-check “Discount the product purchase”.');
+  if (servicesEnabled && !allServices && (!service_types || service_types.length === 0)) return fail('Select at least one service type, or check “All service types”.');
+  if (servicesEnabled && !(max_uses_per_unit >= 1)) return fail('Enter how many free/discounted visits per unit this code allows (e.g. 1).');
 
   const btn = document.getElementById('promo-save');
   btn.disabled = true; btn.textContent = 'Saving…';
-  const payload = { code, discount_type: type, discount_value: value, valid_from: from, valid_until: until, is_active: active, notes, applicable_products, updated_at: new Date().toISOString() };
+  const payload = {
+    code, discount_type: type, discount_value: value, valid_from: from, valid_until: until, is_active: active, notes, applicable_products,
+    discounts_products, applies_to_services: servicesEnabled, service_types, max_uses_per_unit,
+    updated_at: new Date().toISOString()
+  };
   let error;
   if (id) ({ error } = await dbAdmin.from('promo_codes').update(payload).eq('id', id));
   else ({ error } = await dbAdmin.from('promo_codes').insert(payload));
@@ -5192,7 +5957,7 @@ async function saveProduct() {
 
   // Editing an existing product's intervals? Existing customers with this
   // product get their due dates shifted by the same amount, not reset — see
-  // v100. Confirm first since it's a bulk change to real customer data.
+  // v95. Confirm first since it's a bulk change to real customer data.
   let deltaFilter = 0, deltaService = 0, deltaWarranty = 0;
   if (oldProduct) {
     deltaFilter = filter_interval_days - (oldProduct.filter_interval_days ?? 90);
@@ -6917,7 +7682,7 @@ let allLeads = [];
 let allLeadFollowups = [];
 let allLeadWaAssignee = {}; // whatsapp_conversation_id -> whatsapp_conversations.assigned_admin_name, for the "Added by" column on WhatsApp-auto leads — see loadLeadsAdmin()
 
-// Leads pipeline status (v103, widened v105) — mirrors WhatsApp's own
+// Leads pipeline status (v101, widened v103) — mirrors WhatsApp's own
 // conversation status vocabulary exactly, so a WhatsApp-sourced lead's
 // status can sync 1:1 (see WA_TO_LEAD_STATUS). 'not_interested' replaced
 // the old 'lost'; 'unassigned' is what a WhatsApp-auto-created lead starts
@@ -8060,6 +8825,7 @@ async function viewCustomerUnits(phone) {
  * WARRANTIES  (ported from the standalone PHP CRM at h2o.sadawater.com/regis/)
  * ========================================================================*/
 let allWarranties = [];
+let warrantyAmcIds = new Set(); // warranty ids with an active AMC contract — see loadWarranties()
 let allFollowups  = [];
 let warrantyCustomers = [];
 
@@ -8942,6 +9708,14 @@ async function loadWarranties() {
     return;
   }
   allWarranties = await window.SADA.Warranty.attachModels(data || []);
+
+  // Which of these units are currently covered by a prepaid AMC contract —
+  // batched into one query so the table can flag it without a query per row.
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: amcRows } = await dbAdmin.from('amc_contracts')
+    .select('warranty_id').eq('status', 'active').gte('end_date', today);
+  warrantyAmcIds = new Set((amcRows || []).map(r => r.warranty_id));
+
   renderWarrantyStats();
   renderWarrantyRegionStats();
   renderWarranties();
@@ -9127,7 +9901,9 @@ function renderWarranties() {
                 ${w.quantity > 1 ? `<div style="font-size:10px;color:#92400E;font-weight:700;">×${w.quantity} units</div>` : ''}
                 <span style="display:inline-block;margin-top:3px;background:${stBadge.bg};color:${stBadge.fg};font-size:9px;font-weight:800;padding:1px 6px;border-radius:7px;">${stBadge.t}</span>
                 ${w.service_opted_out ? `<span style="display:inline-block;margin-top:3px;margin-left:3px;background:#E0E7FF;color:#3730A3;font-size:9px;font-weight:800;padding:1px 6px;border-radius:7px;">No service</span>` : ''}
-                ${w.booking_id ? `<span title="Linked to a booking" style="display:inline-block;margin-top:3px;margin-left:3px;font-size:10px;">🔗</span>` : ''}</td>
+                ${w.booking_id ? `<span title="Linked to a booking" style="display:inline-block;margin-top:3px;margin-left:3px;font-size:10px;">🔗</span>` : ''}
+                ${warrantyAmcIds.has(w.id) ? `<span title="Active AMC contract — already prepaid" style="display:inline-block;margin-top:3px;margin-left:3px;background:#DBEAFE;color:#1D4ED8;font-size:9px;font-weight:800;padding:1px 6px;border-radius:7px;">AMC</span>` : ''}
+                ${w.service_promo_code ? `<span title="${W.esc(w.service_promo_code)} is saved on this unit — applies automatically on its next eligible service visit" style="display:inline-block;margin-top:3px;margin-left:3px;background:#EFF6FF;color:#1E40AF;font-size:9px;font-weight:800;padding:1px 6px;border-radius:7px;">🎉 ${W.esc(w.service_promo_code)}</span>` : ''}</td>
             <td>
               ${w.customers?.name
                 ? `<strong>${W.esc(w.customers.name)}</strong>`
@@ -9184,7 +9960,7 @@ function filterChangeSchedule(filterExpiry, intervalDays, horizonDate) {
 // Separate dedicated view (not folded into Booking Details) — the Schedule
 // button on each Active Units row. Two editable fields: the next due date,
 // and this unit's own filter interval override (real usage varies per unit
-// — see v101) — editing the override here is specific to this one customer,
+// — see v96) — editing the override here is specific to this one customer,
 // unlike Products' interval which cascades to everyone with that product.
 function renderFilterScheduleModal(w) {
   const W = window.SADA.Warranty;
@@ -9622,7 +10398,7 @@ async function loadWaQuickReplies() {
   }
 }
 
-// ── Conversation pipeline status (v89, widened v104) ───────────────────────
+// ── Conversation pipeline status (v89, widened v102) ───────────────────────
 // 'unassigned' is the true default — nobody's touched it. 'open' means an
 // admin has actually started the conversation (see
 // assignWaConversationIfUnassigned, which flips it on a first reply).
@@ -9903,7 +10679,7 @@ function unmarkWaNotInterested() {
   if (waCurrentConversationId) changeWaConversationStatus(waCurrentConversationId, 'open');
 }
 
-// WhatsApp's status set and Leads' (v103, widened v105) now share the exact
+// WhatsApp's status set and Leads' (v101, widened v103) now share the exact
 // same vocabulary, so this is a straight 1:1 map. This only syncs the status
 // field, not a follow-up reminder on the lead side (Leads has its own
 // separate follow-up table, unlinked to WhatsApp's).
@@ -10384,7 +11160,7 @@ function renderWhatsappMessages(messages) {
       // controls>, showing the browser's own first-frame poster, which read
       // as an unwanted thumbnail) — same treatment as any other document.
       : (m.media_url && m.thumbnail_url)
-      // A PDF with its first-page thumbnail already rendered (see v96) —
+      // A PDF with its first-page thumbnail already rendered (see v97) —
       // the thumbnail links to the actual file, same as the image case.
       ? `<a href="${escB(m.media_url)}" target="_blank" rel="noopener"><img src="${escB(m.thumbnail_url)}" style="max-width:220px;max-height:220px;border-radius:8px;display:block;border:1px solid rgba(0,0,0,0.08);"></a>
           <a href="${escB(m.media_url)}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:6px;color:inherit;text-decoration:none;margin-top:4px;font-size:11px;opacity:0.85;">
