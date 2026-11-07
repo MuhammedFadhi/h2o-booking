@@ -599,7 +599,11 @@
       $('f-promo').value = promo.code;
       const off = promo.discount_type === 'percent' ? promo.discount_value + '% off' : money(promo.discount_value) + ' off';
       if (basket.length && discountFor(currentLineData()) <= 0) {
-        promoMsg('Code applied, but it doesn’t cover any product in this basket.', false);
+        if (promo.applies_to_services) {
+          promoMsg('✓ Code saved — no product discount, but it’ll be ready to use on this unit’s service visits later.', true);
+        } else {
+          promoMsg('Code applied, but it doesn’t cover any product in this basket.', false);
+        }
       } else {
         promoMsg('✓ Code applied — ' + off, true);
       }

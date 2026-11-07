@@ -1487,7 +1487,11 @@ async function applyBookPromo() {
   updateBookBasketTotal();
   const off = bookPromo.discount_type === 'percent' ? `${bookPromo.discount_value}% off` : `SAR ${bookPromo.discount_value} off`;
   if (bookPromoDiscountFor(bookBasketLines(), bookPromo) <= 0 && bookBasketLines().length) {
-    show(`Code applied, but it doesn’t cover any product in your basket.`, false);
+    if (bookPromo.applies_to_services) {
+      show(`✓ Code saved — no product discount, but it’ll be ready to use on this unit’s service visits later.`, true);
+    } else {
+      show(`Code applied, but it doesn’t cover any product in your basket.`, false);
+    }
   } else {
     show(`✓ Code applied — ${off}!`, true);
   }

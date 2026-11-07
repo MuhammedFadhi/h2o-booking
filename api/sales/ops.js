@@ -437,7 +437,7 @@ module.exports = async function handler(req, res) {
       case 'me': return res.status(200).json({ name: user.name, email: user.email });
       case 'check-promo': {
         const p = await lookupPromo(body.code);
-        return res.status(200).json({ code: p.code, discount_type: p.discount_type, discount_value: Number(p.discount_value), applicable_products: p.applicable_products || null });
+        return res.status(200).json({ code: p.code, discount_type: p.discount_type, discount_value: Number(p.discount_value), applicable_products: p.applicable_products || null, applies_to_services: !!p.applies_to_services });
       }
       case 'my-bookings': return res.status(200).json(await myBookings(user));
       case 'my-leads': return res.status(200).json(await myLeads(user));
