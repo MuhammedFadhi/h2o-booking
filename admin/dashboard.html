@@ -3290,7 +3290,7 @@ async function adminMarkComplete(bookingId) {
 
   if (autoServicePromoCode) {
     document.getElementById('pay-promo-code').value = autoServicePromoCode;
-    await applyServicePromo();
+    await applyServicePromo(true);
   }
 }
 
@@ -3298,7 +3298,15 @@ async function adminMarkComplete(bookingId) {
 // checks out, discounts #pay-amount and stashes it for submitPayment() to
 // persist. Separate from the basket-promo flows (abApplyPromo /
 // applyBasketPromo) — there's no basket here, just a flat visit fee.
-async function applyServicePromo() {
+//
+// fromRemembered=true (auto-filled from warranties.service_promo_code, see
+// adminMarkComplete() above) skips the valid_from/valid_until window check —
+// once a code was promised to a customer at purchase/install time, it stays
+// honored on that unit even if the campaign's own date window has since
+// closed; the admin typing a code in manually here always still gets the
+// normal date check. is_active is NOT skipped either way — deliberately
+// deactivating a code (vs. its scheduled dates just lapsing) still blocks it.
+async function applyServicePromo(fromRemembered = false) {
   const resultEl = document.getElementById('pay-promo-result');
   const code = (document.getElementById('pay-promo-code').value || '').trim();
   const fail = (m) => { resultEl.style.color = '#B71C1C'; resultEl.textContent = m; appliedServicePromo = null; };
@@ -3307,9 +3315,11 @@ async function applyServicePromo() {
   const { data: promo } = await dbAdmin.from('promo_codes').select('*').ilike('code', code).maybeSingle();
   if (!promo) return fail('Code not found.');
   if (!promo.is_active) return fail('This code is inactive.');
-  const today = new Date().toISOString().slice(0, 10);
-  if (promo.valid_from && today < promo.valid_from) return fail('This code isn’t valid yet.');
-  if (promo.valid_until && today > promo.valid_until) return fail('This code has expired.');
+  if (!fromRemembered) {
+    const today = new Date().toISOString().slice(0, 10);
+    if (promo.valid_from && today < promo.valid_from) return fail('This code isn’t valid yet.');
+    if (promo.valid_until && today > promo.valid_until) return fail('This code has expired.');
+  }
   if (!promo.applies_to_services) return fail('This code isn’t set up for service visits.');
   if (promo.service_types && promo.service_types.length && !promo.service_types.includes(paymentModalBookingType)) {
     return fail('This code doesn’t apply to this booking type.');
@@ -3745,10 +3755,11 @@ async function sbCheckServicePromo(unit) {
   const jobType = document.getElementById('sb-jobtype').value;
 
   const { data: promo } = await dbAdmin.from('promo_codes').select('*').ilike('code', unit.promoCode).maybeSingle();
+  // No valid_from/valid_until check here — this is always the unit's
+  // remembered promo (never a manually-typed code), which stays honored
+  // past the campaign's own date window once it's been promised. See
+  // applyServicePromo()'s fromRemembered param for the same rule.
   if (!promo || !promo.is_active || !promo.applies_to_services) return;
-  const today = new Date().toISOString().slice(0, 10);
-  if (promo.valid_from && today < promo.valid_from) return;
-  if (promo.valid_until && today > promo.valid_until) return;
   if (promo.service_types && promo.service_types.length && !promo.service_types.includes(jobType)) return;
   if (promo.applicable_products && promo.applicable_products.length && !promo.applicable_products.includes(unit.product)) return;
 
