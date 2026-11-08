@@ -1065,7 +1065,7 @@
               <button class="btn btn-ghost btn-sm" onclick="clearWaReply()" style="padding:0 6px;line-height:1;flex-shrink:0;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12"/></svg></button>
             </div>
             <div id="wa-thread-composer" style="display:none;padding:12px 18px;border-top:1px solid var(--border);gap:8px;">
-              <input type="file" id="wa-file-input" style="display:none;" onchange="sendWaMedia()">
+              <input type="file" id="wa-file-input" multiple style="display:none;" onchange="sendWaMedia()">
               <div style="position:relative;">
                 <button class="btn btn-ghost" id="wa-emoji-btn" onclick="toggleWaEmojiPicker(event)" title="Emoji" style="padding:0 14px;font-size:16px;line-height:1;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 21a9 9 0 1 0 0-18a9 9 0 0 0 0 18"/><path d="M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 0 0 5 0"/></g></svg></button>
                 <div id="wa-emoji-picker" style="display:none;position:absolute;bottom:100%;left:0;margin-bottom:6px;background:var(--white);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);width:260px;max-height:220px;overflow-y:auto;z-index:20;padding:8px;"></div>
@@ -10346,8 +10346,8 @@ let waPendingTemplateMedia = null;
 let allWaFollowups = [];
 let currentWaFollowupConversationId = null;
 let waReplyTarget = null; // { waMessageId, who, snippet } — see startWaReply()
-let waPendingAttachmentFile = null; // staged, not-yet-sent File — see stageWaAttachment()
-let waPendingAttachmentPreviewUrl = null; // object URL for its thumbnail, revoked on cancel/send
+let waPendingAttachmentFiles = []; // staged, not-yet-sent File(s) — see stageWaAttachment()
+let waPendingAttachmentPreviewUrl = null; // object URL for the first one's thumbnail, revoked on cancel/send
 let waStatusFilter = ''; // '' = All — see renderWaStatusFilterBar()/setWaStatusFilter()
 
 async function waCall(action, extra) {
@@ -11258,7 +11258,7 @@ function renderWaReplyBanner() {
 // stopped a second Enter (or click) from re-entering mid-send: the text
 // path only went empty-text-no-op by the accident of clearing input.value
 // early, and the attachment path (sendWaPendingAttachment) didn't clear
-// waPendingAttachmentFile until AFTER its upload resolved, so a second
+// waPendingAttachmentFiles until AFTER its upload resolved, so a second
 // Enter pressed while the first upload was still in flight re-sent the
 // exact same file as a genuine second request. This flag blocks re-entry
 // outright, for both paths, the instant any send starts.
@@ -11271,7 +11271,7 @@ async function sendWhatsappMessage() {
     // A staged file (attach button or pasted image — see stageWaAttachment)
     // takes over Send/Enter: the reply box is its caption, not a separate
     // text message, same as WhatsApp's own composer.
-    if (waPendingAttachmentFile) { await sendWaPendingAttachment(); return; }
+    if (waPendingAttachmentFiles.length) { await sendWaPendingAttachment(); return; }
     const input = document.getElementById('wa-thread-input');
     const text = input.value.trim();
     if (!text || !waCurrentConversationId) return;
@@ -11342,83 +11342,109 @@ async function sendWhatsappMessage() {
 
 function sendWaMedia() {
   const fileInput = document.getElementById('wa-file-input');
-  stageWaAttachment(fileInput.files[0]);
+  stageWaAttachment(Array.from(fileInput.files));
   fileInput.value = '';
 }
 
-// Shared by the file-picker attach button and pasting an image straight
-// into the reply box (Ctrl/Cmd+V — see the wa-thread-input paste listener)
-// below. Neither sends immediately — matches WhatsApp's own attach UX
-// (preview first, with the reply box doubling as the caption field, then
+// Shared by the file-picker attach button (one or several files at once)
+// and pasting a single image straight into the reply box (Ctrl/Cmd+V — see
+// the wa-thread-input paste listener below). Accepts either a File or an
+// array of Files. Neither sends immediately — matches WhatsApp's own attach
+// UX (preview first, with the reply box doubling as the caption field, then
 // an explicit Send) rather than firing the upload the instant a file is
-// picked or pasted.
-function stageWaAttachment(file) {
-  if (!file || !waCurrentConversationId) return;
-  cancelWaPendingAttachment(); // drop any previously staged file first
+// picked or pasted. WhatsApp only ever carries one attachment per message,
+// so several staged files go out as that many separate messages, in order,
+// when Send is pressed — see sendWaPendingAttachment().
+function stageWaAttachment(files) {
+  const fileArr = (Array.isArray(files) ? files : [files]).filter(Boolean);
+  if (!fileArr.length || !waCurrentConversationId) return;
+  cancelWaPendingAttachment(); // drop any previously staged file(s) first
   clearWaTemplateMedia(); // a raw attachment and a template's own media are mutually exclusive
-  waPendingAttachmentFile = file;
+  waPendingAttachmentFiles = fileArr;
   const thumb = document.getElementById('wa-attachment-preview-thumb');
-  if (file.type.startsWith('image/')) {
-    waPendingAttachmentPreviewUrl = URL.createObjectURL(file);
+  const first = fileArr[0];
+  if (first.type.startsWith('image/')) {
+    waPendingAttachmentPreviewUrl = URL.createObjectURL(first);
     thumb.innerHTML = `<img src="${waPendingAttachmentPreviewUrl}" style="width:100%;height:100%;object-fit:cover;">`;
   } else {
     thumb.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="1.4em" height="1.4em" viewBox="0 0 24 24" style="color:var(--water);"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2M9 9h1m-1 4h6m-6 4h6"/></g></svg>`;
   }
-  document.getElementById('wa-attachment-preview-name').textContent = file.name || 'Attachment';
+  document.getElementById('wa-attachment-preview-name').textContent = fileArr.length > 1
+    ? `${first.name} + ${fileArr.length - 1} more`
+    : (first.name || 'Attachment');
   document.getElementById('wa-attachment-preview').style.display = 'flex';
   const input = document.getElementById('wa-thread-input');
-  input.placeholder = 'Add a caption (optional)…';
+  // A caption only ever lands on the LAST file of a batch (reads as a
+  // trailing note on the whole set) — only worth mentioning when there's
+  // more than one, so the admin isn't surprised where it ends up.
+  input.placeholder = fileArr.length > 1 ? 'Add a caption for the last file (optional)…' : 'Add a caption (optional)…';
   input.focus();
 }
 
 function cancelWaPendingAttachment() {
   if (waPendingAttachmentPreviewUrl) { URL.revokeObjectURL(waPendingAttachmentPreviewUrl); waPendingAttachmentPreviewUrl = null; }
-  waPendingAttachmentFile = null;
+  waPendingAttachmentFiles = [];
   document.getElementById('wa-attachment-preview').style.display = 'none';
   document.getElementById('wa-attachment-preview-thumb').innerHTML = '';
   document.getElementById('wa-thread-input').placeholder = 'Type a reply… (/ for templates)';
 }
 
 // The actual upload — only runs once the admin hits Send (see
-// sendWhatsappMessage, which routes here when a file is staged). The reply
-// box's text, if any, goes along as the attachment's caption.
+// sendWhatsappMessage, which routes here when file(s) are staged). WhatsApp
+// only carries one attachment per message, so each staged file goes out as
+// its own message, uploaded one at a time (not in parallel — keeps them
+// landing in the chat in the same order they were picked). The reply box's
+// text, if any, is attached as the caption of only the LAST file (see
+// stageWaAttachment's placeholder hint); replyToWaMessageId, if replying to
+// a quoted message, is attached to only the FIRST.
 async function sendWaPendingAttachment() {
-  const file = waPendingAttachmentFile;
-  if (!file || !waCurrentConversationId) return;
-  // Captured now, not re-read after the upload's await — see the same note
+  const files = waPendingAttachmentFiles;
+  if (!files.length || !waCurrentConversationId) return;
+  // Captured now, not re-read after the uploads' awaits — see the same note
   // in sendWhatsappMessage.
   const conversationId = waCurrentConversationId;
   const input = document.getElementById('wa-thread-input');
   const caption = input.value.trim();
+  const replyToId = waReplyTarget?.waMessageId || null;
   const attachBtn = document.getElementById('wa-attach-btn');
   const sendBtn = document.getElementById('wa-thread-send-btn');
   attachBtn.disabled = true;
   sendBtn.disabled = true;
-  // A disabled button looks identical to an enabled one otherwise (no
-  // .btn:disabled styling) — the label change is what actually tells the
-  // admin their click registered, so they don't click Send again unsure.
-  sendBtn.textContent = 'Sending…';
   document.getElementById('wa-thread-error').style.display = 'none';
   try {
     const { data: { session } } = await db.auth.getSession();
     if (!session) throw new Error('Session expired. Please sign in again.');
-    const form = new FormData();
-    form.append('conversationId', conversationId);
-    form.append('file', file);
-    if (caption) form.append('caption', caption);
-    if (waReplyTarget) form.append('replyToWaMessageId', waReplyTarget.waMessageId);
-    const res = await fetch('/api/admin/whatsapp', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${session.access_token}` }, // no Content-Type — browser sets the multipart boundary
-      body: form
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || 'Upload failed.');
+    for (let i = 0; i < files.length; i++) {
+      // A disabled button looks identical to an enabled one otherwise (no
+      // .btn:disabled styling) — the label change is what actually tells the
+      // admin their click registered, so they don't click Send again unsure.
+      sendBtn.textContent = files.length > 1 ? `Sending ${i + 1} of ${files.length}…` : 'Sending…';
+      const form = new FormData();
+      form.append('conversationId', conversationId);
+      form.append('file', files[i]);
+      if (caption && i === files.length - 1) form.append('caption', caption);
+      if (replyToId && i === 0) form.append('replyToWaMessageId', replyToId);
+      const res = await fetch('/api/admin/whatsapp', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` }, // no Content-Type — browser sets the multipart boundary
+        body: form
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Drop the ones that already went out — only what's left stays
+        // staged, so retrying Send doesn't resend what already landed.
+        waPendingAttachmentFiles = files.slice(i);
+        document.getElementById('wa-attachment-preview-name').textContent = waPendingAttachmentFiles.length > 1
+          ? `${waPendingAttachmentFiles[0].name} + ${waPendingAttachmentFiles.length - 1} more`
+          : waPendingAttachmentFiles[0].name;
+        throw new Error(`${body.error || 'Upload failed.'} on file ${i + 1} of ${files.length}${i > 0 ? ` (${i} sent successfully before this)` : ''}`);
+      }
+      await loadWhatsappMessages();
+    }
     input.value = '';
     autoGrowWaInput();
     cancelWaPendingAttachment();
     clearWaReply();
-    await loadWhatsappMessages();
     assignWaConversationIfUnassigned(conversationId);
   } catch (err) {
     document.getElementById('wa-thread-error').style.display = 'block';
