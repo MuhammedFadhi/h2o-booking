@@ -75,6 +75,28 @@
     unknown: { bg: '#F1F5F9', fg: '#64748B', bar: '#94A3B8' }
   };
 
+  // A promo code's badge color everywhere it's shown (Active Units, the
+  // customer portal unit card) — picked deterministically from the code
+  // itself, so the same code always gets the same color and different codes
+  // are visually distinguishable at a glance instead of every badge looking
+  // identical.
+  var PROMO_COLORS = [
+    { bg: '#EFF6FF', fg: '#1E40AF' }, // blue
+    { bg: '#F5F3FF', fg: '#6D28D9' }, // purple
+    { bg: '#ECFDF5', fg: '#047857' }, // green
+    { bg: '#FFFBEB', fg: '#B45309' }, // amber
+    { bg: '#FDF2F8', fg: '#BE185D' }, // pink
+    { bg: '#F0FDFA', fg: '#0F766E' }, // teal
+    { bg: '#FFF7ED', fg: '#C2410C' }, // orange
+    { bg: '#EEF2FF', fg: '#4338CA' }  // indigo
+  ];
+  function colorForCode(code) {
+    var s = String(code || '').toUpperCase();
+    var h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return PROMO_COLORS[h % PROMO_COLORS.length];
+  }
+
   /** "in 34 days" / "today" / "12 days overdue" */
   function humanDays(expiry) {
     var d = daysUntil(expiry);
@@ -320,7 +342,7 @@
       '</div>';
   }
 
-  function unitCard(u, idx, gaugeStyle, servicePromoLabel) {
+  function unitCard(u, idx, gaugeStyle, servicePromo) {
     // A self-reported row (standalone service visit, no SA'DA install/QR) gets
     // honest framing instead of implying formal SA'DA product coverage: no
     // warranty badge/countdown, "first serviced" instead of "installed".
@@ -379,7 +401,7 @@
           '<div style="font-size:15px;font-weight:500;color:' + titleColor + ';word-break:break-word;">' + esc(u.product_type) + '</div>' +
           (u.qr_code ? '<div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:500;color:' + mutedColor + ';word-break:break-all;margin-top:2px;">' + esc(u.qr_code) + '</div>' : '') +
           (u.quantity > 1 ? '<div style="font-size:10px;color:#92400E;background:#FEF3C7;display:inline-block;padding:2px 7px;border-radius:8px;margin-top:4px;font-weight:700;">×' + u.quantity + ' units on this record</div>' : '') +
-          (servicePromoLabel ? '<div style="font-size:10px;color:#1E40AF;background:#EFF6FF;display:inline-block;padding:2px 7px;border-radius:8px;margin-top:4px;font-weight:700;">🎉 ' + esc(servicePromoLabel) + '</div>' : '') +
+          (servicePromo ? '<div style="font-size:10px;color:' + colorForCode(servicePromo.code).fg + ';background:' + colorForCode(servicePromo.code).bg + ';display:inline-block;padding:2px 7px;border-radius:8px;margin-top:4px;font-weight:700;">🎉 ' + esc(servicePromo.label) + '</div>' : '') +
         '</div>' +
         '<span style="background:' + wc.bg + ';color:' + wc.fg + ';font-size:10px;font-weight:800;padding:4px 9px;border-radius:10px;white-space:nowrap;">' +
           statusBadge + '</span>' +
@@ -435,6 +457,7 @@
     humanDays: humanDays,
     milestone: milestone,
     statusOf: statusOf,
+    colorForCode: colorForCode,
     STATUS_COLORS: STATUS_COLORS,
     esc: esc,
     customerIdForPhone: customerIdForPhone,
