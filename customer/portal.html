@@ -695,9 +695,10 @@ async function servicePromoLabelsFor(units) {
   const labels = {};
   (data || []).forEach(p => {
     const isFree = p.discount_type === 'percent' && Number(p.discount_value) >= 100;
-    labels[p.code] = isFree
+    const label = isFree
       ? 'Your next service visit is free'
       : (p.discount_type === 'percent' ? `${p.discount_value}% off your next service visit` : `SAR ${p.discount_value} off your next service visit`);
+    labels[p.code] = { label, code: p.code };
   });
   return labels;
 }
