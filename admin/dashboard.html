@@ -10403,8 +10403,14 @@ let waPendingTemplateMedia = null;
 let allWaFollowups = [];
 let currentWaFollowupConversationId = null;
 let waReplyTarget = null; // { waMessageId, who, snippet } — see startWaReply()
-let waPendingAttachmentFiles = []; // staged, not-yet-sent File(s) — see stageWaAttachment()
-let waPendingAttachmentPreviewUrl = null; // object URL for the first one's thumbnail, revoked on cancel/send
+// Keyed by conversation id, not a single global — a staged attachment (and
+// an in-flight send) belongs to whichever chat it was started in, not to
+// "whatever's on screen". Without this, attaching a file in one chat and
+// switching to another to send something there got wiped/blocked by the
+// first chat's own state. See stageWaAttachment()/sendWaPendingAttachment().
+let waPendingAttachmentsByConvo = new Map(); // conversationId -> File[]
+let waPendingAttachmentPreviewUrl = null; // object URL for the CURRENTLY DISPLAYED chat's thumbnail, revoked on cancel/send/switch
+let waSendInFlightFor = new Set(); // conversation ids currently mid-send (text or attachment) — see sendWhatsappMessage
 let waStatusFilter = ''; // '' = All — see renderWaStatusFilterBar()/setWaStatusFilter()
 
 async function waCall(action, extra) {
@@ -11003,7 +11009,6 @@ async function selectWhatsappConversation(id) {
   clearWaTemplateMedia();
   closeWaTemplateDropdown();
   clearWaReply();
-  cancelWaPendingAttachment();
   waCurrentConversationId = id;
   const convo = waConversations.find(c => c.id === id);
   renderWhatsappConversationList(); // re-render to show the selection highlight
@@ -11027,6 +11032,7 @@ async function selectWhatsappConversation(id) {
   document.getElementById('wa-thread-error').style.display = 'none';
   document.getElementById('wa-thread-input').value = '';
   autoGrowWaInput();
+  restoreWaComposerState(id);
 
   await loadWhatsappMessages();
 
@@ -11040,6 +11046,24 @@ async function selectWhatsappConversation(id) {
   waPollInterval = setInterval(loadWhatsappMessages, 5000);
 }
 
+// Reflects THIS conversation's own composer state when switching to it —
+// a staged-but-not-yet-sent attachment, or one still mid-upload in the
+// background (see waSendInFlightFor/waPendingAttachmentsByConvo) — instead
+// of always resetting to empty, which used to wipe out (or silently hide
+// the progress of) whatever this chat had going on before the admin
+// switched away from it.
+function restoreWaComposerState(id) {
+  document.getElementById('wa-attachment-preview').style.display = 'none';
+  document.getElementById('wa-attachment-preview-thumb').innerHTML = '';
+  document.getElementById('wa-thread-input').placeholder = 'Type a reply… (/ for templates)';
+  const sending = waSendInFlightFor.has(id);
+  document.getElementById('wa-attach-btn').disabled = sending;
+  document.getElementById('wa-thread-send-btn').disabled = sending;
+  document.getElementById('wa-thread-send-btn').textContent = sending ? 'Sending…' : 'Send';
+  const staged = waPendingAttachmentsByConvo.get(id);
+  if (staged && staged.length) renderWaAttachmentPreviewUI(staged);
+}
+
 // Backs the Esc-to-exit shortcut (see the keydown listener below) — undoes
 // everything selectWhatsappConversation set up, back to the "select a
 // conversation" empty state.
@@ -11050,7 +11074,6 @@ function closeWhatsappThread() {
   closeWaTemplateDropdown();
   closeWaStatusDropdowns();
   clearWaReply();
-  cancelWaPendingAttachment();
   if (waPollInterval) { clearInterval(waPollInterval); waPollInterval = null; }
   waCurrentConversationId = null;
   document.getElementById('panel-whatsapp').classList.remove('wa-mobile-thread-active');
@@ -11310,34 +11333,33 @@ function renderWaReplyBanner() {
   el.style.display = 'flex';
 }
 
-// True re-entrancy guard, not just the Send button's disabled state — Enter
-// in the reply box calls this directly (handleWaInputKeydown), and nothing
-// stopped a second Enter (or click) from re-entering mid-send: the text
-// path only went empty-text-no-op by the accident of clearing input.value
-// early, and the attachment path (sendWaPendingAttachment) didn't clear
-// waPendingAttachmentFiles until AFTER its upload resolved, so a second
-// Enter pressed while the first upload was still in flight re-sent the
-// exact same file as a genuine second request. This flag blocks re-entry
-// outright, for both paths, the instant any send starts.
-let waSendInFlight = false;
-
+// Re-entrancy guard, not just the Send button's disabled state — Enter in
+// the reply box calls this directly (handleWaInputKeydown), and nothing
+// stopped a second Enter (or click) from re-entering mid-send. Scoped PER
+// CONVERSATION (waSendInFlightFor, declared above with the other per-chat
+// state) rather than one global flag — sending in one chat must never block
+// starting a send in a different one at the same time.
 async function sendWhatsappMessage() {
-  if (waSendInFlight) return;
-  waSendInFlight = true;
+  // Captured now, not re-read after any await below — this is always the
+  // chat that was actually on screen when Send/Enter was pressed; the admin
+  // may switch to a different one before this resolves, which is exactly
+  // what the isVisible() checks throughout this function and
+  // sendWaPendingAttachment() guard against.
+  const conversationId = waCurrentConversationId;
+  if (!conversationId || waSendInFlightFor.has(conversationId)) return;
+  waSendInFlightFor.add(conversationId);
   try {
     // A staged file (attach button or pasted image — see stageWaAttachment)
     // takes over Send/Enter: the reply box is its caption, not a separate
     // text message, same as WhatsApp's own composer.
-    if (waPendingAttachmentFiles.length) { await sendWaPendingAttachment(); return; }
+    if ((waPendingAttachmentsByConvo.get(conversationId) || []).length) {
+      await sendWaPendingAttachment(conversationId);
+      return;
+    }
+    const isVisible = () => waCurrentConversationId === conversationId;
     const input = document.getElementById('wa-thread-input');
     const text = input.value.trim();
-    if (!text || !waCurrentConversationId) return;
-    // Captured now, not re-read after the await below — waCurrentConversationId
-    // is a live global that changes the instant the admin opens a different
-    // conversation. Re-reading it post-await meant switching chats mid-send
-    // silently assigned (or updated the preview of) whatever conversation
-    // happened to be open when the send finished, not the one actually sent to.
-    const conversationId = waCurrentConversationId;
+    if (!text) return;
     const btn = document.getElementById('wa-thread-send-btn');
     btn.disabled = true;
     btn.textContent = 'Sending…';
@@ -11356,7 +11378,10 @@ async function sendWhatsappMessage() {
     // _tempId identifies THIS send's own placeholder so it can be swapped for
     // the real row below without touching any other concurrent send's
     // placeholder. reply_to_wa_message_id is included so the quote preview
-    // shows immediately instead of waiting for the next poll.
+    // shows immediately instead of waiting for the next poll. Safe to do
+    // unconditionally — this chat is guaranteed still on screen at this
+    // exact synchronous point, before any await has had a chance to let the
+    // admin switch away.
     const tempId = `wa-temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     waMessages = [...waMessages, { direction: 'outbound', body: text, sent_at: new Date().toISOString(), status: 'sent', reply_to_wa_message_id: replyTarget?.waMessageId || null, _optimistic: true, _tempId: tempId }];
     renderWhatsappMessages(waMessages);
@@ -11369,9 +11394,17 @@ async function sendWhatsappMessage() {
         : await waCall('send-message', { conversationId, body: text, replyToWaMessageId: replyTarget?.waMessageId || null });
       // Swap the placeholder for the real, saved row now rather than leaving
       // it for the next poll to naturally overwrite — see loadWhatsappMessages
-      // for why relying on that alone let the message flicker away.
-      waMessages = waMessages.map(m => m._tempId === tempId ? (result?.message || { ...m, _optimistic: false }) : m);
-      renderWhatsappMessages(waMessages);
+      // for why relying on that alone let the message flicker away. Only
+      // touches waMessages/the thread view if this chat is still the one on
+      // screen; otherwise waMessages already belongs to whatever chat the
+      // admin switched to, and mutating it here would be touching the wrong
+      // thread's data.
+      if (isVisible()) {
+        waMessages = waMessages.map(m => m._tempId === tempId ? (result?.message || { ...m, _optimistic: false }) : m);
+        renderWhatsappMessages(waMessages);
+      }
+      // Keyed by conversationId, not "whatever's open" — safe and correct
+      // to update regardless of which chat is currently displayed.
       const convo = waConversations.find(c => c.id === conversationId);
       if (convo) {
         convo.last_message_preview = text;
@@ -11382,18 +11415,23 @@ async function sendWhatsappMessage() {
       }
       assignWaConversationIfUnassigned(conversationId);
     } catch (err) {
-      waMessages = waMessages.filter(m => m._tempId !== tempId);
-      renderWhatsappMessages(waMessages);
-      input.value = text;
-      autoGrowWaInput();
-      document.getElementById('wa-thread-error').style.display = 'block';
-      document.getElementById('wa-thread-error').textContent = err.message;
+      if (isVisible()) {
+        waMessages = waMessages.filter(m => m._tempId !== tempId);
+        renderWhatsappMessages(waMessages);
+        input.value = text;
+        autoGrowWaInput();
+        document.getElementById('wa-thread-error').style.display = 'block';
+        document.getElementById('wa-thread-error').textContent = err.message;
+      } else {
+        const name = waConversations.find(c => c.id === conversationId)?.contact_name
+          || waConversations.find(c => c.id === conversationId)?.phone || 'that chat';
+        showToast(`⚠ Sending to ${name} failed: ${err.message}`, 'error');
+      }
     } finally {
-      btn.disabled = false;
-      btn.textContent = 'Send';
+      if (isVisible()) { btn.disabled = false; btn.textContent = 'Send'; }
     }
   } finally {
-    waSendInFlight = false;
+    waSendInFlightFor.delete(conversationId);
   }
 }
 
@@ -11415,11 +11453,21 @@ function sendWaMedia() {
 function stageWaAttachment(files) {
   const fileArr = (Array.isArray(files) ? files : [files]).filter(Boolean);
   if (!fileArr.length || !waCurrentConversationId) return;
-  cancelWaPendingAttachment(); // drop any previously staged file(s) first
+  cancelWaPendingAttachment(); // drop this chat's own previously staged file(s), if any
   clearWaTemplateMedia(); // a raw attachment and a template's own media are mutually exclusive
-  waPendingAttachmentFiles = fileArr;
+  waPendingAttachmentsByConvo.set(waCurrentConversationId, fileArr);
+  renderWaAttachmentPreviewUI(fileArr);
+}
+
+// Draws the attachment-preview strip + input placeholder for the file(s)
+// passed in — split out from stageWaAttachment so selectWhatsappConversation
+// can also call it to restore a chat's own staged attachment when switching
+// back to it, without re-staging (which would wipe the SAME files it's
+// about to re-render).
+function renderWaAttachmentPreviewUI(fileArr) {
   const thumb = document.getElementById('wa-attachment-preview-thumb');
   const first = fileArr[0];
+  if (waPendingAttachmentPreviewUrl) { URL.revokeObjectURL(waPendingAttachmentPreviewUrl); waPendingAttachmentPreviewUrl = null; }
   if (first.type.startsWith('image/')) {
     waPendingAttachmentPreviewUrl = URL.createObjectURL(first);
     thumb.innerHTML = `<img src="${waPendingAttachmentPreviewUrl}" style="width:100%;height:100%;object-fit:cover;">`;
@@ -11438,9 +11486,12 @@ function stageWaAttachment(files) {
   input.focus();
 }
 
+// Clears the CURRENTLY DISPLAYED chat's own staged attachment (the only one
+// with a visible preview/X button to cancel) — never another chat's, which
+// may still have its own staged file or an in-flight send going.
 function cancelWaPendingAttachment() {
   if (waPendingAttachmentPreviewUrl) { URL.revokeObjectURL(waPendingAttachmentPreviewUrl); waPendingAttachmentPreviewUrl = null; }
-  waPendingAttachmentFiles = [];
+  if (waCurrentConversationId) waPendingAttachmentsByConvo.delete(waCurrentConversationId);
   document.getElementById('wa-attachment-preview').style.display = 'none';
   document.getElementById('wa-attachment-preview-thumb').innerHTML = '';
   document.getElementById('wa-thread-input').placeholder = 'Type a reply… (/ for templates)';
@@ -11454,20 +11505,29 @@ function cancelWaPendingAttachment() {
 // text, if any, is attached as the caption of only the LAST file (see
 // stageWaAttachment's placeholder hint); replyToWaMessageId, if replying to
 // a quoted message, is attached to only the FIRST.
-async function sendWaPendingAttachment() {
-  const files = waPendingAttachmentFiles;
-  if (!files.length || !waCurrentConversationId) return;
-  // Captured now, not re-read after the uploads' awaits — see the same note
-  // in sendWhatsappMessage.
-  const conversationId = waCurrentConversationId;
-  const input = document.getElementById('wa-thread-input');
-  const caption = input.value.trim();
-  const replyToId = waReplyTarget?.waMessageId || null;
-  const attachBtn = document.getElementById('wa-attach-btn');
-  const sendBtn = document.getElementById('wa-thread-send-btn');
-  attachBtn.disabled = true;
-  sendBtn.disabled = true;
-  document.getElementById('wa-thread-error').style.display = 'none';
+//
+// conversationId is the chat this send belongs to — NOT necessarily the one
+// on screen right now, since the admin may have switched to a different
+// chat while this one's batch is still going. isVisible() is re-checked
+// before every DOM update so a background send never touches another
+// chat's composer/thread view; it finishes quietly and reports via toast
+// instead when it isn't the one currently displayed.
+async function sendWaPendingAttachment(conversationId) {
+  const files = waPendingAttachmentsByConvo.get(conversationId) || [];
+  if (!files.length) return;
+  const isVisible = () => waCurrentConversationId === conversationId;
+  const convoName = () => waConversations.find(c => c.id === conversationId)?.contact_name
+    || waConversations.find(c => c.id === conversationId)?.phone || 'that chat';
+  // Captured now, not re-read after the uploads' awaits — the reply box's
+  // contents belong to whichever chat was open at Send time, same reasoning
+  // as sendWhatsappMessage's own conversationId capture.
+  const caption = isVisible() ? document.getElementById('wa-thread-input').value.trim() : '';
+  const replyToId = isVisible() ? (waReplyTarget?.waMessageId || null) : null;
+  if (isVisible()) {
+    document.getElementById('wa-attach-btn').disabled = true;
+    document.getElementById('wa-thread-send-btn').disabled = true;
+    document.getElementById('wa-thread-error').style.display = 'none';
+  }
   try {
     const { data: { session } } = await db.auth.getSession();
     if (!session) throw new Error('Session expired. Please sign in again.');
@@ -11475,7 +11535,9 @@ async function sendWaPendingAttachment() {
       // A disabled button looks identical to an enabled one otherwise (no
       // .btn:disabled styling) — the label change is what actually tells the
       // admin their click registered, so they don't click Send again unsure.
-      sendBtn.textContent = files.length > 1 ? `Sending ${i + 1} of ${files.length}…` : 'Sending…';
+      if (isVisible()) {
+        document.getElementById('wa-thread-send-btn').textContent = files.length > 1 ? `Sending ${i + 1} of ${files.length}…` : 'Sending…';
+      }
       const form = new FormData();
       form.append('conversationId', conversationId);
       form.append('file', files[i]);
@@ -11490,30 +11552,43 @@ async function sendWaPendingAttachment() {
       if (!res.ok) {
         // Drop the ones that already went out — only what's left stays
         // staged, so retrying Send doesn't resend what already landed.
-        waPendingAttachmentFiles = files.slice(i);
-        document.getElementById('wa-attachment-preview-name').textContent = waPendingAttachmentFiles.length > 1
-          ? `${waPendingAttachmentFiles[0].name} + ${waPendingAttachmentFiles.length - 1} more`
-          : waPendingAttachmentFiles[0].name;
+        const remaining = files.slice(i);
+        waPendingAttachmentsByConvo.set(conversationId, remaining);
+        if (isVisible()) renderWaAttachmentPreviewUI(remaining);
         throw new Error(`${body.error || 'Upload failed.'} on file ${i + 1} of ${files.length}${i > 0 ? ` (${i} sent successfully before this)` : ''}`);
       }
     }
+    waPendingAttachmentsByConvo.delete(conversationId);
     // Reloaded once at the end, not after every file — an extra full
     // message-list round-trip per file only added wait time between
-    // uploads without the admin needing to see each one mid-batch.
-    await loadWhatsappMessages();
-    input.value = '';
-    autoGrowWaInput();
-    cancelWaPendingAttachment();
-    clearWaReply();
+    // uploads without the admin needing to see each one mid-batch. Skipped
+    // entirely if the admin has since navigated to a different chat — it
+    // would otherwise refresh whatever's now on screen with THIS chat's
+    // messages, not the one actually being viewed.
+    if (isVisible()) {
+      await loadWhatsappMessages();
+      document.getElementById('wa-thread-input').value = '';
+      autoGrowWaInput();
+      cancelWaPendingAttachment();
+      clearWaReply();
+    } else {
+      showToast(`✓ Sent to ${convoName()}`, 'success');
+    }
     assignWaConversationIfUnassigned(conversationId);
   } catch (err) {
-    document.getElementById('wa-thread-error').style.display = 'block';
-    document.getElementById('wa-thread-error').textContent = err.message;
-    await loadWhatsappMessages(); // show whichever files in the batch did send before the failure
+    if (isVisible()) {
+      document.getElementById('wa-thread-error').style.display = 'block';
+      document.getElementById('wa-thread-error').textContent = err.message;
+      await loadWhatsappMessages(); // show whichever files in the batch did send before the failure
+    } else {
+      showToast(`⚠ Sending to ${convoName()} failed: ${err.message}`, 'error');
+    }
   } finally {
-    attachBtn.disabled = false;
-    sendBtn.disabled = false;
-    sendBtn.textContent = 'Send';
+    if (isVisible()) {
+      document.getElementById('wa-attach-btn').disabled = false;
+      document.getElementById('wa-thread-send-btn').disabled = false;
+      document.getElementById('wa-thread-send-btn').textContent = 'Send';
+    }
   }
 }
 
