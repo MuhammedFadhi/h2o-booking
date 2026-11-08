@@ -3105,7 +3105,7 @@ async function loadBookings() {
         <div style="margin-top:3px;">
           <span style="font-size:10px;font-weight:700;color:${tc.fg};background:${tc.bg};display:inline-block;padding:1px 7px;border-radius:8px;text-transform:uppercase;letter-spacing:0.3px;">${bookingTypeLabel(b.booking_type)}</span>
           <button class="btn btn-ghost btn-sm" onclick="editBookingType('${b.id}','${b.booking_type || ''}')" style="padding:0 4px;font-size:10px;" title="Edit service type">${ICON_PENCIL}</button>
-          ${b.promo_code ? `<span style="font-size:10px;font-weight:700;color:#9D174D;background:#FCE7F3;display:inline-block;padding:1px 7px;border-radius:8px;margin-left:4px;" title="${b.discount_amount ? `− SAR ${Number(b.discount_amount).toLocaleString('en-US')}` : 'Promo applied'}">🎟️ ${escB(b.promo_code)}</span>` : ''}
+          ${b.promo_code ? (() => { const pc = W.colorForCode(b.promo_code); return `<span style="font-size:10px;font-weight:700;color:${pc.fg};background:${pc.bg};display:inline-block;padding:1px 7px;border-radius:8px;margin-left:4px;" title="${b.discount_amount ? `− SAR ${Number(b.discount_amount).toLocaleString('en-US')}` : 'Promo applied'}">🎟️ ${escB(b.promo_code)}</span>`; })() : ''}
         </div>
         <div style="font-size:11px;color:#1565C0;margin-top:2px;">
           ${(b.booking_items && b.booking_items.length)
