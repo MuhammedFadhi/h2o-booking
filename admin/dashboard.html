@@ -11439,8 +11439,11 @@ async function sendWaPendingAttachment() {
           : waPendingAttachmentFiles[0].name;
         throw new Error(`${body.error || 'Upload failed.'} on file ${i + 1} of ${files.length}${i > 0 ? ` (${i} sent successfully before this)` : ''}`);
       }
-      await loadWhatsappMessages();
     }
+    // Reloaded once at the end, not after every file — an extra full
+    // message-list round-trip per file only added wait time between
+    // uploads without the admin needing to see each one mid-batch.
+    await loadWhatsappMessages();
     input.value = '';
     autoGrowWaInput();
     cancelWaPendingAttachment();
@@ -11449,6 +11452,7 @@ async function sendWaPendingAttachment() {
   } catch (err) {
     document.getElementById('wa-thread-error').style.display = 'block';
     document.getElementById('wa-thread-error').textContent = err.message;
+    await loadWhatsappMessages(); // show whichever files in the batch did send before the failure
   } finally {
     attachBtn.disabled = false;
     sendBtn.disabled = false;

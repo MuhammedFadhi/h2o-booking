@@ -5,6 +5,7 @@
 // Auth: caller must present a Bearer token whose email is in admin_emails
 // (same as every other /api/admin/* route — see ./_auth).
 const { requireAdmin, SUPABASE_URL, SERVICE_KEY } = require('./_auth');
+const crypto = require('crypto');
 // _webmToOgg.js (a pure WebM->Ogg Opus remux) is NOT used here — it's
 // spec-valid (confirmed byte-exact and CRC-correct against what Meta
 // actually served back) but Ogg Opus has poor native decode support on
@@ -184,17 +185,38 @@ async function sendMediaMessage({ conversationId, buffer, mimeType, filename, ca
 
   const waType = waTypeForMime(mimeType);
 
+  // The re-host to our own storage used to only start AFTER both the Meta
+  // upload and the send-message call finished — two full sequential
+  // uploads of the same buffer (once to Meta, once to Supabase Storage),
+  // which doubled the wait for a large file (video especially). Its
+  // filename used to be built from Meta's media id, but that's only known
+  // once the Meta upload itself resolves; a standalone id generated up
+  // front removes that dependency, so the two uploads can run concurrently.
+  const ext = (mimeType.split('/')[1] || '').split(';')[0] || waType;
+  const safeName = filename ? String(filename).replace(/[^a-zA-Z0-9._-]/g, '_') : null;
+  const reuploadId = crypto.randomUUID();
+  const storagePath = safeName ? `${reuploadId}_${safeName}` : `${reuploadId}.${ext}`;
+
   const uploadForm = new FormData();
   uploadForm.append('messaging_product', 'whatsapp');
   uploadForm.append('file', new Blob([buffer], { type: mimeType }), filename || 'upload');
-  const uploadRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WHATSAPP_PHONE_NUMBER_ID}/media`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}` },
-    body: uploadForm
-  });
-  const uploadJson = await uploadRes.json().catch(() => ({}));
-  if (!uploadRes.ok || !uploadJson?.id) throw bad(uploadRes.status || 502, uploadJson?.error?.message || 'WhatsApp media upload failed.');
+  const [metaUpload, storageUpload] = await Promise.allSettled([
+    fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WHATSAPP_PHONE_NUMBER_ID}/media`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}` },
+      body: uploadForm
+    }).then(async (r) => ({ ok: r.ok, status: r.status, json: await r.json().catch(() => ({})) })),
+    uploadToStorage(storagePath, buffer, mimeType)
+  ]);
+
+  if (metaUpload.status === 'rejected') throw bad(502, metaUpload.reason?.message || 'WhatsApp media upload failed.');
+  const { ok: uploadOk, status: uploadStatus, json: uploadJson } = metaUpload.value;
+  if (!uploadOk || !uploadJson?.id) throw bad(uploadStatus || 502, uploadJson?.error?.message || 'WhatsApp media upload failed.');
   const metaMediaId = uploadJson.id;
+
+  let mediaUrl = null;
+  if (storageUpload.status === 'fulfilled') mediaUrl = storageUpload.value;
+  else console.error('whatsapp outbound media re-host failed:', storageUpload.reason?.message);
 
   const mediaObject = { id: metaMediaId };
   if (caption && waType !== 'audio') mediaObject.caption = String(caption); // audio has no caption field in the API
@@ -210,13 +232,6 @@ async function sendMediaMessage({ conversationId, buffer, mimeType, filename, ca
   });
   const sendJson = await sendRes.json().catch(() => ({}));
   if (!sendRes.ok) throw bad(sendRes.status, sendJson?.error?.message || 'WhatsApp send failed.');
-
-  const ext = (mimeType.split('/')[1] || '').split(';')[0] || waType;
-  const safeName = filename ? String(filename).replace(/[^a-zA-Z0-9._-]/g, '_') : null;
-  const storagePath = safeName ? `${metaMediaId}_${safeName}` : `${metaMediaId}.${ext}`;
-  let mediaUrl = null;
-  try { mediaUrl = await uploadToStorage(storagePath, buffer, mimeType); }
-  catch (err) { console.error('whatsapp outbound media re-host failed:', err.message); }
 
   let thumbnailUrl = null;
   if (baseMime === 'application/pdf') {
