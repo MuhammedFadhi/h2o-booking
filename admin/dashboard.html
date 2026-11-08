@@ -11029,7 +11029,16 @@ async function loadWhatsappMessages() {
     // still-pending optimistic echoes past this replacement avoids that;
     // sendWhatsappMessage swaps each one for its real row once ready, so
     // none linger once the server catches up.
-    const stillPending = waMessages.filter(m => m._optimistic);
+    // A poll can also land AFTER the server already has the real row but
+    // BEFORE that send's own await resolves to swap/drop its placeholder
+    // (see sendWhatsappMessage) — carrying it forward unconditionally then
+    // showed the same message twice until that await finally caught up.
+    // Drop any optimistic echo that's already represented in this fresh
+    // snapshot (same direction + text, sent within the last minute).
+    const stillPending = waMessages.filter(m => m._optimistic && !serverMessages.some(sm =>
+      sm.direction === 'outbound' && sm.body === m.body &&
+      Math.abs(new Date(sm.sent_at) - new Date(m.sent_at)) < 60000
+    ));
     waMessages = stillPending.length ? [...serverMessages, ...stillPending] : serverMessages;
     renderWhatsappMessages(waMessages);
   } catch (err) {
