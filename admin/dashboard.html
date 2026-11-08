@@ -1097,16 +1097,27 @@
           <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">From</label><input type="date" id="sr-from" class="form-input" onchange="renderSalesReport()"></div>
           <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">To</label><input type="date" id="sr-to" class="form-input" onchange="renderSalesReport()"></div>
           <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Sales agent</label><select id="sr-agent" class="form-input" onchange="renderSalesReport()"><option value="">All agents</option></select></div>
-          <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Product</label><select id="sr-product" class="form-input" onchange="renderSalesReport()"><option value="">All products</option></select></div>
-          <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Status</label>
-            <select id="sr-status" class="form-input" onchange="renderSalesReport()">
-              <option value="">All statuses</option>
-              <option value="lead">Lead</option>
-              <option value="booked">Booked</option>
-              <option value="installed">Installed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="lost">Lost</option>
-            </select>
+          <div style="position:relative;">
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Product</label>
+            <button type="button" id="sr-product-btn" class="form-input" onclick="srToggleDropdown('product')" style="text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;min-width:160px;">
+              <span id="sr-product-label">All products</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" style="flex-shrink:0;color:var(--muted);"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9l6 6l6-6"/></svg>
+            </button>
+            <div id="sr-product-panel" style="display:none;position:absolute;z-index:20;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.14);max-height:260px;overflow-y:auto;min-width:220px;padding:8px;"></div>
+          </div>
+          <div style="position:relative;">
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Status</label>
+            <button type="button" id="sr-status-btn" class="form-input" onclick="srToggleDropdown('status')" style="text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;min-width:160px;">
+              <span id="sr-status-label">All statuses</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" style="flex-shrink:0;color:var(--muted);"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9l6 6l6-6"/></svg>
+            </button>
+            <div id="sr-status-panel" style="display:none;position:absolute;z-index:20;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.14);min-width:160px;padding:8px;">
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;"><input type="checkbox" class="sr-status-cb" value="lead" style="width:auto;" onchange="srStatusChanged()"> Lead</label>
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;"><input type="checkbox" class="sr-status-cb" value="booked" style="width:auto;" onchange="srStatusChanged()"> Booked</label>
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;"><input type="checkbox" class="sr-status-cb" value="installed" style="width:auto;" onchange="srStatusChanged()"> Installed</label>
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;"><input type="checkbox" class="sr-status-cb" value="cancelled" style="width:auto;" onchange="srStatusChanged()"> Cancelled</label>
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;"><input type="checkbox" class="sr-status-cb" value="lost" style="width:auto;" onchange="srStatusChanged()"> Lost</label>
+            </div>
           </div>
         </div>
       </div>
@@ -8144,15 +8155,63 @@ async function loadSalesReport() {
   agentSel.innerHTML = '<option value="">All agents</option>' + names.map(n => `<option value="${escB(n)}">${escB(n)}</option>`).join('');
   if (keepAgent && names.includes(keepAgent)) agentSel.value = keepAgent;
 
-  const productSel = document.getElementById('sr-product');
-  const keepProduct = productSel.value;
   const products = [...new Set([
     ...allLeads.map(l => l.product_interest),
     ...salesReportBookings.flatMap(b => salesReportBookingItemsList(b).map(it => it.product_model))
   ].filter(Boolean))].sort();
-  productSel.innerHTML = '<option value="">All products</option>' + products.map(p => `<option value="${escB(p)}">${escB(p)}</option>`).join('');
-  if (keepProduct && products.includes(keepProduct)) productSel.value = keepProduct;
+  // Drop any previously-checked product that no longer appears in this
+  // date range (same "keep what's still valid" rule the single-select
+  // version used) — otherwise a stale selection could silently filter
+  // everything out with no visible reason why.
+  for (const p of [...srSelectedProducts]) if (!products.includes(p)) srSelectedProducts.delete(p);
+  document.getElementById('sr-product-panel').innerHTML = products.map(p =>
+    `<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;white-space:nowrap;"><input type="checkbox" class="sr-product-cb" value="${escB(p)}" ${srSelectedProducts.has(p) ? 'checked' : ''} style="width:auto;" onchange="srProductChanged()"> ${escB(p)}</label>`
+  ).join('');
+  srUpdateProductLabel();
 
+  renderSalesReport();
+}
+
+// ── Sales Report Product/Status multi-select dropdowns ─────────────────────
+let srSelectedProducts = new Set();
+let srSelectedStatuses = new Set();
+
+function srToggleDropdown(which) {
+  const panel = document.getElementById(`sr-${which}-panel`);
+  const isOpen = panel.style.display === 'block';
+  document.getElementById('sr-product-panel').style.display = 'none';
+  document.getElementById('sr-status-panel').style.display = 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+}
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#sr-product-btn, #sr-product-panel, #sr-status-btn, #sr-status-panel')) return;
+  const pp = document.getElementById('sr-product-panel'), sp = document.getElementById('sr-status-panel');
+  if (pp) pp.style.display = 'none';
+  if (sp) sp.style.display = 'none';
+});
+
+function srUpdateProductLabel() {
+  const label = document.getElementById('sr-product-label');
+  label.textContent = srSelectedProducts.size === 0 ? 'All products'
+    : srSelectedProducts.size === 1 ? [...srSelectedProducts][0]
+    : `${srSelectedProducts.size} products`;
+}
+function srProductChanged() {
+  srSelectedProducts = new Set([...document.querySelectorAll('.sr-product-cb:checked')].map(cb => cb.value));
+  srUpdateProductLabel();
+  renderSalesReport();
+}
+
+function srUpdateStatusLabel() {
+  const names = { lead: 'Lead', booked: 'Booked', installed: 'Installed', cancelled: 'Cancelled', lost: 'Lost' };
+  const label = document.getElementById('sr-status-label');
+  label.textContent = srSelectedStatuses.size === 0 ? 'All statuses'
+    : srSelectedStatuses.size === 1 ? names[[...srSelectedStatuses][0]]
+    : `${srSelectedStatuses.size} statuses`;
+}
+function srStatusChanged() {
+  srSelectedStatuses = new Set([...document.querySelectorAll('.sr-status-cb:checked')].map(cb => cb.value));
+  srUpdateStatusLabel();
   renderSalesReport();
 }
 
@@ -8257,15 +8316,13 @@ function filteredSalesReportRows() {
   const from = document.getElementById('sr-from').value;
   const to = document.getElementById('sr-to').value;
   const agent = document.getElementById('sr-agent').value;
-  const product = document.getElementById('sr-product').value;
-  const status = document.getElementById('sr-status').value;
   return salesReportRows().filter(r => {
     const d = localDateISO(new Date(r.createdAt));
     if (from && d < from) return false;
     if (to && d > to) return false;
     if (agent && r.agent !== agent) return false;
-    if (product && !r.products.includes(product)) return false;
-    if (status && r.statusKey !== status) return false;
+    if (srSelectedProducts.size && !r.products.some(p => srSelectedProducts.has(p))) return false;
+    if (srSelectedStatuses.size && !srSelectedStatuses.has(r.statusKey)) return false;
     return true;
   });
 }
@@ -8377,8 +8434,8 @@ function downloadSalesReportPDF() {
   const { total, lead, booked, installed, lost } = salesReportKPIs(rows);
   const from = document.getElementById('sr-from').value, to = document.getElementById('sr-to').value;
   const agent = document.getElementById('sr-agent').value || 'All agents';
-  const product = document.getElementById('sr-product').value || 'All products';
-  const status = document.getElementById('sr-status').selectedOptions[0].textContent;
+  const product = document.getElementById('sr-product-label').textContent;
+  const status = document.getElementById('sr-status-label').textContent;
   const rangeLabel = (from && to) ? `${salesReportFmtDate(from)} – ${salesReportFmtDate(to)}` : 'All time';
   const now = new Date();
   const generatedLabel = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) +
