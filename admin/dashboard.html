@@ -3095,6 +3095,7 @@ async function loadBookings() {
     inspection:        { fg:'#334155', bg:'#E2E8F0' }
   })[t] || { fg:'#1D4ED8', bg:'#DBEAFE' };
 
+  const W = window.SADA.Warranty;
   const rows = filtered.map((b, i) => { const tc = bookingTypeColor(b.booking_type); return `
     <tr>
       <td data-label="#" style="text-align:center;color:var(--muted);font-size:12px;">${i + 1}</td>
