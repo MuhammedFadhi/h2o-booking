@@ -10,7 +10,10 @@
 function detectProvider(apiKey) {
   const k = String(apiKey || '');
   if (k.startsWith('sk-ant-')) return 'anthropic';
-  if (k.startsWith('AIza')) return 'gemini';
+  // Google AI Studio now issues two different key formats for the same
+  // Gemini API — the classic "AIzaSy..." and a newer "AQ...." one (seen
+  // live in the Studio UI, 2026-11) — both need to route here.
+  if (k.startsWith('AIza') || k.startsWith('AQ.')) return 'gemini';
   if (k.startsWith('sk-or-')) return 'openrouter';
   return 'openai';
 }
