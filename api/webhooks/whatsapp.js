@@ -11,11 +11,13 @@
 //        hub.challenge). POST = the actual message/status webhook, signed
 //        with X-Hub-Signature-256 over the raw body using WHATSAPP_APP_SECRET.
 //
-// No AI auto-reply here — this is receive/store/manual-reply only, per the
-// explicit scope this was built to.
+// After storing an inbound message, optionally triggers the AI auto-reply
+// pipeline (_whatsappBot.js) — admin-controlled via the WhatsApp automation
+// config (disabled by default until explicitly turned on in Settings).
 // ============================================================================
 
 const crypto = require('crypto');
+const { maybeAutoReply } = require('./_whatsappBot');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -181,12 +183,12 @@ function normalizePhone(raw) {
 }
 
 async function findOrCreateConversation(phone, contactName) {
-  const existing = await sb('GET', `/rest/v1/whatsapp_conversations?phone=eq.${encodeURIComponent(phone)}&select=id`);
+  const existing = await sb('GET', `/rest/v1/whatsapp_conversations?phone=eq.${encodeURIComponent(phone)}&select=id,ai_paused`);
   if (existing?.length) {
     if (contactName) {
       await sb('PATCH', `/rest/v1/whatsapp_conversations?id=eq.${existing[0].id}`, { contact_name: contactName });
     }
-    return existing[0].id;
+    return { id: existing[0].id, aiPaused: !!existing[0].ai_paused };
   }
   const created = await sb('POST', '/rest/v1/whatsapp_conversations', { phone, contact_name: contactName || null }, { Prefer: 'return=representation' });
   const conversationId = created[0].id;
@@ -207,7 +209,7 @@ async function findOrCreateConversation(phone, contactName) {
     created_by_name: 'WhatsApp (auto)',
     whatsapp_conversation_id: conversationId
   }).catch((err) => console.error('whatsapp auto-lead creation failed:', conversationId, err.message));
-  return conversationId;
+  return { id: conversationId, aiPaused: false };
 }
 
 function messageBodyAndType(message) {
@@ -271,7 +273,7 @@ function messageBodyAndType(message) {
 async function handleInboundMessage(message, contact) {
   const phone = normalizePhone(message.from);
   if (!phone) return; // can't file it anywhere sensible without a phone
-  const conversationId = await findOrCreateConversation(phone, contact?.profile?.name);
+  const { id: conversationId, aiPaused } = await findOrCreateConversation(phone, contact?.profile?.name);
 
   const { type, body, mediaId, filename, directUrl } = messageBodyAndType(message);
   let mediaUrl = directUrl || null;
@@ -323,6 +325,11 @@ async function handleInboundMessage(message, contact) {
     last_message_direction: 'inbound',
     last_message_status: null
   });
+
+  // Reaction/location/etc. types have no reply-worthy text (buildHistoryMessages
+  // skips them anyway) but still worth letting through — the pipeline itself
+  // decides whether there's anything to react to.
+  await maybeAutoReply({ conversationId, phone, waMessageId: message.id || null, aiPaused });
 }
 
 async function handleStatusUpdate(status) {

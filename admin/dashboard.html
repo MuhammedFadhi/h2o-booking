@@ -1011,6 +1011,7 @@
             <div style="padding:14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;">
               <span class="search-wrap" style="display:block;flex:1;"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="wa-convo-search" placeholder="Search by name or phone..." oninput="renderWhatsappConversationList()" style="width:100%;" autocomplete="off"></span>
               <button class="btn btn-ghost btn-sm" onclick="openWaTemplatesModal()" title="Manage quick-reply templates" style="padding:0 10px;flex-shrink:0;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5h8m-8 4h5m-5 6h8m-8 4h5M3 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zm0 10a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg></button>
+              <button class="btn btn-ghost btn-sm" onclick="openWaBotSettingsModal()" title="AI auto-reply bot settings" style="padding:0 10px;flex-shrink:0;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8V4H8m8 0h-4m-4 4h8a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2m-4 6H2m20 0h-2M9 13v2m6-2v2"/></svg></button>
             </div>
             <div id="wa-status-filter-bar" style="display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);overflow-x:auto;"></div>
             <div id="wa-convo-list" style="flex:1;overflow-y:auto;"></div>
@@ -1726,6 +1727,51 @@
           <button class="btn btn-ghost" id="wa-template-cancel-btn" onclick="resetWaTemplateForm()" style="display:none;">Cancel edit</button>
           <button class="btn btn-primary" id="wa-template-save-btn" onclick="saveWaTemplate()">Save template</button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WHATSAPP AI AUTO-REPLY BOT SETTINGS — one singleton config row (see
+     v108_whatsapp_bot.sql), not per-conversation. Per-conversation human
+     takeover is a separate toggle in the thread header itself
+     (toggleWaAiPause), not here. -->
+<div class="modal-overlay" id="wa-bot-settings-modal" style="display:none;">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header"><span class="modal-title">WhatsApp AI Auto-Reply</span>
+      <button class="modal-close" onclick="closeModal('wa-bot-settings-modal')">&times;</button></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:20px;margin-bottom:16px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;text-transform:none;"><input type="checkbox" id="wabot-enabled" style="width:auto;"> <strong>Enabled</strong> — turns the bot on/off entirely</label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;text-transform:none;"><input type="checkbox" id="wabot-auto-reply" style="width:auto;" checked> Auto-reply</label>
+      </div>
+      <div class="form-group"><label>LLM API key</label>
+        <input type="password" id="wabot-api-key" class="form-input" placeholder="Paste a key from Anthropic, Google (Gemini), OpenRouter, or OpenAI — provider is auto-detected" autocomplete="off">
+        <div id="wabot-key-status" style="font-size:11px;color:var(--muted);margin-top:4px;"></div>
+      </div>
+      <div class="form-group"><label>System prompt <span style="color:var(--muted,#94a3b8);font-weight:400;">(the bot's business rules)</span></label>
+        <textarea id="wabot-system-prompt" class="form-input" rows="12" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;" autocomplete="off"></textarea>
+      </div>
+      <div class="form-group"><label>Signature <span style="color:var(--muted,#94a3b8);font-weight:400;">(appended to every auto-reply, optional)</span></label>
+        <input type="text" id="wabot-signature" class="form-input" placeholder="e.g. — SA'DA H2O" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;text-transform:none;"><input type="checkbox" id="wabot-hours-enabled" style="width:auto;" onchange="wabotHoursToggle()"> Restrict to business hours</label>
+        <div id="wabot-hours-fields" style="display:none;margin-top:10px;">
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+            <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">From</label><input type="time" id="wabot-hours-start" class="form-input"></div>
+            <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">To</label><input type="time" id="wabot-hours-end" class="form-input"></div>
+            <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Timezone</label><input type="text" id="wabot-hours-tz" class="form-input" value="Asia/Riyadh" style="width:140px;"></div>
+          </div>
+          <div class="form-group" style="margin-top:10px;"><label>Out-of-hours message <span style="color:var(--muted,#94a3b8);font-weight:400;">(optional — sent instead of the AI reply)</span></label>
+            <textarea id="wabot-out-of-hours" class="form-input" rows="2" autocomplete="off"></textarea>
+          </div>
+        </div>
+      </div>
+      <div id="wabot-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+      <div id="wabot-success" style="display:none;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary" id="wabot-save-btn" onclick="saveWaBotSettings()">Save</button>
       </div>
     </div>
   </div>
@@ -10543,6 +10589,27 @@ function waFollowupBtn(c) {
   return `<button onclick="event.stopPropagation();openWaFollowupModal('${c.id}')" title="Follow-up" class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:12px;line-height:1;flex-shrink:0;">${FOLLOWUP_ICON_SVG}</button>`;
 }
 
+// Per-conversation human takeover — independent of the bot's global
+// enabled/auto_reply toggles (see wa-bot-settings-modal). Lets an admin
+// pause AI replies for just this one chat.
+function waAiPauseToggleBtn(c) {
+  const paused = !!c.ai_paused;
+  return `<button onclick="event.stopPropagation();toggleWaAiPause('${c.id}', ${!paused})" title="${paused ? 'Bot is paused for this chat — click to resume it' : 'Bot is active for this chat — click to pause it and take over yourself'}" class="btn btn-sm" style="padding:2px 8px;font-size:11px;line-height:1.4;flex-shrink:0;font-weight:700;border-radius:8px;${paused ? 'background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;' : 'background:#F0FDF4;color:#166534;border:1px solid #BBF7D0;'}">${paused ? '⏸ Bot Paused' : '🤖 Bot On'}</button>`;
+}
+
+async function toggleWaAiPause(conversationId, newValue) {
+  const convo = waConversations.find(c => c.id === conversationId);
+  if (convo) convo.ai_paused = newValue; // optimistic
+  if (waCurrentConversationId === conversationId && convo) applyWaThreadStatusUI(convo);
+  try {
+    await waCall('toggle-ai-pause', { conversationId, aiPaused: newValue });
+  } catch (err) {
+    if (convo) convo.ai_paused = !newValue; // revert on failure
+    if (waCurrentConversationId === conversationId && convo) applyWaThreadStatusUI(convo);
+    showToast('Could not update bot status: ' + err.message, 'error');
+  }
+}
+
 // "All" + one chip per status (incl. Follow-up, even though that one isn't
 // manually settable from the per-row dropdown — it's still a real state
 // worth filtering down to), same pill-row UX as WhatsApp's own
@@ -10740,7 +10807,7 @@ function hideWaPeek() {
 
 function applyWaThreadStatusUI(convo) {
   const controls = document.getElementById('wa-thread-controls');
-  if (controls) controls.innerHTML = waAssignedPill(convo) + waStatusSelect(convo) + waFollowupBtn(convo);
+  if (controls) controls.innerHTML = waAiPauseToggleBtn(convo) + waAssignedPill(convo) + waStatusSelect(convo) + waFollowupBtn(convo);
   const notInterested = convo.status === 'not_interested';
   const banner = document.getElementById('wa-thread-ni-banner');
   const messagesEl = document.getElementById('wa-thread-messages');
@@ -11804,6 +11871,70 @@ function selectWaTemplate(i) {
   input.focus();
   if (t.media_url) { cancelWaPendingAttachment(); showWaTemplateMedia(t.media_url); } else clearWaTemplateMedia();
   closeWaTemplateDropdown();
+}
+
+// ── WhatsApp AI auto-reply bot settings (singleton config) ──────────────────
+async function openWaBotSettingsModal() {
+  document.getElementById('wabot-error').style.display = 'none';
+  document.getElementById('wabot-success').style.display = 'none';
+  document.getElementById('wabot-api-key').value = '';
+  openModal('wa-bot-settings-modal');
+  try {
+    const { config } = await waCall('get-automation-config', {});
+    document.getElementById('wabot-enabled').checked = !!config?.enabled;
+    document.getElementById('wabot-auto-reply').checked = config ? !!config.auto_reply : true;
+    document.getElementById('wabot-system-prompt').value = config?.system_prompt || '';
+    document.getElementById('wabot-signature').value = config?.signature_suffix || '';
+    document.getElementById('wabot-hours-enabled').checked = !!config?.business_hours_enabled;
+    document.getElementById('wabot-hours-start').value = config?.business_hours_start || '';
+    document.getElementById('wabot-hours-end').value = config?.business_hours_end || '';
+    document.getElementById('wabot-hours-tz').value = config?.business_hours_timezone || 'Asia/Riyadh';
+    document.getElementById('wabot-out-of-hours').value = config?.out_of_hours_message || '';
+    document.getElementById('wabot-api-key').placeholder = config?.has_api_key
+      ? 'A key is already saved — leave blank to keep it, or paste a new one to replace it'
+      : 'Paste a key from Anthropic, Google (Gemini), OpenRouter, or OpenAI — provider is auto-detected';
+    wabotHoursToggle();
+  } catch (err) {
+    document.getElementById('wabot-error').style.display = 'block';
+    document.getElementById('wabot-error').textContent = err.message;
+  }
+}
+
+function wabotHoursToggle() {
+  document.getElementById('wabot-hours-fields').style.display = document.getElementById('wabot-hours-enabled').checked ? 'block' : 'none';
+}
+
+async function saveWaBotSettings() {
+  const errEl = document.getElementById('wabot-error'), okEl = document.getElementById('wabot-success');
+  errEl.style.display = 'none'; okEl.style.display = 'none';
+  const btn = document.getElementById('wabot-save-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const automationConfig = {
+      enabled: document.getElementById('wabot-enabled').checked,
+      auto_reply: document.getElementById('wabot-auto-reply').checked,
+      system_prompt: document.getElementById('wabot-system-prompt').value,
+      signature_suffix: document.getElementById('wabot-signature').value.trim(),
+      business_hours_enabled: document.getElementById('wabot-hours-enabled').checked,
+      business_hours_start: document.getElementById('wabot-hours-start').value || null,
+      business_hours_end: document.getElementById('wabot-hours-end').value || null,
+      business_hours_timezone: document.getElementById('wabot-hours-tz').value.trim() || 'Asia/Riyadh',
+      out_of_hours_message: document.getElementById('wabot-out-of-hours').value.trim(),
+      llm_api_key: document.getElementById('wabot-api-key').value.trim()
+    };
+    const { config } = await waCall('save-automation-config', { automationConfig });
+    document.getElementById('wabot-api-key').value = '';
+    document.getElementById('wabot-api-key').placeholder = config?.has_api_key
+      ? 'A key is already saved — leave blank to keep it, or paste a new one to replace it'
+      : 'Paste a key from Anthropic, Google (Gemini), OpenRouter, or OpenAI — provider is auto-detected';
+    okEl.style.display = 'block';
+    okEl.textContent = '✓ Saved.';
+  } catch (err) {
+    errEl.style.display = 'block';
+    errEl.textContent = err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save';
+  }
 }
 
 function handleWaInputKeydown(event) {

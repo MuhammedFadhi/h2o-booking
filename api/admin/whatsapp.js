@@ -303,11 +303,46 @@ module.exports = async function handler(req, res) {
     }
 
     await requireAdmin(req);
-    const { action, conversationId, body, limit, mediaUrl, quickReply, replyToWaMessageId } = req.body || {};
+    const { action, conversationId, body, limit, mediaUrl, quickReply, replyToWaMessageId, automationConfig, aiPaused } = req.body || {};
 
     if (action === 'list-conversations') {
       const rows = await sb('GET', `/rest/v1/whatsapp_conversations?select=*&order=last_message_at.desc.nullslast&limit=${Number(limit) || 200}`);
       return res.status(200).json({ conversations: rows || [] });
+    }
+
+    // Singleton row (see v108_whatsapp_bot.sql) — llm_api_key is masked on
+    // the way out (never re-displayed once saved) and only overwritten on
+    // save if a new, non-empty value was actually typed.
+    if (action === 'get-automation-config') {
+      const rows = await sb('GET', '/rest/v1/whatsapp_automation_configs?select=*&limit=1');
+      const config = rows?.[0] || null;
+      if (config) { config.has_api_key = !!config.llm_api_key; delete config.llm_api_key; }
+      return res.status(200).json({ config });
+    }
+
+    if (action === 'save-automation-config') {
+      const existing = (await sb('GET', '/rest/v1/whatsapp_automation_configs?select=id&limit=1'))?.[0];
+      if (!existing) return res.status(500).json({ error: 'No automation config row found — run the v108 migration first.' });
+      const patch = {
+        enabled: !!automationConfig?.enabled,
+        auto_reply: !!automationConfig?.auto_reply,
+        system_prompt: automationConfig?.system_prompt != null ? String(automationConfig.system_prompt) : null,
+        signature_suffix: automationConfig?.signature_suffix != null ? String(automationConfig.signature_suffix) : null,
+        business_hours_enabled: !!automationConfig?.business_hours_enabled,
+        business_hours_start: automationConfig?.business_hours_start || null,
+        business_hours_end: automationConfig?.business_hours_end || null,
+        business_hours_timezone: automationConfig?.business_hours_timezone || 'Asia/Riyadh',
+        out_of_hours_message: automationConfig?.out_of_hours_message != null ? String(automationConfig.out_of_hours_message) : null,
+        updated_at: new Date().toISOString()
+      };
+      // Blank/omitted means "leave the existing key alone" — the Settings UI
+      // never re-displays the real value, so an empty field is never an
+      // intentional "clear my key", just the field's normal masked state.
+      if (automationConfig?.llm_api_key) patch.llm_api_key = String(automationConfig.llm_api_key).trim();
+      const saved = await sb('PATCH', `/rest/v1/whatsapp_automation_configs?id=eq.${existing.id}`, patch, { Prefer: 'return=representation' });
+      const config = saved?.[0];
+      if (config) { config.has_api_key = !!config.llm_api_key; delete config.llm_api_key; }
+      return res.status(200).json({ ok: true, config });
     }
 
     // Quick-reply templates are global, not tied to any one conversation —
@@ -387,6 +422,13 @@ module.exports = async function handler(req, res) {
 
     if (action === 'mark-read') {
       await sb('PATCH', `/rest/v1/whatsapp_conversations?id=eq.${conversationId}`, { unread_count: 0 });
+      return res.status(200).json({ ok: true });
+    }
+
+    // Per-conversation human takeover — lets an admin pause the bot for one
+    // chat without touching the global enabled/auto_reply toggles.
+    if (action === 'toggle-ai-pause') {
+      await sb('PATCH', `/rest/v1/whatsapp_conversations?id=eq.${conversationId}`, { ai_paused: !!aiPaused });
       return res.status(200).json({ ok: true });
     }
 
