@@ -86,10 +86,14 @@ async function callAnthropic(apiKey, systemPrompt, messages) {
 
 async function callGemini(apiKey, systemPrompt, messages) {
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.gemini}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.gemini}:generateContent`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // The newer "AQ." key format (project-scoped, billing-linked) is
+      // rejected as invalid via the old `?key=` query param — Google's own
+      // current docs/curl examples authenticate it via this header instead,
+      // which also still works for the classic "AIzaSy..." format.
+      headers: { 'Content-Type': 'application/json', 'X-goog-api-key': apiKey },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
         contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
