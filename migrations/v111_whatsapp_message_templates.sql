@@ -1,4 +1,4 @@
--- v109: WhatsApp message templates — the only way to message a customer
+-- v111: WhatsApp message templates — the only way to message a customer
 -- once the 24-hour free-form window has closed (see the "Re-engagement
 -- message" send failure). A template is created here, submitted to Meta
 -- for review via api/admin/whatsapp.js's create-template action, and can
