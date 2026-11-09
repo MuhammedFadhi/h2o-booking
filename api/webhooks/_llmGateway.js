@@ -22,7 +22,11 @@ function detectProvider(apiKey) {
 // plain constants rather than config so there's one place to bump them.
 const MODELS = {
   anthropic: 'claude-sonnet-4-5-20250929',
-  gemini: 'gemini-flash-latest', // rolling alias for the current stable Flash model — avoids repeating the 'gemini-2.0-flash' retirement surprise (2026-11-09) whenever Google cycles the underlying model
+  // Tried the rolling 'gemini-flash-latest' alias, but it hung far more
+  // often than this concrete name in direct testing against the same key
+  // (2026-11-09) — back to a pinned name, per Google's own current error
+  // text when an old model is retired ("use models/gemini-3.8-flash").
+  gemini: 'gemini-3.8-flash',
   openrouter: 'openai/gpt-4o-mini',
   openai: 'gpt-4o-mini'
 };
@@ -39,21 +43,22 @@ async function callLLM({ apiKey, systemPrompt, messages }) {
   return withRetry(call);
 }
 
-// Exponential backoff on 429 (rate limit) / 503 (overloaded, with Google
-// actually responding promptly) only. A request that instead stalled and
-// hit our own client-side timeout (504 — see fetchWithTimeout) is NOT
-// retried here: Meta's webhook caller has a limited patience window too,
-// so burning it on a second multi-second wait for a provider that just
-// hung isn't worth it — better to fail this delivery fast and let the
-// next inbound message (or Meta's own webhook redelivery) try again.
-async function withRetry(fn, attempts = 3) {
+// Exponential backoff on 429 (rate limit) / 503 (overloaded) / 504 (our
+// own client-side timeout — see fetchWithTimeout). Direct testing against
+// a real key (2026-11-09) showed the provider stalling on one attempt and
+// responding instantly on the very next — so a stall IS worth retrying
+// once, unlike a hard auth/bad-request error. Kept to 2 total attempts
+// (not 3) specifically because each one can itself cost up to
+// PROVIDER_TIMEOUT_MS — Meta's webhook caller has a limited patience
+// window, so this still has to stay fast overall.
+async function withRetry(fn, attempts = 2) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
     try {
       return await fn();
     } catch (err) {
       lastErr = err;
-      if (![429, 503].includes(err.status) || i === attempts - 1) throw err;
+      if (![429, 503, 504].includes(err.status) || i === attempts - 1) throw err;
       await new Promise((r) => setTimeout(r, 500 * Math.pow(3, i)));
     }
   }
@@ -72,16 +77,13 @@ function apiError(status, message) {
 // until Meta's own webhook delivery gives up and retries minutes later,
 // which looks exactly like "the bot took forever to reply". A hard
 // per-attempt timeout turns that into a fast, retryable failure instead.
-const PROVIDER_TIMEOUT_MS = 10000;
+const PROVIDER_TIMEOUT_MS = 7000;
 async function fetchWithTimeout(url, options) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } catch (err) {
-    // 504, not 503 — deliberately NOT in withRetry()'s retryable set (see
-    // its comment above) since a stall deserves a fast failure, not a
-    // second multi-second wait on the same unresponsive provider.
     if (err.name === 'AbortError') throw apiError(504, `Provider request timed out after ${PROVIDER_TIMEOUT_MS}ms`);
     throw err;
   } finally {
