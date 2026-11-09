@@ -15,6 +15,11 @@ const crypto = require('crypto');
 
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || '';
 const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
+// Templates are created/listed at the WABA level, not the phone number —
+// see create-template/sync-templates below. Find this on Meta's WhatsApp
+// Manager (business.facebook.com) or the "Messaging Account ID" shown on
+// the app's own WhatsApp API Setup page.
+const WHATSAPP_WABA_ID = process.env.WHATSAPP_WABA_ID || '';
 const CLOUDCONVERT_API_KEY = process.env.CLOUDCONVERT_API_KEY || '';
 const GRAPH_VERSION = 'v21.0';
 
@@ -345,6 +350,73 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true, config });
     }
 
+    // ── Real Meta message templates (v109) — the only way to message a
+    // customer once the 24h free-form window has closed. Separate from the
+    // "quick-reply templates" above those are just our own canned text
+    // shortcuts, not reviewed by Meta, and can't bypass that restriction.
+    if (action === 'list-templates') {
+      const rows = await sb('GET', '/rest/v1/whatsapp_message_templates?select=*&order=created_at.desc');
+      return res.status(200).json({ templates: rows || [] });
+    }
+
+    if (action === 'create-template') {
+      if (!WHATSAPP_WABA_ID) return res.status(500).json({ error: 'Server not configured (WHATSAPP_WABA_ID missing)' });
+      const name = String(req.body?.template?.name || '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      const category = String(req.body?.template?.category || '').trim().toUpperCase();
+      const language = String(req.body?.template?.language || 'en_US').trim();
+      const templateBody = String(req.body?.template?.body || '').trim();
+      if (!name) return res.status(400).json({ error: 'Template name required.' });
+      if (!['MARKETING', 'UTILITY', 'AUTHENTICATION'].includes(category)) return res.status(400).json({ error: 'Category must be MARKETING, UTILITY, or AUTHENTICATION.' });
+      if (!templateBody) return res.status(400).json({ error: 'Template body required.' });
+      // Meta requires {{1}}, {{2}}, ... numbered sequentially from 1 — the
+      // highest number referenced is how many variables the UI needs to
+      // collect when actually sending this template later.
+      const numbers = [...templateBody.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1]));
+      const variableCount = numbers.length ? Math.max(...numbers) : 0;
+
+      const metaRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WHATSAPP_WABA_ID}/message_templates`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, category, language, components: [{ type: 'BODY', text: templateBody }] })
+      });
+      const metaJson = await metaRes.json().catch(() => ({}));
+      if (!metaRes.ok) throw bad(metaRes.status, metaJson?.error?.message || 'Meta rejected the template.');
+
+      const saved = await sb('POST', '/rest/v1/whatsapp_message_templates', {
+        meta_template_id: metaJson.id || null, name, category, language, body: templateBody,
+        variable_count: variableCount, status: metaJson.status || 'PENDING'
+      }, { Prefer: 'return=representation' });
+      return res.status(200).json({ ok: true, template: saved?.[0] });
+    }
+
+    // Approval happens on Meta's own side, asynchronously (minutes to a
+    // day or two) — this re-fetches every template's current status and
+    // also picks up any template created directly in Meta's own WhatsApp
+    // Manager rather than through this app, so it shows up here too.
+    if (action === 'sync-templates') {
+      if (!WHATSAPP_WABA_ID) return res.status(500).json({ error: 'Server not configured (WHATSAPP_WABA_ID missing)' });
+      const metaRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WHATSAPP_WABA_ID}/message_templates?fields=id,name,category,language,status,rejected_reason,components&limit=200`, {
+        headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}` }
+      });
+      const metaJson = await metaRes.json().catch(() => ({}));
+      if (!metaRes.ok) throw bad(metaRes.status, metaJson?.error?.message || 'Could not fetch templates from Meta.');
+
+      for (const t of metaJson.data || []) {
+        const bodyComponent = (t.components || []).find((c) => c.type === 'BODY');
+        const templateBody = bodyComponent?.text || '';
+        const numbers = [...templateBody.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1]));
+        const row = {
+          meta_template_id: t.id, name: t.name, category: t.category, language: t.language,
+          body: templateBody, variable_count: numbers.length ? Math.max(...numbers) : 0,
+          status: t.status, rejected_reason: t.rejected_reason || null, updated_at: new Date().toISOString()
+        };
+        await sb('POST', '/rest/v1/whatsapp_message_templates?on_conflict=name,language', row, { Prefer: 'resolution=merge-duplicates' })
+          .catch((err) => console.error('template sync upsert failed:', t.name, err.message));
+      }
+      const rows = await sb('GET', '/rest/v1/whatsapp_message_templates?select=*&order=created_at.desc');
+      return res.status(200).json({ ok: true, templates: rows || [] });
+    }
+
     // Quick-reply templates are global, not tied to any one conversation —
     // handled before the conversationId requirement below.
     if (action === 'list-quick-replies') {
@@ -444,6 +516,56 @@ module.exports = async function handler(req, res) {
       const filename = new URL(url).pathname.split('/').pop() || 'attachment';
       const message = await sendMediaMessage({ conversationId, buffer, mimeType, filename, caption: body, replyToWaMessageId });
       return res.status(200).json({ ok: true, message });
+    }
+
+    // Sends an APPROVED message template — the only way to reach a
+    // customer once the 24h free-form window has closed. variables is a
+    // plain array of strings, one per {{n}} placeholder in template order.
+    if (action === 'send-template-message') {
+      const templateId = req.body?.templateId;
+      const variables = Array.isArray(req.body?.variables) ? req.body.variables : [];
+      if (!templateId) return res.status(400).json({ error: 'templateId required' });
+
+      const tmpl = (await sb('GET', `/rest/v1/whatsapp_message_templates?id=eq.${encodeURIComponent(templateId)}&select=*`))?.[0];
+      if (!tmpl) throw bad(404, 'Template not found.');
+      if (tmpl.status !== 'APPROVED') throw bad(400, `This template is ${tmpl.status.toLowerCase()}, not approved yet — it can't be sent.`);
+      if (variables.length !== tmpl.variable_count) throw bad(400, `This template needs ${tmpl.variable_count} variable(s), got ${variables.length}.`);
+
+      const convo = (await sb('GET', `/rest/v1/whatsapp_conversations?id=eq.${encodeURIComponent(conversationId)}&select=phone`))?.[0];
+      if (!convo) throw bad(404, 'Conversation not found.');
+
+      const sendBody = {
+        messaging_product: 'whatsapp', to: convo.phone.replace('+', ''), type: 'template',
+        template: {
+          name: tmpl.name, language: { code: tmpl.language },
+          components: variables.length ? [{ type: 'body', parameters: variables.map((v) => ({ type: 'text', text: String(v) })) }] : []
+        }
+      };
+      const sendRes = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(sendBody)
+      });
+      const sendJson = await sendRes.json().catch(() => ({}));
+      if (!sendRes.ok) throw bad(sendRes.status, sendJson?.error?.message || 'WhatsApp template send failed.');
+
+      // Stored with the placeholders actually filled in, not the raw
+      // {{1}}/{{2}} template text — so the chat view reads like any other
+      // sent message instead of showing literal placeholder syntax.
+      let filledBody = tmpl.body;
+      variables.forEach((v, i) => { filledBody = filledBody.replaceAll(`{{${i + 1}}}`, String(v)); });
+
+      const waMessageId = sendJson?.messages?.[0]?.id || null;
+      const sentAt = new Date().toISOString();
+      const inserted = await sb('POST', '/rest/v1/whatsapp_messages', {
+        conversation_id: conversationId, wa_message_id: waMessageId, direction: 'outbound',
+        message_type: 'text', body: filledBody, status: 'sent', sent_at: sentAt
+      }, { Prefer: 'return=representation' });
+      await sb('PATCH', `/rest/v1/whatsapp_conversations?id=eq.${conversationId}`, {
+        last_message_at: sentAt, last_message_preview: filledBody.slice(0, 200),
+        last_message_direction: 'outbound', last_message_status: 'sent'
+      });
+      return res.status(200).json({ ok: true, message: inserted?.[0] });
     }
 
     return res.status(400).json({ error: `Unknown action "${action}"` });
