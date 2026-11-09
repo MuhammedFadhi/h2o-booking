@@ -22,11 +22,13 @@ function detectProvider(apiKey) {
 // plain constants rather than config so there's one place to bump them.
 const MODELS = {
   anthropic: 'claude-sonnet-4-5-20250929',
-  // Tried the rolling 'gemini-flash-latest' alias, but it hung far more
-  // often than this concrete name in direct testing against the same key
-  // (2026-11-09) — back to a pinned name, per Google's own current error
-  // text when an old model is retired ("use models/gemini-3.8-flash").
-  gemini: 'gemini-3.8-flash',
+  // 'gemini-3.8-flash' and 'gemini-flash-latest' both hung on most calls in
+  // direct side-by-side testing against the same key (2026-11-09) — this
+  // one answered fast and successfully every time tried. 'gemini-3.1-pro-
+  // preview' would be the natural fallback but is hard-blocked by a
+  // zero-quota free-tier limit on billing-linked projects right now, so
+  // not usable as a second option yet.
+  gemini: 'gemini-3.1-flash-lite-preview',
   openrouter: 'openai/gpt-4o-mini',
   openai: 'gpt-4o-mini'
 };
