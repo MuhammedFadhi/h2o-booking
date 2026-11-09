@@ -1127,6 +1127,21 @@
               <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;"><input type="checkbox" class="sr-status-cb" value="lost" style="width:auto;" onchange="srStatusChanged()"> Lost</label>
             </div>
           </div>
+          <div style="position:relative;">
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Type</label>
+            <button type="button" id="sr-type-btn" class="form-input" onclick="srToggleDropdown('type')" style="text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;min-width:160px;">
+              <span id="sr-type-label">All types</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" style="flex-shrink:0;color:var(--muted);"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9l6 6l6-6"/></svg>
+            </button>
+            <div id="sr-type-panel" style="display:none;position:absolute;z-index:20;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.14);min-width:160px;padding:8px;">
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;white-space:nowrap;"><input type="checkbox" class="sr-type-cb" value="installation" data-label="Installation" style="width:auto;" onchange="srTypeChanged()"> Installation</label>
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;white-space:nowrap;"><input type="checkbox" class="sr-type-cb" value="quarterly_service,maintenance" data-label="Filter Change" style="width:auto;" onchange="srTypeChanged()"> Filter Change</label>
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;white-space:nowrap;"><input type="checkbox" class="sr-type-cb" value="annual_service" data-label="Annual Service" style="width:auto;" onchange="srTypeChanged()"> Annual Service</label>
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;white-space:nowrap;"><input type="checkbox" class="sr-type-cb" value="repair" data-label="Repair" style="width:auto;" onchange="srTypeChanged()"> Repair</label>
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;white-space:nowrap;"><input type="checkbox" class="sr-type-cb" value="relocation" data-label="Relocation" style="width:auto;" onchange="srTypeChanged()"> Relocation</label>
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none;white-space:nowrap;"><input type="checkbox" class="sr-type-cb" value="inspection" data-label="Inspection" style="width:auto;" onchange="srTypeChanged()"> Inspection</label>
+            </div>
+          </div>
         </div>
       </div>
       <div id="salesreport-body"><div class="loading"><div class="spinner"></div> Loading...</div></div>
@@ -8238,19 +8253,22 @@ async function loadSalesReport() {
 // ── Sales Report Product/Status multi-select dropdowns ─────────────────────
 let srSelectedProducts = new Set();
 let srSelectedStatuses = new Set();
+let srSelectedTypes = new Set();
 
 function srToggleDropdown(which) {
   const panel = document.getElementById(`sr-${which}-panel`);
   const isOpen = panel.style.display === 'block';
   document.getElementById('sr-product-panel').style.display = 'none';
   document.getElementById('sr-status-panel').style.display = 'none';
+  document.getElementById('sr-type-panel').style.display = 'none';
   panel.style.display = isOpen ? 'none' : 'block';
 }
 document.addEventListener('click', (e) => {
-  if (e.target.closest('#sr-product-btn, #sr-product-panel, #sr-status-btn, #sr-status-panel')) return;
-  const pp = document.getElementById('sr-product-panel'), sp = document.getElementById('sr-status-panel');
+  if (e.target.closest('#sr-product-btn, #sr-product-panel, #sr-status-btn, #sr-status-panel, #sr-type-btn, #sr-type-panel')) return;
+  const pp = document.getElementById('sr-product-panel'), sp = document.getElementById('sr-status-panel'), tp = document.getElementById('sr-type-panel');
   if (pp) pp.style.display = 'none';
   if (sp) sp.style.display = 'none';
+  if (tp) tp.style.display = 'none';
 });
 
 function srUpdateProductLabel() {
@@ -8275,6 +8293,23 @@ function srUpdateStatusLabel() {
 function srStatusChanged() {
   srSelectedStatuses = new Set([...document.querySelectorAll('.sr-status-cb:checked')].map(cb => cb.value));
   srUpdateStatusLabel();
+  renderSalesReport();
+}
+
+// Filter Change's checkbox covers two underlying booking_type values
+// (quarterly_service, maintenance — see salesReportTypeLabel's own comment
+// on why) as one comma-joined checkbox value, so the label counts checked
+// CHECKBOXES while the actual filter set gets the expanded individual types.
+function srUpdateTypeLabel() {
+  const checked = [...document.querySelectorAll('.sr-type-cb:checked')];
+  const label = document.getElementById('sr-type-label');
+  label.textContent = checked.length === 0 ? 'All types'
+    : checked.length === 1 ? checked[0].dataset.label
+    : `${checked.length} types`;
+}
+function srTypeChanged() {
+  srSelectedTypes = new Set([...document.querySelectorAll('.sr-type-cb:checked')].flatMap(cb => cb.value.split(',')));
+  srUpdateTypeLabel();
   renderSalesReport();
 }
 
@@ -8386,6 +8421,7 @@ function filteredSalesReportRows() {
     if (agent && r.agent !== agent) return false;
     if (srSelectedProducts.size && !r.products.some(p => srSelectedProducts.has(p))) return false;
     if (srSelectedStatuses.size && !srSelectedStatuses.has(r.statusKey)) return false;
+    if (srSelectedTypes.size && !srSelectedTypes.has(r.bookingType)) return false;
     return true;
   });
 }
@@ -8499,6 +8535,7 @@ function downloadSalesReportPDF() {
   const agent = document.getElementById('sr-agent').value || 'All agents';
   const product = document.getElementById('sr-product-label').textContent;
   const status = document.getElementById('sr-status-label').textContent;
+  const type = document.getElementById('sr-type-label').textContent;
   const rangeLabel = (from && to) ? `${salesReportFmtDate(from)} – ${salesReportFmtDate(to)}` : 'All time';
   const now = new Date();
   const generatedLabel = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) +
@@ -8562,6 +8599,7 @@ function downloadSalesReportPDF() {
       <div class="info-item"><span class="info-icon">👤</span><div><div class="info-label">Agent</div><div class="info-value">${escB(agent)}</div></div></div>
       <div class="info-item"><span class="info-icon">📦</span><div><div class="info-label">Product</div><div class="info-value">${escB(product)}</div></div></div>
       <div class="info-item"><span class="info-icon">🏷️</span><div><div class="info-label">Status</div><div class="info-value">${escB(status)}</div></div></div>
+      <div class="info-item"><span class="info-icon">🔧</span><div><div class="info-label">Type</div><div class="info-value">${escB(type)}</div></div></div>
       <div class="info-item"><span class="info-icon">🕐</span><div><div class="info-label">Generated on</div><div class="info-value">${escB(generatedLabel)}</div></div></div>
     </div>
     <div class="kpis">
