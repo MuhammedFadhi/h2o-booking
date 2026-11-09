@@ -22,7 +22,7 @@ function detectProvider(apiKey) {
 // plain constants rather than config so there's one place to bump them.
 const MODELS = {
   anthropic: 'claude-sonnet-4-5-20250929',
-  gemini: 'gemini-3.8-flash', // 'gemini-2.0-flash' was retired — confirmed live via the API's own error message, 2026-11-09
+  gemini: 'gemini-flash-latest', // rolling alias for the current stable Flash model — avoids repeating the 'gemini-2.0-flash' retirement surprise (2026-11-09) whenever Google cycles the underlying model
   openrouter: 'openai/gpt-4o-mini',
   openai: 'gpt-4o-mini'
 };
