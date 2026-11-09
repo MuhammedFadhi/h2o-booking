@@ -39,9 +39,13 @@ async function callLLM({ apiKey, systemPrompt, messages }) {
   return withRetry(call);
 }
 
-// Exponential backoff on 429 (rate limit) / 503 (overloaded) only — any
-// other error (bad key, bad request) fails immediately, retrying it would
-// just waste time on something that will never succeed.
+// Exponential backoff on 429 (rate limit) / 503 (overloaded, with Google
+// actually responding promptly) only. A request that instead stalled and
+// hit our own client-side timeout (504 — see fetchWithTimeout) is NOT
+// retried here: Meta's webhook caller has a limited patience window too,
+// so burning it on a second multi-second wait for a provider that just
+// hung isn't worth it — better to fail this delivery fast and let the
+// next inbound message (or Meta's own webhook redelivery) try again.
 async function withRetry(fn, attempts = 3) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
@@ -62,8 +66,31 @@ function apiError(status, message) {
   return e;
 }
 
+// Provider APIs occasionally stall completely under load instead of
+// returning an error (observed directly: a Gemini call hung 2+ minutes
+// with no response) — with no timeout, that leaves the Worker hanging
+// until Meta's own webhook delivery gives up and retries minutes later,
+// which looks exactly like "the bot took forever to reply". A hard
+// per-attempt timeout turns that into a fast, retryable failure instead.
+const PROVIDER_TIMEOUT_MS = 10000;
+async function fetchWithTimeout(url, options) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    // 504, not 503 — deliberately NOT in withRetry()'s retryable set (see
+    // its comment above) since a stall deserves a fast failure, not a
+    // second multi-second wait on the same unresponsive provider.
+    if (err.name === 'AbortError') throw apiError(504, `Provider request timed out after ${PROVIDER_TIMEOUT_MS}ms`);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function callAnthropic(apiKey, systemPrompt, messages) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'x-api-key': apiKey,
@@ -85,7 +112,7 @@ async function callAnthropic(apiKey, systemPrompt, messages) {
 }
 
 async function callGemini(apiKey, systemPrompt, messages) {
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.gemini}:generateContent`,
     {
       method: 'POST',
@@ -112,7 +139,7 @@ async function callGemini(apiKey, systemPrompt, messages) {
 // the base URL and default model differ.
 async function callOpenAiCompatible(apiKey, systemPrompt, messages, provider) {
   const baseUrl = provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
-  const res = await fetch(baseUrl, {
+  const res = await fetchWithTimeout(baseUrl, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
