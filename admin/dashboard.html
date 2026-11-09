@@ -1011,6 +1011,7 @@
             <div style="padding:14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;">
               <span class="search-wrap" style="display:block;flex:1;"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="wa-convo-search" placeholder="Search by name or phone..." oninput="renderWhatsappConversationList()" style="width:100%;" autocomplete="off"></span>
               <button class="btn btn-ghost btn-sm" onclick="openWaTemplatesModal()" title="Manage quick-reply templates" style="padding:0 10px;flex-shrink:0;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5h8m-8 4h5m-5 6h8m-8 4h5M3 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zm0 10a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg></button>
+              <button class="btn btn-ghost btn-sm" onclick="openWaMessageTemplatesModal()" title="Meta message templates (for re-engaging after 24h)" style="padding:0 10px;flex-shrink:0;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M7 8h10M7 12h6"/></svg></button>
             </div>
             <div id="wa-status-filter-bar" style="display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);overflow-x:auto;"></div>
             <div id="wa-convo-list" style="flex:1;overflow-y:auto;"></div>
@@ -1034,6 +1035,13 @@
               <button class="btn btn-ghost btn-sm" onclick="unmarkWaNotInterested()">Reopen</button>
             </div>
             <div id="wa-thread-messages" style="display:none;flex:1;overflow-y:auto;padding:18px;flex-direction:column;gap:10px;background:var(--bg);"></div>
+            <!-- Shown once 24h has passed since the customer's own last message —
+                 WhatsApp blocks plain text at that point; only an approved
+                 template can reach them. See waCheck24hWindow(). -->
+            <div id="wa-24h-banner" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;padding:10px 14px;margin:10px 18px 0;border-radius:8px;font-size:13px;">
+              <span>⚠️ It's been over 24h since their last message — a plain reply will fail. Use an approved template instead.</span>
+              <button class="btn btn-sm" style="background:#92400E;color:#fff;flex-shrink:0;" onclick="openWaSendTemplateModal()">Send Template</button>
+            </div>
             <div id="wa-thread-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;margin:10px 18px 0;border-radius:8px;font-size:13px;"></div>
             <div id="wa-record-bar" style="display:none;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:8px 12px;margin:10px 18px 0;">
               <span id="wa-record-status" style="font-size:13px;color:var(--text);flex:1;"></span>
@@ -1726,6 +1734,61 @@
           <button class="btn btn-ghost" id="wa-template-cancel-btn" onclick="resetWaTemplateForm()" style="display:none;">Cancel edit</button>
           <button class="btn btn-primary" id="wa-template-save-btn" onclick="saveWaTemplate()">Save template</button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- META MESSAGE TEMPLATES — management (list + create + sync approval
+     status). Separate from quick-reply templates, which are our own
+     unreviewed canned text and can't bypass the 24h window. -->
+<div class="modal-overlay" id="wa-templates-mgmt-modal" style="display:none;">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header"><span class="modal-title">Meta Message Templates</span>
+      <button class="modal-close" onclick="closeModal('wa-templates-mgmt-modal')">&times;</button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Approval happens on Meta's side, usually within minutes to a day or two. A template can only be used to send once it shows <strong>APPROVED</strong> below.</div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <button class="btn btn-ghost btn-sm" onclick="syncWaTemplates()" id="wa-templates-sync-btn">↻ Sync status from Meta</button>
+      </div>
+      <div id="wa-templates-mgmt-list" style="margin-bottom:18px;"></div>
+      <div style="border-top:1px solid var(--border);padding-top:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Create a new template</div>
+        <div class="form-group"><label>Name <span style="color:var(--muted,#94a3b8);font-weight:400;">(lowercase, no spaces — e.g. order_followup)</span></label>
+          <input type="text" id="wat-name" class="form-input" placeholder="e.g. service_followup" autocomplete="off"></div>
+        <div class="form-group"><label>Category</label>
+          <select id="wat-category" class="form-input">
+            <option value="UTILITY">Utility — order/service updates, not promotional</option>
+            <option value="MARKETING">Marketing — offers, promotions</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Body <span style="color:var(--muted,#94a3b8);font-weight:400;">(use {{1}}, {{2}}, ... for variables like the customer's name)</span></label>
+          <textarea id="wat-body" class="form-input" rows="3" placeholder="Hi {{1}}, just checking in on your SA'DA H2O unit installed on {{2}}. Let us know if you need anything!" autocomplete="off"></textarea>
+        </div>
+        <div id="wat-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+        <div style="display:flex;justify-content:flex-end;">
+          <button class="btn btn-primary" onclick="createWaTemplate()" id="wat-create-btn">Submit to Meta for review</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SEND A TEMPLATE — scoped to whichever conversation is currently open
+     (see waCurrentConversationId), surfaced via the 24h-window banner. -->
+<div class="modal-overlay" id="wa-send-template-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Send a Template</span>
+      <button class="modal-close" onclick="closeModal('wa-send-template-modal')">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Template</label>
+        <select id="wst-template" class="form-input" onchange="renderWaSendTemplateVars()"></select>
+      </div>
+      <div id="wst-vars"></div>
+      <div id="wst-preview" style="background:var(--bg);border-radius:8px;padding:10px 14px;font-size:13px;margin:10px 0;white-space:pre-wrap;"></div>
+      <div id="wst-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary" onclick="sendWaTemplate()" id="wst-send-btn">Send</button>
       </div>
     </div>
   </div>
@@ -11030,6 +11093,7 @@ async function selectWhatsappConversation(id) {
   document.getElementById('wa-thread-composer').style.display = 'flex';
   document.getElementById('wa-thread-messages').innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
   document.getElementById('wa-thread-error').style.display = 'none';
+  document.getElementById('wa-24h-banner').style.display = 'none';
   document.getElementById('wa-thread-input').value = '';
   autoGrowWaInput();
   restoreWaComposerState(id);
@@ -11083,6 +11147,7 @@ function closeWhatsappThread() {
   document.getElementById('wa-thread-composer').style.display = 'none';
   document.getElementById('wa-thread-error').style.display = 'none';
   document.getElementById('wa-thread-ni-banner').style.display = 'none';
+  document.getElementById('wa-24h-banner').style.display = 'none';
   renderWhatsappConversationList();
 }
 
@@ -11121,6 +11186,7 @@ async function loadWhatsappMessages() {
     ));
     waMessages = stillPending.length ? [...serverMessages, ...stillPending] : serverMessages;
     renderWhatsappMessages(waMessages);
+    waCheck24hWindow();
   } catch (err) {
     document.getElementById('wa-thread-error').style.display = 'block';
     document.getElementById('wa-thread-error').textContent = err.message;
@@ -11804,6 +11870,159 @@ function selectWaTemplate(i) {
   input.focus();
   if (t.media_url) { cancelWaPendingAttachment(); showWaTemplateMedia(t.media_url); } else clearWaTemplateMedia();
   closeWaTemplateDropdown();
+}
+
+// ── Meta message templates — management + per-conversation send ────────────
+let waTemplatesCache = [];
+
+function waTemplateStatusBadge(status) {
+  const map = {
+    APPROVED: { bg: '#F0FDF4', fg: '#166534' }, PENDING: { bg: '#FFFBEB', fg: '#92400E' },
+    REJECTED: { bg: '#FEF2F2', fg: '#B71C1C' }, PAUSED: { bg: '#F3F4F6', fg: '#6B7280' }, DISABLED: { bg: '#F3F4F6', fg: '#6B7280' }
+  };
+  const c = map[status] || map.PENDING;
+  return `<span style="font-size:10px;font-weight:800;background:${c.bg};color:${c.fg};padding:2px 8px;border-radius:8px;">${escB(status)}</span>`;
+}
+
+async function openWaMessageTemplatesModal() {
+  document.getElementById('wat-error').style.display = 'none';
+  document.getElementById('wat-name').value = '';
+  document.getElementById('wat-body').value = '';
+  openModal('wa-templates-mgmt-modal');
+  await loadWaTemplatesMgmtList();
+}
+
+async function loadWaTemplatesMgmtList() {
+  const el = document.getElementById('wa-templates-mgmt-list');
+  el.innerHTML = '<div class="loading" style="padding:10px 0;"><div class="spinner"></div></div>';
+  try {
+    const { templates } = await waCall('list-templates', {});
+    waTemplatesCache = templates || [];
+    renderWaTemplatesMgmtList();
+  } catch (err) {
+    el.innerHTML = `<div style="color:#B71C1C;font-size:13px;">${escB(err.message)}</div>`;
+  }
+}
+
+function renderWaTemplatesMgmtList() {
+  const el = document.getElementById('wa-templates-mgmt-list');
+  if (!waTemplatesCache.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;">No templates yet.</div>'; return; }
+  el.innerHTML = waTemplatesCache.map((t) => `
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <strong style="font-size:13px;">${escB(t.name)}</strong>
+        <div style="display:flex;gap:6px;align-items:center;">${waTemplateStatusBadge(t.status)}<span style="font-size:10px;color:var(--muted);">${escB(t.category)}</span></div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;white-space:pre-wrap;">${escB(t.body)}</div>
+      ${t.status === 'REJECTED' && t.rejected_reason ? `<div style="font-size:11px;color:#B71C1C;margin-top:4px;">Reason: ${escB(t.rejected_reason)}</div>` : ''}
+    </div>`).join('');
+}
+
+async function syncWaTemplates() {
+  const btn = document.getElementById('wa-templates-sync-btn');
+  btn.disabled = true; btn.textContent = 'Syncing…';
+  try {
+    const { templates } = await waCall('sync-templates', {});
+    waTemplatesCache = templates || [];
+    renderWaTemplatesMgmtList();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '↻ Sync status from Meta';
+  }
+}
+
+async function createWaTemplate() {
+  const errEl = document.getElementById('wat-error');
+  errEl.style.display = 'none';
+  const btn = document.getElementById('wat-create-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    const template = {
+      name: document.getElementById('wat-name').value.trim(),
+      category: document.getElementById('wat-category').value,
+      body: document.getElementById('wat-body').value.trim()
+    };
+    await waCall('create-template', { template });
+    document.getElementById('wat-name').value = '';
+    document.getElementById('wat-body').value = '';
+    showToast('Template submitted to Meta for review.', 'success');
+    await loadWaTemplatesMgmtList();
+  } catch (err) {
+    errEl.style.display = 'block';
+    errEl.textContent = err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Submit to Meta for review';
+  }
+}
+
+// Scans the currently-open thread's already-loaded messages for the
+// customer's own last inbound message — not stored anywhere else, since
+// whatsapp_conversations only tracks the latest message overall, not the
+// latest one specifically FROM the customer.
+function waCheck24hWindow() {
+  const banner = document.getElementById('wa-24h-banner');
+  if (!banner) return;
+  const lastInbound = [...waMessages].reverse().find((m) => m.direction === 'inbound');
+  const hoursSince = lastInbound ? (Date.now() - new Date(lastInbound.sent_at).getTime()) / 3600000 : Infinity;
+  banner.style.display = hoursSince >= 24 ? 'flex' : 'none';
+}
+
+async function openWaSendTemplateModal() {
+  const errEl = document.getElementById('wst-error');
+  errEl.style.display = 'none';
+  document.getElementById('wst-send-btn').disabled = false;
+  if (!waTemplatesCache.length) { try { const { templates } = await waCall('list-templates', {}); waTemplatesCache = templates || []; } catch {} }
+  const approved = waTemplatesCache.filter((t) => t.status === 'APPROVED');
+  const sel = document.getElementById('wst-template');
+  sel.innerHTML = approved.length
+    ? approved.map((t) => `<option value="${t.id}">${escB(t.name)}</option>`).join('')
+    : '<option value="">No approved templates yet</option>';
+  openModal('wa-send-template-modal');
+  renderWaSendTemplateVars();
+}
+
+function renderWaSendTemplateVars() {
+  const sel = document.getElementById('wst-template');
+  const tmpl = waTemplatesCache.find((t) => t.id === sel.value);
+  const varsEl = document.getElementById('wst-vars');
+  if (!tmpl) { varsEl.innerHTML = ''; document.getElementById('wst-preview').textContent = ''; return; }
+  varsEl.innerHTML = Array.from({ length: tmpl.variable_count }, (_, i) => `
+    <div class="form-group"><label>Variable {{${i + 1}}}</label>
+      <input type="text" class="form-input wst-var-input" data-idx="${i}" oninput="updateWaSendTemplatePreview()" autocomplete="off"></div>`).join('');
+  updateWaSendTemplatePreview();
+}
+
+function updateWaSendTemplatePreview() {
+  const sel = document.getElementById('wst-template');
+  const tmpl = waTemplatesCache.find((t) => t.id === sel.value);
+  const preview = document.getElementById('wst-preview');
+  if (!tmpl) { preview.textContent = ''; return; }
+  let text = tmpl.body;
+  document.querySelectorAll('.wst-var-input').forEach((input) => {
+    text = text.replaceAll(`{{${Number(input.dataset.idx) + 1}}}`, input.value.trim() || `{{${Number(input.dataset.idx) + 1}}}`);
+  });
+  preview.textContent = text;
+}
+
+async function sendWaTemplate() {
+  const errEl = document.getElementById('wst-error');
+  errEl.style.display = 'none';
+  const sel = document.getElementById('wst-template');
+  if (!sel.value) { errEl.style.display = 'block'; errEl.textContent = 'No approved template selected.'; return; }
+  const variables = [...document.querySelectorAll('.wst-var-input')].map((i) => i.value.trim());
+  const btn = document.getElementById('wst-send-btn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await waCall('send-template-message', { conversationId: waCurrentConversationId, templateId: sel.value, variables });
+    closeModal('wa-send-template-modal');
+    await loadWhatsappMessages();
+  } catch (err) {
+    errEl.style.display = 'block';
+    errEl.textContent = err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Send';
+  }
 }
 
 function handleWaInputKeydown(event) {
