@@ -271,6 +271,14 @@ function messageBodyAndType(message) {
 }
 
 async function handleInboundMessage(message, contact) {
+  // Diagnosing a reported multi-minute bot reply delay — compares when
+  // WhatsApp itself timestamped the message against when our webhook
+  // actually received it, to tell apart "Meta delayed delivering the
+  // webhook to us" from "our own pipeline is slow". Remove once resolved.
+  if (message.timestamp) {
+    const metaMs = Number(message.timestamp) * 1000;
+    console.log(`[wa bot timing] webhook received message ${message.id} ${Date.now() - metaMs}ms after WhatsApp's own timestamp`);
+  }
   const phone = normalizePhone(message.from);
   if (!phone) return; // can't file it anywhere sensible without a phone
   const { id: conversationId, aiPaused } = await findOrCreateConversation(phone, contact?.profile?.name);

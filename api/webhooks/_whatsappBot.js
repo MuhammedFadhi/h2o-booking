@@ -137,10 +137,14 @@ function parseModelJson(raw) {
 // already persisted. Never throws past the caller: a bot failure should
 // never fail the webhook itself (Meta would just retry and re-run this).
 async function maybeAutoReply({ conversationId, phone, waMessageId, aiPaused }) {
+  const t0 = Date.now();
+  const mark = (label) => console.log(`[wa bot timing] ${label} at +${Date.now() - t0}ms (conversation ${conversationId})`);
   try {
+    mark('pipeline start');
     if (aiPaused) return; // a human already took this conversation over
 
     const config = await getConfig();
+    mark('config fetched');
     if (!config || !config.enabled || !config.auto_reply) return;
     if (!config.llm_api_key) { console.error('[wa bot] enabled but no llm_api_key configured'); return; }
 
@@ -156,23 +160,29 @@ async function maybeAutoReply({ conversationId, phone, waMessageId, aiPaused }) 
     // handler will see the full picture and reply once; this one backs off.
     await new Promise((r) => setTimeout(r, 1500));
     const latest = await sb('GET', `/rest/v1/whatsapp_messages?conversation_id=eq.${conversationId}&direction=eq.inbound&select=wa_message_id&order=sent_at.desc&limit=1`);
+    mark('coalesce check done');
     if (latest?.[0]?.wa_message_id && waMessageId && latest[0].wa_message_id !== waMessageId) return;
 
     const history = await sb('GET', `/rest/v1/whatsapp_messages?conversation_id=eq.${conversationId}&select=direction,body&order=sent_at.desc&limit=15`);
     const messages = buildHistoryMessages((history || []).reverse());
+    mark('history fetched');
     if (!messages.length) return; // nothing text-based to react to (e.g. a lone sticker)
 
     const systemPrompt = (config.system_prompt || '') + JSON_CONTRACT;
     const raw = await callLLM({ apiKey: config.llm_api_key, systemPrompt, messages });
+    mark('llm call done');
     const decision = parseModelJson(raw);
 
     if (decision.should_reply && decision.reply) {
       const text = config.signature_suffix ? `${decision.reply}\n\n${config.signature_suffix}` : decision.reply;
       await markRead(waMessageId);
       await sendOutboundText(conversationId, phone, text);
+      mark('reply sent');
     }
     if (decision.lead_ready) await applyLeadData(conversationId, decision.lead_data);
+    mark('pipeline end');
   } catch (err) {
+    mark('pipeline failed: ' + err.message);
     console.error('[wa bot] pipeline failed for conversation', conversationId, err.message);
   }
 }
