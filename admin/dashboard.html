@@ -8533,8 +8533,12 @@ function salesReportDetailHTML(rows, escFn) {
   // Inline styles (not the .status-badge class) so this renders identically in
   // the live dashboard and in the standalone PDF print window, which has no
   // access to dashboard.html's stylesheet.
-  const pill = (key) => { const s = SALES_REPORT_STATUS[key]; return `<span style="display:inline-flex;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${s.color}22;color:${s.color};">${s.label}</span>`; };
-  const typePill = (t) => { const c = salesReportTypeColor(t); return `<span style="display:inline-flex;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${c.bg};color:${c.fg};">${salesReportTypeLabel(t)}</span>`; };
+  // white-space:nowrap here overrides the print stylesheet's word-break:
+  // break-word on td (needed so long free-text cells like Name/Product wrap
+  // instead of getting cut off) — without it, a short badge word like
+  // "Installed" was breaking mid-word onto its own line.
+  const pill = (key) => { const s = SALES_REPORT_STATUS[key]; return `<span style="display:inline-flex;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${s.color}22;color:${s.color};white-space:nowrap;">${s.label}</span>`; };
+  const typePill = (t) => { const c = salesReportTypeColor(t); return `<span style="display:inline-flex;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${c.bg};color:${c.fg};white-space:nowrap;">${salesReportTypeLabel(t)}</span>`; };
   return `<table>
     <thead><tr><th style="text-align:center;">#</th><th>Name</th><th>Number</th><th>Added</th><th>Agent</th><th>Region</th><th>Type</th><th>Product</th><th>Status</th></tr></thead>
     <tbody>${sorted.length ? sorted.map((r, i) => `<tr>
