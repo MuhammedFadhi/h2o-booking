@@ -22,16 +22,15 @@ function detectProvider(apiKey) {
 // plain constants rather than config so there's one place to bump them.
 const MODELS = {
   anthropic: 'claude-sonnet-4-5-20250929',
-  // 'gemini-3.8-flash' and 'gemini-flash-latest' both hung on most calls in
-  // direct side-by-side testing against the same key (2026-11-09).
-  // 'gemini-2.5-pro' is flat-out retired for new users (hard API error,
-  // 2026-11-10) — not usable at all, at any reliability. 'gemini-3.5-flash'
-  // and 'gemini-3.1-flash-lite-preview' both hit "high demand" 503s under
-  // load on this key's free tier (2026-11-10) — a quota/billing issue, not
-  // a model choice issue. Per explicit instruction, staying on
-  // 'gemini-3.1-flash-lite-preview' — it's at least sometimes usable,
-  // unlike 'gemini-2.5-pro' which never is.
-  gemini: 'gemini-3.1-flash-lite-preview',
+  // Direct live test against the actual (paid, "standard" service tier) key
+  // on 2026-11-10 confirmed: 'gemini-2.5-pro' and 'gemini-2.5-flash' are
+  // hard-retired for this account ("no longer available to new users" —
+  // unrelated to billing, the whole 2.x generation is cut off for accounts
+  // created after Google's cutoff). 'gemini-3.1-flash-lite-preview',
+  // 'gemini-3.8-flash', and 'gemini-flash-latest' all returned 503 "high
+  // demand" in that same test. 'gemini-3.5-flash' was the only one that
+  // actually responded (200, serviceTier: standard) — using that.
+  gemini: 'gemini-3.5-flash',
   openrouter: 'openai/gpt-4o-mini',
   openai: 'gpt-4o-mini'
 };
