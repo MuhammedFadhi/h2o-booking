@@ -26,9 +26,12 @@ const MODELS = {
   // direct side-by-side testing against the same key (2026-11-09).
   // 'gemini-3.1-flash-lite-preview' answered fast at first but then started
   // throwing 503 "model overloaded" under normal load (2026-11-10) — a
-  // known tradeoff of preview/lite tiers sharing capacity. Trying the
-  // steadier paid-tier 'gemini-2.5-pro' instead.
-  gemini: 'gemini-2.5-pro',
+  // known tradeoff of preview/lite tiers sharing capacity. 'gemini-2.5-pro'
+  // is flat-out retired for new users (hard API error), and the natural
+  // 'gemini-3.1-pro-preview' fallback is zero-quota blocked on this key's
+  // tier — pro-tier models are a dead end here. 'gemini-3.5-flash' is
+  // Google's current stable GA model (not preview/lite), so trying that.
+  gemini: 'gemini-3.5-flash',
   openrouter: 'openai/gpt-4o-mini',
   openai: 'gpt-4o-mini'
 };
