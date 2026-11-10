@@ -10554,6 +10554,7 @@ async function loadWhatsappConversations() {
   } catch (err) {
     listEl.innerHTML = `<div class="empty-state">⚠️ ${escB(err.message)}</div>`;
   }
+  loadWaStatusCounts(); // true whole-table counts for the filter chips — see its own comment
   loadWaQuickReplies(); // fetched once per panel visit, not per keystroke
   if (waListPollInterval) clearInterval(waListPollInterval);
   waListPollInterval = setInterval(async () => {
@@ -10562,6 +10563,7 @@ async function loadWhatsappConversations() {
       waConversations = result?.conversations || [];
       renderWhatsappConversationList();
     } catch { /* a transient poll failure isn't worth interrupting the admin with */ }
+    loadWaStatusCounts();
   }, 10000);
 }
 
@@ -10648,70 +10650,100 @@ function waFollowupBtn(c) {
 // manually settable from the per-row dropdown — it's still a real state
 // worth filtering down to), same pill-row UX as WhatsApp's own
 // All/Unread/Favourites/Groups filter bar.
+// ── Conversation fetch is capped at 200 (newest-active first — see
+// api/admin/whatsapp.js) — plenty for everyday use, but once the table has
+// more than 200 rows that cap silently hides anything outside it from both
+// search AND the status filter chips (e.g. an old "Converted" conversation
+// nobody's reopened since converting). waStatusCounts holds true per-status
+// counts across the WHOLE table (a cheap status-only select), and
+// waFilteredResults holds the last real server-side search/status match for
+// whichever filter combo produced it — both replace what used to be pure
+// client-side filtering of the capped waConversations list.
+let waStatusCounts = null; // { unassigned: n, open: n, ... } or null before first load
+let waFilteredResults = null; // { key, rows } or null
+let waFilterInFlightKey = null;
+let waConvoFilterDebounce = null;
+
+async function loadWaStatusCounts() {
+  try {
+    const result = await waCall('status-counts');
+    waStatusCounts = result?.counts || null;
+    renderWaStatusFilterBar();
+  } catch { /* chips just keep showing whatever counts they last had */ }
+}
+
+function waFilterKey(status, q) { return `${status}|${q.toLowerCase()}`; }
+
 function renderWaStatusFilterBar() {
   const el = document.getElementById('wa-status-filter-bar');
   if (!el) return;
-  const counts = {};
-  waConversations.forEach(c => { const s = c.status || 'unassigned'; counts[s] = (counts[s] || 0) + 1; });
+  const counts = waStatusCounts || {};
+  const total = waStatusCounts ? Object.values(waStatusCounts).reduce((a, b) => a + b, 0) : waConversations.length;
   const chip = (key, label, count) => {
     const active = waStatusFilter === key;
     return `<button onclick="setWaStatusFilter('${key}')" style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;border:1px solid ${active ? 'transparent' : 'var(--border)'};background:${active ? 'var(--text)' : '#fff'};color:${active ? '#fff' : 'var(--text)'};cursor:pointer;white-space:nowrap;flex-shrink:0;">${escB(label)}${count ? `<span style="font-size:10px;font-weight:800;opacity:${active ? 0.85 : 0.55};">${count}</span>` : ''}</button>`;
   };
-  el.innerHTML = chip('', 'All', waConversations.length) +
+  el.innerHTML = chip('', 'All', total) +
     Object.entries(WA_STATUS_META).map(([k, m]) => chip(k, m.label, counts[k] || 0)).join('');
 }
 
 function setWaStatusFilter(key) {
   waStatusFilter = key;
-  renderWhatsappConversationList();
+  waApplyFilters();
 }
-
-// The default conversation fetch is capped at 200 (newest-active first —
-// see api/admin/whatsapp.js) so a search can't just filter whatever's
-// already loaded, or an older/inactive conversation outside that cap would
-// never be findable at all. Non-empty waServerSearchResults holds the last
-// real server-side search (by phone/name across the WHOLE table) for the
-// query that produced it; renderWhatsappConversationList prefers it over
-// local filtering whenever the search box still matches.
-let waServerSearchResults = null; // { query, rows } or null
-let waConvoSearchDebounce = null;
 
 function onWaConvoSearchInput() {
-  clearTimeout(waConvoSearchDebounce);
-  const q = document.getElementById('wa-convo-search').value.trim();
-  if (!q) { waServerSearchResults = null; renderWhatsappConversationList(); return; }
-  waConvoSearchDebounce = setTimeout(() => waRunServerSearch(q), 300);
+  clearTimeout(waConvoFilterDebounce);
+  waConvoFilterDebounce = setTimeout(waApplyFilters, 300);
+  renderWhatsappConversationList(); // immediate repaint: clears instantly once the box empties, shows a loading state while a non-empty query's debounce is pending
 }
 
-async function waRunServerSearch(q) {
+// Search and a status tab both narrow down to a slice of the WHOLE table,
+// not just the capped default list, so both go through one real server
+// call — combined into a single request when both are active, rather than
+// two separate (and separately-capped) client-side cuts.
+async function waApplyFilters() {
+  const q = (document.getElementById('wa-convo-search')?.value || '').trim();
+  if (!q && !waStatusFilter) { waFilteredResults = null; waFilterInFlightKey = null; renderWhatsappConversationList(); return; }
+  const key = waFilterKey(waStatusFilter, q);
+  waFilterInFlightKey = key;
+  renderWhatsappConversationList(); // show the loading state immediately
   try {
-    const result = await waCall('list-conversations', { search: q });
-    // Guards against a slower earlier request landing after a newer one —
-    // only accept this result if the box still holds the exact query that
-    // triggered it.
-    if ((document.getElementById('wa-convo-search')?.value || '').trim() !== q) return;
-    waServerSearchResults = { query: q.toLowerCase(), rows: result?.conversations || [] };
-    renderWhatsappConversationList();
+    const result = await waCall('list-conversations', { search: q || undefined, status: waStatusFilter || undefined });
+    // Guards against a slower earlier request landing after the status/query
+    // has already moved on — only accept this result if it's still current.
+    if (waFilterKey(waStatusFilter, (document.getElementById('wa-convo-search')?.value || '').trim()) === key) {
+      waFilteredResults = { key, rows: result?.conversations || [] };
+    }
   } catch {
-    // Transient failure — leave whatever's currently shown rather than
-    // clearing results out from under the admin.
+    // transient failure — leave waFilteredResults as whatever it was
+  } finally {
+    if (waFilterInFlightKey === key) waFilterInFlightKey = null;
+    renderWhatsappConversationList();
   }
 }
 
 function renderWhatsappConversationList() {
   renderWaStatusFilterBar();
-  const q = (document.getElementById('wa-convo-search')?.value || '').trim().toLowerCase();
-  let rows;
-  if (q && waServerSearchResults && waServerSearchResults.query === q) {
-    rows = waServerSearchResults.rows;
-  } else {
-    rows = waConversations;
-    if (q) rows = rows.filter(c => (c.contact_name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q));
-  }
-  if (waStatusFilter) rows = rows.filter(c => (c.status || 'unassigned') === waStatusFilter);
+  const q = (document.getElementById('wa-convo-search')?.value || '').trim();
+  const filtersActive = !!(waStatusFilter || q);
+  const key = waFilterKey(waStatusFilter, q);
   const el = document.getElementById('wa-convo-list');
+
+  let rows;
+  if (!filtersActive) {
+    rows = waConversations;
+  } else if (waFilteredResults && waFilteredResults.key === key) {
+    rows = waFilteredResults.rows;
+  } else {
+    el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    waSyncBadgeAndCurrentThread();
+    return;
+  }
+
   if (!rows.length) {
-    el.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;">${waStatusFilter || q ? 'No conversations match.' : 'No conversations yet.'}</div>`;
+    el.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;">${filtersActive ? 'No conversations match.' : 'No conversations yet.'}</div>`;
+    waSyncBadgeAndCurrentThread();
     return;
   }
   const callable = isMobileViewport();
@@ -10732,15 +10764,17 @@ function renderWhatsappConversationList() {
         ${waAssignedPill(c)}${waStatusSelect(c)}${waFollowupBtn(c)}
       </div>
     </div>`).join('');
+  waSyncBadgeAndCurrentThread();
+}
 
+// Always driven by waConversations (the live-polled default list), never by
+// a search/status filter result — the unread badge and the open thread's
+// own header must stay correct regardless of what's currently filtered in
+// the list pane.
+function waSyncBadgeAndCurrentThread() {
   const totalUnread = waConversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
   const badge = document.getElementById('badge-whatsapp');
   if (badge) { badge.textContent = totalUnread > 99 ? '99+' : String(totalUnread); badge.style.display = totalUnread > 0 ? 'inline-block' : 'none'; }
-
-  // Keep the open thread's header controls + not-interested blur in sync —
-  // this runs after every list load/poll/local status change, so it's the
-  // one place that needs to stay current rather than wiring it separately
-  // into each call site.
   if (waCurrentConversationId) {
     const current = waConversations.find(c => c.id === waCurrentConversationId);
     if (current) applyWaThreadStatusUI(current);
