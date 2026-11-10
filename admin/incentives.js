@@ -3,7 +3,7 @@
 // Admin-only: awards are entered by hand; no portal shows them.
 // Uses the dashboard's globals: dbAdmin, installers, salesUsers,
 // loadSales, showToast, openModal, closeModal, logActivity.
-// Tables: migrations/v110_incentives.sql
+// Tables: migrations/v110_incentives.sql, v111_incentive_products.sql
 // ============================================================
 (function () {
   const GROUPS = [
@@ -13,10 +13,11 @@
     { key: 'ho_installer', label: "SA'DA HO Installers" },
     { key: 'shop', label: "Shop SA'DA H2O" }
   ];
-  const RATE_GROUPS = GROUPS.concat([
-    { key: 'installer_referral', label: 'Installers Referral Sales' },
-    { key: 'demo_sale', label: 'Lead Handler-Referred Demo Sale' }
-  ]);
+  // Same names as the User Management page.
+  const ACCOUNTS = [
+    { key: 'installer', label: 'Installers' },
+    { key: 'sales', label: 'Sales Team' }
+  ];
   const ITEMS = [
     { key: 'non_uv', label: 'Non-UV Unit' },
     { key: 'uv', label: 'UV Unit' },
@@ -24,8 +25,18 @@
     { key: 'filter_replacement', label: 'Filter Replacement' },
     { key: 'penalty', label: 'Penalty' }
   ];
-  const INSTALLER_GROUPS = ['h2o_installer', 'ho_installer'];
-  const DEMO_GROUPS = ['kiosk', 'shop'];
+  // The only products offered in the Add popup. item is the chart column whose
+  // rate applies; commercial systems have no chart rate, so the admin types it.
+  const PRODUCTS = [
+    { name: '7 stage RO - A100', item: 'non_uv' },
+    { name: '7 stage RO - A1UV', item: 'uv' },
+    { name: 'Smart RO (6 stage) - SRO6', item: 'non_uv' },
+    { name: 'Smart RO (7 stage) - SRO7', item: 'non_uv' },
+    { name: '200 GPD Commercial RO System', item: 'commercial' },
+    { name: '400 GPD Commercial RO System', item: 'commercial' },
+    { name: 'RO Water Dispenser (Hot/Cold)', item: 'dispenser' }
+  ];
+  const RATE_ITEMS = ITEMS.filter(i => ['non_uv', 'uv', 'dispenser'].includes(i.key));
 
   const pad = n => String(n).padStart(2, '0');
   const now = new Date();
@@ -33,14 +44,16 @@
 
   const S = {
     tab: 'entries', month: today.slice(0, 7), person: '', group: '',
-    entries: [], rates: [], people: [], payments: [], selected: new Map(), editingId: null
+    entries: [], rates: [], people: [], payments: [], selected: new Map(), products: new Set(), amounts: new Map(), removed: new Set(), editingId: null
   };
 
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const money = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const groupLabel = k => (RATE_GROUPS.find(g => g.key === k) || {}).label || 'No group';
+  const accountLabel = t => (ACCOUNTS.find(a => a.key === t) || {}).label || t;
   const itemLabel = k => (ITEMS.find(i => i.key === k) || {}).label || k;
+  const typeLabel = e => e.product_name || itemLabel(e.item_type);
+  const lineKey = (person, productIndex) => `${person}|${productIndex}`;
   const personKey = (type, id) => `${type}:${id}`;
   const $ = id => document.getElementById(id);
 
@@ -61,23 +74,15 @@
     return list.sort((a, b) => String(a.name).localeCompare(String(b.name)));
   }
 
-  function rateFor(group, earnedAs, item) {
-    const g = earnedAs === 'referral' ? 'installer_referral' : earnedAs === 'demo' ? 'demo_sale' : group;
-    const row = S.rates.find(r => r.group_key === g && r.item_type === item);
+  function rateFor(group, item) {
+    const row = S.rates.find(r => r.group_key === group && r.item_type === item);
     return row ? Number(row.rate) : null;
   }
-
-  function earnedOptions(group) {
-    if (INSTALLER_GROUPS.includes(group)) return [['own', 'Installation'], ['referral', 'Referral Sale']];
-    if (DEMO_GROUPS.includes(group)) return [['own', 'Sale'], ['demo', 'Demo Referral']];
-    return [['own', 'Sale']];
-  }
-  const earnedLabel = e => ({ own: 'Standard', referral: 'Referral Sale', demo: 'Demo Referral' }[e] || e);
 
   function filteredEntries() {
     return S.entries.filter(e =>
       (!S.person || personKey(e.person_type, e.person_id) === S.person) &&
-      (!S.group || e.group_key === S.group));
+      (!S.group || e.person_type === S.group));
   }
 
   function totals(list) {
@@ -104,7 +109,7 @@
   async function fetchMonth() {
     const { from, to } = monthRange(S.month);
     const [entries, payments] = await Promise.all([
-      dbAdmin.from('incentive_entries').select('*').gte('entry_date', from).lt('entry_date', to)
+      dbAdmin.from('incentive_entries').select('*').gte('period_date', from).lt('period_date', to)
         .order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
       dbAdmin.from('incentive_payments').select('*').eq('month', from)
     ]);
@@ -149,7 +154,7 @@
     S.entries.forEach(e => { const k = personKey(e.person_type, e.person_id); if (!seen.has(k)) seen.set(k, e.person_name); });
     const personOpts = [...seen.entries()].sort((a, b) => String(a[1]).localeCompare(String(b[1])))
       .map(([k, n]) => `<option value="${esc(k)}" ${S.person === k ? 'selected' : ''}>${esc(n)}</option>`).join('');
-    const groupOpts = GROUPS.map(g => `<option value="${g.key}" ${S.group === g.key ? 'selected' : ''}>${esc(g.label)}</option>`).join('');
+    const groupOpts = ACCOUNTS.map(g => `<option value="${g.key}" ${S.group === g.key ? 'selected' : ''}>${esc(g.label)}</option>`).join('');
     return `
       <div class="filter-bar" style="padding:16px 20px 0;">
         <input type="month" class="form-input" style="max-width:170px;" value="${S.month}" onchange="incSetMonth(this.value)" aria-label="Month">
@@ -166,7 +171,7 @@
         <div class="stat-label">${label}</div>
       </div>`;
     return `<div class="stat-grid" style="padding:16px 20px 0;margin-bottom:0;">
-      ${kpi('Total Earned', t.earned, '#0F766E')}${kpi('Penalties', t.penalties, '#B71C1C')}${kpi('Net Payable', t.net, '#1D4ED8')}
+      ${kpi('Total Incentives', t.net, '#0F766E')}
     </div>`;
   }
 
@@ -175,12 +180,10 @@
     const rows = list.map(e => `
       <tr>
         <td style="white-space:nowrap;">${esc(e.entry_date)}</td>
-        <td><div style="font-weight:600;">${esc(e.person_name)}</div>${e.note ? `<div style="font-size:11px;color:var(--muted);">${esc(e.note)}</div>` : ''}</td>
-        <td>${esc(groupLabel(e.group_key))}</td>
-        <td>${esc(itemLabel(e.item_type))}${e.earned_as !== 'own' ? `<div style="font-size:11px;color:var(--muted);">${esc(earnedLabel(e.earned_as))}</div>` : ''}</td>
-        <td>${esc(e.booking_ref || '—')}</td>
-        <td>${e.qty}</td>
-        <td>${money(e.rate)}</td>
+        <td style="white-space:nowrap;">${esc(e.end_date || '—')}</td>
+        <td style="font-weight:600;">${esc(e.person_name)}</td>
+        <td>${esc(accountLabel(e.person_type))}</td>
+        <td>${esc(typeLabel(e))}</td>
         <td style="font-weight:600;${Number(e.amount) < 0 ? 'color:#B71C1C;' : ''}">${money(e.amount)}</td>
         <td><div style="display:flex;gap:6px;">
           <button class="btn btn-sm btn-ghost" onclick="incOpenEdit('${e.id}')">Edit</button>
@@ -189,7 +192,7 @@
       </tr>`).join('');
     return filterBar() + kpis(totals(list)) + `
       <div style="padding:16px 20px 20px;overflow-x:auto;">
-        ${list.length ? `<table><thead><tr><th>Date</th><th>Person</th><th>Group</th><th>Type</th><th>Booking</th><th>Qty</th><th>Rate</th><th>Amount</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`
+        ${list.length ? `<table><thead><tr><th>From</th><th>To</th><th>Person</th><th>Group</th><th>Type</th><th>Amount</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`
         : '<div class="empty-state"><div>No incentives for this month yet.</div></div>'}
       </div>`;
   }
@@ -214,9 +217,7 @@
       const changed = p.paid && Number(p.paid.amount) !== p.net;
       return `<tr>
         <td style="font-weight:600;">${esc(p.name)}</td>
-        <td>${esc(groupLabel(p.group))}</td>
-        <td>${money(p.earned)}</td>
-        <td style="color:#B71C1C;">${money(p.penalties)}</td>
+        <td>${esc(accountLabel(p.type))}</td>
         <td style="font-weight:700;">${money(p.net)}</td>
         <td><label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
           <input type="checkbox" ${p.paid ? 'checked' : ''} onchange="incTogglePaid('${p.key}',this)"> ${p.paid ? 'Paid' : 'Not paid'}</label>
@@ -226,16 +227,16 @@
     }).join('');
     return filterBar() + kpis(totals(filteredEntries())) + `
       <div style="padding:16px 20px 20px;overflow-x:auto;">
-        ${data.length ? `<table><thead><tr><th>Person</th><th>Group</th><th>Earned</th><th>Penalties</th><th>Net Payable</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`
+        ${data.length ? `<table><thead><tr><th>Person</th><th>Group</th><th>Total</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`
         : '<div class="empty-state"><div>No incentives for this month yet.</div></div>'}
       </div>`;
   }
 
   function renderRates() {
-    const head = ITEMS.map(i => `<th>${i.label}</th>`).join('');
-    const rows = RATE_GROUPS.map(g => `
+    const head = RATE_ITEMS.map(i => `<th>${i.label}</th>`).join('');
+    const rows = GROUPS.map(g => `
       <tr><td style="font-weight:600;white-space:nowrap;">${esc(g.label)}</td>
-      ${ITEMS.map(i => {
+      ${RATE_ITEMS.map(i => {
         const r = S.rates.find(x => x.group_key === g.key && x.item_type === i.key);
         return `<td><input type="number" step="0.01" class="form-input inc-rate" style="min-width:84px;" data-group="${g.key}" data-item="${i.key}" value="${r ? Number(r.rate) : ''}" aria-label="${esc(g.label)} ${i.label}"></td>`;
       }).join('')}</tr>`).join('');
@@ -260,7 +261,7 @@
       </tr>`).join('');
     return `
       <div style="padding:16px 20px 20px;overflow-x:auto;">
-        ${people.length ? `<table><thead><tr><th>Person</th><th>Account</th><th>Incentive Group</th></tr></thead><tbody>${rows}</tbody></table>`
+        ${people.length ? `<table><thead><tr><th>Person</th><th>Account</th><th>Rate Group</th></tr></thead><tbody>${rows}</tbody></table>`
         : '<div class="empty-state"><div>No sales users or installers found.</div></div>'}
       </div>`;
   }
@@ -269,20 +270,20 @@
 
   function ensureModals() {
     if ($('inc-modal')) return;
-    const itemOpts = ITEMS.map(i => `<option value="${i.key}">${i.label}</option>`).join('');
-    const groupOpts = GROUPS.map(g => `<option value="${g.key}">${esc(g.label)}</option>`).join('');
+
+    const groupOpts = ACCOUNTS.map(g => `<option value="${g.key}">${esc(g.label)}</option>`).join('');
     const errBox = id => `<div id="${id}" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:12px;border-radius:10px;font-size:13px;margin-top:8px;"></div>`;
     document.body.insertAdjacentHTML('beforeend', `
       <div class="modal-overlay" id="inc-modal">
         <div class="modal" style="max-width:820px;width:100%;max-height:92vh;overflow-y:auto;">
           <h2 class="modal-title">Add Incentive</h2>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 12px;">
-            <div class="form-group"><label>Type</label><select class="form-input" id="inc-item" onchange="incCommonChanged()">${itemOpts}</select></div>
-            <div class="form-group"><label>Quantity</label><input type="number" min="1" step="1" class="form-input" id="inc-qty" value="1" oninput="incCommonChanged()"></div>
-            <div class="form-group"><label>Date</label><input type="date" class="form-input" id="inc-date"></div>
-            <div class="form-group"><label>Booking Ref <span style="color:var(--muted);font-weight:400;">(optional)</span></label><input type="text" class="form-input" id="inc-ref"></div>
+          <div class="form-group"><label>Type</label>
+            <div id="inc-products"></div>
           </div>
-          <div class="form-group"><label>Note <span style="color:var(--muted);font-weight:400;">(optional)</span></label><input type="text" class="form-input" id="inc-note"></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 12px;">
+            <div class="form-group"><label>From</label><input type="date" class="form-input" id="inc-date"></div>
+            <div class="form-group"><label>To <span style="color:var(--muted);font-weight:400;">(optional)</span></label><input type="date" class="form-input" id="inc-end"></div>
+          </div>
           <div class="form-group"><label>Select People</label>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
               <input type="text" class="form-input" style="flex:1;min-width:150px;" id="inc-search" placeholder="Search name..." oninput="incRenderPicker()">
@@ -302,11 +303,9 @@
       <div class="modal-overlay" id="inc-edit-modal">
         <div class="modal">
           <h2 class="modal-title" id="inc-edit-title">Edit Incentive</h2>
-          <div class="form-group"><label>Date</label><input type="date" class="form-input" id="inc-edit-date"></div>
-          <div class="form-group"><label>Quantity</label><input type="number" min="1" step="1" class="form-input" id="inc-edit-qty"></div>
-          <div class="form-group"><label>Rate (SAR)</label><input type="number" step="0.01" class="form-input" id="inc-edit-rate"></div>
-          <div class="form-group"><label>Booking Ref</label><input type="text" class="form-input" id="inc-edit-ref"></div>
-          <div class="form-group"><label>Note</label><input type="text" class="form-input" id="inc-edit-note"></div>
+          <div class="form-group"><label>From</label><input type="date" class="form-input" id="inc-edit-date"></div>
+          <div class="form-group"><label>To <span style="color:var(--muted);font-weight:400;">(optional)</span></label><input type="date" class="form-input" id="inc-edit-end"></div>
+          <div class="form-group"><label>Amount (SAR)</label><input type="number" step="0.01" class="form-input" id="inc-edit-rate"></div>
           ${errBox('inc-edit-error')}
           <div class="modal-footer">
             <button class="btn btn-ghost" onclick="closeModal('inc-edit-modal')">Cancel</button>
@@ -322,14 +321,15 @@
   function openAdd() {
     ensureModals();
     S.selected = new Map();
-    $('inc-item').value = 'non_uv';
-    $('inc-qty').value = 1;
+    S.products = new Set();
+    S.amounts = new Map();
+    S.removed = new Set();
     $('inc-date').value = today;
-    $('inc-ref').value = '';
-    $('inc-note').value = '';
+    $('inc-end').value = '';
     $('inc-search').value = '';
     $('inc-group-filter').value = '';
     clearError('inc-error');
+    renderProducts();
     renderPicker();
     renderLines();
     openModal('inc-modal');
@@ -338,7 +338,7 @@
   function shownPeople() {
     const q = $('inc-search').value.trim().toLowerCase();
     const g = $('inc-group-filter').value;
-    return roster().filter(p => (!q || String(p.name).toLowerCase().includes(q)) && (!g || p.group === g));
+    return roster().filter(p => (!q || String(p.name).toLowerCase().includes(q)) && (!g || p.type === g));
   }
 
   function renderPicker() {
@@ -350,87 +350,96 @@
       </label>`).join('') : '<div style="font-size:13px;color:var(--muted);">No people found.</div>';
   }
 
-  function addLine(p) {
-    const item = $('inc-item').value;
-    S.selected.set(p.key, { ...p, earned: 'own', rate: rateFor(p.group, 'own', item), qty: parseInt($('inc-qty').value, 10) || 1 });
+  function renderProducts() {
+    const chosen = PRODUCTS.map((p, i) => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--border,#E5E7EB);border-radius:10px;padding:8px 12px;margin-bottom:8px;">
+        <span style="font-size:14px;font-weight:600;">${esc(p.name)}</span>
+        <button type="button" class="btn btn-sm btn-danger" onclick="incRemoveProduct(${i})" aria-label="Remove ${esc(p.name)}">🗑</button>
+      </div>`).filter((_, i) => S.products.has(i)).join('');
+    const options = PRODUCTS.map((p, i) => S.products.has(i) ? '' : `<option value="${i}">${esc(p.name)}</option>`).join('');
+    $('inc-products').innerHTML = (chosen || '<div style="font-size:13px;color:var(--muted);margin-bottom:8px;">No products yet — add one below.</div>') +
+      (options ? `<div style="display:flex;gap:8px;">
+        <select class="form-input" style="flex:1;min-width:0;" id="inc-product-select" aria-label="Product">${options}</select>
+        <button type="button" class="btn btn-ghost" onclick="incAddProduct()">+ Add</button>
+      </div>` : '');
+  }
+
+  function addProduct() {
+    toggleProduct(Number($('inc-product-select').value), true);
+    renderProducts();
+  }
+
+  function removeProduct(i) {
+    toggleProduct(i, false);
+    renderProducts();
+  }
+
+  // One line per ticked person per ticked product. A typed amount overrides
+  // the chart rate and is kept while other ticks change.
+  function buildLines() {
+    const out = [];
+    S.selected.forEach(person => PRODUCTS.forEach((product, i) => {
+      const key = lineKey(person.key, i);
+      if (!S.products.has(i) || S.removed.has(key)) return;
+      out.push({ key, person, product, rate: S.amounts.has(key) ? S.amounts.get(key) : rateFor(person.group, product.item) });
+    }));
+    return out;
+  }
+
+  function toggleProduct(i, on) {
+    if (on) {
+      S.products.add(i);
+      S.selected.forEach(p => S.removed.delete(lineKey(p.key, i)));
+    } else S.products.delete(i);
+    renderLines();
+  }
+
+  function addPerson(p) {
+    S.selected.set(p.key, p);
+    PRODUCTS.forEach((_, i) => S.removed.delete(lineKey(p.key, i)));
   }
 
   function togglePerson(key, on) {
-    if (on) { const p = roster().find(x => x.key === key); if (p) addLine(p); }
+    if (on) { const p = roster().find(x => x.key === key); if (p) addPerson(p); }
     else S.selected.delete(key);
     renderLines();
   }
 
   function selectShown() {
-    shownPeople().forEach(p => { if (!S.selected.has(p.key)) addLine(p); });
+    shownPeople().forEach(p => { if (!S.selected.has(p.key)) addPerson(p); });
     renderPicker();
     renderLines();
   }
 
-  function removeLine(key) { S.selected.delete(key); renderPicker(); renderLines(); }
+  function removeLine(key) { S.removed.add(key); renderLines(); }
 
-  function commonChanged() {
-    const item = $('inc-item').value;
-    const qty = parseInt($('inc-qty').value, 10) || 1;
-    S.selected.forEach(l => {
-      if (item === 'penalty') l.earned = 'own';
-      l.rate = rateFor(l.group, l.earned, item);
-      l.qty = qty;
-    });
-    renderLines();
-  }
-
-  function setLine(key, field, value) {
-    const l = S.selected.get(key);
-    if (!l) return;
-    if (field === 'earned') {
-      l.earned = value;
-      l.rate = rateFor(l.group, value, $('inc-item').value);
-      renderLines();
-      return;
-    }
-    l[field] = value === '' ? null : Number(value);
+  function setLine(key, value) {
+    S.amounts.set(key, value === '' ? null : Number(value));
     updateLineTotals();
   }
 
-  const lineAmount = l => (l.rate == null || !l.qty) ? null : l.qty * effectiveRate(l.rate);
-  const effectiveRate = r => $('inc-item').value === 'penalty' ? -Math.abs(r) : r;
-
   function updateLineTotals() {
-    let total = 0;
-    S.selected.forEach(l => {
-      const a = lineAmount(l);
-      if (a != null) total += a;
-      const cell = document.querySelector(`[data-line-amount="${l.key}"]`);
-      if (cell) cell.textContent = a == null ? '—' : money(a);
-    });
+    const lines = buildLines();
+    const total = lines.reduce((sum, l) => sum + (l.rate || 0), 0);
+    const people = new Set(lines.map(l => l.person.key)).size;
     const t = $('inc-lines-total');
-    if (t) t.textContent = `Total for ${S.selected.size} ${S.selected.size === 1 ? 'person' : 'people'}: SAR ${money(total)}`;
+    if (t) t.textContent = `Total for ${people} ${people === 1 ? 'person' : 'people'}: SAR ${money(total)}`;
   }
 
   function renderLines() {
-    const lines = [...S.selected.values()];
+    const lines = buildLines();
     const box = $('inc-lines');
-    if (!lines.length) { box.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:6px 0;">Tick the people above to add them.</div>'; return; }
-    const isPenalty = $('inc-item').value === 'penalty';
+    if (!lines.length) { box.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:6px 0;">Tick the products and people above to add them.</div>'; return; }
     box.innerHTML = `
       <table>
-        <thead><tr><th>Person</th><th>Group</th><th>Earned As</th><th>Rate</th><th>Qty</th><th>Amount</th><th></th></tr></thead>
-        <tbody>${lines.map(l => {
-          const opts = earnedOptions(l.group);
-          const earned = opts.length > 1 && !isPenalty
-            ? `<select class="form-input" style="min-width:130px;" onchange="incSetLine('${l.key}','earned',this.value)" aria-label="Earned as">${opts.map(([v, t]) => `<option value="${v}" ${l.earned === v ? 'selected' : ''}>${t}</option>`).join('')}</select>`
-            : esc(isPenalty ? 'Penalty' : opts[0][1]);
-          return `<tr>
-            <td style="font-weight:600;">${esc(l.name)}</td>
-            <td style="font-size:12px;">${esc(groupLabel(l.group))}</td>
-            <td>${earned}</td>
-            <td><input type="number" step="0.01" class="form-input" style="width:90px;" value="${l.rate == null ? '' : l.rate}" placeholder="Enter" oninput="incSetLine('${l.key}','rate',this.value)" aria-label="Rate"></td>
-            <td><input type="number" min="1" step="1" class="form-input" style="width:70px;" value="${l.qty}" oninput="incSetLine('${l.key}','qty',this.value)" aria-label="Quantity"></td>
-            <td data-line-amount="${l.key}" style="font-weight:600;white-space:nowrap;"></td>
-            <td><button class="btn btn-sm btn-ghost" onclick="incRemoveLine('${l.key}')" aria-label="Remove ${esc(l.name)}">✕</button></td>
-          </tr>`;
-        }).join('')}</tbody>
+        <thead><tr><th>Person</th><th>Group</th><th>Type</th><th>Amount (SAR)</th><th></th></tr></thead>
+        <tbody>${lines.map(l => `<tr>
+            <td style="font-weight:600;">${esc(l.person.name)}</td>
+            <td style="font-size:12px;">${esc(accountLabel(l.person.type))}</td>
+            <td style="font-size:12px;">${esc(l.product.name)}</td>
+            <td><input type="number" min="0" step="0.01" class="form-input" style="width:100px;" value="${l.rate == null ? '' : l.rate}" placeholder="Enter" oninput="incSetLine('${l.key}',this.value)" aria-label="Amount"></td>
+            <td><button class="btn btn-sm btn-ghost" onclick="incRemoveLine('${l.key}')" aria-label="Remove ${esc(l.person.name)}">✕</button></td>
+          </tr>`).join('')}</tbody>
       </table>
       <div id="inc-lines-total" style="font-weight:700;margin-top:10px;text-align:right;"></div>`;
     updateLineTotals();
@@ -443,32 +452,31 @@
 
   async function saveAll() {
     clearError('inc-error');
-    const lines = [...S.selected.values()];
+    const lines = buildLines();
     const date = $('inc-date').value;
-    const item = $('inc-item').value;
-    if (!date) return showError('inc-error', 'Please choose a date.');
+    const end = $('inc-end').value || null;
+    if (!date) return showError('inc-error', 'Please choose a From date.');
+    if (end && end < date) return showError('inc-error', 'To date cannot be before the From date.');
+    if (!S.products.size) return showError('inc-error', 'Please select at least one product.');
     if (!lines.length) return showError('inc-error', 'Please select at least one person.');
     for (const l of lines) {
-      if (l.rate == null || !isFinite(l.rate) || l.rate === 0) return showError('inc-error', `Please enter a rate for ${l.name}.`);
-      if (!Number.isInteger(l.qty) || l.qty < 1) return showError('inc-error', `Please enter a whole-number quantity for ${l.name}.`);
+      if (l.rate == null || !isFinite(l.rate) || l.rate <= 0) return showError('inc-error', `Please enter an amount for ${l.person.name} (${l.product.name}).`);
     }
     const btn = $('inc-save');
     btn.disabled = true;
     try {
       const created_by = await userEmail();
-      const ref = $('inc-ref').value.trim() || null;
-      const note = $('inc-note').value.trim() || null;
       const rows = lines.map(l => ({
-        entry_date: date, person_type: l.type, person_id: l.id, person_name: l.name,
-        group_key: l.group || null, earned_as: l.earned, item_type: item,
-        qty: l.qty, rate: effectiveRate(l.rate), booking_ref: ref, note, created_by
+        entry_date: date, end_date: end, person_type: l.person.type, person_id: l.person.id, person_name: l.person.name,
+        group_key: l.person.group || null, item_type: l.product.item,
+        product_name: l.product.name, qty: 1, rate: l.rate, created_by
       }));
       const { error } = await dbAdmin.from('incentive_entries').insert(rows);
       if (error) throw error;
       closeModal('inc-modal');
-      showToast(`Saved incentives for ${rows.length} ${rows.length === 1 ? 'person' : 'people'}`);
-      try { logActivity('incentive_added', `Added ${itemLabel(item)} incentive for ${rows.length} people`, 'incentive', null); } catch (e) { /* log only */ }
-      S.month = date.slice(0, 7);
+      showToast(`Saved ${rows.length} ${rows.length === 1 ? 'incentive' : 'incentives'}`);
+      try { logActivity('incentive_added', `Added ${rows.length} incentive entries`, 'incentive', null); } catch (e) { /* log only */ }
+      S.month = (end || date).slice(0, 7);
       await fetchMonth();
       render();
     } catch (e) {
@@ -485,12 +493,10 @@
     if (!e) return;
     ensureModals();
     S.editingId = id;
-    $('inc-edit-title').textContent = `Edit: ${e.person_name} (${itemLabel(e.item_type)})`;
+    $('inc-edit-title').textContent = `Edit: ${e.person_name} (${typeLabel(e)})`;
     $('inc-edit-date').value = e.entry_date;
-    $('inc-edit-qty').value = e.qty;
-    $('inc-edit-rate').value = Number(e.rate);
-    $('inc-edit-ref').value = e.booking_ref || '';
-    $('inc-edit-note').value = e.note || '';
+    $('inc-edit-end').value = e.end_date || '';
+    $('inc-edit-rate').value = Number(e.amount);
     clearError('inc-edit-error');
     openModal('inc-edit-modal');
   }
@@ -500,19 +506,16 @@
     const e = S.entries.find(x => x.id === S.editingId);
     if (!e) return;
     const date = $('inc-edit-date').value;
-    const qty = Number($('inc-edit-qty').value);
-    let rate = Number($('inc-edit-rate').value);
-    if (!date) return showError('inc-edit-error', 'Please choose a date.');
-    if (!Number.isInteger(qty) || qty < 1) return showError('inc-edit-error', 'Please enter a whole-number quantity.');
-    if (!rate) return showError('inc-edit-error', 'Please enter a rate.');
-    if (e.item_type === 'penalty') rate = -Math.abs(rate);
+    const end = $('inc-edit-end').value || null;
+    const rate = Number($('inc-edit-rate').value);
+    if (!date) return showError('inc-edit-error', 'Please choose a From date.');
+    if (end && end < date) return showError('inc-edit-error', 'To date cannot be before the From date.');
+    if (!rate) return showError('inc-edit-error', 'Please enter an amount.');
     const btn = $('inc-edit-save');
     btn.disabled = true;
     try {
       const { error } = await dbAdmin.from('incentive_entries').update({
-        entry_date: date, qty, rate,
-        booking_ref: $('inc-edit-ref').value.trim() || null,
-        note: $('inc-edit-note').value.trim() || null
+        entry_date: date, end_date: end, qty: 1, rate
       }).eq('id', S.editingId);
       if (error) throw error;
       closeModal('inc-edit-modal');
@@ -559,9 +562,8 @@
     document.querySelectorAll('.inc-rate').forEach(i => {
       const row = { group_key: i.dataset.group, item_type: i.dataset.item };
       if (i.value === '') { removals.push(row); return; }
-      let rate = Number(i.value);
+      const rate = Number(i.value);
       if (!isFinite(rate)) { bad = true; return; }
-      if (row.item_type === 'penalty') rate = -Math.abs(rate);
       upserts.push({ ...row, rate, updated_at: new Date().toISOString() });
     });
     if (bad) return showToast('Please check the rates: one is not a number.', 'error');
@@ -607,14 +609,13 @@
       if (typeof v === 'string' && /^[=+\-@]/.test(s)) s = "'" + s;
       return `"${s.replace(/"/g, '""')}"`;
     };
-    const lines = [['Date', 'Person', 'Group', 'Type', 'Earned As', 'Booking Ref', 'Qty', 'Rate', 'Amount', 'Note'].map(cell).join(',')];
+    const lines = [['From', 'To', 'Person', 'Group', 'Type', 'Amount'].map(cell).join(',')];
     list.slice().reverse().forEach(e => lines.push([
-      e.entry_date, e.person_name, groupLabel(e.group_key), itemLabel(e.item_type), earnedLabel(e.earned_as),
-      e.booking_ref, Number(e.qty), Number(e.rate), Number(e.amount), e.note
+      e.entry_date, e.end_date, e.person_name, accountLabel(e.person_type), typeLabel(e), Number(e.amount)
     ].map(cell).join(',')));
     lines.push('');
-    lines.push(['Person', 'Group', 'Earned', 'Penalties', 'Net Payable', 'Status'].map(cell).join(','));
-    summaryRows().forEach(p => lines.push([p.name, groupLabel(p.group), p.earned, p.penalties, p.net, p.paid ? 'Paid' : 'Not paid'].map(cell).join(',')));
+    lines.push(['Person', 'Group', 'Total', 'Status'].map(cell).join(','));
+    summaryRows().forEach(p => lines.push([p.name, accountLabel(p.type), p.net, p.paid ? 'Paid' : 'Not paid'].map(cell).join(',')));
     const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -628,7 +629,7 @@
     incSetTab: t => { S.tab = t; render(); },
     incSetMonth: async m => { if (!m) return; S.month = m; try { await fetchMonth(); render(); } catch (e) { showToast(e.message, 'error'); } },
     incSetFilter: (k, v) => { S[k] = v; render(); },
-    incOpenAdd: openAdd, incCommonChanged: commonChanged, incRenderPicker: renderPicker,
+    incOpenAdd: openAdd, incAddProduct: addProduct, incRemoveProduct: removeProduct, incRenderPicker: renderPicker,
     incSelectShown: selectShown, incTogglePerson: togglePerson, incSetLine: setLine, incRemoveLine: removeLine,
     incSaveAll: saveAll, incOpenEdit: openEdit, incSaveEdit: saveEdit, incDelete: del,
     incTogglePaid: togglePaid, incSaveRates: saveRates, incSetPersonGroup: setPersonGroup, incExport: exportCsv
