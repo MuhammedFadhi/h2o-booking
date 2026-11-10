@@ -8548,7 +8548,19 @@ function salesReportDetailHTML(rows, escFn) {
   // "Installed" was breaking mid-word onto its own line.
   const pill = (key) => { const s = SALES_REPORT_STATUS[key]; return `<span style="display:inline-flex;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${s.color}22;color:${s.color};white-space:nowrap;">${s.label}</span>`; };
   const typePill = (t) => { const c = salesReportTypeColor(t); return `<span style="display:inline-flex;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${c.bg};color:${c.fg};white-space:nowrap;">${salesReportTypeLabel(t)}</span>`; };
+  // The colgroup widths are only enforced under table-layout:fixed (the
+  // print stylesheet turns that on) — on screen the table stays
+  // table-layout:auto, so these percentages are harmless there (the
+  // min-width:640px + horizontal scroll still does the work). Fixed,
+  // percentage-based columns are what actually keeps every column on the
+  // printed page across browsers — Chrome's print engine was already
+  // forgiving enough to wrap long cells around a floating auto layout, but
+  // Edge's isn't: without a hard width per column it let long unbroken
+  // values (phone numbers, timestamps) push the later columns off the page
+  // edge instead of wrapping them.
+  const colgroup = `<colgroup><col style="width:4%;"><col style="width:14%;"><col style="width:13%;"><col style="width:13%;"><col style="width:10%;"><col style="width:10%;"><col style="width:11%;"><col style="width:14%;"><col style="width:11%;"></colgroup>`;
   return `<table>
+    ${colgroup}
     <thead><tr><th style="text-align:center;">#</th><th>Name</th><th>Number</th><th>Added</th><th>Agent</th><th>Region</th><th>Type</th><th>Product</th><th>Status</th></tr></thead>
     <tbody>${sorted.length ? sorted.map((r, i) => `<tr>
       <td style="text-align:center;color:var(--muted);">${i + 1}</td><td>${escFn(r.name)}</td><td>${escFn(r.phone)}</td><td>${salesReportFmtTimestamp(r.createdAt)}</td><td>${escFn(r.agent || '—')}</td><td>${escFn(r.region)}</td><td>${typePill(r.bookingType)}</td><td>${escFn(r.product)}</td><td>${pill(r.statusKey)}</td>
@@ -8631,17 +8643,22 @@ function downloadSalesReportPDF() {
   th,td{border-bottom:1px solid #EEF2F6;padding:10px 8px;text-align:left;white-space:nowrap;}
   th{color:#607D8B;text-transform:uppercase;font-size:10px;letter-spacing:.4px;font-weight:700;}
   .section-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:8px 0 12px;}
+  @page{size:A4 portrait;margin:12mm 10mm;}
   @media print{
     .topbar{display:none;}
     .page-body{margin-top:0;}
     /* The on-screen table relies on horizontal scrolling + nowrap cells to
        stay readable with 9 columns — print has no scrollbar, so without
        this the right-hand columns (Product, Status) just get cut off the
-       page edge instead. Shrinking font/padding and allowing wrap keeps
-       every column on the page. */
+       page edge instead. table-layout:fixed + the colgroup's percentage
+       widths (see salesReportDetailHTML) is what actually pins the table to
+       100% of the page width on every browser — shrinking font/padding
+       alone (which is all this used to do) still let Edge's print engine
+       push long unbroken cells like phone numbers or timestamps past the
+       page edge instead of wrapping them, even though Chrome tolerated it. */
     .table-wrap{overflow:visible;margin:0;}
-    table{min-width:0;font-size:10px;}
-    th,td{padding:5px 4px;white-space:normal;word-break:break-word;}
+    table{table-layout:fixed;width:100%;min-width:0;font-size:9px;}
+    th,td{padding:4px 3px;white-space:normal;word-break:break-word;overflow-wrap:break-word;}
   }
   @media (max-width:640px){
     .topbar{padding:12px 16px;}
