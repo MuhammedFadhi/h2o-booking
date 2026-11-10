@@ -10564,7 +10564,7 @@ async function loadWhatsappConversations() {
       renderWhatsappConversationList();
     } catch { /* a transient poll failure isn't worth interrupting the admin with */ }
     loadWaStatusCounts();
-  }, 10000);
+  }, 3000);
 }
 
 async function loadWaQuickReplies() {
