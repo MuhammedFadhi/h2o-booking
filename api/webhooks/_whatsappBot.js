@@ -175,7 +175,14 @@ async function maybeAutoReply({ conversationId, phone, waMessageId, aiPaused }) 
     if (!messages.length) return; // nothing text-based to react to (e.g. a lone sticker)
 
     const systemPrompt = (config.system_prompt || '') + JSON_CONTRACT;
-    const raw = await callLLM({ apiKey: config.llm_api_key, systemPrompt, messages });
+    let raw;
+    try {
+      raw = await callLLM({ apiKey: config.llm_api_key, systemPrompt, messages });
+    } catch (primaryErr) {
+      if (!config.llm_api_key_fallback) throw primaryErr;
+      console.error('[wa bot] primary LLM failed, trying fallback key:', primaryErr.message);
+      raw = await callLLM({ apiKey: config.llm_api_key_fallback, systemPrompt, messages });
+    }
     mark('llm call done');
     const decision = parseModelJson(raw);
 

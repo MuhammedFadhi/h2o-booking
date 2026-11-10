@@ -352,7 +352,10 @@ module.exports = async function handler(req, res) {
     if (action === 'get-automation-config') {
       const rows = await sb('GET', '/rest/v1/whatsapp_automation_configs?select=*&limit=1');
       const config = rows?.[0] || null;
-      if (config) { config.has_api_key = !!config.llm_api_key; delete config.llm_api_key; }
+      if (config) {
+        config.has_api_key = !!config.llm_api_key; delete config.llm_api_key;
+        config.has_fallback_api_key = !!config.llm_api_key_fallback; delete config.llm_api_key_fallback;
+      }
       return res.status(200).json({ config });
     }
 
@@ -375,9 +378,13 @@ module.exports = async function handler(req, res) {
       // never re-displays the real value, so an empty field is never an
       // intentional "clear my key", just the field's normal masked state.
       if (automationConfig?.llm_api_key) patch.llm_api_key = String(automationConfig.llm_api_key).trim();
+      if (automationConfig?.llm_api_key_fallback) patch.llm_api_key_fallback = String(automationConfig.llm_api_key_fallback).trim();
       const saved = await sb('PATCH', `/rest/v1/whatsapp_automation_configs?id=eq.${existing.id}`, patch, { Prefer: 'return=representation' });
       const config = saved?.[0];
-      if (config) { config.has_api_key = !!config.llm_api_key; delete config.llm_api_key; }
+      if (config) {
+        config.has_api_key = !!config.llm_api_key; delete config.llm_api_key;
+        config.has_fallback_api_key = !!config.llm_api_key_fallback; delete config.llm_api_key_fallback;
+      }
       return res.status(200).json({ ok: true, config });
     }
 

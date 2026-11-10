@@ -1779,6 +1779,10 @@
         <input type="password" id="wabot-api-key" class="form-input" placeholder="Paste a key from Anthropic, Google (Gemini), OpenRouter, or OpenAI — provider is auto-detected" autocomplete="off">
         <div id="wabot-key-status" style="font-size:11px;color:var(--muted);margin-top:4px;"></div>
       </div>
+      <div class="form-group"><label>Fallback LLM API key <span style="color:var(--muted,#94a3b8);font-weight:400;">(optional — used only if the main key's provider fails)</span></label>
+        <input type="password" id="wabot-api-key-fallback" class="form-input" placeholder="Paste a key from a different provider, e.g. OpenAI or Anthropic, as a backup" autocomplete="off">
+        <div id="wabot-fallback-key-status" style="font-size:11px;color:var(--muted);margin-top:4px;"></div>
+      </div>
       <div class="form-group"><label>System prompt <span style="color:var(--muted,#94a3b8);font-weight:400;">(the bot's business rules)</span></label>
         <textarea id="wabot-system-prompt" class="form-input" rows="12" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;" autocomplete="off"></textarea>
       </div>
@@ -12094,6 +12098,7 @@ async function openWaBotSettingsModal() {
   document.getElementById('wabot-error').style.display = 'none';
   document.getElementById('wabot-success').style.display = 'none';
   document.getElementById('wabot-api-key').value = '';
+  document.getElementById('wabot-api-key-fallback').value = '';
   openModal('wa-bot-settings-modal');
   try {
     const { config } = await waCall('get-automation-config', {});
@@ -12109,6 +12114,9 @@ async function openWaBotSettingsModal() {
     document.getElementById('wabot-api-key').placeholder = config?.has_api_key
       ? 'A key is already saved — leave blank to keep it, or paste a new one to replace it'
       : 'Paste a key from Anthropic, Google (Gemini), OpenRouter, or OpenAI — provider is auto-detected';
+    document.getElementById('wabot-api-key-fallback').placeholder = config?.has_fallback_api_key
+      ? 'A fallback key is already saved — leave blank to keep it, or paste a new one to replace it'
+      : 'Paste a key from a different provider, e.g. OpenAI or Anthropic, as a backup';
     wabotHoursToggle();
   } catch (err) {
     document.getElementById('wabot-error').style.display = 'block';
@@ -12136,13 +12144,18 @@ async function saveWaBotSettings() {
       business_hours_end: document.getElementById('wabot-hours-end').value || null,
       business_hours_timezone: document.getElementById('wabot-hours-tz').value.trim() || 'Asia/Riyadh',
       out_of_hours_message: document.getElementById('wabot-out-of-hours').value.trim(),
-      llm_api_key: document.getElementById('wabot-api-key').value.trim()
+      llm_api_key: document.getElementById('wabot-api-key').value.trim(),
+      llm_api_key_fallback: document.getElementById('wabot-api-key-fallback').value.trim()
     };
     const { config } = await waCall('save-automation-config', { automationConfig });
     document.getElementById('wabot-api-key').value = '';
     document.getElementById('wabot-api-key').placeholder = config?.has_api_key
       ? 'A key is already saved — leave blank to keep it, or paste a new one to replace it'
       : 'Paste a key from Anthropic, Google (Gemini), OpenRouter, or OpenAI — provider is auto-detected';
+    document.getElementById('wabot-api-key-fallback').value = '';
+    document.getElementById('wabot-api-key-fallback').placeholder = config?.has_fallback_api_key
+      ? 'A fallback key is already saved — leave blank to keep it, or paste a new one to replace it'
+      : 'Paste a key from a different provider, e.g. OpenAI or Anthropic, as a backup';
     okEl.style.display = 'block';
     okEl.textContent = '✓ Saved.';
   } catch (err) {
