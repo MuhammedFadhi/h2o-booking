@@ -44,7 +44,8 @@
 
   const S = {
     tab: 'entries', month: today.slice(0, 7), person: '', group: '',
-    entries: [], rates: [], people: [], payments: [], selected: new Map(), products: new Set(), amounts: new Map(), removed: new Set(), editingId: null
+    entries: [], rates: [], people: [], payments: [], selected: new Map(), products: new Set(), amounts: new Map(), removed: new Set(), editingId: null,
+    modes: new Map(), percents: new Map(), linePrices: new Map(), catalog: new Map()
   };
 
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c =>
@@ -53,6 +54,8 @@
   const accountLabel = t => (ACCOUNTS.find(a => a.key === t) || {}).label || t;
   const itemLabel = k => (ITEMS.find(i => i.key === k) || {}).label || k;
   const typeLabel = e => e.product_name || itemLabel(e.item_type);
+  const percentOf = (price, percent) => price > 0 && percent > 0 ? Math.round((price * percent / 100 + Number.EPSILON) * 100) / 100 : null;
+  const percentNote = e => e.percent == null ? '' : `${Number(e.percent)}% of ${Number(e.base_price).toLocaleString('en-US')}`;
   const lineKey = (person, productIndex) => `${person}|${productIndex}`;
   const personKey = (type, id) => `${type}:${id}`;
   const $ = id => document.getElementById(id);
@@ -184,7 +187,7 @@
         <td style="font-weight:600;">${esc(e.person_name)}</td>
         <td>${esc(accountLabel(e.person_type))}</td>
         <td>${esc(typeLabel(e))}</td>
-        <td style="font-weight:600;${Number(e.amount) < 0 ? 'color:#B71C1C;' : ''}">${money(e.amount)}</td>
+        <td style="font-weight:600;${Number(e.amount) < 0 ? 'color:#B71C1C;' : ''}">${money(e.amount)}${e.percent != null ? `<div style="font-size:11px;font-weight:400;color:var(--muted);">${esc(percentNote(e))}</div>` : ''}</td>
         <td><div style="display:flex;gap:6px;">
           <button class="btn btn-sm btn-ghost" onclick="incOpenEdit('${e.id}')">Edit</button>
           <button class="btn btn-sm btn-danger" onclick="incDelete('${e.id}')">Delete</button>
@@ -305,7 +308,15 @@
           <h2 class="modal-title" id="inc-edit-title">Edit Incentive</h2>
           <div class="form-group"><label>From</label><input type="date" class="form-input" id="inc-edit-date"></div>
           <div class="form-group"><label>To <span style="color:var(--muted);font-weight:400;">(optional)</span></label><input type="date" class="form-input" id="inc-edit-end"></div>
-          <div class="form-group"><label>Amount (SAR)</label><input type="number" step="0.01" class="form-input" id="inc-edit-rate"></div>
+          <div class="form-group"><label>Amount In</label>
+            <select class="form-input" id="inc-edit-mode" onchange="incRenderEditMode()"><option value="sar">SAR</option><option value="percent">%</option></select>
+          </div>
+          <div class="form-group" id="inc-edit-sar"><label>Amount (SAR)</label><input type="number" step="0.01" class="form-input" id="inc-edit-rate"></div>
+          <div id="inc-edit-pct">
+            <div class="form-group"><label>Percent (%)</label><input type="number" min="0" max="100" step="0.01" class="form-input" id="inc-edit-percent" oninput="incRenderEditMode()"></div>
+            <div class="form-group"><label>Price (SAR)</label><input type="number" min="0" step="0.01" class="form-input" id="inc-edit-price" oninput="incRenderEditMode()"></div>
+            <div id="inc-edit-result" style="font-weight:700;margin-bottom:8px;"></div>
+          </div>
           ${errBox('inc-edit-error')}
           <div class="modal-footer">
             <button class="btn btn-ghost" onclick="closeModal('inc-edit-modal')">Cancel</button>
@@ -318,12 +329,28 @@
   function showError(id, msg) { const el = $(id); el.textContent = msg; el.style.display = 'block'; }
   function clearError(id) { $(id).style.display = 'none'; }
 
-  function openAdd() {
+  // Read fresh each time a popup opens, so a price changed on the Products
+  // page is used straight away.
+  async function loadPrices() {
+    try {
+      const { data, error } = await dbAdmin.from('product_models').select('model_name, price_sar');
+      if (error) throw error;
+      S.catalog = new Map((data || []).map(p => [p.model_name, p.price_sar == null ? null : Number(p.price_sar)]));
+    } catch (e) {
+      showToast('Could not load product prices. Please type the price.', 'error');
+    }
+  }
+
+  async function openAdd() {
     ensureModals();
+    await loadPrices();
     S.selected = new Map();
     S.products = new Set();
     S.amounts = new Map();
     S.removed = new Set();
+    S.modes = new Map();
+    S.percents = new Map();
+    S.linePrices = new Map();
     $('inc-date').value = today;
     $('inc-end').value = '';
     $('inc-search').value = '';
@@ -375,13 +402,20 @@
   }
 
   // One line per ticked person per ticked product. A typed amount overrides
-  // the chart rate and is kept while other ticks change.
+  // the chart rate and is kept while other ticks change. A % line works out
+  // its SAR amount from the product price, which admin can change.
   function buildLines() {
     const out = [];
     S.selected.forEach(person => PRODUCTS.forEach((product, i) => {
       const key = lineKey(person.key, i);
       if (!S.products.has(i) || S.removed.has(key)) return;
-      out.push({ key, person, product, rate: S.amounts.has(key) ? S.amounts.get(key) : rateFor(person.group, product.item) });
+      if (S.modes.get(key) === 'percent') {
+        const percent = S.percents.has(key) ? S.percents.get(key) : null;
+        const price = S.linePrices.has(key) ? S.linePrices.get(key) : (S.catalog.get(product.name) ?? null);
+        out.push({ key, person, product, mode: 'percent', percent, price, rate: percentOf(price, percent) });
+        return;
+      }
+      out.push({ key, person, product, mode: 'sar', rate: S.amounts.has(key) ? S.amounts.get(key) : rateFor(person.group, product.item) });
     }));
     return out;
   }
@@ -418,12 +452,42 @@
     updateLineTotals();
   }
 
+  function setMode(key, mode) { S.modes.set(key, mode); renderLines(); }
+
+  function setPercent(key, value) {
+    S.percents.set(key, value === '' ? null : Number(value));
+    updateLineTotals();
+  }
+
+  function setPrice(key, value) {
+    S.linePrices.set(key, value === '' ? null : Number(value));
+    updateLineTotals();
+  }
+
   function updateLineTotals() {
     const lines = buildLines();
+    document.querySelectorAll('[data-inc-result]').forEach(el => {
+      const l = lines.find(x => x.key === el.dataset.incResult);
+      el.textContent = l && l.rate != null ? `= SAR ${money(l.rate)}` : '';
+    });
     const total = lines.reduce((sum, l) => sum + (l.rate || 0), 0);
     const people = new Set(lines.map(l => l.person.key)).size;
     const t = $('inc-lines-total');
     if (t) t.textContent = `Total for ${people} ${people === 1 ? 'person' : 'people'}: SAR ${money(total)}`;
+  }
+
+  function amountCell(l) {
+    const mode = `<select class="form-input" style="width:76px;" onchange="incSetMode('${l.key}',this.value)" aria-label="Amount in">
+        <option value="sar" ${l.mode === 'sar' ? 'selected' : ''}>SAR</option>
+        <option value="percent" ${l.mode === 'percent' ? 'selected' : ''}>%</option>
+      </select>`;
+    const fields = l.mode === 'percent'
+      ? `<input type="number" min="0" max="100" step="0.01" class="form-input" style="width:80px;" value="${l.percent == null ? '' : l.percent}" placeholder="%" oninput="incSetPercent('${l.key}',this.value)" aria-label="Percent">
+         <span style="font-size:12px;color:var(--muted);">of</span>
+         <input type="number" min="0" step="0.01" class="form-input" style="width:96px;" value="${l.price == null ? '' : l.price}" placeholder="Price" oninput="incSetPrice('${l.key}',this.value)" aria-label="Price">
+         <span data-inc-result="${l.key}" style="font-size:13px;font-weight:600;white-space:nowrap;"></span>`
+      : `<input type="number" min="0" step="0.01" class="form-input" style="width:100px;" value="${l.rate == null ? '' : l.rate}" placeholder="Enter" oninput="incSetLine('${l.key}',this.value)" aria-label="Amount">`;
+    return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${mode}${fields}</div>`;
   }
 
   function renderLines() {
@@ -432,12 +496,12 @@
     if (!lines.length) { box.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:6px 0;">Tick the products and people above to add them.</div>'; return; }
     box.innerHTML = `
       <table>
-        <thead><tr><th>Person</th><th>Group</th><th>Type</th><th>Amount (SAR)</th><th></th></tr></thead>
+        <thead><tr><th>Person</th><th>Group</th><th>Type</th><th>Amount</th><th></th></tr></thead>
         <tbody>${lines.map(l => `<tr>
             <td style="font-weight:600;">${esc(l.person.name)}</td>
             <td style="font-size:12px;">${esc(accountLabel(l.person.type))}</td>
             <td style="font-size:12px;">${esc(l.product.name)}</td>
-            <td><input type="number" min="0" step="0.01" class="form-input" style="width:100px;" value="${l.rate == null ? '' : l.rate}" placeholder="Enter" oninput="incSetLine('${l.key}',this.value)" aria-label="Amount"></td>
+            <td>${amountCell(l)}</td>
             <td><button class="btn btn-sm btn-ghost" onclick="incRemoveLine('${l.key}')" aria-label="Remove ${esc(l.person.name)}">✕</button></td>
           </tr>`).join('')}</tbody>
       </table>
@@ -460,6 +524,9 @@
     if (!S.products.size) return showError('inc-error', 'Please select at least one product.');
     if (!lines.length) return showError('inc-error', 'Please select at least one person.');
     for (const l of lines) {
+      const who = `${l.person.name} (${l.product.name})`;
+      if (l.mode === 'percent' && !(l.percent > 0 && l.percent <= 100)) return showError('inc-error', `Please enter a % from 0.01 to 100 for ${who}.`);
+      if (l.mode === 'percent' && !(l.price > 0)) return showError('inc-error', `Please enter a price for ${who}.`);
       if (l.rate == null || !isFinite(l.rate) || l.rate <= 0) return showError('inc-error', `Please enter an amount for ${l.person.name} (${l.product.name}).`);
     }
     const btn = $('inc-save');
@@ -469,7 +536,9 @@
       const rows = lines.map(l => ({
         entry_date: date, end_date: end, person_type: l.person.type, person_id: l.person.id, person_name: l.person.name,
         group_key: l.person.group || null, item_type: l.product.item,
-        product_name: l.product.name, qty: 1, rate: l.rate, created_by
+        product_name: l.product.name, qty: 1, rate: l.rate, created_by,
+        percent: l.mode === 'percent' ? l.percent : null,
+        base_price: l.mode === 'percent' ? l.price : null
       }));
       const { error } = await dbAdmin.from('incentive_entries').insert(rows);
       if (error) throw error;
@@ -488,11 +557,25 @@
 
   // ---- Edit / delete ----
 
-  function openEdit(id) {
+  function renderEditMode() {
+    const pct = $('inc-edit-mode').value === 'percent';
+    $('inc-edit-sar').style.display = pct ? 'none' : 'block';
+    $('inc-edit-pct').style.display = pct ? 'block' : 'none';
+    const rate = percentOf(Number($('inc-edit-price').value), Number($('inc-edit-percent').value));
+    $('inc-edit-result').textContent = rate == null ? '' : `= SAR ${money(rate)}`;
+  }
+
+  async function openEdit(id) {
     const e = S.entries.find(x => x.id === id);
     if (!e) return;
     ensureModals();
+    await loadPrices();
     S.editingId = id;
+    const price = e.percent != null ? Number(e.base_price) : S.catalog.get(e.product_name);
+    $('inc-edit-mode').value = e.percent != null ? 'percent' : 'sar';
+    $('inc-edit-percent').value = e.percent != null ? Number(e.percent) : '';
+    $('inc-edit-price').value = price == null ? '' : price;
+    renderEditMode();
     $('inc-edit-title').textContent = `Edit: ${e.person_name} (${typeLabel(e)})`;
     $('inc-edit-date').value = e.entry_date;
     $('inc-edit-end').value = e.end_date || '';
@@ -507,15 +590,22 @@
     if (!e) return;
     const date = $('inc-edit-date').value;
     const end = $('inc-edit-end').value || null;
-    const rate = Number($('inc-edit-rate').value);
+    const pct = $('inc-edit-mode').value === 'percent';
+    const percent = Number($('inc-edit-percent').value);
+    const price = Number($('inc-edit-price').value);
+    const rate = pct ? percentOf(price, percent) : Number($('inc-edit-rate').value);
     if (!date) return showError('inc-edit-error', 'Please choose a From date.');
     if (end && end < date) return showError('inc-edit-error', 'To date cannot be before the From date.');
+    if (pct && !(percent > 0 && percent <= 100)) return showError('inc-edit-error', 'Please enter a % from 0.01 to 100.');
+    if (pct && !(price > 0)) return showError('inc-edit-error', 'Please enter a price.');
     if (!rate) return showError('inc-edit-error', 'Please enter an amount.');
     const btn = $('inc-edit-save');
     btn.disabled = true;
     try {
       const { error } = await dbAdmin.from('incentive_entries').update({
-        entry_date: date, end_date: end, qty: 1, rate
+        entry_date: date, end_date: end, qty: 1, rate,
+        percent: pct ? percent : null,
+        base_price: pct ? price : null
       }).eq('id', S.editingId);
       if (error) throw error;
       closeModal('inc-edit-modal');
@@ -609,9 +699,9 @@
       if (typeof v === 'string' && /^[=+\-@]/.test(s)) s = "'" + s;
       return `"${s.replace(/"/g, '""')}"`;
     };
-    const lines = [['From', 'To', 'Person', 'Group', 'Type', 'Amount'].map(cell).join(',')];
+    const lines = [['From', 'To', 'Person', 'Group', 'Type', 'Percent', 'Amount'].map(cell).join(',')];
     list.slice().reverse().forEach(e => lines.push([
-      e.entry_date, e.end_date, e.person_name, accountLabel(e.person_type), typeLabel(e), Number(e.amount)
+      e.entry_date, e.end_date, e.person_name, accountLabel(e.person_type), typeLabel(e), percentNote(e), Number(e.amount)
     ].map(cell).join(',')));
     lines.push('');
     lines.push(['Person', 'Group', 'Total', 'Status'].map(cell).join(','));
@@ -631,6 +721,7 @@
     incSetFilter: (k, v) => { S[k] = v; render(); },
     incOpenAdd: openAdd, incAddProduct: addProduct, incRemoveProduct: removeProduct, incRenderPicker: renderPicker,
     incSelectShown: selectShown, incTogglePerson: togglePerson, incSetLine: setLine, incRemoveLine: removeLine,
+    incSetMode: setMode, incSetPercent: setPercent, incSetPrice: setPrice, incRenderEditMode: renderEditMode,
     incSaveAll: saveAll, incOpenEdit: openEdit, incSaveEdit: saveEdit, incDelete: del,
     incTogglePaid: togglePaid, incSaveRates: saveRates, incSetPersonGroup: setPersonGroup, incExport: exportCsv
   });
