@@ -308,23 +308,42 @@ module.exports = async function handler(req, res) {
     }
 
     await requireAdmin(req);
-    const { action, conversationId, body, limit, mediaUrl, quickReply, replyToWaMessageId, automationConfig, aiPaused, search } = req.body || {};
+    const { action, conversationId, body, limit, mediaUrl, quickReply, replyToWaMessageId, automationConfig, aiPaused, search, status } = req.body || {};
 
     if (action === 'list-conversations') {
-      // The default (unsearched) list is capped at 200, newest-active
+      // The default (unfiltered) list is capped at 200, newest-active
       // first — plenty for everyday use, but it silently hides any older
-      // conversation from the dashboard's own client-side search, which
-      // only ever filters whatever's already loaded. A non-empty `search`
-      // instead runs a real server-side match against the whole table, so
-      // an old/inactive conversation can still be found by name or phone.
+      // conversation from both search and a status tab whenever the real
+      // table has more than 200 rows (e.g. a "Converted" conversation
+      // nobody's reopened since converting). A non-empty `search` or
+      // `status` instead runs a real server-side match/filter against the
+      // whole table, with a much higher cap — the admin asked to see
+      // everything matching, not just the newest slice.
       let path = `/rest/v1/whatsapp_conversations?select=*&order=last_message_at.desc.nullslast&limit=${Number(limit) || 200}`;
+      const filters = [];
       if (search && String(search).trim()) {
         const term = String(search).trim().replace(/[,()]/g, '');
         const pattern = encodeURIComponent(`*${term}*`);
-        path = `/rest/v1/whatsapp_conversations?select=*&or=(phone.ilike.${pattern},contact_name.ilike.${pattern})&order=last_message_at.desc.nullslast&limit=50`;
+        filters.push(`or=(phone.ilike.${pattern},contact_name.ilike.${pattern})`);
+      }
+      if (status && String(status).trim()) {
+        filters.push(`status=eq.${encodeURIComponent(String(status).trim())}`);
+      }
+      if (filters.length) {
+        path = `/rest/v1/whatsapp_conversations?select=*&${filters.join('&')}&order=last_message_at.desc.nullslast&limit=1000`;
       }
       const rows = await sb('GET', path);
       return res.status(200).json({ conversations: rows || [] });
+    }
+
+    // Lightweight true counts per status across the WHOLE table (not just
+    // the capped default list above) — select=status alone keeps this cheap
+    // even with thousands of rows, powering the filter bar's chip counts.
+    if (action === 'status-counts') {
+      const rows = await sb('GET', '/rest/v1/whatsapp_conversations?select=status');
+      const counts = {};
+      for (const r of (rows || [])) { const s = r.status || 'unassigned'; counts[s] = (counts[s] || 0) + 1; }
+      return res.status(200).json({ counts });
     }
 
     // Singleton row (see v108_whatsapp_bot.sql) — llm_api_key is masked on
