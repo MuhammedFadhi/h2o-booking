@@ -308,10 +308,22 @@ module.exports = async function handler(req, res) {
     }
 
     await requireAdmin(req);
-    const { action, conversationId, body, limit, mediaUrl, quickReply, replyToWaMessageId, automationConfig, aiPaused } = req.body || {};
+    const { action, conversationId, body, limit, mediaUrl, quickReply, replyToWaMessageId, automationConfig, aiPaused, search } = req.body || {};
 
     if (action === 'list-conversations') {
-      const rows = await sb('GET', `/rest/v1/whatsapp_conversations?select=*&order=last_message_at.desc.nullslast&limit=${Number(limit) || 200}`);
+      // The default (unsearched) list is capped at 200, newest-active
+      // first — plenty for everyday use, but it silently hides any older
+      // conversation from the dashboard's own client-side search, which
+      // only ever filters whatever's already loaded. A non-empty `search`
+      // instead runs a real server-side match against the whole table, so
+      // an old/inactive conversation can still be found by name or phone.
+      let path = `/rest/v1/whatsapp_conversations?select=*&order=last_message_at.desc.nullslast&limit=${Number(limit) || 200}`;
+      if (search && String(search).trim()) {
+        const term = String(search).trim().replace(/[,()]/g, '');
+        const pattern = encodeURIComponent(`*${term}*`);
+        path = `/rest/v1/whatsapp_conversations?select=*&or=(phone.ilike.${pattern},contact_name.ilike.${pattern})&order=last_message_at.desc.nullslast&limit=50`;
+      }
+      const rows = await sb('GET', path);
       return res.status(200).json({ conversations: rows || [] });
     }
 
