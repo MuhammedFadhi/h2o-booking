@@ -23,12 +23,12 @@ function detectProvider(apiKey) {
 const MODELS = {
   anthropic: 'claude-sonnet-4-5-20250929',
   // 'gemini-3.8-flash' and 'gemini-flash-latest' both hung on most calls in
-  // direct side-by-side testing against the same key (2026-11-09) — this
-  // one answered fast and successfully every time tried. 'gemini-3.1-pro-
-  // preview' would be the natural fallback but is hard-blocked by a
-  // zero-quota free-tier limit on billing-linked projects right now, so
-  // not usable as a second option yet.
-  gemini: 'gemini-3.1-flash-lite-preview',
+  // direct side-by-side testing against the same key (2026-11-09).
+  // 'gemini-3.1-flash-lite-preview' answered fast at first but then started
+  // throwing 503 "model overloaded" under normal load (2026-11-10) — a
+  // known tradeoff of preview/lite tiers sharing capacity. Trying the
+  // steadier paid-tier 'gemini-2.5-pro' instead.
+  gemini: 'gemini-2.5-pro',
   openrouter: 'openai/gpt-4o-mini',
   openai: 'gpt-4o-mini'
 };
