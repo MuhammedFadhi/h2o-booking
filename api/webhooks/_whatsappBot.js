@@ -37,6 +37,11 @@ You MUST respond with ONLY a single JSON object, no other text, no markdown code
 {"should_reply": boolean, "reply": "string or null", "intent": "greeting|inquiry|support|pricing|complaint|spam|other or null", "lead_ready": boolean, "lead_data": {"name": "string or null", "product_interest": "string or null", "notes": "string or null"} or null}
 should_reply is false for spam, threats, or legal/emergency issues (those get flagged for a human instead) — in that case reply may be null.`;
 
+// Sent when the pipeline throws before any real reply went out (e.g. the
+// LLM provider timed out on both retries) — otherwise a customer's message
+// just vanishes with no reply and no sign anything was wrong.
+const FALLBACK_ERROR_MESSAGE = "Sorry, I'm having trouble responding right now. Our team will get back to you shortly. 🙏";
+
 async function getConfig() {
   const rows = await sb('GET', '/rest/v1/whatsapp_automation_configs?select=*&limit=1');
   return rows?.[0] || null;
@@ -139,6 +144,7 @@ function parseModelJson(raw) {
 async function maybeAutoReply({ conversationId, phone, waMessageId, aiPaused }) {
   const t0 = Date.now();
   const mark = (label) => console.log(`[wa bot timing] ${label} at +${Date.now() - t0}ms (conversation ${conversationId})`);
+  let replied = false;
   try {
     mark('pipeline start');
     if (aiPaused) return; // a human already took this conversation over
@@ -177,6 +183,7 @@ async function maybeAutoReply({ conversationId, phone, waMessageId, aiPaused }) 
       const text = config.signature_suffix ? `${decision.reply}\n\n${config.signature_suffix}` : decision.reply;
       await markRead(waMessageId);
       await sendOutboundText(conversationId, phone, text);
+      replied = true;
       mark('reply sent');
     }
     if (decision.lead_ready) await applyLeadData(conversationId, decision.lead_data);
@@ -184,6 +191,13 @@ async function maybeAutoReply({ conversationId, phone, waMessageId, aiPaused }) 
   } catch (err) {
     mark('pipeline failed: ' + err.message);
     console.error('[wa bot] pipeline failed for conversation', conversationId, err.message);
+    if (!replied) {
+      try {
+        await sendOutboundText(conversationId, phone, FALLBACK_ERROR_MESSAGE);
+      } catch (fallbackErr) {
+        console.error('[wa bot] fallback message also failed for conversation', conversationId, fallbackErr.message);
+      }
+    }
   }
 }
 
