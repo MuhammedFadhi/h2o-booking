@@ -1009,7 +1009,7 @@
         <div id="wa-panel-row" style="display:flex;height:calc(100vh - 180px);min-height:520px;">
           <div id="wa-list-pane" style="width:300px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;">
             <div style="padding:14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;">
-              <span class="search-wrap" style="display:block;flex:1;"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="wa-convo-search" placeholder="Search by name or phone..." oninput="renderWhatsappConversationList()" style="width:100%;" autocomplete="off"></span>
+              <span class="search-wrap" style="display:block;flex:1;"><span class="search-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0"/><path d="M21 21l-6-6"/></g></svg></span><input type="text" class="form-input" id="wa-convo-search" placeholder="Search by name or phone..." oninput="onWaConvoSearchInput()" style="width:100%;" autocomplete="off"></span>
               <button class="btn btn-ghost btn-sm" onclick="openWaTemplatesModal()" title="Manage quick-reply templates" style="padding:0 10px;flex-shrink:0;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5h8m-8 4h5m-5 6h8m-8 4h5M3 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zm0 10a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg></button>
               <button class="btn btn-ghost btn-sm" onclick="openWaMessageTemplatesModal()" title="Meta message templates (for re-engaging after 24h)" style="display:none;padding:0 10px;flex-shrink:0;"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M7 8h10M7 12h6"/></svg></button>
             </div>
@@ -10666,12 +10666,49 @@ function setWaStatusFilter(key) {
   renderWhatsappConversationList();
 }
 
+// The default conversation fetch is capped at 200 (newest-active first —
+// see api/admin/whatsapp.js) so a search can't just filter whatever's
+// already loaded, or an older/inactive conversation outside that cap would
+// never be findable at all. Non-empty waServerSearchResults holds the last
+// real server-side search (by phone/name across the WHOLE table) for the
+// query that produced it; renderWhatsappConversationList prefers it over
+// local filtering whenever the search box still matches.
+let waServerSearchResults = null; // { query, rows } or null
+let waConvoSearchDebounce = null;
+
+function onWaConvoSearchInput() {
+  clearTimeout(waConvoSearchDebounce);
+  const q = document.getElementById('wa-convo-search').value.trim();
+  if (!q) { waServerSearchResults = null; renderWhatsappConversationList(); return; }
+  waConvoSearchDebounce = setTimeout(() => waRunServerSearch(q), 300);
+}
+
+async function waRunServerSearch(q) {
+  try {
+    const result = await waCall('list-conversations', { search: q });
+    // Guards against a slower earlier request landing after a newer one —
+    // only accept this result if the box still holds the exact query that
+    // triggered it.
+    if ((document.getElementById('wa-convo-search')?.value || '').trim() !== q) return;
+    waServerSearchResults = { query: q.toLowerCase(), rows: result?.conversations || [] };
+    renderWhatsappConversationList();
+  } catch {
+    // Transient failure — leave whatever's currently shown rather than
+    // clearing results out from under the admin.
+  }
+}
+
 function renderWhatsappConversationList() {
   renderWaStatusFilterBar();
   const q = (document.getElementById('wa-convo-search')?.value || '').trim().toLowerCase();
-  let rows = waConversations;
+  let rows;
+  if (q && waServerSearchResults && waServerSearchResults.query === q) {
+    rows = waServerSearchResults.rows;
+  } else {
+    rows = waConversations;
+    if (q) rows = rows.filter(c => (c.contact_name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q));
+  }
   if (waStatusFilter) rows = rows.filter(c => (c.status || 'unassigned') === waStatusFilter);
-  if (q) rows = rows.filter(c => (c.contact_name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q));
   const el = document.getElementById('wa-convo-list');
   if (!rows.length) {
     el.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;">${waStatusFilter || q ? 'No conversations match.' : 'No conversations yet.'}</div>`;
