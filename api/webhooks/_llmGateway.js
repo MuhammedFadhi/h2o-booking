@@ -26,11 +26,16 @@ const MODELS = {
   // on 2026-11-10 confirmed: 'gemini-2.5-pro' and 'gemini-2.5-flash' are
   // hard-retired for this account ("no longer available to new users" —
   // unrelated to billing, the whole 2.x generation is cut off for accounts
-  // created after Google's cutoff). 'gemini-3.1-flash-lite-preview',
-  // 'gemini-3.8-flash', and 'gemini-flash-latest' all returned 503 "high
-  // demand" in that same test. 'gemini-3.5-flash' was the only one that
-  // actually responded (200, serviceTier: standard) — using that.
-  gemini: 'gemini-3.5-flash',
+  // created after Google's cutoff) — not usable at all, at any reliability,
+  // so it's never coming back into this rotation. 'gemini-3.5-flash'
+  // (routes internally to 'gemini-3.6-flash') later hit a 20-requests/day
+  // FREE TIER quota wall (2026-11-11) despite the key otherwise showing a
+  // paid "standard" service tier — some per-model quota buckets apparently
+  // stay free-tier independent of the account's overall billing status.
+  // Per explicit instruction, back on 'gemini-3.1-flash-lite-preview' — it
+  // still hits occasional "high demand" 503s under load, which is exactly
+  // what llm_api_key_fallback (see _whatsappBot.js) exists to paper over.
+  gemini: 'gemini-3.1-flash-lite-preview',
   openrouter: 'openai/gpt-4o-mini',
   openai: 'gpt-4o-mini'
 };
