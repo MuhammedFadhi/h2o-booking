@@ -171,6 +171,14 @@ async function maybeAutoReply({ conversationId, phone, waMessageId, aiPaused }) 
 
     const history = await sb('GET', `/rest/v1/whatsapp_messages?conversation_id=eq.${conversationId}&select=direction,body&order=sent_at.desc&limit=15`);
     const messages = buildHistoryMessages((history || []).reverse());
+    // A slow/retried reply can get persisted with a later sent_at than a
+    // customer message that actually arrived after it was sent (the retry
+    // itself eats several seconds) - when that happens this array can end
+    // on our own ('assistant') turn, which every provider we support
+    // rejects outright (Gemini: "Requests ending with a model turn are not
+    // supported"). Trimming back to the last real customer turn keeps the
+    // call valid regardless of how the rows landed.
+    while (messages.length && messages[messages.length - 1].role !== 'user') messages.pop();
     mark('history fetched');
     if (!messages.length) return; // nothing text-based to react to (e.g. a lone sticker)
 
