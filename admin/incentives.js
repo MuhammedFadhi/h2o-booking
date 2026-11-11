@@ -3,7 +3,7 @@
 // Admin-only: awards are entered by hand; no portal shows them.
 // Uses the dashboard's globals: dbAdmin, installers, salesUsers,
 // loadSales, showToast, openModal, closeModal, logActivity.
-// Tables: migrations/v110_incentives.sql, v111_incentive_products.sql
+// Tables: migrations/v110_incentives.sql, v111, v112, v114_incentive_batches.sql
 // ============================================================
 (function () {
   const GROUPS = [
@@ -44,7 +44,7 @@
 
   const S = {
     tab: 'entries', month: today.slice(0, 7), person: '', group: '',
-    entries: [], rates: [], people: [], payments: [], selected: new Map(), products: new Set(), editingId: null,
+    entries: [], rates: [], people: [], payments: [], selected: new Map(), products: new Set(), editingBatch: null,
     amountMode: 'sar', amountValue: null, catalog: new Map()
   };
 
@@ -172,28 +172,76 @@
     </div>`;
   }
 
+  // Bubble colours: [background, text].
+  const PALETTE = [
+    ['#DBEAFE', '#1E40AF'], ['#DCFCE7', '#166534'], ['#FEF3C7', '#92400E'], ['#FCE7F3', '#9D174D'],
+    ['#EDE9FE', '#5B21B6'], ['#CFFAFE', '#155E75'], ['#FFE4E6', '#9F1239'], ['#E0E7FF', '#3730A3']
+  ];
+  const hashOf = s => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const chip = (text, colorIndex) => {
+    const [bg, fg] = PALETTE[colorIndex % PALETTE.length];
+    return `<span style="display:inline-block;background:${bg};color:${fg};border-radius:999px;padding:3px 10px;margin:2px;font-size:12px;font-weight:600;white-space:nowrap;">${esc(text)}</span>`;
+  };
+  const personChip = name => chip(name, hashOf(name));
+  const productChip = name => { const i = PRODUCTS.findIndex(p => p.name === name); return chip(name, i < 0 ? hashOf(name) : i + 3); };
+  // Shown as dd/mm/yyyy; stored as yyyy-mm-dd.
+  const dmy = d => d ? String(d).split('-').reverse().join('/') : '—';
+  const idLabel = n => n == null ? '—' : `INC-${String(n).padStart(4, '0')}`;
+  // Entries saved together share batch_no (v114). Before v114 they still share created_at.
+  const batchKeyOf = e => e.batch_no != null ? String(e.batch_no) : `t${e.created_at}`;
+
+  function findBatch(key) {
+    const entries = S.entries.filter(e => batchKeyOf(e) === key);
+    return entries.length ? { key, no: entries[0].batch_no ?? null, entries } : null;
+  }
+
+  function amountLabel(list) {
+    const first = list[0];
+    if (first.percent != null) return list.every(e => Number(e.percent) === Number(first.percent)) ? `${Number(first.percent)}%` : 'Mixed';
+    return list.every(e => e.percent == null && Number(e.rate) === Number(first.rate)) ? `SAR ${money(first.rate)}` : 'Mixed';
+  }
+
+  // One row per Save. With a person or group filter, Total is only their share.
+  function batches() {
+    const shown = new Set(filteredEntries().map(e => e.id));
+    const keys = [...new Set(S.entries.map(batchKeyOf))];
+    const uniq = list => [...new Set(list)];
+    return keys.map(findBatch).map(b => {
+      const mine = b.entries.filter(e => shown.has(e.id));
+      return {
+        ...b, mine,
+        from: b.entries[0].entry_date, to: b.entries[0].end_date,
+        people: uniq(b.entries.map(e => e.person_name)),
+        products: uniq(b.entries.map(typeLabel)),
+        amount: amountLabel(b.entries),
+        total: totals(mine).net
+      };
+    }).filter(b => b.mine.length);
+  }
+
   function renderEntries() {
-    const list = filteredEntries();
-    const rows = list.map(e => `
+    const list = batches();
+    const rows = list.map(b => `
       <tr>
-        <td style="white-space:nowrap;">${esc(e.entry_date)}</td>
-        <td style="white-space:nowrap;">${esc(e.end_date || '—')}</td>
-        <td style="font-weight:600;">${esc(e.person_name)}</td>
-        <td>${esc(accountLabel(e.person_type))}</td>
-        <td>${esc(typeLabel(e))}</td>
-        <td style="font-weight:600;${Number(e.amount) < 0 ? 'color:#B71C1C;' : ''}">${money(e.amount)}${e.percent != null ? `<div style="font-size:11px;font-weight:400;color:var(--muted);">${esc(percentNote(e))}</div>` : ''}</td>
+        <td style="font-weight:700;white-space:nowrap;">${idLabel(b.no)}</td>
+        <td style="white-space:nowrap;">${dmy(b.from)}</td>
+        <td style="white-space:nowrap;">${dmy(b.to)}</td>
+        <td style="min-width:180px;">${b.people.map(personChip).join('')}</td>
+        <td style="min-width:200px;">${b.products.map(productChip).join('')}</td>
+        <td style="white-space:nowrap;">${esc(b.amount)}</td>
+        <td style="font-weight:700;white-space:nowrap;${b.total < 0 ? 'color:#B71C1C;' : ''}">SAR ${money(b.total)}</td>
         <td><div style="display:flex;gap:6px;">
-          <button class="btn btn-sm btn-ghost" onclick="incOpenEdit('${e.id}')">Edit</button>
-          <button class="btn btn-sm btn-danger" onclick="incDelete('${e.id}')">Delete</button>
+          <button class="btn btn-sm btn-ghost" onclick="incView('${esc(b.key)}')">View</button>
+          <button class="btn btn-sm btn-ghost" onclick="incOpenEdit('${esc(b.key)}')">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="incDelete('${esc(b.key)}')">Delete</button>
         </div></td>
       </tr>`).join('');
-    return filterBar() + kpis(totals(list)) + `
+    return filterBar() + kpis(totals(filteredEntries())) + `
       <div style="padding:16px 20px 20px;overflow-x:auto;">
-        ${list.length ? `<table><thead><tr><th>From</th><th>To</th><th>Person</th><th>Group</th><th>Type</th><th>Amount</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`
+        ${list.length ? `<table><thead><tr><th>ID</th><th>From</th><th>To</th><th>People</th><th>Products</th><th>Amount</th><th>Total</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`
         : '<div class="empty-state"><div>No incentives for this month yet.</div></div>'}
       </div>`;
   }
-
   function summaryRows() {
     const byPerson = new Map();
     filteredEntries().forEach(e => {
@@ -273,7 +321,7 @@
     document.body.insertAdjacentHTML('beforeend', `
       <div class="modal-overlay" id="inc-modal">
         <div class="modal" style="max-width:820px;width:100%;max-height:92vh;overflow-y:auto;">
-          <h2 class="modal-title">Add Incentive</h2>
+          <h2 class="modal-title" id="inc-modal-title">Add Incentive</h2>
           <div class="form-group"><label>Type</label>
             <div id="inc-products"></div>
           </div>
@@ -303,27 +351,7 @@
           </div>
         </div>
       </div>
-      <div class="modal-overlay" id="inc-edit-modal">
-        <div class="modal">
-          <h2 class="modal-title" id="inc-edit-title">Edit Incentive</h2>
-          <div class="form-group"><label>From</label><input type="date" class="form-input" id="inc-edit-date"></div>
-          <div class="form-group"><label>To <span style="color:var(--muted);font-weight:400;">(optional)</span></label><input type="date" class="form-input" id="inc-edit-end"></div>
-          <div class="form-group"><label>Amount In</label>
-            <select class="form-input" id="inc-edit-mode" onchange="incRenderEditMode()"><option value="sar">SAR</option><option value="percent">%</option></select>
-          </div>
-          <div class="form-group" id="inc-edit-sar"><label>Amount (SAR)</label><input type="number" step="0.01" class="form-input" id="inc-edit-rate"></div>
-          <div id="inc-edit-pct">
-            <div class="form-group"><label>Percent (%)</label><input type="number" min="0" max="100" step="0.01" class="form-input" id="inc-edit-percent" oninput="incRenderEditMode()"></div>
-            <div class="form-group"><label>Price (SAR)</label><input type="number" min="0" step="0.01" class="form-input" id="inc-edit-price" oninput="incRenderEditMode()"></div>
-            <div id="inc-edit-result" style="font-weight:700;margin-bottom:8px;"></div>
-          </div>
-          ${errBox('inc-edit-error')}
-          <div class="modal-footer">
-            <button class="btn btn-ghost" onclick="closeModal('inc-edit-modal')">Cancel</button>
-            <button class="btn btn-primary" id="inc-edit-save" onclick="incSaveEdit()">Save</button>
-          </div>
-        </div>
-      </div>`);
+`);
   }
 
   function showError(id, msg) { const el = $(id); el.textContent = msg; el.style.display = 'block'; }
@@ -341,17 +369,23 @@
     }
   }
 
-  async function openAdd() {
+  async function prepareForm() {
     ensureModals();
     await loadPrices();
     S.selected = new Map();
     S.products = new Set();
     S.amountMode = 'sar';
     S.amountValue = null;
-    $('inc-amount-mode').value = 'sar';
-    $('inc-amount').value = '';
-    $('inc-date').value = today;
-    $('inc-end').value = '';
+    S.editingBatch = null;
+  }
+
+  function fillForm(title, button, from, to) {
+    $('inc-modal-title').textContent = title;
+    $('inc-save').textContent = button;
+    $('inc-amount-mode').value = S.amountMode;
+    $('inc-amount').value = S.amountValue == null ? '' : S.amountValue;
+    $('inc-date').value = from;
+    $('inc-end').value = to;
     $('inc-search').value = '';
     $('inc-group-filter').value = '';
     clearError('inc-error');
@@ -361,6 +395,10 @@
     openModal('inc-modal');
   }
 
+  async function openAdd() {
+    await prepareForm();
+    fillForm('Add Incentive', 'Save All', today, '');
+  }
   function shownPeople() {
     const q = $('inc-search').value.trim().toLowerCase();
     const g = $('inc-group-filter').value;
@@ -461,7 +499,7 @@
     const value = S.amountValue;
     const amount = !(value > 0) ? '—' : S.amountMode === 'percent' ? `${value}%` : `SAR ${money(value)}`;
     const missing = missingPrices();
-    const names = (label, list) => `<div style="font-size:12px;color:var(--muted);margin-top:6px;"><strong>${label}:</strong> ${esc(list.join(', '))}</div>`;
+    const names = (label, chips) => `<div style="margin-top:8px;"><div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:2px;">${label}</div>${chips}</div>`;
     box.innerHTML = `
       <table>
         <thead><tr><th>Products</th><th>People</th><th>Amount</th><th>Each Person Gets</th><th>Total</th></tr></thead>
@@ -473,8 +511,8 @@
           <td style="font-weight:700;">SAR ${money(total)}</td>
         </tr></tbody>
       </table>
-      ${names('Products', products)}
-      ${names('People', people)}
+      ${names('Products', products.map(productChip).join(''))}
+      ${names('People', people.map(personChip).join(''))}
       ${missing.length ? `<div style="font-size:12px;color:#B71C1C;margin-top:6px;">No price found for: ${esc(missing.join(', '))}</div>` : ''}`;
   }
 
@@ -508,11 +546,12 @@
         percent: l.mode === 'percent' ? l.percent : null,
         base_price: l.mode === 'percent' ? l.price : null
       }));
-      const { error } = await dbAdmin.from('incentive_entries').insert(rows);
+      const editing = S.editingBatch != null;
+      const { data: no, error } = await dbAdmin.rpc('save_incentive_batch', { p_batch_no: S.editingBatch, p_rows: rows });
       if (error) throw error;
       closeModal('inc-modal');
-      showToast(`Saved ${rows.length} ${rows.length === 1 ? 'incentive' : 'incentives'}`);
-      try { logActivity('incentive_added', `Added ${rows.length} incentive entries`, 'incentive', null); } catch (e) { /* log only */ }
+      showToast(`${editing ? 'Updated' : 'Saved'} ${idLabel(no)}`);
+      try { logActivity(editing ? 'incentive_updated' : 'incentive_added', `${editing ? 'Updated' : 'Added'} ${idLabel(no)} (${rows.length} entries)`, 'incentive', String(no)); } catch (e) { /* log only */ }
       S.month = (end || date).slice(0, 7);
       await fetchMonth();
       render();
@@ -523,80 +562,51 @@
     }
   }
 
-  // ---- Edit / delete ----
+  // ---- View / edit / delete: always a whole Save ----
 
-  function renderEditMode() {
-    const pct = $('inc-edit-mode').value === 'percent';
-    $('inc-edit-sar').style.display = pct ? 'none' : 'block';
-    $('inc-edit-pct').style.display = pct ? 'block' : 'none';
-    const rate = percentOf(Number($('inc-edit-price').value), Number($('inc-edit-percent').value));
-    $('inc-edit-result').textContent = rate == null ? '' : `= SAR ${money(rate)}`;
+  function view(key) {
+    const b = findBatch(key);
+    if (!b) return;
+    const rows = b.entries.map(e => `<tr><td>${personChip(e.person_name)}</td><td>${productChip(typeLabel(e))}</td>
+      <td style="white-space:nowrap;">SAR ${money(e.amount)}${e.percent != null ? `<div style="font-size:11px;color:var(--muted);">${esc(percentNote(e))}</div>` : ''}</td></tr>`).join('');
+    showInfoModal(`${idLabel(b.no)} · ${dmy(b.entries[0].entry_date)}`, `
+      <div style="overflow-x:auto;"><table class="data-table" style="width:100%;"><thead><tr><th>Person</th><th>Product</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div style="font-weight:700;text-align:right;margin-top:10px;">Total: SAR ${money(totals(b.entries).net)}</div>`);
   }
 
-  async function openEdit(id) {
-    const e = S.entries.find(x => x.id === id);
-    if (!e) return;
-    ensureModals();
-    await loadPrices();
-    S.editingId = id;
-    const price = e.percent != null ? Number(e.base_price) : S.catalog.get(e.product_name);
-    $('inc-edit-mode').value = e.percent != null ? 'percent' : 'sar';
-    $('inc-edit-percent').value = e.percent != null ? Number(e.percent) : '';
-    $('inc-edit-price').value = price == null ? '' : price;
-    renderEditMode();
-    $('inc-edit-title').textContent = `Edit: ${e.person_name} (${typeLabel(e)})`;
-    $('inc-edit-date').value = e.entry_date;
-    $('inc-edit-end').value = e.end_date || '';
-    $('inc-edit-rate').value = Number(e.amount);
-    clearError('inc-edit-error');
-    openModal('inc-edit-modal');
+  // Opens the Add popup filled with this Save; saving replaces its entries.
+  async function openEdit(key) {
+    const b = findBatch(key);
+    if (!b) return;
+    if (b.no == null) return showToast('Please run migration v114 before editing.', 'error');
+    const products = new Set(b.entries.map(e => PRODUCTS.findIndex(p => p.name === e.product_name)));
+    if (products.has(-1)) return showToast('This older entry cannot be edited here. Please delete it and add it again.', 'error');
+    await prepareForm();
+    const current = new Map(roster().map(p => [p.key, p]));
+    b.entries.forEach(e => {
+      const k = personKey(e.person_type, e.person_id);
+      if (!S.selected.has(k)) S.selected.set(k, current.get(k) || { key: k, type: e.person_type, id: e.person_id, name: e.person_name, group: e.group_key || '' });
+    });
+    const first = b.entries[0];
+    S.products = products;
+    S.amountMode = first.percent != null ? 'percent' : 'sar';
+    S.amountValue = Number(first.percent != null ? first.percent : first.rate);
+    S.editingBatch = b.no;
+    fillForm(`Edit Incentive ${idLabel(b.no)}`, 'Save Changes', first.entry_date, first.end_date || '');
   }
 
-  async function saveEdit() {
-    clearError('inc-edit-error');
-    const e = S.entries.find(x => x.id === S.editingId);
-    if (!e) return;
-    const date = $('inc-edit-date').value;
-    const end = $('inc-edit-end').value || null;
-    const pct = $('inc-edit-mode').value === 'percent';
-    const percent = Number($('inc-edit-percent').value);
-    const price = Number($('inc-edit-price').value);
-    const rate = pct ? percentOf(price, percent) : Number($('inc-edit-rate').value);
-    if (!date) return showError('inc-edit-error', 'Please choose a From date.');
-    if (end && end < date) return showError('inc-edit-error', 'To date cannot be before the From date.');
-    if (pct && !(percent > 0 && percent <= 100)) return showError('inc-edit-error', 'Please enter a % from 0.01 to 100.');
-    if (pct && !(price > 0)) return showError('inc-edit-error', 'Please enter a price.');
-    if (!rate) return showError('inc-edit-error', 'Please enter an amount.');
-    const btn = $('inc-edit-save');
-    btn.disabled = true;
-    try {
-      const { error } = await dbAdmin.from('incentive_entries').update({
-        entry_date: date, end_date: end, qty: 1, rate,
-        percent: pct ? percent : null,
-        base_price: pct ? price : null
-      }).eq('id', S.editingId);
-      if (error) throw error;
-      closeModal('inc-edit-modal');
-      showToast('Incentive updated');
-      await fetchMonth();
-      render();
-    } catch (err) {
-      showError('inc-edit-error', 'Could not save: ' + err.message);
-    } finally {
-      btn.disabled = false;
-    }
-  }
-
-  async function del(id) {
-    const e = S.entries.find(x => x.id === id);
-    if (!e || !confirm(`Delete this incentive for ${e.person_name} (SAR ${money(e.amount)})?`)) return;
-    const { error } = await dbAdmin.from('incentive_entries').delete().eq('id', id);
+  async function del(key) {
+    const b = findBatch(key);
+    if (!b) return;
+    const n = b.entries.length;
+    if (!confirm(`Delete ${idLabel(b.no)} (${n} ${n === 1 ? 'entry' : 'entries'}, SAR ${money(totals(b.entries).net)})? This cannot be undone.`)) return;
+    const { error } = await dbAdmin.from('incentive_entries').delete().in('id', b.entries.map(e => e.id));
     if (error) return showToast('Could not delete: ' + error.message, 'error');
-    showToast('Incentive deleted');
+    showToast(`Deleted ${idLabel(b.no)}`);
+    try { logActivity('incentive_deleted', `Deleted ${idLabel(b.no)} (${n} entries)`, 'incentive', b.no == null ? null : String(b.no)); } catch (e) { /* log only */ }
     await fetchMonth();
     render();
   }
-
   // ---- Paid tick, rates, people ----
 
   async function togglePaid(key, box) {
@@ -667,9 +677,9 @@
       if (typeof v === 'string' && /^[=+\-@]/.test(s)) s = "'" + s;
       return `"${s.replace(/"/g, '""')}"`;
     };
-    const lines = [['From', 'To', 'Person', 'Group', 'Type', 'Percent', 'Amount'].map(cell).join(',')];
+    const lines = [['ID', 'From', 'To', 'Person', 'Group', 'Type', 'Percent', 'Amount'].map(cell).join(',')];
     list.slice().reverse().forEach(e => lines.push([
-      e.entry_date, e.end_date, e.person_name, accountLabel(e.person_type), typeLabel(e), percentNote(e), Number(e.amount)
+      idLabel(e.batch_no), e.entry_date, e.end_date, e.person_name, accountLabel(e.person_type), typeLabel(e), percentNote(e), Number(e.amount)
     ].map(cell).join(',')));
     lines.push('');
     lines.push(['Person', 'Group', 'Total', 'Status'].map(cell).join(','));
@@ -689,8 +699,8 @@
     incSetFilter: (k, v) => { S[k] = v; render(); },
     incOpenAdd: openAdd, incAddProduct: addProduct, incRemoveProduct: removeProduct, incRenderPicker: renderPicker,
     incSelectShown: selectShown, incTogglePerson: togglePerson,
-    incSetAmount: setAmount, incSetAmountMode: setAmountMode, incRenderEditMode: renderEditMode,
-    incSaveAll: saveAll, incOpenEdit: openEdit, incSaveEdit: saveEdit, incDelete: del,
+    incSetAmount: setAmount, incSetAmountMode: setAmountMode,
+    incSaveAll: saveAll, incOpenEdit: openEdit, incView: view, incDelete: del,
     incTogglePaid: togglePaid, incSaveRates: saveRates, incSetPersonGroup: setPersonGroup, incExport: exportCsv
   });
 })();
