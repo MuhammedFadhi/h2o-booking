@@ -47,6 +47,34 @@ async function getConfig() {
   return rows?.[0] || null;
 }
 
+// Per-conversation lock (v115) — stops two webhook events for the same
+// conversation from running the LLM pipeline at once, which was corrupting
+// the history sent to the second call (see JSON_CONTRACT's neighbor, the
+// "ending with a model turn" fix below). A timestamp rather than a plain
+// boolean: the conditional PATCH only succeeds if nobody holds the lock OR
+// the holder's TTL already expired, so a crashed invocation that never
+// released self-heals instead of locking the conversation forever.
+const LOCK_TTL_MS = 20000;
+async function acquireLock(conversationId) {
+  const now = new Date();
+  const lockUntil = new Date(now.getTime() + LOCK_TTL_MS).toISOString();
+  const res = await sb(
+    'PATCH',
+    `/rest/v1/whatsapp_conversations?id=eq.${conversationId}&or=(processing_until.is.null,processing_until.lt.${now.toISOString()})`,
+    { processing_until: lockUntil },
+    { Prefer: 'return=representation' }
+  );
+  return !!res?.length;
+}
+
+async function releaseLock(conversationId) {
+  try {
+    await sb('PATCH', `/rest/v1/whatsapp_conversations?id=eq.${conversationId}`, { processing_until: null });
+  } catch (err) {
+    console.error('[wa bot] lock release failed:', conversationId, err.message);
+  }
+}
+
 // business_hours_start/end are 'HH:MM' in business_hours_timezone. Uses
 // Intl to resolve "now" in that timezone without pulling in a date library.
 function isWithinBusinessHours(config) {
@@ -145,6 +173,7 @@ async function maybeAutoReply({ conversationId, phone, waMessageId, aiPaused }) 
   const t0 = Date.now();
   const mark = (label) => console.log(`[wa bot timing] ${label} at +${Date.now() - t0}ms (conversation ${conversationId})`);
   let replied = false;
+  let lockAcquired = false;
   try {
     mark('pipeline start');
     if (aiPaused) return; // a human already took this conversation over
@@ -158,6 +187,19 @@ async function maybeAutoReply({ conversationId, phone, waMessageId, aiPaused }) 
       if (config.out_of_hours_message) await sendOutboundText(conversationId, phone, config.out_of_hours_message);
       return;
     }
+
+    // Wait for any other webhook event already running this pipeline for
+    // this same conversation to finish, instead of racing it (see v115's
+    // migration note) — only after that lock is ours do we read history,
+    // since reading it any earlier is exactly what let a concurrent run's
+    // in-flight reply land in between and corrupt it.
+    const lockDeadline = Date.now() + 8000;
+    while (!lockAcquired && Date.now() < lockDeadline) {
+      lockAcquired = await acquireLock(conversationId);
+      if (!lockAcquired) await new Promise((r) => setTimeout(r, 800));
+    }
+    if (!lockAcquired) { mark('could not acquire conversation lock, giving up'); return; }
+    mark('lock acquired');
 
     // Burst-message coalescing: a customer typing "Hi" then "2" a second
     // apart would otherwise get two separate bot replies racing each
@@ -213,6 +255,8 @@ async function maybeAutoReply({ conversationId, phone, waMessageId, aiPaused }) 
         console.error('[wa bot] fallback message also failed for conversation', conversationId, fallbackErr.message);
       }
     }
+  } finally {
+    if (lockAcquired) await releaseLock(conversationId);
   }
 }
 
