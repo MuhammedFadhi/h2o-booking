@@ -10120,7 +10120,14 @@ function renderWarranties() {
       <span style="display:flex; align-items:center; gap:6px;"><span style="width:11px;height:11px;border-radius:3px;background:#F1F5F9;border:1px solid #94A3B8;"></span> Not set</span>
     </div>`;
 
-  if (!rows.length) {
+  // Deactivated units are pulled out of the main list entirely (not just
+  // dimmed in place) and shown in their own collapsed widget below it —
+  // they're not something anyone's actioning today, so they shouldn't
+  // compete for space with units that are.
+  const deactivatedRows = rows.filter(w => (w.status || 'active') === 'deactivated');
+  const activeRows = rows.filter(w => (w.status || 'active') !== 'deactivated');
+
+  if (!activeRows.length && !deactivatedRows.length) {
     el.innerHTML = LEGEND + '<div style="text-align:center;padding:30px;color:var(--muted);">No units match this filter.</div>';
     return;
   }
@@ -10141,15 +10148,7 @@ function renderWarranties() {
     expired: 'warranty expired', expiring: 'warranty expiring'
   }[f] || f;
 
-  el.innerHTML = LEGEND + `
-    <div style="overflow-x:auto;">
-    <table class="data-table">
-      <thead><tr>
-        <th>QR / Serial</th><th>Customer</th><th>Model</th>
-        <th>Filter Due</th><th>Service Due</th><th>Warranty Until</th><th>Actions</th>
-      </tr></thead>
-      <tbody>
-        ${rows.map(w => {
+  const rowHtml = (w) => {
           const stBadge = {
             active:      { bg:'#DCFCE7', fg:'#166534', t:'Active' },
             paused:      { bg:'#FEF3C7', fg:'#92400E', t:'Paused' },
@@ -10191,10 +10190,28 @@ function renderWarranties() {
               <button class="btn btn-ghost btn-sm" onclick="adminCert('${w.id}')" title="Download warranty certificate">📄</button>
             </div></td>
           </tr>`;
-        }).join('')}
-      </tbody>
-    </table></div>
-    <div style="font-size:11px;color:var(--muted);margin-top:10px;">Showing ${rows.length} of ${allWarranties.length} units — ${W.esc(activeLabel)}${q ? ` matching "${W.esc(q)}"` : ''}.</div>`;
+  };
+
+  const tableOf = (list) => `
+    <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead><tr>
+        <th>QR / Serial</th><th>Customer</th><th>Model</th>
+        <th>Filter Due</th><th>Service Due</th><th>Warranty Until</th><th>Actions</th>
+      </tr></thead>
+      <tbody>${list.map(rowHtml).join('')}</tbody>
+    </table></div>`;
+
+  const deactivatedWidget = deactivatedRows.length ? `
+    <details style="margin-top:16px;border:1px solid var(--border,#E2E8F0);border-radius:9px;">
+      <summary style="cursor:pointer;padding:10px 14px;font-size:12px;font-weight:700;color:var(--muted);">🔴 Deactivated Units (${deactivatedRows.length}) — click to show</summary>
+      <div style="padding:0 14px 14px;">${tableOf(deactivatedRows)}</div>
+    </details>` : '';
+
+  el.innerHTML = LEGEND
+    + (activeRows.length ? tableOf(activeRows) : '<div style="text-align:center;padding:30px;color:var(--muted);">No active units match this filter.</div>')
+    + deactivatedWidget
+    + `<div style="font-size:11px;color:var(--muted);margin-top:10px;">Showing ${activeRows.length} of ${allWarranties.length} units — ${W.esc(activeLabel)}${q ? ` matching "${W.esc(q)}"` : ''}${deactivatedRows.length ? ` (${deactivatedRows.length} deactivated, hidden above)` : ''}.</div>`;
 }
 
 // Every filter-change occurrence from the unit's next due date through the
