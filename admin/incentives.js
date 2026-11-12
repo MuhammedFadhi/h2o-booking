@@ -131,7 +131,10 @@
   }
 
   function render() {
-    const tabs = [['entries', 'Entries'], ['summary', 'Monthly Summary'], ['rates', 'Rates'], ['people', 'People']];
+    // Rates and People are hidden for now (client request). To show them again,
+    // add back: ['rates', 'Rates'], ['people', 'People']
+    const tabs = [['entries', 'Entries'], ['summary', 'Monthly Summary']];
+    if (!tabs.some(([k]) => k === S.tab)) S.tab = 'entries';
     const tabBtns = tabs.map(([k, l]) =>
       `<button class="btn btn-sm ${S.tab === k ? 'btn-primary' : 'btn-ghost'}" onclick="incSetTab('${k}')">${l}</button>`).join('');
     const body = { entries: renderEntries, summary: renderSummary, rates: renderRates, people: renderPeople }[S.tab]();
