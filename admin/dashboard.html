@@ -3301,14 +3301,36 @@ function installerDropdown(b) {
         <span class="installer-btn-label">${escB(currentName)}</span>
         <svg xmlns="http://www.w3.org/2000/svg" width="0.8em" height="0.8em" viewBox="0 0 24 24" style="flex-shrink:0;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="m6 9l6 6l6-6"/></svg>
       </button>
-      <div class="installer-dropdown" data-booking="${b.id}" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);border:1px solid var(--border);z-index:150;min-width:160px;max-height:180px;overflow-y:auto;padding:4px 0;">${items}</div>
+      <div class="installer-dropdown" data-booking="${b.id}" style="display:none;position:fixed;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);border:1px solid var(--border);z-index:150;min-width:160px;max-height:180px;overflow-y:auto;padding:4px 0;">${items}</div>
     </div>`;
+}
+
+// Shared by the installer and sales-agent dropdowns below. Both render as
+// position:fixed panels positioned here via JS (not plain CSS) because the
+// bookings table sits inside an overflow-x:auto wrapper, which was clipping/
+// squishing an absolutely-positioned panel whenever its row was near the
+// bottom of that container. Flips upward and clamps horizontally if there
+// isn't room to show it in its default spot below the button.
+function positionFloatingDropdown(btn, panel) {
+  panel.style.visibility = 'hidden';
+  panel.style.display = 'block';
+  const btnRect = btn.getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
+  let top = btnRect.bottom + 4;
+  if (top + panelRect.height > window.innerHeight - 8) top = btnRect.top - panelRect.height - 4;
+  let left = btnRect.left;
+  if (left + panelRect.width > window.innerWidth - 8) left = window.innerWidth - panelRect.width - 8;
+  if (left < 8) left = 8;
+  panel.style.top = `${Math.max(8, top)}px`;
+  panel.style.left = `${left}px`;
+  panel.style.visibility = 'visible';
 }
 
 function closeInstallerDropdowns() {
   document.querySelectorAll('.installer-dropdown').forEach(el => { el.style.display = 'none'; });
 }
 document.addEventListener('click', closeInstallerDropdowns);
+document.addEventListener('scroll', closeInstallerDropdowns, true);
 
 function toggleInstallerDropdown(event, bookingId) {
   event.stopPropagation();
@@ -3316,7 +3338,7 @@ function toggleInstallerDropdown(event, bookingId) {
   if (!el) return;
   const wasOpen = el.style.display === 'block';
   closeInstallerDropdowns();
-  el.style.display = wasOpen ? 'none' : 'block';
+  if (!wasOpen) positionFloatingDropdown(event.currentTarget, el);
 }
 
 function selectInstaller(bookingId, installerId, installerName) {
@@ -7115,7 +7137,7 @@ function salesAgentDropdown(b) {
         <span class="sales-agent-btn-label">${escB(current || '—')}</span>
         <svg xmlns="http://www.w3.org/2000/svg" width="0.8em" height="0.8em" viewBox="0 0 24 24" style="flex-shrink:0;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="m6 9l6 6l6-6"/></svg>
       </button>
-      <div class="sales-agent-dropdown" data-booking="${b.id}" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);border:1px solid var(--border);z-index:150;min-width:160px;max-height:180px;overflow-y:auto;padding:4px 0;">${items}</div>
+      <div class="sales-agent-dropdown" data-booking="${b.id}" style="display:none;position:fixed;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);border:1px solid var(--border);z-index:150;min-width:160px;max-height:180px;overflow-y:auto;padding:4px 0;">${items}</div>
     </div>`;
 }
 
@@ -7123,6 +7145,7 @@ function closeSalesAgentDropdowns() {
   document.querySelectorAll('.sales-agent-dropdown').forEach(el => { el.style.display = 'none'; });
 }
 document.addEventListener('click', closeSalesAgentDropdowns);
+document.addEventListener('scroll', closeSalesAgentDropdowns, true);
 
 function toggleSalesAgentDropdown(event, bookingId) {
   event.stopPropagation();
@@ -7130,7 +7153,7 @@ function toggleSalesAgentDropdown(event, bookingId) {
   if (!el) return;
   const wasOpen = el.style.display === 'block';
   closeSalesAgentDropdowns();
-  el.style.display = wasOpen ? 'none' : 'block';
+  if (!wasOpen) positionFloatingDropdown(event.currentTarget, el);
 }
 
 function selectSalesAgent(bookingId, name) {
