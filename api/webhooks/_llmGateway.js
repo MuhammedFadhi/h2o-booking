@@ -163,6 +163,19 @@ async function callOpenAiCompatible(apiKey, systemPrompt, messages, provider) {
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: provider === 'openrouter' ? MODELS.openrouter : MODELS.openai,
+      // Without this, OpenRouter pre-authorizes against the model's full
+      // max output ceiling (131072 for Kimi K2.6) before even starting the
+      // request, and rejects with 402 "requires more credits" on any
+      // balance that can't cover that worst case - even though the bot's
+      // actual replies (a short JSON object) never get anywhere close.
+      max_tokens: 1024,
+      // Kimi K2.6 (and some other OpenRouter models) reasons internally by
+      // default - live test showed 423 hidden "reasoning" tokens spent
+      // before a 4-token actual answer, ~50x the cost and latency of the
+      // same call with reasoning off. This bot needs a fast, short JSON
+      // reply, not a chain of thought, and OpenAI's own API doesn't
+      // recognize this field, so it's OpenRouter-only.
+      ...(provider === 'openrouter' ? { reasoning: { enabled: false } } : {}),
       response_format: { type: 'json_object' },
       messages: [{ role: 'system', content: systemPrompt }, ...messages.map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }))]
     })
