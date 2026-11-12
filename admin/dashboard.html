@@ -4101,7 +4101,7 @@ async function submitServiceBooking() {
     // Confirmation SMS — same shape as a new booking.
     if (await isSMSEnabled('confirmation')) {
       const dLabel = (function(){ try { return new Date(row.slot_date + 'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long', year:'numeric'}); } catch(e){ return row.slot_date; } })();
-      const hLabel = (function(h){ const n=parseInt(h,10); if(isNaN(n)) return h; const ap=n<12?'AM':'PM'; const hh=n%12===0?12:n%12; return `${hh}:00 ${ap}`; })(row.slot_hour);
+      const hLabel = formatHour(row.slot_hour);
       sendAdminSMS(sbCustomer.phone,
         `SA'DA H2O - ${typeLabel} Booked!\n\nDear ${sbCustomer.name || 'Customer'},\nRef: ${ref}\nDate: ${dLabel}\nTime: ${hLabel}\n\nOur technician will contact you before the visit.\n\nThank you for choosing SA'DA H2O!`);
     }
@@ -4796,7 +4796,7 @@ async function submitAdminBooking() {
     // Fire-and-forget so a slow relay never blocks the admin UI.
     if (startStatus !== 'installed' && await isSMSEnabled('confirmation')) {
       const dLabel = (function(){ try { return new Date(row.slot_date + 'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long', year:'numeric'}); } catch(e){ return row.slot_date; } })();
-      const hLabel = (function(h){ const n = parseInt(h,10); if (isNaN(n)) return h; const ap = n < 12 ? 'AM' : 'PM'; const hh = n % 12 === 0 ? 12 : n % 12; return `${hh}:00 ${ap}`; })(row.slot_hour);
+      const hLabel = formatHour(row.slot_hour);
       const msg = `SA'DA H2O - Booking Confirmed!\n\nDear ${name},\nRef: ${ref}\nDate: ${dLabel}\nTime: ${hLabel}\nCity: ${cityName}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
       sendAdminSMS(phone, msg);
     }
