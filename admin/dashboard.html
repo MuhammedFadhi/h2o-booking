@@ -3389,7 +3389,11 @@ function closeInstallerDropdowns() {
   document.querySelectorAll('.installer-dropdown').forEach(el => { el.style.display = 'none'; });
 }
 document.addEventListener('click', closeInstallerDropdowns);
-document.addEventListener('scroll', closeInstallerDropdowns, true);
+// Scrolling the page (or the table's own horizontal-scroll wrapper) should
+// close the dropdown, since its position was fixed relative to the button
+// at open-time - but scrolling INSIDE the dropdown's own option list must
+// not, or every scroll attempt there instantly closes it before moving.
+document.addEventListener('scroll', (e) => { if (!e.target.closest?.('.installer-dropdown')) closeInstallerDropdowns(); }, true);
 
 function toggleInstallerDropdown(event, bookingId) {
   event.stopPropagation();
@@ -7204,7 +7208,8 @@ function closeSalesAgentDropdowns() {
   document.querySelectorAll('.sales-agent-dropdown').forEach(el => { el.style.display = 'none'; });
 }
 document.addEventListener('click', closeSalesAgentDropdowns);
-document.addEventListener('scroll', closeSalesAgentDropdowns, true);
+// See the matching comment on the installer dropdown's scroll listener above.
+document.addEventListener('scroll', (e) => { if (!e.target.closest?.('.sales-agent-dropdown')) closeSalesAgentDropdowns(); }, true);
 
 function toggleSalesAgentDropdown(event, bookingId) {
   event.stopPropagation();
