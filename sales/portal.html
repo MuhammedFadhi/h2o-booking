@@ -820,7 +820,7 @@
       const { data } = await db.from('sms_settings').select('enabled').eq('key', 'confirmation').maybeSingle();
       if (data && data.enabled === false) return;
       const d = new Date(b.slot_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-      const h = Number(b.slot_hour), t = `${h % 12 === 0 ? 12 : h % 12}:00 ${h < 12 ? 'AM' : 'PM'}`;
+      const t = formatHour(b.slot_hour);
       const body = `SA'DA H2O - Booking Confirmed!\n\nDear ${b.customer_name},\nRef: ${b.reference}\nDate: ${d}\nTime: ${t}\nCity: ${b.city_name}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
       const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 20000);
       await fetch('/api/send-sms', {
