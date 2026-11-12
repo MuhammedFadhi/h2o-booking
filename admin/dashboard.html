@@ -3212,12 +3212,7 @@ async function loadBookings() {
       </td>
       <td data-label="Created By">${escB(b.created_by_name || (b.created_by === 'customer' ? 'Customer' : '—'))}</td>
       <td data-label="Sales Agent">${salesAgentDropdown(b)}</td>
-      <td data-label="Installer">
-        <select class="assign-select" onchange="assignInstaller('${b.id}', this.value)">
-          <option value="">Unassigned</option>
-          ${installers.filter(i => i.is_active).map(i => `<option value="${i.id}" ${b.installer_id === i.id ? 'selected' : ''}>${i.name}</option>`).join('')}
-        </select>
-      </td>
+      <td data-label="Installer">${installerDropdown(b)}</td>
       <td data-label="Status"><span class="status-badge status-${b.status}">${getStatusLabel(b.status, b.booking_type)}</span></td>
       <td data-label="Actions">
         <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
@@ -3285,6 +3280,52 @@ async function assignInstaller(bookingId, installerId) {
       if (b) await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your installation on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour)} has been assigned to our technician${inst ? ' ' + inst.name : ''}. Our team will contact you prior to the visit. Ref: ${b.booking_reference}`);
     }
   } else showToast('Failed to assign installer', 'error');
+}
+
+// Same custom-dropdown treatment as salesAgentDropdown() — a native select's
+// popup can't be height-limited via CSS, and the installer roster is long
+// enough that it matters here too.
+function installerDropdown(b) {
+  const current = b.installer_id || '';
+  const activeInstallers = installers.filter(i => i.is_active);
+  const currentName = current ? (activeInstallers.find(i => i.id === current)?.name || '—') : 'Unassigned';
+  const items = [{ id: '', name: 'Unassigned' }, ...activeInstallers].map(i => `
+    <div onclick="event.stopPropagation();selectInstaller('${b.id}','${i.id}','${escB(i.name)}')"
+         onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'"
+         style="padding:7px 12px;font-size:12px;cursor:pointer;white-space:nowrap;${i.id === current ? 'font-weight:700;color:var(--water);' : ''}">
+      ${escB(i.name)}
+    </div>`).join('');
+  return `<div style="position:relative;" onclick="event.stopPropagation()">
+      <button class="btn btn-ghost btn-sm installer-btn" data-booking="${b.id}" onclick="toggleInstallerDropdown(event,'${b.id}')"
+              style="min-width:110px;display:flex;align-items:center;justify-content:space-between;gap:4px;">
+        <span class="installer-btn-label">${escB(currentName)}</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="0.8em" height="0.8em" viewBox="0 0 24 24" style="flex-shrink:0;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="m6 9l6 6l6-6"/></svg>
+      </button>
+      <div class="installer-dropdown" data-booking="${b.id}" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);border:1px solid var(--border);z-index:150;min-width:160px;max-height:180px;overflow-y:auto;padding:4px 0;">${items}</div>
+    </div>`;
+}
+
+function closeInstallerDropdowns() {
+  document.querySelectorAll('.installer-dropdown').forEach(el => { el.style.display = 'none'; });
+}
+document.addEventListener('click', closeInstallerDropdowns);
+
+function toggleInstallerDropdown(event, bookingId) {
+  event.stopPropagation();
+  const el = document.querySelector(`.installer-dropdown[data-booking="${bookingId}"]`);
+  if (!el) return;
+  const wasOpen = el.style.display === 'block';
+  closeInstallerDropdowns();
+  el.style.display = wasOpen ? 'none' : 'block';
+}
+
+function selectInstaller(bookingId, installerId, installerName) {
+  closeInstallerDropdowns();
+  assignInstaller(bookingId, installerId);
+  const cached = (window.__allBookingsCache || []).find(x => x.id === bookingId);
+  if (cached) cached.installer_id = installerId || null;
+  const label = document.querySelector(`.installer-btn[data-booking="${bookingId}"] .installer-btn-label`);
+  if (label) label.textContent = installerName || 'Unassigned';
 }
 
 // ============================================================
