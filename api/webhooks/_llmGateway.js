@@ -36,7 +36,15 @@ const MODELS = {
   // still hits occasional "high demand" 503s under load, which is exactly
   // what llm_api_key_fallback (see _whatsappBot.js) exists to paper over.
   gemini: 'gemini-3.1-flash-lite-preview',
-  openrouter: 'openai/gpt-4o-mini',
+  // Switched the primary bot provider to Kimi via OpenRouter (explicit
+  // instruction, 2026-11-12) after every Gemini model on this account hit
+  // some failure mode (retired, demand-overloaded, or a hidden free-tier
+  // quota wall despite a paid key). 'moonshotai/kimi-k2.6' is the current
+  // general-purpose, non-reasoning Kimi release on OpenRouter — deliberately
+  // not 'kimi-k2-thinking' (a reasoning variant, same slowness tradeoff the
+  // bot is trying to avoid) or 'kimi-k2.7-code' (coding-specialized, not a
+  // fit for a chat bot).
+  openrouter: 'moonshotai/kimi-k2.6',
   openai: 'gpt-4o-mini'
 };
 
