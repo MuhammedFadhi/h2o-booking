@@ -10854,6 +10854,24 @@ async function waApplyFilters() {
   }
 }
 
+// Same convention WhatsApp's own app uses: a bare time for today, "Yesterday"
+// for the day before, a weekday name within the last week, and a short date
+// beyond that — so the list doesn't need a tooltip to tell "6:21 pm" apart
+// from "6:21 pm three weeks ago".
+function waLastMessageTimeLabel(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfMsgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dayDiff = Math.round((startOfToday - startOfMsgDay) / 86400000);
+  if (dayDiff === 0) return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+  if (dayDiff === 1) return 'Yesterday';
+  if (dayDiff > 1 && dayDiff < 7) return d.toLocaleDateString('en-US', { weekday: 'short' });
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
 function renderWhatsappConversationList() {
   renderWaStatusFilterBar();
   const q = (document.getElementById('wa-convo-search')?.value || '').trim();
@@ -10880,9 +10898,12 @@ function renderWhatsappConversationList() {
   const callable = isMobileViewport();
   el.innerHTML = rows.map(c => `
     <div onclick="waRowClick(event,'${c.id}')" onmouseenter="waPeekHoverStart(event,'${c.id}')" onmousedown="waPeekStart(event,'${c.id}')" onmouseup="waPeekEnd()" onmouseleave="waPeekRowLeave()" ontouchstart="waPeekStart(event,'${c.id}')" ontouchend="waPeekEnd()" ontouchmove="clearTimeout(waPeekTimer)" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;background:${c.id === waCurrentConversationId ? 'var(--bg)' : 'transparent'};${c.status === 'not_interested' ? 'opacity:0.55;filter:grayscale(0.6);' : ''}">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
         <div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escB(c.contact_name || c.phone)}</div>
-        ${c.unread_count > 0 ? `<span style="background:#16A34A;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;flex-shrink:0;">${c.unread_count}</span>` : ''}
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
+          <span style="font-size:10px;color:var(--muted);white-space:nowrap;">${escB(waLastMessageTimeLabel(c.last_message_at))}</span>
+          ${c.unread_count > 0 ? `<span style="background:#16A34A;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;">${c.unread_count}</span>` : ''}
+        </div>
       </div>
       ${callable
         ? `<a href="tel:${escB(c.phone || '')}" onclick="event.stopPropagation()" style="display:block;font-size:11px;color:var(--muted);margin-top:2px;text-decoration:none;">${escB(c.phone)}</a>`
