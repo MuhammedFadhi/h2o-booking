@@ -7090,6 +7090,7 @@ function salesAgentNames(keep) {
   const names = admins.map(a => a.name || a.email);
   owners.forEach(o => names.push(o.name || o.email));
   salesUsers.filter(s => s.is_active).forEach(s => names.push(s.name));
+  installers.filter(i => i.is_active).forEach(i => names.push(i.name));
   if (keep && !names.includes(keep)) names.push(keep);
   return names;
 }
@@ -7103,7 +7104,8 @@ async function populateSalesAgentSelect(selectId, preselect) {
   await Promise.all([
     admins.length ? Promise.resolve() : loadAdmins(),
     owners.length ? Promise.resolve() : loadOwners(),
-    salesUsers.length ? Promise.resolve() : loadSales()
+    salesUsers.length ? Promise.resolve() : loadSales(),
+    installers.length ? Promise.resolve() : loadInstallers()
   ]);
   const names = salesAgentNames(preselect);
   sel.innerHTML = names.map(n => `<option value="${escB(n)}">${escB(n)}</option>`).join('');
