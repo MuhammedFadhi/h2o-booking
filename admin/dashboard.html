@@ -1460,6 +1460,7 @@
                 <option value="expired">Warranty expired</option>
                 <option value="expiring">Warranty expiring (30d)</option>
               </optgroup>
+              <option value="deactivated">Deactivated units</option>
             </select>
             <select id="war-region" onchange="onWarRegionChange()">
               <option value="">All Regions</option>
@@ -9900,6 +9901,7 @@ function renderWarrantyStats() {
   const svcSoon    = allWarranties.filter(w => f(w.service_expiry)  === 'soon').length;
   const svcPast    = allWarranties.filter(w => f(w.service_expiry)  === 'past').length;
   const expired    = allWarranties.filter(w => f(w.warranty_expiry) === 'past').length;
+  const deactivated = allWarranties.filter(w => (w.status || 'active') === 'deactivated').length;
 
   const active = document.getElementById('war-filter')?.value || '';
   const card = (key, label, val, color, sub) => `
@@ -9915,7 +9917,8 @@ function renderWarrantyStats() {
     card('',            'Registered Units', total, 'var(--water)', 'All units — click to reset') +
     card('filter_due',  'Filter Due',   filterSoon + filterPast, (filterSoon + filterPast) ? '#D97706' : 'var(--muted)', `${filterPast} past due · ${filterSoon} due soon`) +
     card('service_due', 'Service Due',  svcSoon + svcPast,       (svcSoon + svcPast) ? '#7C3AED' : 'var(--muted)',       `${svcPast} past due · ${svcSoon} due soon`) +
-    card('expired',     'Warranty Expired', expired,             expired ? '#DC2626' : 'var(--muted)', expired ? 'No longer covered' : 'All covered');
+    card('expired',     'Warranty Expired', expired,             expired ? '#DC2626' : 'var(--muted)', expired ? 'No longer covered' : 'All covered') +
+    card('deactivated', 'Deactivated', deactivated, deactivated ? '#991B1B' : 'var(--muted)', 'Click to show the list');
 }
 
 /** Click a stat card → apply that filter to the table below, standalone
@@ -9985,6 +9988,7 @@ function renderWarranties() {
       case 'service_soon': return fOf(w.service_expiry) === 'soon';
       case 'expired':  return fOf(w.warranty_expiry) === 'past';
       case 'expiring': { const d = W.daysUntil(w.warranty_expiry); return d !== null && d >= 0 && d <= 30; }
+      case 'deactivated': return (w.status || 'active') === 'deactivated';
       default: break;   // '' = all
     }
     return true;
@@ -10112,13 +10116,14 @@ function renderWarranties() {
     </table></div>`;
 
   const deactivatedWidget = deactivatedRows.length ? `
-    <details style="margin-top:16px;border:1px solid var(--border,#E2E8F0);border-radius:9px;">
+    <details${f === 'deactivated' ? ' open' : ''} style="margin-top:16px;border:1px solid var(--border,#E2E8F0);border-radius:9px;">
       <summary style="cursor:pointer;padding:10px 14px;font-size:12px;font-weight:700;color:var(--muted);">🔴 Deactivated Units (${deactivatedRows.length}) — click to show</summary>
       <div style="padding:0 14px 14px;">${tableOf(deactivatedRows)}</div>
     </details>` : '';
 
   el.innerHTML = LEGEND
-    + (activeRows.length ? tableOf(activeRows) : '<div style="text-align:center;padding:30px;color:var(--muted);">No active units match this filter.</div>')
+    + (activeRows.length ? tableOf(activeRows)
+       : f === 'deactivated' ? '' : '<div style="text-align:center;padding:30px;color:var(--muted);">No active units match this filter.</div>')
     + deactivatedWidget
     + `<div style="font-size:11px;color:var(--muted);margin-top:10px;">Showing ${activeRows.length} of ${allWarranties.length} units — ${W.esc(activeLabel)}${q ? ` matching "${W.esc(q)}"` : ''}${deactivatedRows.length ? ` (${deactivatedRows.length} deactivated, hidden above)` : ''}.</div>`;
 }
