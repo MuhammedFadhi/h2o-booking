@@ -159,12 +159,17 @@ SADA.InspectionReport = (function () {
 
   // ------------------------------------------------------------- modal shell
   let _root = null;
-  function openModal(html) {
+  function openModal(html, opts = {}) {
     closeModal();
     _root = document.createElement('div');
     _root.className = 'sada-ir-overlay';
     _root.innerHTML = html;
-    _root.addEventListener('click', (e) => { if (e.target === _root) closeModal(); });
+    // opts.dismissible === false: used by the activation-wait screen, which
+    // must not be escapable by clicking the background - the whole point is
+    // that leaving it is only possible once the warranty is actually active.
+    if (opts.dismissible !== false) {
+      _root.addEventListener('click', (e) => { if (e.target === _root) closeModal(); });
+    }
     document.body.appendChild(_root);
     document.body.style.overflow = 'hidden';
     return _root;
@@ -175,12 +180,16 @@ SADA.InspectionReport = (function () {
     document.body.style.overflow = '';
   }
 
-  // ------------------------------------------------------------- post-submit activation wait
+  // ------------------------------------------------------------- post-submit activation lock
   // Shown right after an installation job is submitted, in place of closing
-  // straight away — a soft nudge (not a hard gate: "Skip" always works) to
-  // get the customer to scan their QR sticker while the installer is still
-  // on-site, instead of leaving warranties sitting "pending" indefinitely
-  // with nobody ever prompted to finish activating them.
+  // straight away. A hard gate, not a reminder: no close button, no skip,
+  // no dismissing by clicking outside — the Complete button stays disabled
+  // until every new unit's warranty actually shows a scanned serial, so an
+  // installer can't walk away leaving it "pending" with nobody ever
+  // prompted to finish activating it. (Note: the booking itself is already
+  // saved as completed by this point - the report, photos, and signatures
+  // were real - this gate only blocks leaving THIS screen, not the booking
+  // completion that already happened.)
   function tplActivationWait(units) {
     const rows = units.map((u, i) => `
       <div class="sada-ir__field" data-warranty="${u.id}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
@@ -194,43 +203,40 @@ SADA.InspectionReport = (function () {
       </div>`).join('');
     return `
       <div class="sada-ir" style="max-width:420px;">
-        <button class="sada-ir__close" aria-label="Close" data-action="activation-skip">×</button>
         <div class="sada-ir__body">
           <div class="sada-ir__section">
             <div class="sada-ir__section-head"><span>Activate Warranty</span></div>
-            <p style="font-size:13px;color:#6B7280;padding:10px 12px 0;margin:0;">Ask the customer to scan the QR sticker on their unit now — the warranty starts the moment they do.</p>
+            <p style="font-size:13px;color:#6B7280;padding:10px 12px 0;margin:0;">The customer must scan the QR sticker on their unit before you can finish this job. Hand them your phone or point them at the sticker now.</p>
             <div style="padding:6px 12px 10px;display:flex;flex-direction:column;gap:8px;">${rows}</div>
           </div>
         </div>
         <div class="sada-ir__actions">
-          <button class="sada-ir__btn sada-ir__btn--ghost" data-action="activation-skip">Skip — activate later</button>
-          <button class="sada-ir__btn" data-action="activation-done">Done</button>
+          <button class="sada-ir__btn" data-action="activation-done" disabled>Waiting for activation…</button>
         </div>
       </div>`;
   }
 
-  // onFinish is called exactly once, however the installer leaves this
-  // screen (Skip, Done, clicking outside, or every unit activating on its
-  // own) — it's what actually runs the caller's onSaved()/closeModal().
+  // onFinish runs once the installer dismisses this screen - which is only
+  // reachable once every unit is activated and they click the (until-then
+  // disabled) Complete button.
   async function showActivationWaitScreen(bookingId, onFinish) {
     const { data: units } = await window.db.from('warranties')
       .select('id, product_type, qr_code, status').eq('booking_id', bookingId)
       .order('created_at', { ascending: true });
     if (!units || !units.length) { onFinish(); return; }
 
-    const root = openModal(tplActivationWait(units));
-    let poll = null, done = false;
+    const root = openModal(tplActivationWait(units), { dismissible: false });
+    const doneBtn = root.querySelector('[data-action="activation-done"]');
+    let poll = null, done = false, allActivated = false;
     const finish = () => {
-      if (done) return;
+      if (done || !allActivated) return;
       done = true;
       if (poll) clearInterval(poll);
       closeModal();
       onFinish();
     };
     root.addEventListener('click', (e) => {
-      if (e.target === root) return finish(); // clicking the overlay background
-      const action = e.target?.dataset?.action;
-      if (action === 'activation-skip' || action === 'activation-done') finish();
+      if (e.target?.dataset?.action === 'activation-done') finish();
     });
 
     poll = setInterval(async () => {
@@ -249,7 +255,11 @@ SADA.InspectionReport = (function () {
           row.querySelector('.sada-ir__activation-check').textContent = '✅';
         }
       });
-      if (allDone) finish();
+      if (allDone && !allActivated) {
+        allActivated = true;
+        if (doneBtn) { doneBtn.disabled = false; doneBtn.textContent = 'Complete ✓'; }
+        clearInterval(poll);
+      }
     }, 3000);
   }
 
