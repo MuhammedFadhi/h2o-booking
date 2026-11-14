@@ -804,6 +804,18 @@ async function findActivatableBooking(units) {
     else unlinkedPool++;
   }
 
+  // A booking with its OWN pending warranty (created by the installer's
+  // completion step - see createPendingWarranties() in
+  // js/inspection-report.js) is unambiguous proof a real, distinct physical
+  // unit is waiting on it specifically. That must never get silently
+  // "satisfied" by the unlinked pool below instead - otherwise a customer
+  // whose older warranty happens to have no booking_id (pre-link-era data)
+  // would never see today's genuinely new unit offered for activation at
+  // all, since the pool would wrongly credit it to the old one.
+  const pendingBookingIds = new Set(
+    (units || []).filter(u => u.status === 'pending' && u.booking_id && !isBookDispenser(u.product_type)).map(u => u.booking_id)
+  );
+
   const { data: bookings } = await db.from('bookings')
     .select('id, booking_reference, booking_type, product_model, product_qty, created_at, booking_items(product_model, qty, is_serialized)')
     .eq('customer_phone', customer.phone)
@@ -821,6 +833,16 @@ async function findActivatableBooking(units) {
     const directlyCovered = Math.min(linkedActiveCountByBooking[b.id] || 0, targetQty);
     let remaining = targetQty - directlyCovered;
     if (remaining <= 0) continue; // this booking's own linked warranty(ies) already cover it
+
+    if (pendingBookingIds.has(b.id)) {
+      return {
+        booking: b,
+        productLabel: real.map(it => it.product_model).join(', '),
+        productModel: real[0].product_model,
+        unitIndex: directlyCovered + 1,
+        unitTotal: targetQty
+      };
+    }
 
     const fromPool = Math.min(unlinkedPool, remaining);
     unlinkedPool -= fromPool;
