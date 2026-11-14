@@ -175,6 +175,84 @@ SADA.InspectionReport = (function () {
     document.body.style.overflow = '';
   }
 
+  // ------------------------------------------------------------- post-submit activation wait
+  // Shown right after an installation job is submitted, in place of closing
+  // straight away — a soft nudge (not a hard gate: "Skip" always works) to
+  // get the customer to scan their QR sticker while the installer is still
+  // on-site, instead of leaving warranties sitting "pending" indefinitely
+  // with nobody ever prompted to finish activating them.
+  function tplActivationWait(units) {
+    const rows = units.map((u, i) => `
+      <div class="sada-ir__field" data-warranty="${u.id}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div>
+          <div style="font-weight:600;font-size:13px;">${esc(u.product_type || 'Unit')}${units.length > 1 ? ` (${i + 1} of ${units.length})` : ''}</div>
+          <div class="sada-ir__activation-serial" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:${u.qr_code ? '#166534' : '#6B7280'};margin-top:2px;">
+            ${u.qr_code ? `Serial No: ${esc(u.qr_code)}` : 'Waiting for customer to scan…'}
+          </div>
+        </div>
+        <span class="sada-ir__activation-check" style="font-size:18px;">${u.qr_code ? '✅' : '⏳'}</span>
+      </div>`).join('');
+    return `
+      <div class="sada-ir" style="max-width:420px;">
+        <button class="sada-ir__close" aria-label="Close" data-action="activation-skip">×</button>
+        <div class="sada-ir__body">
+          <div class="sada-ir__section">
+            <div class="sada-ir__section-head"><span>Activate Warranty</span></div>
+            <p style="font-size:13px;color:#6B7280;padding:10px 12px 0;margin:0;">Ask the customer to scan the QR sticker on their unit now — the warranty starts the moment they do.</p>
+            <div style="padding:6px 12px 10px;display:flex;flex-direction:column;gap:8px;">${rows}</div>
+          </div>
+        </div>
+        <div class="sada-ir__actions">
+          <button class="sada-ir__btn sada-ir__btn--ghost" data-action="activation-skip">Skip — activate later</button>
+          <button class="sada-ir__btn" data-action="activation-done">Done</button>
+        </div>
+      </div>`;
+  }
+
+  // onFinish is called exactly once, however the installer leaves this
+  // screen (Skip, Done, clicking outside, or every unit activating on its
+  // own) — it's what actually runs the caller's onSaved()/closeModal().
+  async function showActivationWaitScreen(bookingId, onFinish) {
+    const { data: units } = await window.db.from('warranties')
+      .select('id, product_type, qr_code, status').eq('booking_id', bookingId)
+      .order('created_at', { ascending: true });
+    if (!units || !units.length) { onFinish(); return; }
+
+    const root = openModal(tplActivationWait(units));
+    let poll = null, done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      if (poll) clearInterval(poll);
+      closeModal();
+      onFinish();
+    };
+    root.addEventListener('click', (e) => {
+      if (e.target === root) return finish(); // clicking the overlay background
+      const action = e.target?.dataset?.action;
+      if (action === 'activation-skip' || action === 'activation-done') finish();
+    });
+
+    poll = setInterval(async () => {
+      const { data: fresh } = await window.db.from('warranties')
+        .select('id, qr_code').in('id', units.map(u => u.id));
+      if (!fresh) return;
+      let allDone = true;
+      fresh.forEach((f) => {
+        if (!f.qr_code) { allDone = false; return; }
+        const row = root.querySelector(`[data-warranty="${f.id}"]`);
+        if (!row) return;
+        const serialEl = row.querySelector('.sada-ir__activation-serial');
+        if (serialEl && !serialEl.textContent.includes(f.qr_code)) {
+          serialEl.textContent = `Serial No: ${f.qr_code}`;
+          serialEl.style.color = '#166534';
+          row.querySelector('.sada-ir__activation-check').textContent = '✅';
+        }
+      });
+      if (allDone) finish();
+    }, 3000);
+  }
+
   // ------------------------------------------------------------- letterhead
   function brandHead() {
     return `
@@ -1170,9 +1248,16 @@ SADA.InspectionReport = (function () {
               body: JSON.stringify({ reportId: saved.id })
             }).catch(err => console.warn('[IR] notify-report:', err));
           }
-          ctx.onSaved?.(saved);
-          if (isSubmit) closeModal();
-          else { e.target.disabled = false; e.target.textContent = origLabel; }
+          if (isSubmit && isInstall) {
+            // Replaces the form with the activation-wait screen instead of
+            // closing straight away — onSaved()/closeModal() run once the
+            // installer leaves THAT screen, not here.
+            await showActivationWaitScreen(ctx.bookingId, () => ctx.onSaved?.(saved));
+          } else {
+            ctx.onSaved?.(saved);
+            if (isSubmit) closeModal();
+            else { e.target.disabled = false; e.target.textContent = origLabel; }
+          }
         } catch (err) {
           console.error('[IR] save failed', err);
           alert('Save failed: ' + (err.message || err));
