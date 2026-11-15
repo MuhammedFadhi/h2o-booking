@@ -3817,8 +3817,11 @@ async function sbLookup() {
         const { data: dispItems } = await dbAdmin.from('booking_items')
           .select('product_model').in('booking_id', bookingIds);
         const already = new Set(units.map(u => u.product));
+        // A dispenser's colour choice is folded into product_model at booking
+        // time (e.g. "RO Water Dispenser (Hot/Cold) — Black") — strip that
+        // suffix before matching against the catalogue's bare model name.
         const dispModels = [...new Set((dispItems || []).map(d => d.product_model).filter(Boolean))]
-          .filter(m => nonSerialized.has(m) && !already.has(m));
+          .filter(m => nonSerialized.has(m.split(' — ')[0].trim()) && !already.has(m));
         units = units.concat(dispModels.map(m => ({ label: `${m} (no warranty)`, product: m, serial: null })));
       }
     }
