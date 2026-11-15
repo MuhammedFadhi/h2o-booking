@@ -2060,7 +2060,7 @@
 
         <div class="form-group">
           <label>Which unit?</label>
-          <select class="form-input" id="sb-unit" onchange="sbUnitChanged()"></select>
+          <div id="sb-unit" style="display:flex;flex-direction:column;gap:7px;"></div>
           <div id="sb-unit-help" style="font-size:11px;color:var(--muted);margin-top:4px;display:none;"></div>
           <div id="sb-amc-banner" style="display:none;margin-top:8px;background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;padding:9px 12px;border-radius:9px;font-size:12px;font-weight:600;"></div>
           <div id="sb-promo-banner" style="display:none;margin-top:8px;padding:9px 12px;border-radius:9px;font-size:12px;font-weight:600;"></div>
@@ -3901,7 +3901,14 @@ async function renderServiceCustomer(bookings) {
   const help = document.getElementById('sb-unit-help');
   sbUnitAmc = {};
   if (sbUnits.length) {
-    usel.innerHTML = sbUnits.map((u,i) => `<option value="${i}">${escB(u.label)}</option>`).join('');
+    // Checkboxes, not a single-select — a repair/service visit can cover more
+    // than one of the customer's products in one trip (see sbSelectedUnits()).
+    // First one on by default, matching the old select's implicit default.
+    usel.innerHTML = sbUnits.map((u,i) => `
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:400;cursor:pointer;">
+        <input type="checkbox" class="sb-unit-cb" value="${i}" style="width:auto;" ${i===0?'checked':''} onchange="sbUnitChanged()">
+        ${escB(u.label)}
+      </label>`).join('');
     help.style.display = 'none';
     // Batch-fetch active AMC contracts for these units so sbUnitChanged() can
     // flag "already prepaid" without a query per selection change.
@@ -3916,9 +3923,12 @@ async function renderServiceCustomer(bookings) {
   } else {
     const cat = await getCatalogue();
     const list = cat.filter(p => p.is_catalogue).length ? cat.filter(p => p.is_catalogue) : cat;
-    usel.innerHTML = '<option value="">— select a product —</option>' +
-      list.map(p => `<option value="cat:${escB(p.model_name)}">${escB(p.model_name)}</option>`).join('');
-    help.textContent = 'No registered unit on file — select which product this visit is for.';
+    usel.innerHTML = list.map(p => `
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:400;cursor:pointer;">
+        <input type="checkbox" class="sb-unit-cb" value="cat:${escB(p.model_name)}" style="width:auto;" onchange="sbUnitChanged()">
+        ${escB(p.model_name)}
+      </label>`).join('');
+    help.textContent = 'No registered unit on file — select which product(s) this visit is for.';
     help.style.display = 'block';
   }
   sbUnitChanged();
@@ -3960,12 +3970,22 @@ function sbTypeChanged() {
   sbUnitChanged();
 }
 
-// Shows a banner when the selected unit already has an active, prepaid AMC
-// contract covering it — informational only, doesn't touch the charge field.
+// Which checkboxes are ticked, resolved back to their unit objects. The first
+// one is treated as "primary" (drives product_model/warranty_id/AMC/promo);
+// any others just get named in the installer notes — see submitServiceBooking().
+function sbSelectedUnits() {
+  const boxes = [...document.querySelectorAll('#sb-unit .sb-unit-cb:checked')];
+  return boxes.map(cb => {
+    const v = cb.value;
+    return v.startsWith('cat:') ? { label: v.slice(4), product: v.slice(4), serial: null } : (sbUnits[v] || null);
+  }).filter(Boolean);
+}
+
+// Shows a banner when the primary selected unit already has an active, prepaid
+// AMC contract covering it — informational only, doesn't touch the charge field.
 function sbUnitChanged() {
   const banner = document.getElementById('sb-amc-banner');
-  const idx = document.getElementById('sb-unit').value;
-  const unit = (idx !== '' && !idx.startsWith('cat:') && sbUnits[idx]) ? sbUnits[idx] : null;
+  const unit = sbSelectedUnits()[0] || null;
   const c = unit ? sbUnitAmc[unit.id] : null;
   if (c) {
     banner.style.display = 'block';
@@ -4108,9 +4128,10 @@ async function submitServiceBooking() {
     if (mapUrl) address = address ? (address + ' — ' + mapUrl) : mapUrl;
   }
 
-  const unitIdx = document.getElementById('sb-unit').value;
-  const unit = unitIdx.startsWith('cat:') ? { label: unitIdx.slice(4), product: unitIdx.slice(4), serial: null }
-    : (unitIdx !== '' && sbUnits[unitIdx]) ? sbUnits[unitIdx] : null;
+  const selectedUnits = sbSelectedUnits();
+  if (!selectedUnits.length) return fail('Select at least one unit/product for this visit.');
+  const unit = selectedUnits[0];
+  const extraUnits = selectedUnits.slice(1).map(u => u.label).filter(Boolean);
   const notes = (document.getElementById('sb-notes').value || '').trim();
   const chargeRaw = (document.getElementById('sb-charge').value || '').trim();
   const charge = chargeRaw === '' ? null : Number(chargeRaw);
@@ -4142,7 +4163,8 @@ async function submitServiceBooking() {
       product_model: unit ? unit.product : (sbCustomer.product_model || null),
       product_qty: 1,
       warranty_id: unit?.id || null,
-      notes: [notes, unit?.serial ? `Unit serial: ${unit.serial}` : ''].filter(Boolean).join(' · ') || null
+      notes: [notes, unit?.serial ? `Unit serial: ${unit.serial}` : '', extraUnits.length ? `Also check: ${extraUnits.join(', ')}` : '']
+        .filter(Boolean).join(' · ') || null
     };
     if (charge !== null) patch.order_total = charge;
     // Carry the known pin forward and record where it came from.
