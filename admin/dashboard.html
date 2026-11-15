@@ -3803,11 +3803,22 @@ async function sbLookup() {
       // would otherwise silently disappear from this picker entirely. List it
       // too, same as the no-warranty fallback above (no `id` → no warranty_id
       // gets linked, exactly like a repair visit for a brand-new customer).
+      //
+      // Can't trust booking_items.is_serialized here — a repair/service
+      // booking's own line items are always inserted with is_serialized:false
+      // regardless of the real product (so they never trigger warranty
+      // creation), so a unit that's ever had a repair visit would otherwise
+      // show up here a second time as a fake "no warranty" duplicate of
+      // itself. product_models.is_serialized is the actual catalogue truth.
       const bookingIds = bookings.map(b => b.id);
       if (bookingIds.length) {
+        const cat = await getCatalogue();
+        const nonSerialized = new Set(cat.filter(p => p.is_serialized === false).map(p => p.model_name));
         const { data: dispItems } = await dbAdmin.from('booking_items')
-          .select('product_model').in('booking_id', bookingIds).eq('is_serialized', false);
-        const dispModels = [...new Set((dispItems || []).map(d => d.product_model).filter(Boolean))];
+          .select('product_model').in('booking_id', bookingIds);
+        const already = new Set(units.map(u => u.product));
+        const dispModels = [...new Set((dispItems || []).map(d => d.product_model).filter(Boolean))]
+          .filter(m => nonSerialized.has(m) && !already.has(m));
         units = units.concat(dispModels.map(m => ({ label: `${m} (no warranty)`, product: m, serial: null })));
       }
     }
