@@ -171,6 +171,10 @@
     <button class="logout-btn" id="refresh-btn" onclick="manualRefresh()" title="Refresh" style="display:flex;align-items:center;justify-content:center;padding:8px 10px;">
       <svg id="refresh-icon" xmlns="http://www.w3.org/2000/svg" width="1.1em" height="1.1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"/></g></svg>
     </button>
+    <button class="logout-btn" id="wallet-btn" onclick="openWallet()" title="My Wallet" style="display:flex;align-items:center;gap:5px;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M17 8V5a1 1 0 0 0-1-1H6a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V6"/><path d="M20 12v4h-4a2 2 0 0 1 0-4z"/></g></svg>
+      <span id="wallet-due">Wallet</span>
+    </button>
     <button class="logout-btn" onclick="openProfileModal()" title="My Profile" style="display:flex;align-items:center;gap:5px;">
       <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></g></svg>
       Profile
@@ -190,7 +194,9 @@
     <button class="tab" onclick="filterTab('available',this)">Available <span class="badge-count" id="badge-available" style="display:none;"></span></button>
     <button class="tab" onclick="filterTab('in_progress',this)">In Progress</button>
     <button class="tab" onclick="filterTab('completed',this)">Completed</button>
+    <button class="tab" id="tab-wallet" onclick="filterTab('wallet',this)">Wallet</button>
   </div>
+  <div id="wallet-pane" style="display:none;"></div>
   <div id="loc-filter" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0 14px;">
     <div id="region-chips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
     <select id="city-filter" onchange="renderAppointments()" style="margin-left:auto;padding:7px 10px;border:1.5px solid var(--border,#d5dde3);border-radius:9px;font-size:13px;background:#fff;color:inherit;max-width:180px;">
@@ -225,6 +231,7 @@
   </div>
 </div>
 
+<script src="../shared/wallet.js"></script>
 <script>
 // dev-booking.sadawater.com talks to a separate dev-only Supabase project so
 // testing never touches real customer data. Any other host (production,
@@ -336,6 +343,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   officialCities = cits || [];
   await loadAll();
   buildLocationFilter();
+  Wallet.load().then(showWalletDue).catch(() => {});
   notifyUpcomingToday();
 });
 
@@ -480,10 +488,21 @@ function notifyUpcomingToday() {
 }
 
 function filterTab(tab, el) {
-  activeTab = tab;
+  const wallet = tab === 'wallet';
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
+  document.getElementById('wallet-pane').style.display = wallet ? '' : 'none';
+  document.getElementById('loc-filter').style.display = wallet ? 'none' : 'flex';
+  document.getElementById('appointments-list').style.display = wallet ? 'none' : '';
+  if (wallet) { Wallet.render(document.getElementById('wallet-pane')).then(showWalletDue); return; }
+  activeTab = tab;
   renderAppointments();
+}
+
+// My Wallet (shared/wallet.js): top-bar button shows the Balance Due.
+function openWallet() { filterTab('wallet', document.getElementById('tab-wallet')); window.scrollTo(0, 0); }
+function showWalletDue(due) {
+  document.getElementById('wallet-due').textContent = due ? 'SAR ' + Number(due).toLocaleString('en-US', { maximumFractionDigits: 2 }) : 'Wallet';
 }
 
 function whenBadge(slotDate, status) {
