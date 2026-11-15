@@ -102,6 +102,25 @@ SADA.InspectionReport = (function () {
       onerror="var i=parseInt(this.dataset.i||'0',10)+1;var l=${JSON.stringify(LOGO_CANDIDATES)};this.dataset.i=i;if(i<l.length){this.src=l[i]}else{this.style.display='none'}">`;
   }
 
+  // This portal stays open all day on a phone, often with the screen locked for
+  // long stretches mid-install — mobile browsers can suspend the JS timer that
+  // would normally auto-refresh the access token in the background. A write
+  // made on an expired token gets silently authenticated as 'anon' instead of
+  // the installer, so it reads fine but fails RLS on save. Mirrors the
+  // ensureSession() guard already used elsewhere in the installer portal, but
+  // scoped here since this module is shared by admin/installer/customer.
+  async function ensureFreshSession() {
+    try {
+      let { data: { session } } = await window.db.auth.getSession();
+      const expSoon = session?.expires_at && (session.expires_at * 1000 - Date.now() < 120000);
+      if (!session || expSoon) {
+        const { data } = await window.db.auth.refreshSession();
+        session = data?.session || null;
+      }
+      return session?.user?.id || null;
+    } catch (e) { return null; }
+  }
+
   // ------------------------------------------------------------- data layer
   async function loadBooking(bookingId) {
     if (!bookingId) return null;
@@ -1209,6 +1228,11 @@ SADA.InspectionReport = (function () {
         e.target.disabled = true;
         const origLabel = e.target.textContent;
         try {
+          // Refresh a possibly-expired session before writing — see ensureFreshSession().
+          const freshUserId = await ensureFreshSession();
+          if (!freshUserId) throw new Error('Your session expired. Please sign in again — nothing you filled in is lost, just reopen this job after logging back in.');
+          if (ctx.installerId) ctx.installerId = freshUserId;
+
           let photoUrl = null, qrUrl = null;
           if (isSubmit) {
             // Re-check live state right before completing — guards the same race
