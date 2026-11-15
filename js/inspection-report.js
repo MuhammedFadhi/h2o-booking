@@ -1288,6 +1288,19 @@ SADA.InspectionReport = (function () {
     ]);
     if (!booking) { alert('Booking not found'); return; }
     if (existing && existing.status === 'submitted') {
+      // A submitted install whose warranty never finished activating (e.g.
+      // the installer closed the app during the activation-wait screen
+      // before the customer scanned) must resume that lock on reopen, not
+      // fall through to the normal read-only view - otherwise closing the
+      // app is a free way out of a job that still isn't really done.
+      const jt = booking.booking_type || 'installation';
+      if (jt === 'installation') {
+        const { data: stillPending } = await window.db.from('warranties')
+          .select('id').eq('booking_id', bookingId).eq('status', 'pending').limit(1);
+        if (stillPending && stillPending.length) {
+          return showActivationWaitScreen(bookingId, () => opts.onSaved?.(existing));
+        }
+      }
       return openView(existing.id, { canPrint: true });
     }
     // Unpack embedded component_remarks
