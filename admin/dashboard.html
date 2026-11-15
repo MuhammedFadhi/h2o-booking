@@ -4186,12 +4186,15 @@ async function submitServiceBooking() {
       await dbAdmin.from('customers').update({ address, updated_at: nowIso }).eq('phone', sbCustomer.phone);
     }
 
-    // Line item so the installer's "what to bring" panel shows the unit.
-    if (unit?.product) {
-      await dbAdmin.from('booking_items').insert({
-        booking_id: bkId, product_model: unit.product, qty: 1,
-        unit_price: charge ?? 0, is_serialized: false
-      });
+    // Line item(s) so the installer's "what to bring" panel — and the All
+    // Bookings list's product column, which prefers booking_items over the
+    // single product_model field once any exist — show every selected unit,
+    // not just the primary one.
+    if (selectedUnits.length) {
+      await dbAdmin.from('booking_items').insert(selectedUnits.map(u => ({
+        booking_id: bkId, product_model: u.product, qty: 1,
+        unit_price: u === unit ? (charge ?? 0) : 0, is_serialized: false
+      })));
     }
 
     const typeLabel = ({
