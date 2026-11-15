@@ -264,10 +264,14 @@ function myJobsRows(rows) {
   return rows.filter(b => {
     if (b.status === 'upcoming') return b.slot_date >= sinceIso && b.slot_date <= todayIso;
     // An installation submitted but still awaiting the customer's QR scan
-    // stays in My Jobs regardless of date — it isn't really done yet (see
-    // the Activate Warranty lock in js/inspection-report.js), so closing
-    // the app right after submitting must not make it disappear.
-    if (b.status === 'installed' && pendingWarrantyBookingIds.has(b.id)) return true;
+    // stays in My Jobs — it isn't really done yet (see the Activate
+    // Warranty lock in js/inspection-report.js), so closing the app right
+    // after submitting must not make it disappear. Bounded to the same
+    // recent window as 'upcoming' overdue jobs above, not unbounded: this
+    // feature only started tracking activation going forward, so old
+    // installs from before it existed (which were never going to get
+    // scanned) must not come flooding back and bury today's real ones.
+    if (b.status === 'installed' && pendingWarrantyBookingIds.has(b.id)) return b.slot_date >= sinceIso;
     return false;
   });
 }
