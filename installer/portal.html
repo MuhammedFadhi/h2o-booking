@@ -261,7 +261,15 @@ function myJobsRows(rows) {
   const todayIso = localDateISO(new Date());
   const since = new Date(); since.setDate(since.getDate() - MY_JOBS_OVERDUE_DAYS);
   const sinceIso = localDateISO(since);
-  return rows.filter(b => b.status === 'upcoming' && b.slot_date >= sinceIso && b.slot_date <= todayIso);
+  return rows.filter(b => {
+    if (b.status === 'upcoming') return b.slot_date >= sinceIso && b.slot_date <= todayIso;
+    // An installation submitted but still awaiting the customer's QR scan
+    // stays in My Jobs regardless of date — it isn't really done yet (see
+    // the Activate Warranty lock in js/inspection-report.js), so closing
+    // the app right after submitting must not make it disappear.
+    if (b.status === 'installed' && pendingWarrantyBookingIds.has(b.id)) return true;
+    return false;
+  });
 }
 
 // Today's jobs first, then everything else oldest-date-first — so overdue
@@ -281,6 +289,7 @@ let installerPhone = '';
 let installerSavedSignature = null;  // auto-fills the tech signature on every inspection report
 let profileSigPad = null;
 let myBookings = [];       // bookings assigned to me
+let pendingWarrantyBookingIds = new Set(); // installs submitted but still awaiting the customer's QR scan — see myJobsRows()
 let availableBookings = []; // unassigned upcoming — pool for everyone
 let serviceRegions = [];    // [{id,name}] for the location filter
 let officialCities = [];    // [{name, region_id}] — the exact cities customers can book
@@ -418,6 +427,16 @@ async function loadAll() {
         reportsByBooking[r.booking_id] = { id: r.id, status: r.status, submitted_at: r.submitted_at };
       }
     });
+  }
+
+  // Installed jobs whose warranty is still "pending" (customer hasn't
+  // scanned yet) stay in My Jobs — see myJobsRows().
+  pendingWarrantyBookingIds = new Set();
+  const installedIds = myBookings.filter(b => b.status === 'installed').map(b => b.id);
+  if (installedIds.length) {
+    const { data: pending } = await db.from('warranties')
+      .select('booking_id').in('booking_id', installedIds).eq('status', 'pending');
+    (pending || []).forEach(w => pendingWarrantyBookingIds.add(w.booking_id));
   }
 
   // My Jobs shows today's work + up to a week overdue, so the count/badge match that.
@@ -684,7 +703,12 @@ function renderAppointments() {
       const rep = reportsByBooking[b.id];
       const reportDraft = rep && rep.status === 'draft';
       let jobBtn = '';
-      if (b.status === 'completed' || b.status === 'installed') {
+      if (b.status === 'installed' && pendingWarrantyBookingIds.has(b.id)) {
+        // Report's already in, but the customer still hasn't scanned — this
+        // reopens straight into the activation lock (see openForm() in
+        // js/inspection-report.js), not the finished report.
+        jobBtn = `<button class="btn-complete" onclick="openInspectionReport('${b.id}')">🔓 Activate Warranty</button>`;
+      } else if (b.status === 'completed' || b.status === 'installed') {
         jobBtn = '<span style="font-size:13px;color:var(--muted);">✓ Done</span>';
       } else if (b.status !== 'cancelled') {
         jobBtn = `<button class="btn-complete" onclick="openInspectionReport('${b.id}')">${reportDraft ? '📝 Continue Report' : '📋 Fill Inspection Report'}</button>`;
