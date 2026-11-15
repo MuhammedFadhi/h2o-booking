@@ -3730,6 +3730,19 @@ async function sbLookup() {
     if (!units.length) {
       const models = [...new Set(bookings.map(b => b.product_model).filter(Boolean))];
       units = models.map(m => ({ label: m, product: m, serial: null }));
+    } else {
+      // Dispensers never get a warranty row (by design — see "Edit Products"),
+      // so once a customer has at least one warrantied RO unit, the dispenser
+      // would otherwise silently disappear from this picker entirely. List it
+      // too, same as the no-warranty fallback above (no `id` → no warranty_id
+      // gets linked, exactly like a repair visit for a brand-new customer).
+      const bookingIds = bookings.map(b => b.id);
+      if (bookingIds.length) {
+        const { data: dispItems } = await dbAdmin.from('booking_items')
+          .select('product_model').in('booking_id', bookingIds).eq('is_serialized', false);
+        const dispModels = [...new Set((dispItems || []).map(d => d.product_model).filter(Boolean))];
+        units = units.concat(dispModels.map(m => ({ label: `${m} (no warranty)`, product: m, serial: null })));
+      }
     }
     sbUnits = units;
 
