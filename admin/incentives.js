@@ -3,7 +3,9 @@
 // Admin-only: awards are entered by hand; no portal shows them.
 // Uses the dashboard's globals: dbAdmin, installers, salesUsers,
 // loadSales, showToast, openModal, closeModal, logActivity.
-// Tables: migrations/v110_incentives.sql, v111, v112, v114_incentive_batches.sql
+// Tables: migrations/v110_incentives.sql, v111, v112, v114_incentive_batches.sql,
+// v116_incentive_auto_earnings.sql, v117_incentive_payouts.sql. A Save is a rule; money is earned in
+// incentive_earnings when a booking is completed (see v116).
 // ============================================================
 (function () {
   const GROUPS = [
@@ -44,7 +46,7 @@
 
   const S = {
     tab: 'entries', month: today.slice(0, 7), person: '', group: '',
-    entries: [], rates: [], people: [], payments: [], selected: new Map(), products: new Set(), editingBatch: null,
+    entries: [], earnings: [], rates: [], people: [], payments: [], balances: [], payouts: [], paySel: new Set(), selected: new Map(), products: new Set(), editingBatch: null,
     amountMode: 'sar', amountValue: null, catalog: new Map()
   };
 
@@ -76,6 +78,12 @@
     return list.sort((a, b) => String(a.name).localeCompare(String(b.name)));
   }
 
+  function filteredEarnings() {
+    return S.earnings.filter(e =>
+      (!S.person || personKey(e.person_type, e.person_id) === S.person) &&
+      (!S.group || e.person_type === S.group));
+  }
+
   function filteredEntries() {
     return S.entries.filter(e =>
       (!S.person || personKey(e.person_type, e.person_id) === S.person) &&
@@ -105,14 +113,18 @@
 
   async function fetchMonth() {
     const { from, to } = monthRange(S.month);
-    const [entries, payments] = await Promise.all([
-      dbAdmin.from('incentive_entries').select('*').gte('period_date', from).lt('period_date', to)
+    // Rules whose From..To touches this month, and money earned in this month.
+    const [entries, payments, earnings] = await Promise.all([
+      dbAdmin.from('incentive_entries').select('*').gte('period_date', from).lt('entry_date', to)
         .order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
-      dbAdmin.from('incentive_payments').select('*').eq('month', from)
+      dbAdmin.from('incentive_payments').select('*').eq('month', from),
+      dbAdmin.from('incentive_earnings').select('*').gte('earned_on', from).lt('earned_on', to)
     ]);
     if (entries.error) throw entries.error;
     if (payments.error) throw payments.error;
+    if (earnings.error) throw earnings.error;
     S.entries = entries.data || [];
+    S.earnings = earnings.data || [];
     S.payments = payments.data || [];
   }
 
@@ -123,6 +135,7 @@
     try {
       await ensureStaffLoaded();
       await Promise.all([fetchSetup(), fetchMonth()]);
+      if (S.tab === 'balances' || S.tab === 'payouts') await fetchMoney();
       render();
     } catch (e) {
       panel.innerHTML = `<div class="card"><div class="empty-state"><div>Could not load incentives: ${esc(e.message)}</div>
@@ -131,13 +144,16 @@
   }
 
   function render() {
-    // Rates and People are hidden for now (client request). To show them again,
-    // add back: ['rates', 'Rates'], ['people', 'People']
-    const tabs = [['entries', 'Entries'], ['summary', 'Monthly Summary']];
+    // Rates, People and the old Monthly Summary are hidden (client request). To
+    // show them again add: ['summary', 'Monthly Summary'], ['rates', 'Rates'], ['people', 'People']
+    const tabs = [['entries', 'Rules'], ['balances', 'Balances'], ['payouts', 'Payouts']];
     if (!tabs.some(([k]) => k === S.tab)) S.tab = 'entries';
     const tabBtns = tabs.map(([k, l]) =>
       `<button class="btn btn-sm ${S.tab === k ? 'btn-primary' : 'btn-ghost'}" onclick="incSetTab('${k}')">${l}</button>`).join('');
-    const body = { entries: renderEntries, summary: renderSummary, rates: renderRates, people: renderPeople }[S.tab]();
+    const body = {
+      entries: renderEntries, summary: renderSummary, rates: renderRates, people: renderPeople,
+      balances: renderBalances, payouts: renderPayouts
+    }[S.tab]();
     $('panel-incentives').innerHTML = `
       <div class="card">
         <div class="card-header"><span class="card-title">Incentives</span>
@@ -207,6 +223,8 @@
   // One row per Save. With a person or group filter, Total is only their share.
   function batches() {
     const shown = new Set(filteredEntries().map(e => e.id));
+    const earned = new Map();
+    filteredEarnings().forEach(x => earned.set(x.batch_no, (earned.get(x.batch_no) || 0) + Number(x.amount)));
     const keys = [...new Set(S.entries.map(batchKeyOf))];
     const uniq = list => [...new Set(list)];
     return keys.map(findBatch).map(b => {
@@ -217,7 +235,7 @@
         people: uniq(b.entries.map(e => e.person_name)),
         products: uniq(b.entries.map(typeLabel)),
         amount: amountLabel(b.entries),
-        total: totals(mine).net
+        total: earned.get(b.no) || 0
       };
     }).filter(b => b.mine.length);
   }
@@ -239,15 +257,16 @@
           <button class="btn btn-sm btn-danger" onclick="incDelete('${esc(b.key)}')">Delete</button>
         </div></td>
       </tr>`).join('');
-    return filterBar() + kpis(totals(filteredEntries())) + `
+    return filterBar() + kpis(totals(filteredEarnings())) + `
       <div style="padding:16px 20px 20px;overflow-x:auto;">
-        ${list.length ? `<table><thead><tr><th>ID</th><th>From</th><th>To</th><th>People</th><th>Products</th><th>Amount</th><th>Total</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Each row is a rule. Earned is added automatically when a booking with these products is completed between From and To.</div>
+        ${list.length ? `<table><thead><tr><th>ID</th><th>From</th><th>To</th><th>People</th><th>Products</th><th>Per Unit Sold</th><th>Earned</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`
         : '<div class="empty-state"><div>No incentives for this month yet.</div></div>'}
       </div>`;
   }
   function summaryRows() {
     const byPerson = new Map();
-    filteredEntries().forEach(e => {
+    filteredEarnings().forEach(e => {
       const k = personKey(e.person_type, e.person_id);
       if (!byPerson.has(k)) byPerson.set(k, { key: k, type: e.person_type, id: e.person_id, name: e.person_name, group: e.group_key, list: [] });
       byPerson.get(k).list.push(e);
@@ -273,7 +292,7 @@
         </td>
       </tr>`;
     }).join('');
-    return filterBar() + kpis(totals(filteredEntries())) + `
+    return filterBar() + kpis(totals(filteredEarnings())) + `
       <div style="padding:16px 20px 20px;overflow-x:auto;">
         ${data.length ? `<table><thead><tr><th>Person</th><th>Group</th><th>Total</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`
         : '<div class="empty-state"><div>No incentives for this month yet.</div></div>'}
@@ -314,6 +333,252 @@
       </div>`;
   }
 
+  // ---- Balances and payouts (v117) ----
+  // Earnings are never deleted: a Pay Out links the unpaid ones to a payout,
+  // so the balance starts again from zero and the history stays.
+
+  const payLabel = n => n == null ? '—' : `PAY-${String(n).padStart(4, '0')}`;
+  const METHODS = { cash: 'Cash', bank: 'Bank' };
+
+  async function fetchMoney() {
+    const [bal, pays] = await Promise.all([
+      dbAdmin.from('incentive_balances').select('*'),
+      dbAdmin.from('incentive_payouts').select('*, incentive_payout_lines(*)').order('payout_no', { ascending: false })
+    ]);
+    if (bal.error) throw bal.error;
+    if (pays.error) throw pays.error;
+    S.balances = (bal.data || []).map(b => ({ ...b, key: personKey(b.person_type, b.person_id) }));
+    S.payouts = pays.data || [];
+    S.paySel = new Set([...S.paySel].filter(k => S.balances.some(b => b.key === k && Number(b.balance) > 0)));
+  }
+
+  const tile = (text, value, color) => `
+    <div class="stat-card" style="border-top:3px solid ${color};">
+      <div class="stat-value" style="color:${color};font-size:22px;">SAR ${money(value)}</div>
+      <div class="stat-label">${text}</div>
+    </div>`;
+
+  function shownBalances() {
+    return S.balances.filter(b => !S.group || b.person_type === S.group)
+      .sort((a, b) => String(a.person_name).localeCompare(String(b.person_name)));
+  }
+
+  function renderBalances() {
+    const list = shownBalances();
+    const sum = k => list.reduce((s, b) => s + Number(b[k] || 0), 0);
+    const chosen = list.filter(b => S.paySel.has(b.key));
+    const groupOpts = ACCOUNTS.map(g => `<option value="${g.key}" ${S.group === g.key ? 'selected' : ''}>${esc(g.label)}</option>`).join('');
+    const rows = list.map(b => {
+      const due = Number(b.balance);
+      return `<tr>
+        <td>${due > 0 ? `<input type="checkbox" ${S.paySel.has(b.key) ? 'checked' : ''} onchange="incPickPay('${esc(b.key)}',this.checked)" aria-label="Pay ${esc(b.person_name)}">` : ''}</td>
+        <td><a href="#" onclick="incHistory('${esc(b.key)}');return false;" style="text-decoration:none;" title="See history">${personChip(b.person_name)}</a></td>
+        <td>${esc(accountLabel(b.person_type))}</td>
+        <td style="white-space:nowrap;">SAR ${money(b.earned)}</td>
+        <td style="white-space:nowrap;">SAR ${money(b.paid)}</td>
+        <td style="white-space:nowrap;font-weight:700;${due < 0 ? 'color:#B71C1C;' : ''}">SAR ${money(due)}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div class="filter-bar" style="padding:16px 20px 0;">
+        <select class="form-input" style="max-width:220px;" onchange="incSetGroup(this.value)" aria-label="Group"><option value="">All groups</option>${groupOpts}</select>
+        <button class="btn btn-ghost btn-sm" onclick="incPickAllDue()">Select all with balance</button>
+        <button class="btn btn-primary btn-sm" onclick="incOpenPay()" ${chosen.length ? '' : 'disabled'}>Pay Out${chosen.length ? ` (${chosen.length})` : ''}</button>
+      </div>
+      <div class="stat-grid" style="padding:16px 20px 0;margin-bottom:0;">
+        ${tile('Earned', sum('earned'), '#0F766E')}${tile('Paid', sum('paid'), '#2563EB')}${tile('Balance Due', sum('balance'), '#D97706')}
+      </div>
+      <div style="padding:16px 20px 20px;overflow-x:auto;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">All time. Click a name to see their history. After paying people, tick them and press Pay Out.</div>
+        ${list.length ? `<table><thead><tr><th></th><th>Person</th><th>Group</th><th>Earned</th><th>Paid</th><th>Balance Due</th></tr></thead><tbody>${rows}</tbody></table>`
+        : '<div class="empty-state"><div>No incentives earned yet.</div></div>'}
+      </div>`;
+  }
+
+  function pickPay(key, on) { if (on) S.paySel.add(key); else S.paySel.delete(key); render(); }
+
+  function pickAllDue() {
+    shownBalances().forEach(b => { if (Number(b.balance) > 0) S.paySel.add(b.key); });
+    render();
+  }
+
+  async function history(key) {
+    const b = S.balances.find(x => x.key === key);
+    if (!b) return;
+    const { data, error } = await dbAdmin.from('incentive_earnings')
+      .select('earned_on, product_name, qty, rate, amount, adjustment, payout_id, bookings(booking_reference)')
+      .eq('person_type', b.person_type).eq('person_id', b.person_id).order('earned_on', { ascending: false });
+    if (error) return showToast('Could not load history: ' + error.message, 'error');
+    const payNo = id => (S.payouts.find(p => p.id === id) || {}).payout_no;
+    const rows = (data || []).map(e => `<tr>
+      <td style="white-space:nowrap;">${dmy(e.earned_on)}</td>
+      <td style="white-space:nowrap;">${esc(e.bookings?.booking_reference || '—')}</td>
+      <td>${esc(e.product_name)}${e.adjustment ? ' <span style="font-size:11px;color:var(--muted);">(correction)</span>' : ''}</td>
+      <td style="white-space:nowrap;font-weight:600;">SAR ${money(e.amount)}</td>
+      <td style="white-space:nowrap;">${e.payout_id ? `Paid · ${payLabel(payNo(e.payout_id))}` : '<span style="color:#D97706;font-weight:600;">Unpaid</span>'}</td>
+    </tr>`).join('');
+    showInfoModal(`${b.person_name} · Balance due SAR ${money(b.balance)}`, rows
+      ? `<div style="overflow-x:auto;"><table class="data-table" style="width:100%;"><thead><tr><th>Date</th><th>Booking</th><th>Product</th><th>Amount</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`
+      : '<div class="empty-state">No incentives yet.</div>');
+  }
+
+  function ensurePayModal() {
+    if ($('inc-pay-modal')) return;
+    document.body.insertAdjacentHTML('beforeend', `
+      <div class="modal-overlay" id="inc-pay-modal">
+        <div class="modal" style="max-width:560px;width:100%;max-height:92vh;overflow-y:auto;">
+          <h2 class="modal-title">Pay Out Incentives</h2>
+          <div id="inc-pay-list" style="overflow-x:auto;"></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 12px;margin-top:12px;">
+            <div class="form-group"><label>Paid On</label><input type="date" class="form-input" id="inc-pay-date"></div>
+            <div class="form-group"><label>Method</label><select class="form-input" id="inc-pay-method"><option value="cash">Cash</option><option value="bank">Bank</option></select></div>
+          </div>
+          <div class="form-group"><label>Note <span style="color:var(--muted);font-weight:400;">(optional)</span></label><input type="text" class="form-input" id="inc-pay-note" maxlength="300"></div>
+          <div id="inc-pay-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:12px;border-radius:10px;font-size:13px;margin-top:8px;"></div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('inc-pay-modal')">Cancel</button>
+            <button class="btn btn-primary" id="inc-pay-save" onclick="incSavePay()">Confirm Pay Out</button>
+          </div>
+        </div>
+      </div>`);
+  }
+
+  const payChosen = () => S.balances.filter(b => S.paySel.has(b.key) && Number(b.balance) > 0);
+
+  function openPay() {
+    const chosen = payChosen();
+    if (!chosen.length) return showToast('Tick at least one person with a balance.', 'error');
+    ensurePayModal();
+    const total = chosen.reduce((s, b) => s + Number(b.balance), 0);
+    $('inc-pay-list').innerHTML = `<table style="width:100%;"><thead><tr><th>Person</th><th>Group</th><th>Amount</th></tr></thead><tbody>
+      ${chosen.map(b => `<tr><td>${personChip(b.person_name)}</td><td>${esc(accountLabel(b.person_type))}</td><td style="font-weight:600;white-space:nowrap;">SAR ${money(b.balance)}</td></tr>`).join('')}
+      </tbody></table><div style="font-weight:700;text-align:right;margin-top:8px;">Total: SAR ${money(total)}</div>`;
+    $('inc-pay-date').value = today;
+    $('inc-pay-method').value = 'cash';
+    $('inc-pay-note').value = '';
+    clearError('inc-pay-error');
+    openModal('inc-pay-modal');
+  }
+
+  async function savePay() {
+    clearError('inc-pay-error');
+    const chosen = payChosen();
+    const date = $('inc-pay-date').value;
+    if (!chosen.length) return showError('inc-pay-error', 'Nobody to pay.');
+    if (!date) return showError('inc-pay-error', 'Please choose the date paid.');
+    const btn = $('inc-pay-save');
+    btn.disabled = true;
+    try {
+      const { data: no, error } = await dbAdmin.rpc('create_incentive_payout', {
+        p_people: chosen.map(b => ({ person_type: b.person_type, person_id: b.person_id })),
+        p_paid_on: date, p_method: $('inc-pay-method').value, p_note: $('inc-pay-note').value
+      });
+      if (error) throw error;
+      closeModal('inc-pay-modal');
+      showToast(`Saved ${payLabel(no)}`);
+      try { logActivity('incentive_paid', `Paid out ${payLabel(no)} to ${chosen.length} people`, 'incentive', String(no)); } catch (e) { /* log only */ }
+      S.paySel = new Set();
+      await fetchMoney();
+      render();
+    } catch (e) {
+      showError('inc-pay-error', 'Could not save: ' + e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderPayouts() {
+    const rows = S.payouts.map(p => {
+      const lines = p.incentive_payout_lines || [];
+      const off = !!p.cancelled_at;
+      return `<tr style="${off ? 'opacity:.55;' : ''}">
+        <td style="font-weight:700;white-space:nowrap;">${payLabel(p.payout_no)}</td>
+        <td style="white-space:nowrap;">${dmy(p.paid_on)}</td>
+        <td style="min-width:180px;">${lines.map(l => personChip(l.person_name)).join('')}</td>
+        <td style="font-weight:700;white-space:nowrap;">SAR ${money(p.amount)}</td>
+        <td>${esc(METHODS[p.method] || p.method)}</td>
+        <td style="font-size:12px;">${esc(p.paid_by || '—')}</td>
+        <td>${off ? '<span style="color:#B71C1C;font-weight:600;">Cancelled</span>' : '<span style="color:#166534;font-weight:600;">Paid</span>'}</td>
+        <td><div style="display:flex;gap:6px;">
+          <button class="btn btn-sm btn-ghost" onclick="incViewPay(${Number(p.payout_no)})">View</button>
+          ${off ? '' : `<button class="btn btn-sm btn-ghost" onclick="incPrintPay(${Number(p.payout_no)})">Print Slip</button>
+          <button class="btn btn-sm btn-danger" onclick="incCancelPay(${Number(p.payout_no)})">Cancel</button>`}
+        </div></td>
+      </tr>`;
+    }).join('');
+    return `<div style="padding:16px 20px 20px;overflow-x:auto;">
+      ${S.payouts.length ? `<table><thead><tr><th>Payout</th><th>Date</th><th>People</th><th>Amount</th><th>Method</th><th>Paid By</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`
+      : '<div class="empty-state"><div>No payouts yet. Use the Balances tab to pay people.</div></div>'}
+    </div>`;
+  }
+
+  const findPay = no => S.payouts.find(x => Number(x.payout_no) === Number(no));
+
+  function viewPay(no) {
+    const p = findPay(no);
+    if (!p) return;
+    const lines = p.incentive_payout_lines || [];
+    showInfoModal(`${payLabel(no)} · ${dmy(p.paid_on)} · ${METHODS[p.method] || p.method}`, `
+      <table class="data-table" style="width:100%;"><thead><tr><th>Person</th><th>Group</th><th>Amount</th></tr></thead><tbody>
+        ${lines.map(l => `<tr><td>${personChip(l.person_name)}</td><td>${esc(accountLabel(l.person_type))}</td><td style="font-weight:600;white-space:nowrap;">SAR ${money(l.amount)}</td></tr>`).join('')}
+      </tbody></table>
+      <div style="font-weight:700;text-align:right;margin-top:10px;">Total: SAR ${money(p.amount)}</div>
+      ${p.note ? `<div style="margin-top:8px;font-size:13px;"><strong>Note:</strong> ${esc(p.note)}</div>` : ''}
+      <div style="margin-top:8px;font-size:12px;color:var(--muted);">Paid by ${esc(p.paid_by || '—')}${p.cancelled_at ? ` · Cancelled by ${esc(p.cancelled_by || '—')}` : ''}</div>`);
+  }
+
+  async function cancelPay(no) {
+    const p = findPay(no);
+    if (!p) return;
+    if (!confirm(`Cancel ${payLabel(no)} (SAR ${money(p.amount)})? Its incentives become unpaid again. It stays in the list as Cancelled.`)) return;
+    const { error } = await dbAdmin.rpc('cancel_incentive_payout', { p_payout_no: Number(no) });
+    if (error) return showToast('Could not cancel: ' + error.message, 'error');
+    showToast(`Cancelled ${payLabel(no)}`);
+    try { logActivity('incentive_payout_cancelled', `Cancelled ${payLabel(no)}`, 'incentive', String(no)); } catch (e) { /* log only */ }
+    await fetchMoney();
+    render();
+  }
+
+  async function printPay(no) {
+    const p = findPay(no);
+    if (!p) return;
+    const w = window.open('', '_blank');   // open before waiting, so it is not blocked as a pop-up
+    if (!w) return showToast('Please allow pop-ups to print the slip', 'error');
+    const { data, error } = await dbAdmin.from('incentive_earnings')
+      .select('person_type, person_id, earned_on, product_name, qty, amount, adjustment, bookings(booking_reference)')
+      .eq('payout_id', p.id).order('earned_on');
+    if (error) { w.close(); return showToast('Could not load the slip: ' + error.message, 'error'); }
+    const blocks = (p.incentive_payout_lines || []).map(l => {
+      const mine = (data || []).filter(e => e.person_type === l.person_type && e.person_id === l.person_id);
+      return `<div class="person">
+        <h2>${esc(l.person_name)} <span>${esc(accountLabel(l.person_type))}</span></h2>
+        <table><thead><tr><th>Date</th><th>Booking</th><th>Product</th><th>Qty</th><th>Amount</th></tr></thead><tbody>
+          ${mine.map(e => `<tr><td>${dmy(e.earned_on)}</td><td>${esc(e.bookings?.booking_reference || '—')}</td><td>${esc(e.product_name)}${e.adjustment ? ' (correction)' : ''}</td><td>${e.qty}</td><td>SAR ${money(e.amount)}</td></tr>`).join('')}
+        </tbody></table>
+        <div class="total">Total received: SAR ${money(l.amount)}</div>
+        <div class="sign"><div>Received by: ____________________</div><div>Signature: ____________________</div><div>Date: ____________</div></div>
+      </div>`;
+    }).join('');
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${payLabel(no)} — Incentive Slip</title>
+<style>
+  body{font-family:Arial,sans-serif;color:#0A1628;margin:24px;} h1{color:#0D3B6E;margin:0 0 4px;font-size:22px;}
+  .meta{color:#607D8B;font-size:13px;margin-bottom:16px;} .actions{margin-bottom:16px;}
+  .actions button{background:#0D3B6E;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700;cursor:pointer;margin-right:8px;}
+  .person{border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;margin-bottom:16px;page-break-inside:avoid;}
+  h2{font-size:16px;margin:0 0 8px;} h2 span{font-size:12px;color:#607D8B;font-weight:400;}
+  table{width:100%;border-collapse:collapse;font-size:12px;} th,td{border-bottom:1px solid #EEF2F6;padding:6px;text-align:left;}
+  th{color:#607D8B;font-size:10px;text-transform:uppercase;} .total{font-weight:700;text-align:right;margin:8px 0;}
+  .sign{display:flex;gap:24px;flex-wrap:wrap;margin-top:18px;font-size:13px;}
+  @media print{.actions{display:none;} body{margin:10mm;}}
+</style></head><body>
+  <div class="actions"><button onclick="window.print()">Print / Save as PDF</button><button onclick="window.close()">Close</button></div>
+  <h1>SA'DA H2O — Incentive Payment ${payLabel(no)}</h1>
+  <div class="meta">Paid on ${dmy(p.paid_on)} · ${esc(METHODS[p.method] || p.method)} · Total SAR ${money(p.amount)}${p.note ? ' · ' + esc(p.note) : ''}</div>
+  ${blocks}
+</body></html>`);
+    w.document.close();
+  }
+
   // ---- Add popup ----
 
   function ensureModals() {
@@ -330,7 +595,7 @@
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 12px;">
             <div class="form-group"><label>From</label><input type="date" class="form-input" id="inc-date"></div>
-            <div class="form-group"><label>To <span style="color:var(--muted);font-weight:400;">(optional)</span></label><input type="date" class="form-input" id="inc-end"></div>
+            <div class="form-group"><label>To</label><input type="date" class="form-input" id="inc-end"></div>
           </div>
           <div class="form-group"><label>Select People</label>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
@@ -498,22 +763,24 @@
       box.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:6px 0;">Select the products and people to see the total.</div>';
       return;
     }
-    const total = buildLines().reduce((sum, l) => sum + (l.rate || 0), 0);
     const value = S.amountValue;
     const amount = !(value > 0) ? '—' : S.amountMode === 'percent' ? `${value}%` : `SAR ${money(value)}`;
     const missing = missingPrices();
     const names = (label, chips) => `<div style="margin-top:8px;"><div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:2px;">${label}</div>${chips}</div>`;
     box.innerHTML = `
       <table>
-        <thead><tr><th>Products</th><th>People</th><th>Amount</th><th>Each Person Gets</th><th>Total</th></tr></thead>
+        <thead><tr><th>Products</th><th>People</th><th>Per Unit Sold</th></tr></thead>
         <tbody><tr>
           <td>${products.length}</td>
           <td>${people.length}</td>
-          <td>${esc(amount)}</td>
-          <td style="font-weight:600;">SAR ${money(total / people.length)}</td>
-          <td style="font-weight:700;">SAR ${money(total)}</td>
+          <td style="font-weight:700;">${esc(amount)}</td>
         </tr></tbody>
       </table>
+      ${S.amountMode === 'percent' && value > 0 ? names('Per unit sold, from list price', chosenProducts().map((p, i) => {
+        const r = percentOf(S.catalog.get(p.name), value);
+        return chip(`${p.name}: ${r == null ? 'no price' : 'SAR ' + money(r)}`, PRODUCTS.indexOf(p) + 3);
+      }).join('')) : ''}
+      <div style="font-size:12px;color:var(--muted);margin-top:8px;">Each person earns this for every unit they sell or install, when the booking is completed between From and To.</div>
       ${names('Products', products.map(productChip).join(''))}
       ${names('People', people.map(personChip).join(''))}
       ${missing.length ? `<div style="font-size:12px;color:#B71C1C;margin-top:6px;">No price found for: ${esc(missing.join(', '))}</div>` : ''}`;
@@ -530,6 +797,7 @@
     const date = $('inc-date').value;
     const end = $('inc-end').value || null;
     if (!date) return showError('inc-error', 'Please choose a From date.');
+    if (!end) return showError('inc-error', 'Please choose a To date.');
     if (end && end < date) return showError('inc-error', 'To date cannot be before the From date.');
     if (!S.products.size) return showError('inc-error', 'Please select at least one product.');
     if (!lines.length) return showError('inc-error', 'Please select at least one person.');
@@ -573,8 +841,8 @@
     const rows = b.entries.map(e => `<tr><td>${personChip(e.person_name)}</td><td>${productChip(typeLabel(e))}</td>
       <td style="white-space:nowrap;">SAR ${money(e.amount)}${e.percent != null ? `<div style="font-size:11px;color:var(--muted);">${esc(percentNote(e))}</div>` : ''}</td></tr>`).join('');
     showInfoModal(`${idLabel(b.no)} · ${dmy(b.entries[0].entry_date)}`, `
-      <div style="overflow-x:auto;"><table class="data-table" style="width:100%;"><thead><tr><th>Person</th><th>Product</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <div style="font-weight:700;text-align:right;margin-top:10px;">Total: SAR ${money(totals(b.entries).net)}</div>`);
+      <div style="overflow-x:auto;"><table class="data-table" style="width:100%;"><thead><tr><th>Person</th><th>Product</th><th>Per Unit Sold</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div style="font-weight:700;text-align:right;margin-top:10px;">Earned this month: SAR ${money(totals(S.earnings.filter(x => x.batch_no === b.no)).net)}</div>`);
   }
 
   // Opens the Add popup filled with this Save; saving replaces its entries.
@@ -602,8 +870,11 @@
     const b = findBatch(key);
     if (!b) return;
     const n = b.entries.length;
-    if (!confirm(`Delete ${idLabel(b.no)} (${n} ${n === 1 ? 'entry' : 'entries'}, SAR ${money(totals(b.entries).net)})? This cannot be undone.`)) return;
-    const { error } = await dbAdmin.from('incentive_entries').delete().in('id', b.entries.map(e => e.id));
+    if (!confirm(`Delete rule ${idLabel(b.no)} (${n} ${n === 1 ? 'entry' : 'entries'})? Incentives it earned will be removed too. This cannot be undone.`)) return;
+    // Deleting a rule also removes what it earned (v116 recalculates bookings).
+    const { error } = b.no == null
+      ? await dbAdmin.from('incentive_entries').delete().in('id', b.entries.map(e => e.id))
+      : await dbAdmin.rpc('delete_incentive_batch', { p_batch_no: b.no });
     if (error) return showToast('Could not delete: ' + error.message, 'error');
     showToast(`Deleted ${idLabel(b.no)}`);
     try { logActivity('incentive_deleted', `Deleted ${idLabel(b.no)} (${n} entries)`, 'incentive', b.no == null ? null : String(b.no)); } catch (e) { /* log only */ }
@@ -680,7 +951,7 @@
       if (typeof v === 'string' && /^[=+\-@]/.test(s)) s = "'" + s;
       return `"${s.replace(/"/g, '""')}"`;
     };
-    const lines = [['ID', 'From', 'To', 'Person', 'Group', 'Type', 'Percent', 'Amount'].map(cell).join(',')];
+    const lines = [['ID', 'From', 'To', 'Person', 'Group', 'Type', 'Percent', 'Per Unit Sold'].map(cell).join(',')];
     list.slice().reverse().forEach(e => lines.push([
       idLabel(e.batch_no), e.entry_date, e.end_date, e.person_name, accountLabel(e.person_type), typeLabel(e), percentNote(e), Number(e.amount)
     ].map(cell).join(',')));
@@ -697,7 +968,16 @@
 
   Object.assign(window, {
     loadIncentives,
-    incSetTab: t => { S.tab = t; render(); },
+    incSetTab: async t => {
+      S.tab = t;
+      if (t === 'balances' || t === 'payouts') {
+        try { await fetchMoney(); } catch (e) { showToast('Could not load: ' + e.message + '. Run migration v117_incentive_payouts.sql first.', 'error'); S.tab = 'entries'; }
+      }
+      render();
+    },
+    incSetGroup: g => { S.group = g; render(); },
+    incPickPay: pickPay, incPickAllDue: pickAllDue, incOpenPay: openPay, incSavePay: savePay, incHistory: history,
+    incViewPay: viewPay, incPrintPay: printPay, incCancelPay: cancelPay,
     incSetMonth: async m => { if (!m) return; S.month = m; try { await fetchMonth(); render(); } catch (e) { showToast(e.message, 'error'); } },
     incSetFilter: (k, v) => { S[k] = v; render(); },
     incOpenAdd: openAdd, incAddProduct: addProduct, incRemoveProduct: removeProduct, incRenderPicker: renderPicker,
