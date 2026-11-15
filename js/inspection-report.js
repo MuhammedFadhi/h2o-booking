@@ -124,22 +124,20 @@ SADA.InspectionReport = (function () {
     const row = { ...payload };
     delete row.created_at; delete row.updated_at;
     if (row.status === 'submitted' && !row.submitted_at) row.submitted_at = new Date().toISOString();
-    const q = row.id
-      ? window.db.from(TABLE).update(row).eq('id', row.id).select().single()
-      : window.db.from(TABLE).insert(row).select().single();
-    const { data, error } = await q;
-    if (error) {
-      // A report for this booking already exists (stale/missing row.id on the caller's
-      // side) — fall back to updating that row instead of failing the save outright.
-      if (!row.id && error.code === '23505' && row.booking_id) {
-        delete row.id;
-        const { data: retryData, error: retryError } = await window.db.from(TABLE)
-          .update(row).eq('booking_id', row.booking_id).select().single();
-        if (retryError) throw retryError;
-        return retryData;
-      }
-      throw error;
+    // booking_id is the real identity here (DB enforces one report per booking via
+    // inspection_reports_booking_key) — upsert on it instead of trusting row.id, which
+    // can go stale if the row was ever deleted/recreated out from under an open form.
+    let q;
+    if (row.booking_id) {
+      delete row.id;
+      q = window.db.from(TABLE).upsert(row, { onConflict: 'booking_id' }).select().single();
+    } else {
+      q = row.id
+        ? window.db.from(TABLE).update(row).eq('id', row.id).select().single()
+        : window.db.from(TABLE).insert(row).select().single();
     }
+    const { data, error } = await q;
+    if (error) throw error;
     return data;
   }
   async function list({ from, to, status, installerId } = {}) {
