@@ -3221,7 +3221,8 @@ async function loadBookings() {
           ${b.status === 'completed'
             ? `<button class="btn btn-sm btn-ghost" onclick="adminMarkComplete('${b.id}')" title="Edit payment / invoice">🧾</button>
                <button class="btn btn-sm btn-ghost" onclick="adminUndoComplete('${b.id}')" title="Reopen">↩</button>`
-            : `<button class="btn btn-sm btn-success" onclick="adminMarkComplete('${b.id}')" title="${b.status === 'installed' ? 'Add payment & invoice to complete' : 'Complete'}">${b.status === 'installed' ? '💳' : '✓'}</button>`}
+            : `<button class="btn btn-sm btn-success" onclick="adminMarkComplete('${b.id}')" title="${b.status === 'installed' ? 'Add payment & invoice to complete' : 'Complete'}">${b.status === 'installed' ? '💳' : '✓'}</button>
+               ${b.status === 'installed' ? `<button class="btn btn-sm btn-ghost" onclick="adminUndoComplete('${b.id}')" title="Reopen — resets to upcoming and lets the installer redo the inspection report">↩</button>` : ''}`}
           ${b.status !== 'cancelled' && b.status !== 'completed' ? `<button class="btn btn-sm btn-danger" onclick="releaseSlot('${b.id}','${b.slot_id}')" title="Cancel booking (releases slot)">✕</button>` : ''}
           <button class="btn btn-sm btn-danger" onclick="deleteBookingPermanently('${b.id}','${b.customer_name}','${b.booking_reference}')" title="Delete permanently (removes warranties, frees slot)">🗑</button>
         </div>
@@ -4826,11 +4827,15 @@ async function adminUndoComplete(bookingId) {
   if (!checkAdminPassword('undo completion')) return;
   const { data: b } = await dbAdmin.from('bookings').select('customer_phone,customer_name,slot_date,slot_hour,booking_reference,slot_id').eq('id', bookingId).maybeSingle();
   const { error } = await dbAdmin.from('bookings').update({
-    status: 'upcoming', completed_by: null, completed_at: null, proof_photo_url: null, proof_qr_url: null, proof_qr_code: null
+    status: 'upcoming', completed_by: null, completed_at: null, installed_at: null, proof_photo_url: null, proof_qr_url: null, proof_qr_code: null
   }).eq('id', bookingId);
   if (!error) {
     // Restore slot as booked
     if (b?.slot_id) await dbAdmin.from('availability_slots').update({ is_booked: true }).eq('id', b.slot_id);
+    // Flip the submitted report back to a draft too, or the installer would
+    // just land on the old read-only view (see openForm() in
+    // js/inspection-report.js) instead of being able to redo it.
+    await dbAdmin.from('inspection_reports').update({ status: 'draft', submitted_at: null }).eq('booking_id', bookingId).eq('status', 'submitted');
     if (b && await isSMSEnabled('reopen')) {
       await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your booking (Ref: ${b.booking_reference}) on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour)} has been reopened and is now scheduled. Our team will contact you prior to the visit.`);
     }
