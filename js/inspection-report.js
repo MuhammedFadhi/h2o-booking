@@ -128,7 +128,18 @@ SADA.InspectionReport = (function () {
       ? window.db.from(TABLE).update(row).eq('id', row.id).select().single()
       : window.db.from(TABLE).insert(row).select().single();
     const { data, error } = await q;
-    if (error) throw error;
+    if (error) {
+      // A report for this booking already exists (stale/missing row.id on the caller's
+      // side) — fall back to updating that row instead of failing the save outright.
+      if (!row.id && error.code === '23505' && row.booking_id) {
+        delete row.id;
+        const { data: retryData, error: retryError } = await window.db.from(TABLE)
+          .update(row).eq('booking_id', row.booking_id).select().single();
+        if (retryError) throw retryError;
+        return retryData;
+      }
+      throw error;
+    }
     return data;
   }
   async function list({ from, to, status, installerId } = {}) {
@@ -1229,6 +1240,7 @@ SADA.InspectionReport = (function () {
           if (row.component_remarks) { row.components = { ...row.components, __remarks: row.component_remarks }; }
           delete row.component_remarks;
           const saved = await saveReport(row);
+          ctx.existing = saved; // so the next Save Draft/Submit updates this row instead of inserting a duplicate
 
           if (isSubmit) {
             const nowIso = new Date().toISOString();
