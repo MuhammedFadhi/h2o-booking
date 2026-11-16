@@ -82,6 +82,11 @@ portal. Do it first in **sandbox** (`ZATCA_ENV=developer-portal`), then repeat i
 `.env.example`). The dashboard supplies the VAT number, legal name and city from
 *Tax / Company info* for any `EGS_*` field left blank.
 
+## Server setup
+
+Step-by-step for the DigitalOcean server (install script, PM2, nginx + HTTPS,
+Cloudflare secrets, onboarding, backups): **[deploy/SETUP.md](deploy/SETUP.md)**.
+
 ## Run
 
 ```bash
