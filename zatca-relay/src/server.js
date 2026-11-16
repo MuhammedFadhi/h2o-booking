@@ -117,6 +117,10 @@ const server = http.createServer(async (req, res) => {
 });
 
 if (require.main === module) {
-  server.listen(config.port, () => console.log(`ZATCA relay [${config.envName}] on :${config.port}`));
+  if (!config.relayApiKey || config.relayApiKey.length < 32) {
+    console.error('RELAY_API_KEY is missing or shorter than 32 characters — set it in .env (deploy/install.sh generates one).');
+    process.exit(1);
+  }
+  server.listen(config.port, config.host, () => console.log(`ZATCA relay [${config.envName}] on ${config.host}:${config.port}`));
 }
 module.exports = { server, signInvoice };

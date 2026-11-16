@@ -1,0 +1,8 @@
+# Files that run or are read on the Linux server must keep LF line endings,
+# even when checked out on Windows (a CRLF install.sh fails with "$'\r': command not found").
+*.sh             text eol=lf
+*.conf           text eol=lf
+deploy/env.template text eol=lf
+.env.example     text eol=lf
+src/*.js         text eol=lf
+deploy/*.js      text eol=lf

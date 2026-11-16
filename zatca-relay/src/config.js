@@ -2,6 +2,7 @@
 // Central config + ZATCA environment endpoints. All ZATCA APIs live on one host
 // (gw-fatoora.zatca.gov.sa) under a per-environment base path.
 const path = require('path');
+require('./env').loadEnv();   // zatca-relay/.env -> process.env (real env vars win)
 
 const ENVS = {
   'developer-portal': 'https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal', // sandbox
@@ -28,6 +29,8 @@ module.exports = {
   },
   relayApiKey: process.env.RELAY_API_KEY || '',
   port: Number(process.env.PORT || 8791),
+  // Listen on localhost only by default: nginx in front terminates HTTPS.
+  host: process.env.HOST || '127.0.0.1',
   certDir: path.resolve(process.env.CERT_DIR || './secrets'),
   egs: {
     commonName:   process.env.EGS_COMMON_NAME || 'SADA-H2O-EGS-001',
