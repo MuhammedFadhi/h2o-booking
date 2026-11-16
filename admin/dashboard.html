@@ -795,7 +795,7 @@
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2m0 9l2 2l4-4"/></g></svg></span> Inspection Reports
     </div>
     <div class="nav-item" onclick="showPanel('invoices', this)">
-      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-3-2l-2 2l-2-2l-2 2l-2-2zM9 7h6m-6 4h6m-2 4h2"/></svg></span> Invoice Data
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-3-2l-2 2l-2-2l-2 2l-2-2zM9 7h6m-6 4h6m-2 4h2"/></svg></span> Invoice
     </div>
     <div class="nav-item" onclick="showPanel('zatca', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9c-4.6-.7-8-4.5-8-9V6zm-3 9l2 2l4-4"/></svg></span> ZATCA E-Invoicing
@@ -1534,8 +1534,11 @@
     <!-- INVOICES PANEL -->
     <div class="panel" id="panel-invoices">
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
-          <h3 style="margin:0;">Invoice Data</h3>
+        <div class="card-header" style="gap:12px;flex-wrap:wrap;">
+          <div>
+            <div class="card-title">Invoices</div>
+            <div class="zx-sub">Tax invoices from bookings and walk-in sales, with their ZATCA status</div>
+          </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <input type="text" id="invoice-search" placeholder="Search invoice # or customer…" oninput="renderInvoices()"
               style="padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;min-width:240px;">
@@ -1548,35 +1551,98 @@
     </div>
 
     <!-- ZATCA E-INVOICING PANEL (status, onboarding, automatic submission) -->
+    <style>
+      /* ZATCA pages */
+      .zx-body { padding: 20px 24px 24px; }
+      .zx-sub { font-size: 13px; color: var(--muted); margin-top: 2px; font-weight: 400; }
+      .zx-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+      .zx-tile { border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; background: #fff; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+      .zx-tile-label { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); }
+      .zx-tile-value { font-size: 15px; font-weight: 700; color: var(--deep); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .zx-tile-note { font-size: 12px; color: var(--muted); line-height: 1.45; }
+      .zx-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 9px; background: #94A3B8; }
+      .zx-dot.ok { background: #16A34A; } .zx-dot.warn { background: #F59E0B; } .zx-dot.bad { background: #DC2626; }
+      .zx-section-title { font-size: 13px; font-weight: 700; color: var(--deep); text-transform: uppercase; letter-spacing: .6px; margin: 4px 0 10px; }
+      .zx-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #fff; }
+      .zx-row { display: grid; grid-template-columns: 230px minmax(0, 1fr); border-bottom: 1px solid var(--border); }
+      .zx-row:last-child { border-bottom: none; }
+      .zx-key { padding: 16px 20px; font-size: 13px; font-weight: 600; color: var(--deep); background: var(--bg); }
+      .zx-key small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
+      .zx-val { padding: 14px 20px; font-size: 14px; color: var(--text); min-width: 0; }
+      .zx-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .2px; white-space: nowrap; }
+      .zx-pill.ok { background: #DCFCE7; color: #15803D; }
+      .zx-pill.warn { background: #FEF3C7; color: #92400E; }
+      .zx-pill.bad { background: #FEE2E2; color: #B91C1C; }
+      .zx-pill.muted { background: #F1F5F9; color: #475569; }
+      .zx-note { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+      .zx-note.bad { color: #B91C1C; } .zx-note.warn { color: #B45309; } .zx-note.ok { color: #15803D; }
+      .zx-inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      .zx-alert { padding: 12px 16px; border-radius: 10px; font-size: 13px; line-height: 1.5; margin-bottom: 14px; border: 1px solid transparent; }
+      .zx-alert.ok { background: #F0FDF4; border-color: #BBF7D0; color: #14532D; }
+      .zx-alert.warn { background: #FFFBEB; border-color: #FDE68A; color: #78350F; }
+      .zx-alert.bad { background: #FEF2F2; border-color: #FECACA; color: #7F1D1D; }
+      .zx-alert.info { background: var(--foam); border-color: #BFDBFE; color: #1E3A5F; }
+      .zx-alert ul { margin: 6px 0 0 18px; padding: 0; }
+      .zx-card2 { border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; margin-top: 22px; background: #fff; }
+      .zx-card2 h4 { margin: 0 0 6px; font-size: 16px; color: var(--deep); }
+      .zx-card2 p { margin: 0 0 14px; font-size: 13px; color: var(--muted); line-height: 1.55; max-width: 760px; }
+      .zx-toolbar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); margin-bottom: 14px; }
+      .zx-toolbar .form-group { margin: 0; }
+      .zx-toolbar label { font-size: 11px; }
+      .zx-table-wrap { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; }
+      .zx-table-wrap table { margin: 0; }
+      .zx-reason { font-size: 12px; color: var(--muted); margin-top: 4px; max-width: 320px; line-height: 1.4; }
+      @media (max-width: 1100px) { .zx-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 720px) {
+        .zx-body { padding: 16px; }
+        .zx-tiles { grid-template-columns: minmax(0, 1fr); }
+        .zx-row { grid-template-columns: minmax(0, 1fr); }
+        .zx-key { padding: 12px 16px 4px; background: #fff; }
+        .zx-val { padding: 4px 16px 14px; }
+      }
+    </style>
     <div class="panel" id="panel-zatca">
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
-          <h3 style="margin:0;">ZATCA E-Invoicing</h3>
-          <button class="btn btn-ghost btn-sm" type="button" onclick="loadZatcaPage()">↻ Refresh</button>
+        <div class="card-header">
+          <div>
+            <div class="card-title">ZATCA E-Invoicing</div>
+            <div class="zx-sub">Phase 2 integration — onboarding, automatic submission and the Phase 2 start date</div>
+          </div>
+          <div class="zx-inline">
+            <button class="btn btn-ghost btn-sm" type="button" onclick="showPanel('zatca-pending')">Pending submissions</button>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="loadZatcaPage()">↻ Refresh</button>
+          </div>
         </div>
-        <div id="zatca-msg"></div>
-        <div id="zatca-status"><div class="loading"><div class="spinner"></div> Loading...</div></div>
-        <div id="zatca-onboard"></div>
+        <div class="zx-body">
+          <div id="zatca-msg"></div>
+          <div id="zatca-status"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+          <div id="zatca-onboard"></div>
+        </div>
       </div>
     </div>
 
     <!-- ZATCA PENDING SUBMISSIONS PANEL -->
     <div class="panel" id="panel-zatca-pending">
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
-          <h3 style="margin:0;">ZATCA — Pending Submissions</h3>
+        <div class="card-header">
+          <div>
+            <div class="card-title">ZATCA — Pending Submissions</div>
+            <div class="zx-sub">Invoices ZATCA has not accepted yet — never sent, or sent and rejected</div>
+          </div>
           <button class="btn btn-ghost btn-sm" type="button" onclick="showPanel('zatca')">← ZATCA status</button>
         </div>
-        <div id="zp-alerts"></div>
-        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;">
-          <div class="form-group" style="margin:0;"><label>From</label><input class="form-input" type="date" id="zp-from"></div>
-          <div class="form-group" style="margin:0;"><label>To</label><input class="form-input" type="date" id="zp-to"></div>
-          <button class="btn btn-ghost" type="button" onclick="loadZatcaPending()">Filter</button>
-          <button class="btn btn-ghost" type="button" onclick="document.getElementById('zp-from').value='';document.getElementById('zp-to').value='';loadZatcaPending()">Clear</button>
+        <div class="zx-body">
+          <div id="zp-alerts"></div>
+          <div class="zx-toolbar">
+            <div class="form-group"><label>From</label><input class="form-input" type="date" id="zp-from"></div>
+            <div class="form-group"><label>To</label><input class="form-input" type="date" id="zp-to"></div>
+            <button class="btn btn-primary" type="button" onclick="loadZatcaPending()">Filter</button>
+            <button class="btn btn-ghost" type="button" onclick="document.getElementById('zp-from').value='';document.getElementById('zp-to').value='';loadZatcaPending()">Clear</button>
+          </div>
+          <div id="zp-summary"></div>
+          <div id="zp-batch"></div>
+          <div id="zp-table"><div class="loading"><div class="spinner"></div> Loading...</div></div>
         </div>
-        <div id="zp-summary"></div>
-        <div id="zp-batch"></div>
-        <div id="zp-table"><div class="loading"><div class="spinner"></div> Loading...</div></div>
       </div>
     </div>
 
@@ -3048,7 +3114,7 @@ const panelTitles = {
   warranties: ['Active Units', 'Registered units, coverage and service history'],
   amc: ['AMC Contracts', 'Prepaid annual maintenance contracts — per unit'],
   promocodes: ['Promo Codes', 'Create and manage discount codes'],
-  invoices: ['Invoice Data', 'VAT invoices linked to bookings'],
+  invoices: ['Invoice', 'Tax invoices — from bookings and walk-in sales'],
   zatca: ['ZATCA E-Invoicing', 'Phase 2 status, onboarding and automatic submission'],
   'zatca-pending': ['ZATCA Pending', 'Invoices ZATCA has not accepted yet'],
   followups: ['Follow-ups', 'Scheduled customer and lead callbacks — internal only'],
@@ -7047,15 +7113,16 @@ async function loadZatcaPage() {
   ob.innerHTML = '';
   const ctx = await loadZatcaContext(true);
   const cs = await loadCompanySettings(true);
-  const pill = (t, bg, fg) => `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-weight:700;font-size:12px;background:${bg};color:${fg};">${t}</span>`;
-  const note = (t, color) => `<div style="font-size:12px;color:${color || 'var(--muted)'};margin-top:4px;">${t}</div>`;
+  const pill = (t, kind) => `<span class="zx-pill ${kind}">${t}</span>`;
+  const note = (t, kind) => `<div class="zx-note ${kind || ''}">${t}</div>`;
+  const dot = (kind) => `<span class="zx-dot ${kind}"></span>`;
 
   if (ctx.stateError) {
-    host.innerHTML = `<div style="color:#B71C1C;padding:12px;background:#FEF2F2;border-radius:8px;">${escB(ctx.stateError)}. Run migration <strong>v122_zatca_settings_page.sql</strong> in Supabase.</div>`;
+    host.innerHTML = `<div class="zx-alert bad">${escB(ctx.stateError)}. Run migration <strong>v122_zatca_settings_page.sql</strong> in Supabase.</div>`;
     return;
   }
   const { relay, state, env, label } = ctx;
-  const envPill = env === 'core' ? pill(label, '#FEE2E2', '#B91C1C') : (env === 'simulation' ? pill(label, '#FEF3C7', '#92400E') : pill(label, '#E5E7EB', '#374151'));
+  const envPill = pill(escB(label), env === 'core' ? 'bad' : (env === 'simulation' ? 'warn' : 'muted'));
 
   // Counts / ICV / pending in this environment.
   const { data: sent } = await dbAdmin.from('invoices').select('einvoice_status, einvoice_icv').eq('einvoice_env', env);
@@ -7065,94 +7132,96 @@ async function loadZatcaPage() {
   try { pending = await zatcaPendingInvoices(ctx); } catch (e) { /* shown as 0 */ }
   updateZatcaNavCount(pending.length);
 
-  const relayRow = !relay.configured
-    ? pill('NOT CONNECTED', '#E5E7EB', '#374151') + note('The signing service is not set up yet. Set the Worker secrets <code>ZATCA_RELAY_URL</code> and <code>ZATCA_RELAY_KEY</code> once it is running. Settings below can be prepared now.')
-    : relay.connected
-      ? pill('CONNECTED', '#DCFCE7', '#15803D') + note('Signing service is reachable.')
-      : pill('UNREACHABLE', '#FEE2E2', '#B91C1C') + note(escB(relay.error || 'The signing service did not answer.'), '#B91C1C');
+  const p2 = state.phase2_start_date;
+  const autoOn = state.auto_submit === true;
 
-  let onboardRow;
-  if (relay.onboarded) {
-    const until = relay.certificate?.validTo ? ` · certificate valid until ${escB(formatDateShort(relay.certificate.validTo))}` : '';
-    onboardRow = pill('✓ ONBOARDED', '#DCFCE7', '#15803D') + note('Production certificate active' + until);
-  } else if (relay.hasCompliance) {
-    onboardRow = pill('COMPLIANCE ONLY', '#FEF3C7', '#92400E') + note('Compliance certificate issued; finish onboarding below.');
-  } else {
-    onboardRow = pill('NOT ONBOARDED', '#E5E7EB', '#374151');
-  }
+  // ---- Status tiles ----
+  const tile = (labelText, value, noteHtml) =>
+    `<div class="zx-tile"><div class="zx-tile-label">${labelText}</div><div class="zx-tile-value">${value}</div>${noteHtml ? `<div class="zx-tile-note">${noteHtml}</div>` : ''}</div>`;
+
+  const relayTile = !relay.configured
+    ? tile('Signing service', dot('') + 'Not connected', 'Set the Worker secrets <code>ZATCA_RELAY_URL</code> and <code>ZATCA_RELAY_KEY</code> once the service is running.')
+    : relay.connected
+      ? tile('Signing service', dot('ok') + 'Connected', 'Reachable and ready to sign.')
+      : tile('Signing service', dot('bad') + 'Unreachable', escB(relay.error || 'The signing service did not answer.'));
+
+  const onboardTile = relay.onboarded
+    ? tile('Onboarding', dot('ok') + 'Onboarded', relay.certificate?.validTo ? `Certificate valid until ${escB(formatDateShort(relay.certificate.validTo))}` : 'Production certificate active')
+    : relay.hasCompliance
+      ? tile('Onboarding', dot('warn') + 'Compliance only', 'Finish onboarding below.')
+      : tile('Onboarding', dot('') + 'Not onboarded', 'Needs an OTP from the Fatoora portal.');
+
+  const autoTile = tile('Automatic submission',
+    dot(autoOn ? 'ok' : 'warn') + (autoOn ? 'On' : 'Off') +
+      `<button class="btn btn-sm ${autoOn ? 'btn-ghost' : 'btn-primary'}" style="margin-left:auto;" onclick="zatcaSetAuto(${!autoOn})">⏻ Turn ${autoOn ? 'off' : 'on'}</button>`,
+    (autoOn ? 'Every invoice is sent as soon as it is saved.' : 'Invoices are sent only when someone clicks Report.') +
+      (autoOn && (!relay.onboarded || !p2)
+        ? ` <span style="color:#B45309;">No effect yet: ${[!relay.onboarded ? 'not onboarded' : '', !p2 ? 'no Phase 2 date' : ''].filter(Boolean).join(', ')}.</span>` : ''));
+
+  const pendingTile = tile('Pending submission',
+    dot(pending.length ? 'warn' : 'ok') + (pending.length ? `${pending.length} invoice${pending.length === 1 ? '' : 's'}` : 'None') +
+      `<a href="#" onclick="showPanel('zatca-pending');return false;" style="margin-left:auto;font-size:13px;font-weight:600;">${pending.length ? 'Review →' : 'View'}</a>`,
+    p2 ? `From ${escB(p2)} onward` : '<span style="color:#B91C1C;">Includes Phase 1 invoices until the start date is set.</span>');
+
+  // ---- Configuration list ----
+  const row = (k, sub, v) => `<div class="zx-row"><div class="zx-key">${k}${sub ? `<small>${sub}</small>` : ''}</div><div class="zx-val">${v}</div></div>`;
 
   // <bdi> keeps the Arabic name and the VAT number in their own reading order.
-  const sellerRow = `<bdi>${escB(cs.seller_name_ar || cs.seller_name_en || '—')}</bdi> · <bdi>${escB(cs.vat_number || 'no VAT number')}</bdi>` +
+  const sellerVal = `<div style="font-weight:600;color:var(--deep);"><bdi>${escB(cs.seller_name_ar || cs.seller_name_en || '—')}</bdi></div>` +
+    `<div style="font-size:13px;margin-top:2px;">VAT <bdi style="font-family:monospace;">${escB(cs.vat_number || '—')}</bdi>${cs.cr_number ? ` · CR <bdi style="font-family:monospace;">${escB(cs.cr_number)}</bdi>` : ''}</div>` +
     (ctx.sellerIssues.length
-      ? `<div style="margin-top:6px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:4px;font-size:12px;">
-           <strong>Seller details incomplete</strong> — ZATCA rejects or flags these:<ul style="margin:4px 0 0 16px;padding:0;">${ctx.sellerIssues.map(i => `<li>${escB(i.text)}</li>`).join('')}</ul>
-           <a href="#" onclick="openCompanySettings();return false;">Open Tax / Company info →</a></div>`
-      : note('✓ Name, VAT, CR and National Address complete.', '#15803D'));
+      ? `<div class="zx-alert warn" style="margin:10px 0 0;"><strong>Seller details incomplete</strong> — ZATCA rejects or flags these:
+           <ul>${ctx.sellerIssues.map(i => `<li>${escB(i.text)}</li>`).join('')}</ul>
+           <a href="#" onclick="openCompanySettings();return false;" style="font-weight:600;">Open Tax / Company info →</a></div>`
+      : note('✓ Name, VAT, CR and National Address complete', 'ok'));
 
-  const autoOn = state.auto_submit === true;
-  const autoRow = (autoOn
-      ? pill('✓ ON', '#DCFCE7', '#15803D') + ' <span style="font-size:12px;color:var(--muted);">every invoice is sent to ZATCA as soon as it is saved</span>'
-      : pill('OFF', '#FEF3C7', '#92400E') + ' <span style="font-size:12px;color:var(--muted);">invoices are only sent when someone clicks Report to ZATCA</span>') +
-    `<div style="margin-top:6px;"><button class="btn btn-sm ${autoOn ? 'btn-ghost' : 'btn-primary'}" onclick="zatcaSetAuto(${!autoOn})">⏻ Turn ${autoOn ? 'OFF' : 'ON'}</button></div>` +
-    note(`Stored for the ${escB(label)} environment only — switching to production starts OFF again.`) +
-    (autoOn && (!relay.onboarded || !state.phase2_start_date)
-      ? note('Has no effect yet: ' + [!relay.onboarded ? 'not onboarded' : '', !state.phase2_start_date ? 'Phase 2 start date not set' : ''].filter(Boolean).join(' and ') + '.', '#B45309') : '');
-
-  const p2 = state.phase2_start_date;
-  const phase2Row = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <input class="form-input" type="date" id="zatca-phase2" value="${escB(p2 || '')}" style="max-width:180px;">
+  const phase2Val = `<div class="zx-inline">
+      <input class="form-input" type="date" id="zatca-phase2" value="${escB(p2 || '')}" style="max-width:190px;">
       <button class="btn btn-sm btn-primary" onclick="zatcaSavePhase2()">Save</button>
       ${p2 ? '<button class="btn btn-sm btn-ghost" onclick="zatcaSavePhase2(true)">Clear</button>' : ''}
     </div>` + (p2
-      ? note(`Invoices dated before <strong>${escB(p2)}</strong> are Phase 1 documents: never counted, offered or sent.`)
-      : note('<strong>Not set</strong> — nothing can be sent to ZATCA until it is. Enter your wave’s integration date from ZATCA (not the day you onboarded).', '#B91C1C'));
+      ? note(`Invoices dated before <strong>${escB(p2)}</strong> are Phase 1 documents — never counted, offered or sent.`)
+      : note('<strong>Not set</strong> — nothing can be sent to ZATCA until it is. Use your wave’s integration date from ZATCA, not the day you onboard.', 'bad'));
 
-  const pendingRow = (pending.length ? pill(String(pending.length), '#FEF3C7', '#92400E') : pill('✓ NONE', '#DCFCE7', '#15803D')) +
-    ` <a href="#" onclick="showPanel('zatca-pending');return false;" style="margin-left:8px;font-size:13px;">${pending.length ? 'Review &amp; submit →' : 'view'}</a>` +
-    (p2 ? ` <span style="font-size:11px;color:var(--muted);">from ${escB(p2)} onward</span>` : '');
-
-  const countsRow = Object.keys(counts).length
-    ? Object.entries(counts).map(([s, n]) => {
-        const ok = ['reported', 'cleared'].includes(s);
-        return pill(`${s.toUpperCase()}: ${n}`, ok ? '#DCFCE7' : (s === 'failed' ? '#FEE2E2' : '#E5E7EB'), ok ? '#15803D' : (s === 'failed' ? '#B91C1C' : '#374151'));
-      }).join(' ')
+  const countsVal = Object.keys(counts).length
+    ? `<div class="zx-inline">${Object.entries(counts).map(([s, n]) => {
+        const kind = ['reported', 'cleared'].includes(s) ? 'ok' : (s === 'failed' ? 'bad' : 'muted');
+        return pill(`${escB(s.charAt(0).toUpperCase() + s.slice(1))} · ${n}`, kind);
+      }).join('')}</div>`
     : '<span style="color:var(--muted);">None sent in this environment yet</span>';
 
-  const row = (k, v) => `<tr><th style="width:32%;text-align:left;vertical-align:top;padding:12px;background:var(--foam,#F8FAFC);">${k}</th><td style="padding:12px;">${v}</td></tr>`;
-  host.innerHTML = `<table class="data-table" style="width:100%;">
-    ${row('Signing service', relayRow)}
-    ${row('Environment', envPill)}
-    ${row('Seller (VAT)', sellerRow)}
-    ${row('Invoice types', escB(relay.invoiceTypes || '0100') + ' <span style="color:var(--muted);font-size:12px;">(0100 = simplified / B2C only)</span>')}
-    ${row('Onboarding status', onboardRow)}
-    ${row('Automatic submission', autoRow)}
-    ${row('Phase 2 start date', phase2Row)}
-    ${row('Pending submission', pendingRow)}
-    ${row('Invoice counter (ICV)', String(icv))}
-    ${row('Invoices', countsRow)}
-  </table>`;
+  host.innerHTML = `
+    <div class="zx-tiles">${relayTile}${onboardTile}${autoTile}${pendingTile}</div>
+    <div class="zx-section-title">Configuration</div>
+    <div class="zx-list">
+      ${row('Environment', 'Which ZATCA platform invoices go to', envPill + note(`Automatic submission and the Phase 2 date are stored for ${escB(label)} only — moving to production starts again with automatic submission off.`))}
+      ${row('Seller', 'From Tax / Company info', sellerVal)}
+      ${row('Phase 2 start date', 'Your wave’s integration date', phase2Val)}
+      ${row('Invoice types', 'Declared in the certificate', `<span style="font-family:monospace;">${escB(relay.invoiceTypes || '0100')}</span> <span style="color:var(--muted);font-size:13px;">— simplified (B2C) invoices only</span>`)}
+      ${row('Invoice counter (ICV)', 'Last number used in this environment', `<span style="font-family:monospace;font-size:15px;">${icv}</span>`)}
+      ${row('Invoices sent', 'In this environment', countsVal)}
+    </div>`;
 
-  // Onboarding / onboarded section.
+  // ---- Onboarding ----
   if (!relay.onboarded) {
-    const blocked = !relay.connected ? 'Connect the signing service first.' : (ctx.sellerIssues.length ? 'Complete the seller details above first.' : '');
-    ob.innerHTML = `<hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
-      <h3 style="margin:0 0 6px;">Onboard to ZATCA</h3>
-      <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">
-        ${relay.hasCompliance
-          ? 'The compliance certificate is already issued, so no new OTP is needed — click Onboard to run the compliance checks and get the production certificate.'
-          : `Generate a fresh OTP in the Fatoora portal (<strong>${escB(label)}</strong> environment), paste it below and click Onboard. This creates the keys and CSR, gets the compliance certificate, runs ZATCA's compliance checks and obtains the production certificate. The OTP is single-use and valid for 1 hour.`}
-      </p>
-      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
-        ${relay.hasCompliance ? '' : '<div class="form-group" style="margin:0;max-width:220px;"><label>Fatoora OTP</label><input class="form-input" id="zatca-otp" inputmode="numeric" autocomplete="off" placeholder="e.g. 123456"></div>'}
-        <button class="btn btn-primary" id="zatca-onboard-btn" onclick="zatcaOnboard()" ${blocked ? 'disabled' : ''}>🛡 Onboard</button>
+    const blocked = !relay.connected ? 'Connect the signing service first.' : (ctx.sellerIssues.length ? 'Complete the seller details first.' : '');
+    ob.innerHTML = `<div class="zx-card2">
+      <h4>Onboard to ZATCA</h4>
+      <p>${relay.hasCompliance
+          ? 'The compliance certificate is already issued, so no new OTP is needed. Click Onboard to run the compliance checks and get the production certificate.'
+          : `Generate a fresh OTP in the Fatoora portal (<strong>${escB(label)}</strong> environment), paste it here and click Onboard. This creates the keys, gets the compliance certificate, runs ZATCA's compliance checks and obtains the production certificate. The OTP is single-use and valid for 1 hour.`}</p>
+      <div class="zx-inline" style="align-items:flex-end;">
+        ${relay.hasCompliance ? '' : '<div class="form-group" style="margin:0;width:220px;"><label>Fatoora OTP</label><input class="form-input" id="zatca-otp" inputmode="numeric" autocomplete="off" placeholder="e.g. 123456"' + (blocked ? ' disabled' : '') + '></div>'}
+        <button class="btn btn-primary" id="zatca-onboard-btn" onclick="zatcaOnboard()" ${blocked ? 'disabled style="opacity:.45;cursor:not-allowed;"' : ''}>🛡 Onboard</button>
       </div>
-      ${blocked ? note(escB(blocked), '#B45309') : ''}
-      <div id="zatca-onboard-log" style="margin-top:12px;"></div>`;
+      ${blocked ? note('⚠ ' + escB(blocked), 'warn') : ''}
+      <div id="zatca-onboard-log" style="margin-top:14px;"></div>
+    </div>`;
   } else {
-    ob.innerHTML = `<div style="margin-top:16px;padding:12px 14px;border-radius:10px;background:var(--foam,#E3F2FD);font-size:13px;">
-      This environment is fully onboarded.
+    ob.innerHTML = `<div class="zx-alert info" style="margin-top:22px;margin-bottom:0;">
+      <strong>This environment is fully onboarded.</strong>
       ${autoOn
-        ? 'Every invoice is reported to ZATCA <strong>automatically as soon as it is saved</strong>; anything ZATCA rejects lands under <a href="#" onclick="showPanel(\'zatca-pending\');return false;">ZATCA Pending</a> for retry.'
+        ? 'Every invoice is reported to ZATCA automatically as soon as it is saved; anything ZATCA rejects waits under <a href="#" onclick="showPanel(\'zatca-pending\');return false;">Pending submissions</a> for retry.'
         : 'Invoices are reported only when someone clicks <strong>⚡ Report to ZATCA</strong>. Simplified invoices must be reported within 24 hours.'}
       To re-onboard (e.g. after the certificate expires), the signing service's certificate files must be moved aside first.</div>`;
   }
@@ -7161,7 +7230,7 @@ async function loadZatcaPage() {
 function zatcaMsg(text, ok) {
   const el = document.getElementById('zatca-msg');
   if (!el) return;
-  el.innerHTML = text ? `<div style="margin-bottom:12px;padding:10px 14px;border-radius:8px;font-size:13px;${ok ? 'background:#DCFCE7;color:#14532D;' : 'background:#FEF2F2;color:#B71C1C;border:1px solid #FECACA;'}">${text}</div>` : '';
+  el.innerHTML = text ? `<div class="zx-alert ${ok ? 'ok' : 'bad'}">${text}</div>` : '';
 }
 
 async function zatcaSaveState(patch) {
@@ -7224,13 +7293,13 @@ async function zatcaOnboard() {
       return;
     }
     const issues = out.zatca ? humanizeZatca(out.zatca).errors : [];
-    log.innerHTML = `<div style="padding:10px 14px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;color:#7F1D1D;font-size:13px;">
+    log.innerHTML = `<div class="zx-alert bad" style="margin:0;">
       <strong>Onboarding failed:</strong> ${escB(out.error || 'unknown error')}
-      ${issues.length ? `<ul style="margin:6px 0 0 16px;padding:0;">${issues.map(i => `<li>${escB(i.text)}${i.action ? ' — ' + escB(i.action) : ''}</li>`).join('')}</ul>` : ''}
-      ${steps ? `<div style="margin-top:8px;color:#374151;">Steps done:<ul style="margin:4px 0 0 16px;padding:0;">${steps}</ul></div>` : ''}
+      ${issues.length ? `<ul>${issues.map(i => `<li>${escB(i.text)}${i.action ? ' — ' + escB(i.action) : ''}</li>`).join('')}</ul>` : ''}
+      ${steps ? `<div style="margin-top:8px;color:#374151;">Steps completed:<ul>${steps}</ul></div>` : ''}
     </div>`;
   } catch (e) {
-    log.innerHTML = `<div style="color:#B71C1C;">Onboarding failed: ${escB(e.message)}</div>`;
+    log.innerHTML = `<div class="zx-alert bad" style="margin:0;">Onboarding failed: ${escB(e.message)}</div>`;
   } finally {
     btn.disabled = false; btn.textContent = '🛡 Onboard';
   }
@@ -7247,59 +7316,63 @@ async function loadZatcaPending() {
   const ctx = await loadZatcaContext(true);
   const from = document.getElementById('zp-from').value || null;
   const to = document.getElementById('zp-to').value || null;
-  const box = (html, kind) => `<div style="margin-bottom:10px;padding:10px 14px;border-radius:8px;font-size:13px;${kind === 'warn' ? 'background:#FEF3C7;color:#78350F;' : kind === 'bad' ? 'background:#FEF2F2;color:#7F1D1D;' : 'background:#DCFCE7;color:#14532D;'}">${html}</div>`;
+  const box = (html, kind) => `<div class="zx-alert ${kind}">${html}</div>`;
+  const goZatca = (t) => `<a href="#" onclick="showPanel('zatca');return false;" style="font-weight:600;">${t}</a>`;
 
   let a = '';
-  if (!ctx.relay.onboarded) a += box(`This environment (<strong>${escB(ctx.label)}</strong>) is not onboarded. <a href="#" onclick="showPanel('zatca');return false;">Onboard first</a> — nothing can be submitted until then.`, 'warn');
-  if (ctx.state.auto_submit !== true) a += box('<strong>Automatic submission is OFF</strong>. Invoices are only sent when someone clicks Report to ZATCA, so this list keeps growing. Turn it on from the <a href="#" onclick="showPanel(\'zatca\');return false;">ZATCA page</a>.', 'warn');
-  a += `<p style="font-size:13px;color:var(--muted);margin:0 0 12px;">Invoices ZATCA has <strong>not accepted</strong> in the <strong>${escB(ctx.label)}</strong> environment — never sent, or sent and rejected. Simplified (B2C) invoices must be reported within 24 hours.` +
-    (ctx.state.phase2_start_date
-      ? `<br>Only invoices dated <strong>${escB(ctx.state.phase2_start_date)}</strong> or later are listed — earlier ones were Phase 1 documents.`
-      : `<br><span style="color:#B91C1C;">No Phase 2 start date is set</span>, so this list includes invoices from before Phase 2 applied to you, and nothing can be sent. Set it on the <a href="#" onclick="showPanel('zatca');return false;">ZATCA page</a> first.`) + '</p>';
+  if (!ctx.relay.onboarded) a += box(`<strong>Not onboarded.</strong> The ${escB(ctx.label)} environment is not onboarded yet, so nothing can be submitted. ${goZatca('Onboard first →')}`, 'warn');
+  if (!ctx.state.phase2_start_date) a += box(`<strong>No Phase 2 start date.</strong> This list includes invoices from before Phase 2 applied to you, and nothing can be sent until the date is set. ${goZatca('Set it on the ZATCA page →')}`, 'bad');
+  if (ctx.state.auto_submit !== true) a += box(`<strong>Automatic submission is off.</strong> Invoices are only sent when someone clicks Submit, so this list keeps growing. ${goZatca('Turn it on →')}`, 'warn');
+  a += `<p style="font-size:13px;color:var(--muted);margin:2px 0 14px;line-height:1.55;">Environment <strong>${escB(ctx.label)}</strong>. Simplified (B2C) invoices must be reported within 24 hours.` +
+    (ctx.state.phase2_start_date ? ` Only invoices dated <strong>${escB(ctx.state.phase2_start_date)}</strong> or later are listed.` : '') + '</p>';
   alerts.innerHTML = a;
 
   let list;
   try { list = await zatcaPendingInvoices(ctx, from, to); }
-  catch (e) { host.innerHTML = `<div style="color:#B71C1C;">${escB(e.message)}</div>`; return; }
+  catch (e) { host.innerHTML = `<div class="zx-alert bad">${escB(e.message)}</div>`; return; }
   if (!from && !to) updateZatcaNavCount(list.length);
   window.__zatcaPending = list;
 
-  sum.innerHTML = box(`<strong>${list.length}</strong> invoice${list.length === 1 ? '' : 's'} pending submission${from || to ? ' in the selected range' : ''}.${list.length > 200 ? ' <span style="opacity:.7;">(showing the oldest 200)</span>' : ''}`, list.length ? 'warn' : 'ok');
-
   const canSend = ctx.relay.onboarded && !!ctx.state.phase2_start_date;
+  sum.innerHTML = `<div class="zx-inline" style="justify-content:space-between;margin-bottom:12px;">
+      <div style="font-size:14px;color:var(--deep);"><strong style="font-size:18px;">${list.length}</strong> invoice${list.length === 1 ? '' : 's'} pending${from || to ? ' in the selected range' : ''}${list.length > 200 ? ' <span style="color:var(--muted);font-size:12px;">(showing the oldest 200)</span>' : ''}</div>
+      ${list.length && canSend ? `<div class="zx-inline">
+        <label style="font-size:13px;color:var(--muted);margin:0;">Submit the oldest</label>
+        <select class="form-input" id="zp-batch-n" style="width:auto;"><option>10</option><option selected>25</option><option>50</option><option>100</option></select>
+        <button class="btn btn-primary" id="zp-batch-btn" onclick="zatcaSubmitBatch()">➤ Submit to ZATCA</button>
+      </div>` : ''}
+    </div>`;
   if (list.length && canSend) {
-    batch.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-      <label style="font-size:13px;">Submit the oldest</label>
-      <select class="form-input" id="zp-batch-n" style="width:auto;"><option>10</option><option selected>25</option><option>50</option><option>100</option></select>
-      <button class="btn btn-primary" id="zp-batch-btn" onclick="zatcaSubmitBatch()">➤ Submit batch to ZATCA</button>
-      <span style="font-size:12px;color:var(--muted);">Sent oldest first, one at a time, to keep the hash chain in order. Re-run until the list is empty.</span>
-    </div><div id="zp-progress"></div>`;
+    batch.innerHTML = `<div class="zx-note" style="margin:-6px 0 12px;">Invoices are sent oldest first, one at a time, to keep ZATCA's hash chain in order. Re-run until the list is empty.</div><div id="zp-progress"></div>`;
   }
 
-  if (!list.length) { host.innerHTML = ''; return; }
+  if (!list.length) {
+    host.innerHTML = `<div class="zx-alert ok" style="text-align:center;padding:22px;">✓ Nothing pending — every invoice in this range is accepted by ZATCA.</div>`;
+    return;
+  }
   const rows = list.slice(0, 200).map(i => {
     let z;
     if (i.einvoice_env === ctx.env && i.einvoice_status === 'failed') {
       const first = humanizeZatca(i.einvoice_error).errors[0];
-      z = `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-weight:700;font-size:11px;background:#FEE2E2;color:#B91C1C;">FAILED</span>` +
-        (first ? `<div style="font-size:11px;color:var(--muted);max-width:280px;">${escB(first.text)}${first.action ? ' — ' + escB(first.action) : ''}</div>` : '');
+      z = '<span class="zx-pill bad">Failed</span>' +
+        (first ? `<div class="zx-reason">${escB(first.text)}${first.action ? ' ' + escB(first.action) : ''}</div>` : '');
     } else {
-      z = `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-weight:700;font-size:11px;background:#E5E7EB;color:#374151;">NOT SENT</span>`;
+      z = '<span class="zx-pill muted">Not sent</span>';
     }
     return `<tr>
-      <td style="font-size:12px;">${escB(formatTimestampShort(i.issued_at))}</td>
-      <td><strong style="font-family:monospace;">${escB(i.invoice_number)}</strong></td>
-      <td>${escB(i.customer_name || '—')}<div style="font-size:11px;color:var(--muted);">${escB(i.customer_phone || '')}</div></td>
-      <td style="font-size:12px;">${i.booking_id ? 'Booking ' + escB(i.bookings?.booking_reference || '') : 'Walk-in'}</td>
-      <td style="text-align:right;">SAR ${Number(i.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+      <td style="font-size:13px;white-space:nowrap;">${escB(formatTimestampShort(i.issued_at))}</td>
+      <td><strong style="font-family:monospace;white-space:nowrap;">${escB(i.invoice_number)}</strong></td>
+      <td>${escB(i.customer_name || '—')}<div style="font-size:12px;color:var(--muted);">${escB(i.customer_phone || '')}</div></td>
+      <td style="font-size:13px;">${i.booking_id ? escB(i.bookings?.booking_reference || 'Booking') : '<span style="color:var(--muted);">Walk-in</span>'}</td>
+      <td style="text-align:right;white-space:nowrap;font-weight:600;">SAR ${Number(i.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
       <td>${z}</td>
       <td style="white-space:nowrap;text-align:right;">
-        <button class="btn btn-sm btn-ghost" onclick="zatcaViewInvoice('${i.id}')" title="View / print invoice">🧾</button>
+        <button class="btn btn-sm btn-ghost" onclick="zatcaViewInvoice('${i.id}')" title="View / print invoice">🧾 View</button>
         ${canSend ? `<button class="btn btn-sm btn-primary" onclick="zatcaSubmitOne('${i.id}')">Submit</button>` : ''}
       </td></tr>`;
   }).join('');
-  host.innerHTML = `<div style="overflow-x:auto;"><table class="data-table" style="width:100%;">
-    <thead><tr><th>Date</th><th>Invoice #</th><th>Customer</th><th>Type</th><th style="text-align:right;">Total</th><th>ZATCA</th><th></th></tr></thead>
+  host.innerHTML = `<div class="zx-table-wrap"><table class="data-table">
+    <thead><tr><th>Date</th><th>Invoice #</th><th>Customer</th><th>Booking</th><th style="text-align:right;">Total</th><th>ZATCA</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 
@@ -7343,7 +7416,7 @@ async function zatcaSubmitBatch() {
   let okN = 0; const failed = [];
   for (let k = 0; k < list.length; k++) {
     const inv = list[k];
-    prog.innerHTML = `<div style="font-size:13px;margin-bottom:10px;">Sending ${k + 1} of ${list.length}: <strong>${escB(inv.invoice_number)}</strong>…</div>`;
+    prog.innerHTML = `<div class="zx-alert info">Sending ${k + 1} of ${list.length}: <strong>${escB(inv.invoice_number)}</strong>… please keep this page open.</div>`;
     try {
       const r = await zatcaReportCall(inv.id);
       if (r.ok) okN++;
@@ -7356,7 +7429,7 @@ async function zatcaSubmitBatch() {
   await loadZatcaPending();
   const left = (window.__zatcaPending || []).length;
   const p = document.getElementById('zp-progress') || document.getElementById('zp-summary');
-  p.insertAdjacentHTML('afterbegin', `<div style="margin-bottom:10px;padding:10px 14px;border-radius:8px;font-size:13px;${failed.length ? 'background:#FEF2F2;color:#7F1D1D;' : 'background:#DCFCE7;color:#14532D;'}">
+  p.insertAdjacentHTML('afterbegin', `<div class="zx-alert ${failed.length ? 'bad' : 'ok'}">
     ZATCA: submitted ${okN} of ${list.length}.${left ? ` ${left} still pending — run again to continue.` : ' Nothing left pending.'}
     ${failed.length ? `<div style="margin-top:4px;">Failed: ${escB(failed.slice(0, 5).join('; '))}${failed.length > 5 ? ` and ${failed.length - 5} more` : ''}</div>` : ''}</div>`);
 }
