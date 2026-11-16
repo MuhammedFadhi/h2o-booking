@@ -70,8 +70,10 @@ module.exports = async function handler(req, res) {
       icv, pih,
       invoiceType: 'simplified',
       seller: {
-        vatNumber: cs.vat_number, name: cs.seller_name_en, crNumber: cs.cr_number || '',
-        city: cs.city || '', countryCode: 'SA',
+        vatNumber: cs.vat_number, name: cs.seller_name_ar || cs.seller_name_en, crNumber: cs.cr_number || '',
+        street: cs.street_ar || cs.street_en || '', building: cs.building_no || '',
+        plot: cs.secondary_no || '', district: cs.district_ar || cs.district_en || '',
+        city: cs.city || '', postalZone: cs.postal_code || '', countryCode: 'SA',
       },
       buyer: { name: inv.customer_name, phone: inv.customer_phone },
       lines: items,

@@ -2196,9 +2196,9 @@
       </div>
       <div style="display:flex;gap:10px;">
         <div class="form-group" style="flex:1;"><label>Legal Name (English)</label>
-          <input class="form-input" id="cs-name-en" placeholder="SA'DA H2O Water Purifiers"></div>
+          <input class="form-input" id="cs-name-en" placeholder="Saadat Alarab Company For Trading"></div>
         <div class="form-group" style="flex:1;"><label>الاسم (عربي)</label>
-          <input class="form-input" id="cs-name-ar" dir="rtl" placeholder="سعدا لتنقية المياه"></div>
+          <input class="form-input" id="cs-name-ar" dir="rtl" placeholder="شركة سعادة العرب للتجارة"></div>
       </div>
       <div style="display:flex;gap:10px;">
         <div class="form-group" style="flex:1;"><label>VAT Registration No. <span style="color:var(--muted);font-weight:400;">(15 digits)</span></label>
@@ -2206,15 +2206,38 @@
         <div class="form-group" style="flex:1;"><label>CR Number</label>
           <input class="form-input" id="cs-cr" placeholder="Commercial registration"></div>
       </div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted);margin:4px 0 6px;">National Address (العنوان الوطني) — used in ZATCA e-invoices</div>
       <div style="display:flex;gap:10px;">
-        <div class="form-group" style="flex:1;"><label>Address (English)</label>
-          <input class="form-input" id="cs-addr-en" placeholder="Street, district"></div>
-        <div class="form-group" style="flex:1;"><label>العنوان (عربي)</label>
+        <div class="form-group" style="flex:1;"><label>Building No.</label>
+          <input class="form-input" id="cs-building" inputmode="numeric" maxlength="4" placeholder="4 digits"></div>
+        <div class="form-group" style="flex:1;"><label>Secondary No.</label>
+          <input class="form-input" id="cs-secondary" inputmode="numeric" maxlength="4" placeholder="4 digits"></div>
+        <div class="form-group" style="flex:1;"><label>Postal Code</label>
+          <input class="form-input" id="cs-postal" inputmode="numeric" maxlength="5" placeholder="5 digits"></div>
+        <div class="form-group" style="flex:1;"><label>Short Address</label>
+          <input class="form-input" id="cs-short" maxlength="8" placeholder="ABCD1234"></div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;"><label>Street (English)</label>
+          <input class="form-input" id="cs-street-en"></div>
+        <div class="form-group" style="flex:1;"><label>الشارع (عربي)</label>
+          <input class="form-input" id="cs-street-ar" dir="rtl"></div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;"><label>District (English)</label>
+          <input class="form-input" id="cs-district-en"></div>
+        <div class="form-group" style="flex:1;"><label>الحي (عربي)</label>
+          <input class="form-input" id="cs-district-ar" dir="rtl"></div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;"><label>Printed Address (English)</label>
+          <input class="form-input" id="cs-addr-en" placeholder="Building, street, district, city postal"></div>
+        <div class="form-group" style="flex:1;"><label>العنوان المطبوع (عربي)</label>
           <input class="form-input" id="cs-addr-ar" dir="rtl"></div>
       </div>
       <div style="display:flex;gap:10px;">
         <div class="form-group" style="flex:1;"><label>City</label>
-          <input class="form-input" id="cs-city" placeholder="Jubail"></div>
+          <input class="form-input" id="cs-city" placeholder="Al Khobar"></div>
         <div class="form-group" style="flex:1;"><label>Phone</label>
           <input class="form-input" id="cs-phone" placeholder="920022569"></div>
         <div class="form-group" style="flex:1;"><label>Email</label>
@@ -3716,7 +3739,8 @@ async function submitPayment() {
     // ZATCA snapshot: seller identity + Base64 TLV QR payload, frozen at issue so
     // a re-print is always byte-identical. Computed only when we have a total.
     const cs = await loadCompanySettings();
-    const sellerName = cs.seller_name_en || "SA'DA H2O Water Purifiers";
+    // ZATCA QR tag 1 = the seller's registered (Arabic) legal name.
+    const sellerName = cs.seller_name_ar || cs.seller_name_en || "SA'DA H2O Water Purifiers";
     let qrPayload = null;
     if (total != null && window.SADAInvoice) {
       qrPayload = window.SADAInvoice.buildQrPayload({
@@ -6563,6 +6587,10 @@ async function openCompanySettings() {
   set('cs-name-en', cs.seller_name_en); set('cs-name-ar', cs.seller_name_ar);
   set('cs-vat', cs.vat_number); set('cs-cr', cs.cr_number);
   set('cs-addr-en', cs.address_en); set('cs-addr-ar', cs.address_ar);
+  set('cs-building', cs.building_no); set('cs-secondary', cs.secondary_no);
+  set('cs-postal', cs.postal_code); set('cs-short', cs.short_address);
+  set('cs-street-en', cs.street_en); set('cs-street-ar', cs.street_ar);
+  set('cs-district-en', cs.district_en); set('cs-district-ar', cs.district_ar);
   set('cs-city', cs.city); set('cs-phone', cs.phone); set('cs-email', cs.email);
   document.getElementById('cs-einvoice').checked = !!cs.einvoice_enabled;
   document.getElementById('cs-error').style.display = 'none';
@@ -6578,6 +6606,15 @@ async function saveCompanySettings() {
     errEl.textContent = 'VAT registration number must be exactly 15 digits.';
     return;
   }
+  const digitRules = [['cs-building', 4, 'Building No.'], ['cs-secondary', 4, 'Secondary No.'], ['cs-postal', 5, 'Postal Code']];
+  for (const [id, n, label] of digitRules) {
+    const v = val(id);
+    if (v && !new RegExp('^\\d{' + n + '}$').test(v)) {
+      errEl.style.display = 'block';
+      errEl.textContent = label + ' must be exactly ' + n + ' digits.';
+      return;
+    }
+  }
   const btn = document.getElementById('cs-save');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
@@ -6586,6 +6623,10 @@ async function saveCompanySettings() {
       seller_name_en: val('cs-name-en'), seller_name_ar: val('cs-name-ar'),
       vat_number: vat || null, cr_number: val('cs-cr') || null,
       address_en: val('cs-addr-en') || null, address_ar: val('cs-addr-ar') || null,
+      building_no: val('cs-building') || null, secondary_no: val('cs-secondary') || null,
+      postal_code: val('cs-postal') || null, short_address: val('cs-short').toUpperCase() || null,
+      street_en: val('cs-street-en') || null, street_ar: val('cs-street-ar') || null,
+      district_en: val('cs-district-en') || null, district_ar: val('cs-district-ar') || null,
       city: val('cs-city') || null, phone: val('cs-phone') || null, email: val('cs-email') || null,
       einvoice_enabled: document.getElementById('cs-einvoice').checked,
       updated_at: new Date().toISOString()
