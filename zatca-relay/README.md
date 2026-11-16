@@ -80,7 +80,7 @@ portal. Do it first in **sandbox** (`ZATCA_ENV=developer-portal`), then repeat i
 **VAT group:** SA'DA invoices as a member of a VAT group, so set
 `EGS_ORG_UNIT_NAME` to the member company's 10-digit TIN before onboarding (see
 `.env.example`). The dashboard supplies the VAT number, legal name and city from
-*Tax / Company info* for any `EGS_*` field left blank.
+*ZATCA Seller Details* for any `EGS_*` field left blank.
 
 ## Server setup
 

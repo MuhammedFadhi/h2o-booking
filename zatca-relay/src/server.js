@@ -68,7 +68,7 @@ const server = http.createServer(async (req, res) => {
     // Environment + onboarding state for the dashboard's ZATCA page.
     if (route === 'GET /status') return send(res, 200, { ok: true, ...onboarding.status() });
 
-    // Onboarding from the dashboard: OTP + seller details from Tax / Company info.
+    // Onboarding from the dashboard: OTP + the dashboard's ZATCA seller details.
     if (route === 'POST /onboard') {
       if (onboardingRunning) return send(res, 409, { error: 'Onboarding is already running — wait for it to finish.' });
       onboardingRunning = true;

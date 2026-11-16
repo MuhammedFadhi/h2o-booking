@@ -80,7 +80,7 @@ module.exports = async function handler(req, res) {
     const { data: cs } = await admin.from('company_settings').select('*').eq('id', 'default').maybeSingle();
     const issues = sellerIssues(cs || {});
     if (issues.length) {
-      return res.status(400).json({ error: 'Complete Tax / Company info first: ' + issues.map(i => i.text).join(' ') });
+      return res.status(400).json({ error: 'Complete the ZATCA seller details first: ' + issues.map(i => i.text).join(' ') });
     }
     if (inv.seller_vat_number && inv.seller_vat_number.replace(/\s+/g, '') !== cs.vat_number) {
       return res.status(400).json({ error: `This invoice was issued under VAT ${inv.seller_vat_number}, not ${cs.vat_number}, so it cannot be sent under this ZATCA certificate.` });
