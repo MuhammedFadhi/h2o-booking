@@ -1,0 +1,5 @@
+# NEVER commit secrets or issued certificates.
+.env
+secrets/
+node_modules/
+*.log

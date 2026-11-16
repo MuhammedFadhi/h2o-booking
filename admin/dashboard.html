@@ -19,6 +19,7 @@
   <script defer src="../js/inspection-report.js?v=7"></script>
   <script defer src="../js/warranty.js"></script>
   <script defer src="../js/warranty-certificate.js"></script>
+  <script defer src="../js/invoice-generator.js"></script>
   <script defer src="../js/city-normalize.js"></script>
   <script defer src="incentives.js"></script>
   <script defer src="incentive-report.js"></script>
@@ -1532,8 +1533,11 @@
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
           <h3 style="margin:0;">Invoice Data</h3>
-          <input type="text" id="invoice-search" placeholder="Search invoice # or customer…" oninput="renderInvoices()"
-            style="padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;min-width:240px;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="text" id="invoice-search" placeholder="Search invoice # or customer…" oninput="renderInvoices()"
+              style="padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;min-width:240px;">
+            <button class="btn btn-ghost" type="button" onclick="openCompanySettings()" title="Seller VAT number & tax details on invoices">⚙ Tax / Company info</button>
+          </div>
         </div>
         <div id="invoices-table"><div class="loading"><div class="spinner"></div> Loading...</div></div>
       </div>
@@ -2104,8 +2108,11 @@
       </div>
       <div style="display:flex;gap:10px;">
         <div class="form-group" style="flex:1;">
-          <label>Invoice Number</label>
-          <input class="form-input" id="pay-invoice-no" placeholder="e.g. INV-2026-0142">
+          <label>Invoice Number <span style="color:var(--muted);font-weight:400;">(auto)</span></label>
+          <div style="display:flex;gap:6px;">
+            <input class="form-input" id="pay-invoice-no" placeholder="Auto-generated on save" style="flex:1;">
+            <button class="btn btn-ghost" type="button" onclick="genInvoiceNumber()" title="Generate the next sequential number now" style="flex:0 0 auto;">↻</button>
+          </div>
         </div>
         <div class="form-group" style="flex:1;">
           <label>Total (SAR) <span style="color:var(--muted);font-weight:400;">incl. VAT, optional</span></label>
@@ -2121,6 +2128,57 @@
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button class="btn btn-ghost" onclick="closeModal('payment-modal')">Cancel</button>
         <button class="btn btn-primary" id="pay-save" onclick="submitPayment()">Complete Booking</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAX / COMPANY INFO MODAL (seller identity for ZATCA invoices) -->
+<div class="modal-overlay" id="company-settings-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Tax / Company info</span>
+      <button class="modal-close" onclick="closeModal('company-settings-modal')">&times;</button></div>
+    <div class="modal-body">
+      <div style="background:var(--foam,#E3F2FD);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--muted);">
+        These details appear on every tax invoice and in its ZATCA QR code. The
+        <strong>VAT registration number</strong> is required for a compliant invoice.
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;"><label>Legal Name (English)</label>
+          <input class="form-input" id="cs-name-en" placeholder="SA'DA H2O Water Purifiers"></div>
+        <div class="form-group" style="flex:1;"><label>الاسم (عربي)</label>
+          <input class="form-input" id="cs-name-ar" dir="rtl" placeholder="سعدا لتنقية المياه"></div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;"><label>VAT Registration No. <span style="color:var(--muted);font-weight:400;">(15 digits)</span></label>
+          <input class="form-input" id="cs-vat" inputmode="numeric" maxlength="15" placeholder="3xxxxxxxxxxxxx3"></div>
+        <div class="form-group" style="flex:1;"><label>CR Number</label>
+          <input class="form-input" id="cs-cr" placeholder="Commercial registration"></div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;"><label>Address (English)</label>
+          <input class="form-input" id="cs-addr-en" placeholder="Street, district"></div>
+        <div class="form-group" style="flex:1;"><label>العنوان (عربي)</label>
+          <input class="form-input" id="cs-addr-ar" dir="rtl"></div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;"><label>City</label>
+          <input class="form-input" id="cs-city" placeholder="Jubail"></div>
+        <div class="form-group" style="flex:1;"><label>Phone</label>
+          <input class="form-input" id="cs-phone" placeholder="920022569"></div>
+        <div class="form-group" style="flex:1;"><label>Email</label>
+          <input class="form-input" id="cs-email" type="email"></div>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="cs-einvoice" style="width:auto;">
+          <span>Enable ZATCA Phase-2 e-invoicing <span style="color:var(--muted);font-weight:400;">(turn on only after onboarding the signing relay)</span></span>
+        </label>
+      </div>
+      <div id="cs-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="closeModal('company-settings-modal')">Cancel</button>
+        <button class="btn btn-primary" id="cs-save" onclick="saveCompanySettings()">Save</button>
       </div>
     </div>
   </div>
@@ -3517,14 +3575,13 @@ async function submitPayment() {
   if (!(await ensureSession())) return;
   const errEl = document.getElementById('pay-error');
   const method = document.getElementById('pay-method').value;
-  const invoiceNo = (document.getElementById('pay-invoice-no').value || '').trim();
+  let invoiceNo = (document.getElementById('pay-invoice-no').value || '').trim();
   const amountRaw = document.getElementById('pay-amount').value;
   const amount = amountRaw === '' ? null : parseFloat(amountRaw);
   const file = document.getElementById('pay-invoice-file').files[0];
   const fail = (m) => { errEl.style.display = 'block'; errEl.textContent = m; };
 
   if (!method) return fail('Choose a payment method.');
-  if (!invoiceNo) return fail('Enter the invoice number.');
   if (amount != null && (isNaN(amount) || amount < 0)) return fail('Enter a valid amount, or leave it blank.');
 
   const btn = document.getElementById('pay-save');
@@ -3532,6 +3589,15 @@ async function submitPayment() {
   const bookingId = paymentModalBookingId;
 
   try {
+    // Auto-assign the next sequential invoice number if left blank. ZATCA wants
+    // sequential numbering; a number is only minted here, on actual completion,
+    // so the sequence stays gapless.
+    if (!invoiceNo) {
+      const { data: gen, error: gErr } = await dbAdmin.rpc('next_invoice_number');
+      if (gErr || !gen) throw new Error('Could not generate an invoice number. Please try again.');
+      invoiceNo = gen;
+    }
+
     // Optional invoice file upload
     let invoiceUrl = null;
     if (file) {
@@ -3596,11 +3662,23 @@ async function submitPayment() {
     let net = null, vat = null;
     if (total != null) { net = Math.round((total / 1.15) * 100) / 100; vat = Math.round((total - net) * 100) / 100; }
 
+    // ZATCA snapshot: seller identity + Base64 TLV QR payload, frozen at issue so
+    // a re-print is always byte-identical. Computed only when we have a total.
+    const cs = await loadCompanySettings();
+    const sellerName = cs.seller_name_en || "SA'DA H2O Water Purifiers";
+    let qrPayload = null;
+    if (total != null && window.SADAInvoice) {
+      qrPayload = window.SADAInvoice.buildQrPayload({
+        sellerName, vatNumber: cs.vat_number || '', timestamp: nowIso, total, vatTotal: vat
+      });
+    }
+
     const invPayload = {
       booking_id: bookingId, invoice_number: invoiceNo,
       customer_name: b?.customer_name, customer_phone: b?.customer_phone,
       amount: net, vat_amount: vat, total, payment_method: method,
-      file_url: invoiceUrl || b?.invoice_url || null, issued_at: nowIso
+      file_url: invoiceUrl || b?.invoice_url || null, issued_at: nowIso,
+      seller_name: sellerName, seller_vat_number: cs.vat_number || null, qr_payload: qrPayload
     };
     // Update this booking's existing invoice if it has one; else insert a fresh row.
     const { data: ownInv } = await dbAdmin.from('invoices').select('id').eq('booking_id', bookingId).maybeSingle();
@@ -6270,6 +6348,19 @@ async function viewPromoUsage(id) {
 // ============================================================
 let allInvoices = [];
 
+// ZATCA e-invoice status badge for the Invoices table.
+function zatcaBadge(status) {
+  const m = {
+    reported: ['Reported', '#DCFCE7', '#15803D'],
+    cleared:  ['Cleared', '#DCFCE7', '#15803D'],
+    failed:   ['Failed', '#FEE2E2', '#B91C1C'],
+    pending:  ['Pending', '#FEF3C7', '#92400E'],
+  };
+  const v = m[status];
+  if (!v) return '<span style="color:var(--muted);">—</span>';
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-weight:700;background:${v[1]};color:${v[2]};">${v[0]}</span>`;
+}
+
 async function loadInvoices() {
   const host = document.getElementById('invoices-table');
   await dbAdmin.auth.getSession();
@@ -6301,13 +6392,16 @@ function renderInvoices() {
     <td>${escB(prettyMethod(inv.payment_method))}</td>
     <td>${inv.total != null ? 'SAR ' + Number(inv.total).toLocaleString('en-US') : '—'}${inv.vat_amount != null ? `<div style="font-size:10px;color:var(--muted);">incl. VAT ${Number(inv.vat_amount).toLocaleString('en-US')}</div>` : ''}</td>
     <td style="font-size:12px;">${inv.issued_at ? formatTimestampShort(inv.issued_at) : '—'}</td>
+    <td style="font-size:11px;">${zatcaBadge(inv.einvoice_status)}</td>
     <td style="text-align:right;white-space:nowrap;">
-      ${inv.file_url ? `<a class="btn btn-sm btn-ghost" href="${inv.file_url}" target="_blank" title="View / print">👁</a>` : '<span style="font-size:11px;color:var(--muted);">no file</span>'}
+      <button class="btn btn-sm btn-ghost" onclick="printInvoice('${inv.id}')" title="Generate ZATCA tax invoice (PDF/print)">🧾</button>
+      ${['reported','cleared'].includes(inv.einvoice_status) ? '' : `<button class="btn btn-sm btn-ghost" onclick="reportToZatca('${inv.id}')" title="Report to ZATCA (Phase 2 e-invoice)">⚡</button>`}
+      ${inv.file_url ? `<a class="btn btn-sm btn-ghost" href="${inv.file_url}" target="_blank" title="View uploaded file">👁</a>` : ''}
       <button class="btn btn-sm btn-ghost" onclick="smsInvoice('${inv.id}')" title="SMS invoice to customer">✉️</button>
     </td>
   </tr>`).join('');
   host.innerHTML = `<div style="overflow-x:auto;"><table class="data-table" style="width:100%;">
-    <thead><tr><th>Invoice #</th><th>Customer</th><th>Booking</th><th>Method</th><th>Total</th><th>Issued</th><th></th></tr></thead>
+    <thead><tr><th>Invoice #</th><th>Customer</th><th>Booking</th><th>Method</th><th>Total</th><th>Issued</th><th>ZATCA</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 
@@ -6331,6 +6425,129 @@ async function smsInvoice(invoiceId) {
     loadInvoices();
   } else {
     showToast('Could not send SMS', 'error');
+  }
+}
+
+// Mint + show the next sequential invoice number on demand (the ↻ button in the
+// payment modal). Leaving the field blank also auto-mints one on save.
+async function genInvoiceNumber() {
+  if (!(await ensureSession())) return;
+  const { data, error } = await dbAdmin.rpc('next_invoice_number');
+  if (error || !data) { showToast('Could not generate a number', 'error'); return; }
+  document.getElementById('pay-invoice-no').value = data;
+}
+
+// Seller/tax identity for the invoice document + QR. Cached for the session.
+let _companyCache = null;
+async function loadCompanySettings(force) {
+  if (_companyCache && !force) return _companyCache;
+  const { data } = await dbAdmin.from('company_settings').select('*').eq('id', 'default').maybeSingle();
+  _companyCache = data || {};
+  return _companyCache;
+}
+
+// Build + open the printable ZATCA tax invoice for one invoice row.
+async function printInvoice(invoiceId) {
+  if (!window.SADAInvoice) { showToast('Invoice module not loaded', 'error'); return; }
+  const inv = allInvoices.find(x => x.id === invoiceId);
+  if (!inv) return;
+  const cs = await loadCompanySettings();
+  let items = [];
+  if (inv.booking_id) {
+    const { data: bi } = await dbAdmin.from('booking_items')
+      .select('product_model, qty, unit_price').eq('booking_id', inv.booking_id);
+    items = (bi || []).map(r => ({
+      description: r.product_model, qty: r.qty || 1, unitInclVat: Number(r.unit_price) || 0
+    }));
+  }
+  const total = inv.total != null
+    ? Number(inv.total)
+    : items.reduce((s, i) => s + i.qty * i.unitInclVat, 0);
+  window.SADAInvoice.open({
+    invoiceNumber: inv.invoice_number,
+    issuedAt: inv.issued_at,
+    reference: inv.bookings?.booking_reference,
+    paymentMethod: inv.payment_method,
+    seller: cs,
+    customer: { name: inv.customer_name, phone: inv.customer_phone, address: inv.buyer_address },
+    items,
+    totalInclVat: total,
+    qrPayload: inv.qr_payload || null
+  });
+}
+
+// Report one invoice to ZATCA (Phase-2). Calls the admin proxy, which forwards to
+// the signing relay and records the QR + reporting status back on the invoice.
+async function reportToZatca(invoiceId) {
+  if (!(await ensureSession())) return;
+  const inv = allInvoices.find(x => x.id === invoiceId);
+  if (!inv) return;
+  if (inv.total == null) { showToast('Invoice has no total — cannot e-invoice', 'error'); return; }
+  if (!confirm(`Report invoice ${inv.invoice_number} to ZATCA? This signs and submits it as an official e-invoice.`)) return;
+  showToast('Reporting to ZATCA…', 'info');
+  try {
+    const { data: { session } } = await dbAdmin.auth.getSession();
+    const res = await fetch('/api/admin/zatca-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ invoiceId })
+    });
+    const out = await res.json();
+    if (out.configured === false) { showToast('ZATCA relay not set up yet — see onboarding', 'error'); return; }
+    if (out.already) { showToast(`Already ${out.status}`, 'info'); loadInvoices(); return; }
+    if (!res.ok || out.error) { showToast('ZATCA: ' + (out.error || 'failed'), 'error'); loadInvoices(); return; }
+    showToast(`Invoice ${out.status}${out.warnings?.length ? ' (with warnings)' : ''}`, 'success');
+    logActivity('invoice.einvoice', `Reported ${inv.invoice_number} to ZATCA · ${out.status}`, 'invoice', invoiceId);
+    loadInvoices();
+  } catch (e) {
+    showToast('ZATCA report failed: ' + (e.message || e), 'error');
+  }
+}
+
+// Tax / Company info editor — the seller identity ZATCA requires on invoices.
+async function openCompanySettings() {
+  if (!(await ensureSession())) return;
+  const cs = await loadCompanySettings(true);
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+  set('cs-name-en', cs.seller_name_en); set('cs-name-ar', cs.seller_name_ar);
+  set('cs-vat', cs.vat_number); set('cs-cr', cs.cr_number);
+  set('cs-addr-en', cs.address_en); set('cs-addr-ar', cs.address_ar);
+  set('cs-city', cs.city); set('cs-phone', cs.phone); set('cs-email', cs.email);
+  document.getElementById('cs-einvoice').checked = !!cs.einvoice_enabled;
+  document.getElementById('cs-error').style.display = 'none';
+  openModal('company-settings-modal');
+}
+async function saveCompanySettings() {
+  if (!(await ensureSession())) return;
+  const errEl = document.getElementById('cs-error');
+  const val = (id) => (document.getElementById(id).value || '').trim();
+  const vat = val('cs-vat');
+  if (vat && !/^\d{15}$/.test(vat)) {
+    errEl.style.display = 'block';
+    errEl.textContent = 'VAT registration number must be exactly 15 digits.';
+    return;
+  }
+  const btn = document.getElementById('cs-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const patch = {
+      id: 'default',
+      seller_name_en: val('cs-name-en'), seller_name_ar: val('cs-name-ar'),
+      vat_number: vat || null, cr_number: val('cs-cr') || null,
+      address_en: val('cs-addr-en') || null, address_ar: val('cs-addr-ar') || null,
+      city: val('cs-city') || null, phone: val('cs-phone') || null, email: val('cs-email') || null,
+      einvoice_enabled: document.getElementById('cs-einvoice').checked,
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await dbAdmin.from('company_settings').upsert(patch, { onConflict: 'id' });
+    if (error) throw error;
+    _companyCache = patch;
+    showToast('Tax / company info saved', 'success');
+    closeModal('company-settings-modal');
+  } catch (e) {
+    errEl.style.display = 'block'; errEl.textContent = e.message || String(e);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save';
   }
 }
 
