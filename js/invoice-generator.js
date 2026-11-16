@@ -280,9 +280,12 @@
 </body></html>`;
   }
 
-  function open(data) {
-    const w = global.open('', '_blank');
+  // `win`: optional window the caller already opened inside the click handler
+  // (needed when the invoice is only ready after an async save).
+  function open(data, win) {
+    const w = (win && !win.closed) ? win : global.open('', '_blank');
     if (!w) { global.alert('Please allow pop-ups to view the invoice.'); return; }
+    w.document.open();
     w.document.write(html(data));
     w.document.close();
   }

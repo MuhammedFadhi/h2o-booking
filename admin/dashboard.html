@@ -1537,6 +1537,7 @@
             <input type="text" id="invoice-search" placeholder="Search invoice # or customer…" oninput="renderInvoices()"
               style="padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;min-width:240px;">
             <button class="btn btn-ghost" type="button" onclick="openCompanySettings()" title="Seller VAT number & tax details on invoices">⚙ Tax / Company info</button>
+            <button class="btn btn-primary" type="button" onclick="openNewInvoice()" title="Create an invoice from a booking or for a walk-in / counter sale">+ New Invoice</button>
           </div>
         </div>
         <div id="invoices-table"><div class="loading"><div class="spinner"></div> Loading...</div></div>
@@ -2134,6 +2135,70 @@
 </div>
 
 <!-- TAX / COMPANY INFO MODAL (seller identity for ZATCA invoices) -->
+<div class="modal-overlay" id="new-invoice-modal" style="display:none;">
+  <div class="modal" style="max-width:760px;">
+    <div class="modal-header"><span class="modal-title">New Invoice</span>
+      <button class="modal-close" onclick="closeModal('new-invoice-modal')">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Booking <span style="color:var(--muted);font-weight:400;">(optional — pick one to fill everything in, or leave empty for a walk-in sale)</span></label>
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" id="ni-booking" list="ni-booking-list" placeholder="Search booking ref, customer name or phone…" oninput="niPickBooking()" autocomplete="off">
+          <button class="btn btn-ghost" type="button" onclick="niClearBooking()" title="Unlink booking" style="flex:0 0 auto;">✕</button>
+        </div>
+        <datalist id="ni-booking-list"></datalist>
+        <div id="ni-booking-info" style="display:none;font-size:12px;margin-top:6px;padding:8px 12px;border-radius:8px;background:var(--foam,#E3F2FD);"></div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;"><label>Customer Name *</label>
+          <input class="form-input" id="ni-name"></div>
+        <div class="form-group" style="flex:1;"><label>Phone</label>
+          <input class="form-input" id="ni-phone" placeholder="+9665…"></div>
+      </div>
+      <div class="form-group"><label>Customer Address <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+        <input class="form-input" id="ni-address"></div>
+
+      <label style="font-size:12px;font-weight:600;">Items <span style="color:var(--muted);font-weight:400;">— prices include 15% VAT</span></label>
+      <datalist id="ni-product-list"></datalist>
+      <div style="overflow-x:auto;">
+        <table class="data-table" style="width:100%;margin:6px 0;">
+          <thead><tr><th>Description</th><th style="width:84px;">Qty</th><th style="width:120px;">Unit price</th><th style="width:100px;text-align:right;">Line total</th><th style="width:36px;"></th></tr></thead>
+          <tbody id="ni-items"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-sm btn-ghost" type="button" onclick="niAddRow()">+ Add item</button>
+
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        <div class="form-group" style="flex:1;"><label>Discount (SAR)</label>
+          <input class="form-input" id="ni-discount" type="number" min="0" step="0.01" placeholder="0" oninput="niRecalc()"></div>
+        <div class="form-group" style="flex:1;"><label>Payment Method *</label>
+          <select class="form-input" id="ni-method">
+            <option value="">Select…</option><option value="cash">Cash</option><option value="card">Card</option>
+            <option value="bank_transfer">Bank Transfer</option><option value="tabby">Tabby</option>
+            <option value="tamara">Tamara</option><option value="foc">FOC (Free of Charge)</option>
+          </select></div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;"><label>Invoice Number</label>
+          <div style="display:flex;gap:8px;">
+            <input class="form-input" id="ni-number" placeholder="Auto-generated on save">
+            <button class="btn btn-ghost" type="button" onclick="niGenNumber()" title="Generate the next sequential number now" style="flex:0 0 auto;">↻</button>
+          </div></div>
+        <div class="form-group" style="flex:1;"><label>Issue Date</label>
+          <input class="form-input" id="ni-date" type="datetime-local"></div>
+      </div>
+
+      <div id="ni-summary" style="background:var(--foam,#E3F2FD);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;"></div>
+      <div id="ni-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-ghost" onclick="closeModal('new-invoice-modal')">Cancel</button>
+        <button class="btn btn-ghost" id="ni-save" onclick="saveNewInvoice(false)">Save</button>
+        <button class="btn btn-primary" id="ni-save-print" onclick="saveNewInvoice(true)">Save &amp; Print</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="company-settings-modal" style="display:none;">
   <div class="modal">
     <div class="modal-header"><span class="modal-title">Tax / Company info</span>
@@ -6471,13 +6536,20 @@ async function loadCompanySettings(force) {
 }
 
 // Build + open the printable ZATCA tax invoice for one invoice row.
-async function printInvoice(invoiceId) {
+// `win` = a window opened synchronously by the click handler (avoids the pop-up
+// blocker when we only open it after awaiting a save).
+async function printInvoice(invoiceId, win) {
   if (!window.SADAInvoice) { showToast('Invoice module not loaded', 'error'); return; }
   const inv = allInvoices.find(x => x.id === invoiceId);
-  if (!inv) return;
+  if (!inv) { if (win) win.close(); return; }
   const cs = await loadCompanySettings();
   let items = [];
-  if (inv.booking_id) {
+  if (Array.isArray(inv.line_items) && inv.line_items.length) {
+    // Lines saved on the invoice itself (New Invoice form) win over the booking's.
+    items = inv.line_items.map(r => ({
+      description: r.description, qty: Number(r.qty) || 1, unitInclVat: Number(r.unitInclVat) || 0
+    }));
+  } else if (inv.booking_id) {
     const { data: bi } = await dbAdmin.from('booking_items')
       .select('product_model, qty, unit_price').eq('booking_id', inv.booking_id);
     items = (bi || []).map(r => ({
@@ -6497,7 +6569,222 @@ async function printInvoice(invoiceId) {
     items,
     totalInclVat: total,
     qrPayload: inv.qr_payload || null
+  }, win);
+}
+
+// ---------------------------------------------------------------------------
+// NEW INVOICE — from a booking (picked from the list, auto-filled) or for a
+// walk-in / counter sale with no booking. Lines are stored on the invoice
+// (invoices.line_items, migration v121).
+// ---------------------------------------------------------------------------
+let _niBookings = [];      // bookings offered in the picker
+let _niBookingId = null;   // booking linked to the invoice being created
+
+function niLabel(b) {
+  return `${b.booking_reference || '—'} · ${b.customer_name || ''} · ${b.customer_phone || ''}`;
+}
+
+async function openNewInvoice() {
+  if (!(await ensureSession())) return;
+  _niBookingId = null;
+  ['ni-booking', 'ni-name', 'ni-phone', 'ni-address', 'ni-discount', 'ni-number'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('ni-method').value = '';
+  const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('ni-date').value = now.toISOString().slice(0, 16);
+  document.getElementById('ni-booking-info').style.display = 'none';
+  document.getElementById('ni-error').style.display = 'none';
+  document.getElementById('ni-items').innerHTML = '';
+  niAddRow();
+  openModal('new-invoice-modal');
+
+  // Product suggestions for the item description (picking one fills its price).
+  getCatalogue().then(cat => {
+    document.getElementById('ni-product-list').innerHTML = (cat || [])
+      .map(p => `<option value="${escB(p.model_name)}">${p.price_sar != null ? 'SAR ' + escB(p.price_sar) : ''}</option>`).join('');
   });
+  // Recent bookings for the picker (newest first).
+  const { data } = await dbAdmin.from('bookings')
+    .select('id, booking_reference, customer_name, customer_phone, location_address, city_name, order_total, discount_amount, booking_type, status, payment_method, invoice_number, created_at')
+    .neq('status', 'cancelled').order('created_at', { ascending: false }).limit(500);
+  _niBookings = data || [];
+  document.getElementById('ni-booking-list').innerHTML = _niBookings
+    .map(b => `<option value="${escB(niLabel(b))}">${escB(b.status || '')}</option>`).join('');
+}
+
+function niAddRow(desc = '', qty = 1, price = '') {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="form-input ni-desc" list="ni-product-list" value="${escB(desc)}" placeholder="Product or service" oninput="niDescChanged(this)"></td>
+    <td><input class="form-input ni-qty" type="number" min="1" step="1" value="${escB(qty)}" oninput="niRecalc()" style="min-width:64px;padding-left:8px;padding-right:4px;text-align:center;"></td>
+    <td><input class="form-input ni-price" type="number" min="0" step="0.01" value="${escB(price)}" placeholder="0.00" oninput="niRecalc()"></td>
+    <td class="ni-line" style="text-align:right;white-space:nowrap;">—</td>
+    <td><button class="btn btn-sm btn-ghost" type="button" title="Remove" onclick="this.closest('tr').remove();niRecalc()">✕</button></td>`;
+  document.getElementById('ni-items').appendChild(tr);
+  niRecalc();
+}
+
+// Picking a catalogue product fills its price (only if the price is still empty).
+function niDescChanged(input) {
+  const cat = window.__catalogue || [];
+  const p = cat.find(x => x.model_name === input.value);
+  const price = input.closest('tr').querySelector('.ni-price');
+  if (p && p.price_sar != null && !price.value) price.value = p.price_sar;
+  niRecalc();
+}
+
+function niReadItems() {
+  return [...document.querySelectorAll('#ni-items tr')].map(tr => ({
+    description: tr.querySelector('.ni-desc').value.trim(),
+    qty: Number(tr.querySelector('.ni-qty').value) || 0,
+    unitInclVat: Number(tr.querySelector('.ni-price').value) || 0,
+    tr
+  }));
+}
+
+function niTotals() {
+  const r2 = n => Math.round(n * 100) / 100;
+  const items = niReadItems().filter(i => i.description || i.unitInclVat);
+  const gross = r2(items.reduce((s, i) => s + i.qty * i.unitInclVat, 0));
+  const discount = Math.max(0, r2(Number(document.getElementById('ni-discount').value) || 0));
+  const total = Math.max(0, r2(gross - discount));
+  const net = r2(total / 1.15);
+  return { items, gross, discount, total, net, vat: r2(total - net) };
+}
+
+function niRecalc() {
+  niReadItems().forEach(i => {
+    i.tr.querySelector('.ni-line').textContent = (i.qty * i.unitInclVat).toFixed(2);
+  });
+  const t = niTotals();
+  const row = (k, v, bold) => `<div style="display:flex;justify-content:space-between;${bold ? 'font-weight:700;font-size:15px;margin-top:4px;' : ''}"><span>${k}</span><span>SAR ${v.toFixed(2)}</span></div>`;
+  document.getElementById('ni-summary').innerHTML =
+    (t.discount ? row('Items', t.gross) + row('Discount', -t.discount) : '') +
+    row('Total excl. VAT', t.net) + row('VAT 15%', t.vat) + row('Total incl. VAT', t.total, true);
+}
+
+async function niPickBooking() {
+  const val = document.getElementById('ni-booking').value;
+  const b = _niBookings.find(x => niLabel(x) === val);
+  if (!b) return;   // still typing
+  _niBookingId = b.id;
+  const info = document.getElementById('ni-booking-info');
+  info.style.display = 'block';
+  info.innerHTML = `Linked to booking <strong>${escB(b.booking_reference || '')}</strong> · ${escB(b.status || '')}${b.city_name ? ' · ' + escB(b.city_name) : ''}`;
+
+  // An invoice already on this booking? Then don't make a second one.
+  const existing = allInvoices.find(x => x.booking_id === b.id);
+  if (existing) {
+    info.style.background = '#FEF3C7';
+    info.innerHTML += `<br>⚠️ This booking already has invoice <strong>${escB(existing.invoice_number)}</strong>. Print it from the list, or edit it from the booking's 🧾 button.`;
+  } else {
+    info.style.background = '';
+  }
+
+  document.getElementById('ni-name').value = b.customer_name || '';
+  document.getElementById('ni-phone').value = b.customer_phone || '';
+  document.getElementById('ni-address').value = [b.location_address, b.city_name].filter(Boolean).join(', ');
+  if (b.payment_method) document.getElementById('ni-method').value = b.payment_method;
+
+  const { data: bi } = await dbAdmin.from('booking_items')
+    .select('product_model, qty, unit_price').eq('booking_id', b.id);
+  const tbody = document.getElementById('ni-items');
+  tbody.innerHTML = '';
+  if (bi && bi.length) {
+    bi.forEach(r => niAddRow(r.product_model || 'Item', r.qty || 1, Number(r.unit_price) || 0));
+  } else {
+    const fallback = (b.order_total || 0) - (b.discount_amount || 0);
+    niAddRow((b.booking_type || 'Installation / Service').replace(/_/g, ' '), 1, fallback > 0 ? fallback : (SERVICE_VISIT_PRICES[b.booking_type] || ''));
+  }
+  // Booking-level discount: keep the invoice total equal to what the booking charged.
+  const gross = niTotals().gross;
+  const target = b.order_total != null ? (b.order_total - (b.discount_amount || 0)) : null;
+  document.getElementById('ni-discount').value =
+    (target != null && gross > target + 0.01) ? (Math.round((gross - target) * 100) / 100) : '';
+  niRecalc();
+}
+
+function niClearBooking() {
+  _niBookingId = null;
+  document.getElementById('ni-booking').value = '';
+  document.getElementById('ni-booking-info').style.display = 'none';
+}
+
+async function niGenNumber() {
+  if (!(await ensureSession())) return;
+  const { data, error } = await dbAdmin.rpc('next_invoice_number');
+  if (error || !data) { showToast('Could not generate a number', 'error'); return; }
+  document.getElementById('ni-number').value = data;
+}
+
+async function saveNewInvoice(print) {
+  const errEl = document.getElementById('ni-error');
+  const fail = (msg) => { errEl.style.display = 'block'; errEl.textContent = msg; if (win) win.close(); };
+  errEl.style.display = 'none';
+  // Open the print window now, while we're still inside the click (pop-up blockers).
+  const win = print ? window.open('', '_blank') : null;
+  if (win) win.document.write('<p style="font-family:sans-serif;padding:24px;">Preparing invoice…</p>');
+
+  if (!(await ensureSession())) { if (win) win.close(); return; }
+  const name = document.getElementById('ni-name').value.trim();
+  const method = document.getElementById('ni-method').value;
+  const t = niTotals();
+  if (!name) return fail('Enter the customer name.');
+  if (!t.items.length) return fail('Add at least one item.');
+  if (t.items.some(i => !i.description)) return fail('Every item needs a description.');
+  if (t.items.some(i => i.qty <= 0)) return fail('Quantities must be at least 1.');
+  if (!method) return fail('Select the payment method.');
+  if (t.discount > t.gross) return fail('Discount is larger than the items total.');
+  if (_niBookingId && allInvoices.some(x => x.booking_id === _niBookingId)) {
+    return fail('This booking already has an invoice. Edit it from the booking instead of creating a second one.');
+  }
+
+  const btns = ['ni-save', 'ni-save-print'].map(id => document.getElementById(id));
+  btns.forEach(b => b.disabled = true);
+  try {
+    let invoiceNo = document.getElementById('ni-number').value.trim();
+    if (!invoiceNo) {
+      const { data, error } = await dbAdmin.rpc('next_invoice_number');
+      if (error || !data) throw new Error('Could not generate an invoice number' + (error ? ': ' + error.message : ''));
+      invoiceNo = data;
+    }
+    const dateVal = document.getElementById('ni-date').value;
+    const issuedAt = dateVal ? new Date(dateVal).toISOString() : new Date().toISOString();
+
+    const cs = await loadCompanySettings();
+    const sellerName = cs.seller_name_ar || cs.seller_name_en || "SA'DA H2O Water Purifiers";
+    const qrPayload = window.SADAInvoice
+      ? window.SADAInvoice.buildQrPayload({ sellerName, vatNumber: cs.vat_number || '', timestamp: issuedAt, total: t.total, vatTotal: t.vat })
+      : null;
+
+    const row = {
+      booking_id: _niBookingId, invoice_number: invoiceNo,
+      customer_name: name,
+      customer_phone: document.getElementById('ni-phone').value.trim() || null,
+      buyer_address: document.getElementById('ni-address').value.trim() || null,
+      amount: t.net, vat_amount: t.vat, total: t.total, payment_method: method,
+      issued_at: issuedAt,
+      seller_name: sellerName, seller_vat_number: cs.vat_number || null, qr_payload: qrPayload,
+      line_items: t.items.map(i => ({ description: i.description, qty: i.qty, unitInclVat: i.unitInclVat }))
+    };
+    const { data: saved, error } = await dbAdmin.from('invoices').insert(row).select('id').single();
+    if (error) {
+      if (/invoices_number_uidx|duplicate key/i.test(error.message)) throw new Error(`Invoice number ${invoiceNo} is already used.`);
+      if (/line_items/i.test(error.message)) throw new Error('Run migration v121 first (adds invoices.line_items).');
+      throw error;
+    }
+    // Keep the booking's own invoice number in step, like completing a booking does.
+    if (_niBookingId) await dbAdmin.from('bookings').update({ invoice_number: invoiceNo }).eq('id', _niBookingId);
+
+    logActivity('invoice.create', `Created invoice ${invoiceNo} · SAR ${t.total.toFixed(2)}${_niBookingId ? '' : ' (walk-in)'}`, 'invoice', saved.id);
+    showToast(`Invoice ${invoiceNo} saved`, 'success');
+    closeModal('new-invoice-modal');
+    await loadInvoices();
+    if (win) await printInvoice(saved.id, win);
+  } catch (e) {
+    fail(e.message || String(e));
+  } finally {
+    btns.forEach(b => b.disabled = false);
+  }
 }
 
 // Report one invoice to ZATCA (Phase-2). Calls the admin proxy, which forwards to
