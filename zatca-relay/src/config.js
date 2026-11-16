@@ -1,0 +1,42 @@
+'use strict';
+// Central config + ZATCA environment endpoints. All ZATCA APIs live on one host
+// (gw-fatoora.zatca.gov.sa) under a per-environment base path.
+const path = require('path');
+
+const ENVS = {
+  'developer-portal': 'https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal', // sandbox
+  'simulation':       'https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation',       // pre-prod
+  'core':             'https://gw-fatoora.zatca.gov.sa/e-invoicing/core',             // PRODUCTION
+};
+
+const envName = process.env.ZATCA_ENV || 'developer-portal';
+const base = ENVS[envName];
+if (!base) throw new Error(`Unknown ZATCA_ENV "${envName}". Use one of: ${Object.keys(ENVS).join(', ')}`);
+
+module.exports = {
+  envName,
+  base,
+  // Onboarding + document endpoints (relative to base).
+  endpoints: {
+    complianceCsid:   `${base}/compliance`,            // POST CSR -> binary security token (compliance CSID)
+    complianceInvoice:`${base}/compliance/invoices`,   // POST a signed sample -> pass/fail per invoice type
+    productionCsid:   `${base}/production/csids`,       // POST compliance-request-id -> production CSID
+    reportingSingle:  `${base}/invoices/reporting/single`, // POST simplified (B2C) invoice -> reported
+    clearanceSingle:  `${base}/invoices/clearance/single`,  // POST standard (B2B) invoice -> cleared
+  },
+  relayApiKey: process.env.RELAY_API_KEY || '',
+  port: Number(process.env.PORT || 8791),
+  certDir: path.resolve(process.env.CERT_DIR || './secrets'),
+  egs: {
+    commonName:   process.env.EGS_COMMON_NAME || 'SADA-H2O-EGS-001',
+    serialNumber: process.env.EGS_SERIAL_NUMBER || '1-SADA|2-H2O|3-0001',
+    orgIdentifier:process.env.EGS_ORG_IDENTIFIER || '',
+    orgUnitName:  process.env.EGS_ORG_UNIT_NAME || process.env.EGS_ORG_IDENTIFIER || '',
+    orgName:      process.env.EGS_ORG_NAME || "SA'DA H2O Water Purifiers",
+    country:      process.env.EGS_COUNTRY || 'SA',
+    invoiceType:  process.env.EGS_INVOICE_TYPE || '0100',
+    location:     process.env.EGS_LOCATION || 'Jubail',
+    industry:     process.env.EGS_INDUSTRY || 'Water purification',
+  },
+  otp: process.env.ZATCA_OTP || '',
+};
