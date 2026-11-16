@@ -48,7 +48,10 @@ module.exports = async function handler(req, res) {
     if (!cs || !cs.vat_number) return res.status(400).json({ error: 'Set the seller VAT number in Tax / Company info first.' });
 
     let items = [];
-    if (inv.booking_id) {
+    if (Array.isArray(inv.line_items) && inv.line_items.length) {
+      // Lines saved on the invoice itself (New Invoice form, migration v121).
+      items = inv.line_items.map(r => ({ name: r.description || 'Item', qty: Number(r.qty) || 1, unitPriceInclVat: Number(r.unitInclVat) || 0 }));
+    } else if (inv.booking_id) {
       const { data: bi } = await admin.from('booking_items')
         .select('product_model, qty, unit_price').eq('booking_id', inv.booking_id);
       items = (bi || []).map(r => ({ name: r.product_model, qty: r.qty || 1, unitPriceInclVat: Number(r.unit_price) || 0 }));
