@@ -107,7 +107,8 @@ function build(data) {
     <cac:PartyIdentification><cbc:ID schemeID="CRN">${esc(s.crNumber || '')}</cbc:ID></cac:PartyIdentification>
     <cac:PostalAddress>
       <cbc:StreetName>${esc(s.street || '')}</cbc:StreetName>
-      <cbc:BuildingNumber>${esc(s.building || '')}</cbc:BuildingNumber>
+      <cbc:BuildingNumber>${esc(s.building || '')}</cbc:BuildingNumber>${s.plot ? `
+      <cbc:PlotIdentification>${esc(s.plot)}</cbc:PlotIdentification>` : ''}
       <cbc:CitySubdivisionName>${esc(s.district || '')}</cbc:CitySubdivisionName>
       <cbc:CityName>${esc(s.city || '')}</cbc:CityName>
       <cbc:PostalZone>${esc(s.postalZone || '')}</cbc:PostalZone>

@@ -124,7 +124,7 @@
 
     // QR: prefer a stored payload (byte-identical re-prints); else build it now.
     const qrPayload = d.qrPayload || buildQrPayload({
-      sellerName: sellerNameEn, vatNumber, timestamp: d.issuedAt, total: grandTotal, vatTotal: totalVat,
+      sellerName: sellerNameAr || sellerNameEn, vatNumber, timestamp: d.issuedAt, total: grandTotal, vatTotal: totalVat,
     });
 
     const vatMissing = !vatNumber;
