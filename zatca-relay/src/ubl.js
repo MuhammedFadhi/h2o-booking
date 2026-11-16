@@ -48,6 +48,19 @@ function build(data) {
   const s = data.seller || {};
   const sellerName = s.name || "SA'DA H2O Water Purifiers";
   const type = data.invoiceType === 'standard' ? '0100000' : '0200000';
+  // Document kind: invoice (388), credit note (381) or debit note (383). Notes
+  // must reference the original invoice number (BillingReference) and say why
+  // they were issued (PaymentMeans/InstructionNote, KSA-10).
+  const DOC_CODES = { invoice: '388', credit: '381', debit: '383' };
+  const docType = DOC_CODES[data.docType] ? data.docType : 'invoice';
+  const docCode = DOC_CODES[docType];
+  if (docType !== 'invoice' && !data.billingReference) {
+    throw new Error(`A ${docType} note must reference the original invoice number (billingReference).`);
+  }
+  const billingBlock = docType !== 'invoice' ? `
+  <cac:BillingReference><cac:InvoiceDocumentReference><cbc:ID>${esc(data.billingReference)}</cbc:ID></cac:InvoiceDocumentReference></cac:BillingReference>` : '';
+  const instructionNote = docType !== 'invoice'
+    ? `<cbc:InstructionNote>${esc(data.reason || (docType === 'credit' ? 'Return of goods' : 'Price adjustment'))}</cbc:InstructionNote>` : '';
 
   const buyer = data.buyer || {};
   const buyerBlock = (buyer.name || buyer.phone) ? `
@@ -91,9 +104,9 @@ function build(data) {
   <cbc:UUID>${uuid}</cbc:UUID>
   <cbc:IssueDate>${issueDate}</cbc:IssueDate>
   <cbc:IssueTime>${issueTime}</cbc:IssueTime>
-  <cbc:InvoiceTypeCode name="${type}">388</cbc:InvoiceTypeCode>
+  <cbc:InvoiceTypeCode name="${type}">${docCode}</cbc:InvoiceTypeCode>
   <cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
-  <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
+  <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>${billingBlock}
   <cac:AdditionalDocumentReference><cbc:ID>ICV</cbc:ID><cbc:UUID>${Number(data.icv) || 1}</cbc:UUID></cac:AdditionalDocumentReference>
   <cac:AdditionalDocumentReference><cbc:ID>PIH</cbc:ID>
     <cac:Attachment><cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">${esc(data.pih || '')}</cbc:EmbeddedDocumentBinaryObject></cac:Attachment>
@@ -118,7 +131,7 @@ function build(data) {
       <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>
     <cac:PartyLegalEntity><cbc:RegistrationName>${esc(sellerName)}</cbc:RegistrationName></cac:PartyLegalEntity>
   </cac:Party></cac:AccountingSupplierParty>${buyerBlock}
-  <cac:PaymentMeans><cbc:PaymentMeansCode>${esc(data.paymentMeansCode || '10')}</cbc:PaymentMeansCode></cac:PaymentMeans>${allowanceBlock}
+  <cac:PaymentMeans><cbc:PaymentMeansCode>${esc(data.paymentMeansCode || '10')}</cbc:PaymentMeansCode>${instructionNote}</cac:PaymentMeans>${allowanceBlock}
   <cac:TaxTotal><cbc:TaxAmount currencyID="SAR">${f2(vat)}</cbc:TaxAmount></cac:TaxTotal>
   <cac:TaxTotal>
     <cbc:TaxAmount currencyID="SAR">${f2(vat)}</cbc:TaxAmount>
@@ -139,7 +152,7 @@ function build(data) {
 </Invoice>`;
 
   return {
-    xml, uuid, issueInstant, sellerName, vatNumber: s.vatNumber || '',
+    xml, uuid, issueInstant, sellerName, vatNumber: s.vatNumber || '', docType,
     totals: { taxExclusive, vat, taxInclusive },
   };
 }

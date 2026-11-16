@@ -1,17 +1,23 @@
 // SA'DA H2O — ZATCA Phase-2 reporting proxy (admin-only).
 // The browser must never hold the relay key, and the relay must never be public,
-// so the dashboard calls here; this Worker handler injects the relay URL + key
-// from env and forwards one invoice to the signing relay, then records the result.
+// so the dashboard calls here; this Worker handler forwards one invoice to the
+// signing relay and records the result on the invoice.
 //
-// Env (Worker secrets): ZATCA_RELAY_URL (e.g. https://zatca.sadawater.com),
-//                       ZATCA_RELAY_KEY (matches the relay's RELAY_API_KEY).
-// Until both are set this endpoint cleanly reports { configured:false } so the
-// live app keeps working before onboarding is done.
+// Body: { invoiceId, auto? }  — auto:true is the automatic submission made right
+// after an invoice is saved; it is skipped (not an error) when automatic
+// submission is OFF, the service is not onboarded, or the invoice is Phase 1.
+//
+// Every rule is enforced HERE, not only in the dashboard (as in Al Amanah):
+//   * nothing is sent until the Phase 2 start date is set, and nothing dated
+//     before it is ever sent (those were Phase 1 documents);
+//   * an invoice already reported/cleared in this environment is never re-sent;
+//   * an invoice issued under another VAT number is never sent;
+//   * the seller's National Address must be complete (ZATCA warns otherwise,
+//     and records warnings as violations).
 const crypto = require('crypto');
 const { requireAdmin } = require('./_auth.js');
+const { relayConfigured, relayCall, relayStatus, deviceState, sellerFromCompany, sellerIssues } = require('./_zatca.js');
 
-const RELAY_URL = process.env.ZATCA_RELAY_URL || '';
-const RELAY_KEY = process.env.ZATCA_RELAY_KEY || '';
 // ZATCA's defined first-invoice PIH = Base64( SHA256("0") ).
 const SEED_PIH = crypto.createHash('sha256').update('0').digest('base64');
 
@@ -27,25 +33,58 @@ module.exports = async function handler(req, res) {
   catch (e) { return res.status(e.status || 401).json({ error: e.message }); }
   const admin = ctx.admin;
 
-  if (!RELAY_URL || !RELAY_KEY) {
-    return res.status(200).json({ configured: false, message: 'ZATCA relay not configured yet (ZATCA_RELAY_URL / ZATCA_RELAY_KEY).' });
+  const { invoiceId, auto } = req.body || {};
+  if (!invoiceId) return res.status(400).json({ error: 'invoiceId required' });
+  const skip = (reason, message) => res.status(200).json({ skipped: reason, message });
+
+  if (!relayConfigured()) {
+    if (auto) return skip('not_configured', 'Signing service not connected.');
+    return res.status(200).json({ configured: false, message: 'ZATCA signing service not connected yet (ZATCA_RELAY_URL / ZATCA_RELAY_KEY).' });
   }
 
-  const { invoiceId } = req.body || {};
-  if (!invoiceId) return res.status(400).json({ error: 'invoiceId required' });
-
   try {
-    // Load the invoice, its booking + line items, and the seller identity.
+    const relay = await relayStatus();
+    if (!relay.connected) {
+      if (auto) return skip('relay_down', relay.error || 'Signing service unreachable.');
+      return res.status(503).json({ error: 'The ZATCA signing service is not reachable: ' + (relay.error || 'unknown error') });
+    }
+    const env = relay.environment;
+    if (!relay.onboarded) {
+      if (auto) return skip('not_onboarded', 'Not onboarded.');
+      return res.status(400).json({ error: `Not onboarded for ${env}. Onboard on the ZATCA E-Invoicing page first.` });
+    }
+
+    const state = await deviceState(admin, env);
+    if (auto && !state.auto_submit) return skip('disabled', 'Automatic submission is OFF.');
+
     const { data: inv } = await admin.from('invoices')
       .select('*, bookings(booking_reference, city_name)').eq('id', invoiceId).maybeSingle();
     if (!inv) return res.status(404).json({ error: 'Invoice not found' });
     if (inv.total == null) return res.status(400).json({ error: 'Invoice has no total — cannot e-invoice.' });
-    if (inv.einvoice_status === 'reported' || inv.einvoice_status === 'cleared') {
+    if (inv.einvoice_env === env && ['reported', 'cleared'].includes(inv.einvoice_status)) {
       return res.status(200).json({ already: true, status: inv.einvoice_status, qr: inv.zatca_qr });
     }
 
+    // Phase 2 start date: the single check behind every route (button, batch, auto).
+    if (!state.phase2_start_date) {
+      if (auto) return skip('no_phase2_date', 'Phase 2 start date not set.');
+      return res.status(400).json({ error: 'Set the Phase 2 start date on the ZATCA E-Invoicing page first: invoices dated before your integration date must never be sent to ZATCA.' });
+    }
+    // Saudi calendar day (UTC+3), the same day the dashboard shows.
+    const issuedDay = new Date(new Date(inv.issued_at).getTime() + 3 * 3600 * 1000).toISOString().slice(0, 10);
+    if (issuedDay < state.phase2_start_date) {
+      if (auto) return skip('phase1', 'Phase 1 invoice.');
+      return res.status(400).json({ error: `This invoice is dated ${issuedDay}, before the Phase 2 start date (${state.phase2_start_date}). It was a Phase 1 invoice and must not be sent to ZATCA.` });
+    }
+
     const { data: cs } = await admin.from('company_settings').select('*').eq('id', 'default').maybeSingle();
-    if (!cs || !cs.vat_number) return res.status(400).json({ error: 'Set the seller VAT number in Tax / Company info first.' });
+    const issues = sellerIssues(cs || {});
+    if (issues.length) {
+      return res.status(400).json({ error: 'Complete Tax / Company info first: ' + issues.map(i => i.text).join(' ') });
+    }
+    if (inv.seller_vat_number && inv.seller_vat_number.replace(/\s+/g, '') !== cs.vat_number) {
+      return res.status(400).json({ error: `This invoice was issued under VAT ${inv.seller_vat_number}, not ${cs.vat_number}, so it cannot be sent under this ZATCA certificate.` });
+    }
 
     let items = [];
     if (Array.isArray(inv.line_items) && inv.line_items.length) {
@@ -56,14 +95,16 @@ module.exports = async function handler(req, res) {
         .select('product_model, qty, unit_price').eq('booking_id', inv.booking_id);
       items = (bi || []).map(r => ({ name: r.product_model, qty: r.qty || 1, unitPriceInclVat: Number(r.unit_price) || 0 }));
     }
+    items = items.filter(i => i.qty > 0);
     if (!items.length) items = [{ name: 'Installation / Service', qty: 1, unitPriceInclVat: Number(inv.total) }];
 
-    // ICV (monotonic counter) + PIH (previous invoice hash) for the hash chain.
+    // ICV (monotonic counter) + PIH (hash of the previous document this EGS
+    // signed in this environment) for the hash chain.
     const { data: icvData } = await admin.rpc('next_einvoice_icv');
     const icv = Number(icvData) || 1;
     const { data: prev } = await admin.from('invoices')
-      .select('einvoice_hash').not('einvoice_hash', 'is', null)
-      .order('zatca_submitted_at', { ascending: false }).limit(1).maybeSingle();
+      .select('einvoice_hash').eq('einvoice_env', env).not('einvoice_hash', 'is', null)
+      .order('einvoice_icv', { ascending: false }).limit(1).maybeSingle();
     const pih = prev?.einvoice_hash || SEED_PIH;
 
     const payload = {
@@ -72,43 +113,40 @@ module.exports = async function handler(req, res) {
       issueInstant: inv.issued_at,
       icv, pih,
       invoiceType: 'simplified',
-      seller: {
-        vatNumber: cs.vat_number, name: cs.seller_name_ar || cs.seller_name_en, crNumber: cs.cr_number || '',
-        street: cs.street_ar || cs.street_en || '', building: cs.building_no || '',
-        plot: cs.secondary_no || '', district: cs.district_ar || cs.district_en || '',
-        city: cs.city || '', postalZone: cs.postal_code || '', countryCode: 'SA',
-      },
+      seller: sellerFromCompany(cs),
       buyer: { name: inv.customer_name, phone: inv.customer_phone },
       lines: items,
       totalInclVat: Number(inv.total),
     };
 
-    const r = await fetch(`${RELAY_URL.replace(/\/$/, '')}/sign-report`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-relay-key': RELAY_KEY },
-      body: JSON.stringify(payload),
-    });
-    const out = await r.json().catch(() => ({}));
-    if (!r.ok || out.error) {
-      // Persist the hash/uuid/qr if the relay produced them (so a retry can report).
-      if (out.uuid) await admin.from('invoices').update({
-        einvoice_uuid: out.uuid, einvoice_hash: out.invoiceHash, zatca_qr: out.qr,
-        einvoice_icv: icv, einvoice_pih: pih, einvoice_status: 'failed',
-        einvoice_response: out, zatca_submitted_at: new Date().toISOString(),
-      }).eq('id', invoiceId);
-      return res.status(502).json({ error: out.error || out.detail || 'Relay error', detail: out });
+    const { ok, out } = await relayCall('/sign-report', { method: 'POST', body: payload, timeoutMs: 60000 });
+    const now = new Date().toISOString();
+    if (!ok || out.error) {
+      const reason = out.zatca?.validationResults
+        ? JSON.stringify({ validationResults: out.zatca.validationResults })
+        : (out.detail || out.error || 'Signing service error');
+      const upd = {
+        einvoice_env: env, einvoice_status: 'failed', einvoice_error: reason,
+        einvoice_response: out, zatca_submitted_at: now,
+      };
+      // Keep the hash/uuid/qr if the relay produced them (the chain moved on).
+      if (out.uuid) Object.assign(upd, { einvoice_uuid: out.uuid, einvoice_hash: out.invoiceHash, zatca_qr: out.qr, einvoice_icv: icv, einvoice_pih: pih });
+      await admin.from('invoices').update(upd).eq('id', invoiceId);
+      return res.status(502).json({ error: 'ZATCA did not accept this invoice.', detail: reason, env });
     }
 
     const status = out.cleared ? 'cleared' : (out.status === 'REPORTED' || out.reported ? 'reported' : 'failed');
     await admin.from('invoices').update({
       einvoice_uuid: out.uuid, einvoice_hash: out.invoiceHash, zatca_qr: out.qr,
-      einvoice_icv: icv, einvoice_pih: pih, einvoice_status: status,
-      einvoice_response: out.zatca || out, zatca_submitted_at: new Date().toISOString(),
+      einvoice_icv: icv, einvoice_pih: pih, einvoice_status: status, einvoice_env: env,
+      einvoice_error: status === 'failed' ? JSON.stringify(out.zatca || out) : null,
+      einvoice_response: out.zatca || out, zatca_submitted_at: now,
     }).eq('id', invoiceId);
 
-    return res.status(200).json({ ok: true, status, qr: out.qr, uuid: out.uuid, warnings: out.warnings || [] });
+    return res.status(200).json({ ok: true, status, env, qr: out.qr, uuid: out.uuid, warnings: out.warnings || [] });
   } catch (e) {
     console.error('zatca-report error:', e.message);
-    return res.status(500).json({ error: e.message });
+    if (auto) return skip('error', e.message);
+    return res.status(500).json({ error: e.name === 'AbortError' ? 'The signing service did not answer in time — try again.' : e.message });
   }
 };

@@ -797,6 +797,12 @@
     <div class="nav-item" onclick="showPanel('invoices', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-3-2l-2 2l-2-2l-2 2l-2-2zM9 7h6m-6 4h6m-2 4h2"/></svg></span> Invoice Data
     </div>
+    <div class="nav-item" onclick="showPanel('zatca', this)">
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9c-4.6-.7-8-4.5-8-9V6zm-3 9l2 2l4-4"/></svg></span> ZATCA E-Invoicing
+    </div>
+    <div class="nav-item" onclick="showPanel('zatca-pending', this)">
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></g></svg></span> ZATCA Pending <span id="zatca-pending-navcount" style="display:none;margin-left:auto;background:#F59E0B;color:#fff;border-radius:10px;padding:0 7px;font-size:11px;font-weight:700;"></span>
+    </div>
 
     <div class="nav-section">Reports</div>
     <div class="nav-item" onclick="showPanel('salesreport', this)">
@@ -1544,6 +1550,39 @@
       </div>
     </div>
 
+    <!-- ZATCA E-INVOICING PANEL (status, onboarding, automatic submission) -->
+    <div class="panel" id="panel-zatca">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+          <h3 style="margin:0;">ZATCA E-Invoicing</h3>
+          <button class="btn btn-ghost btn-sm" type="button" onclick="loadZatcaPage()">↻ Refresh</button>
+        </div>
+        <div id="zatca-msg"></div>
+        <div id="zatca-status"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+        <div id="zatca-onboard"></div>
+      </div>
+    </div>
+
+    <!-- ZATCA PENDING SUBMISSIONS PANEL -->
+    <div class="panel" id="panel-zatca-pending">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+          <h3 style="margin:0;">ZATCA — Pending Submissions</h3>
+          <button class="btn btn-ghost btn-sm" type="button" onclick="showPanel('zatca')">← ZATCA status</button>
+        </div>
+        <div id="zp-alerts"></div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;">
+          <div class="form-group" style="margin:0;"><label>From</label><input class="form-input" type="date" id="zp-from"></div>
+          <div class="form-group" style="margin:0;"><label>To</label><input class="form-input" type="date" id="zp-to"></div>
+          <button class="btn btn-ghost" type="button" onclick="loadZatcaPending()">Filter</button>
+          <button class="btn btn-ghost" type="button" onclick="document.getElementById('zp-from').value='';document.getElementById('zp-to').value='';loadZatcaPending()">Clear</button>
+        </div>
+        <div id="zp-summary"></div>
+        <div id="zp-batch"></div>
+        <div id="zp-table"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+      </div>
+    </div>
+
     <!-- FOLLOW-UPS PANEL -->
     <div class="panel" id="panel-followups">
       <div class="card">
@@ -2257,11 +2296,9 @@
         <div class="form-group" style="flex:1;"><label>Email</label>
           <input class="form-input" id="cs-email" type="email"></div>
       </div>
-      <div class="form-group">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <input type="checkbox" id="cs-einvoice" style="width:auto;">
-          <span>Enable ZATCA Phase-2 e-invoicing <span style="color:var(--muted);font-weight:400;">(turn on only after onboarding the signing relay)</span></span>
-        </label>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+        ZATCA Phase 2 (onboarding, automatic submission, Phase 2 start date) is managed on the
+        <a href="#" onclick="closeModal('company-settings-modal');showPanel('zatca');return false;">ZATCA E-Invoicing</a> page.
       </div>
       <div id="cs-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
@@ -2963,6 +3000,8 @@ const panelTitles = {
   amc: ['AMC Contracts', 'Prepaid annual maintenance contracts — per unit'],
   promocodes: ['Promo Codes', 'Create and manage discount codes'],
   invoices: ['Invoice Data', 'VAT invoices linked to bookings'],
+  zatca: ['ZATCA E-Invoicing', 'Phase 2 status, onboarding and automatic submission'],
+  'zatca-pending': ['ZATCA Pending', 'Invoices ZATCA has not accepted yet'],
   followups: ['Follow-ups', 'Scheduled customer and lead callbacks — internal only'],
   activity: ['Activity Log', 'Who did what, and when']
 };
@@ -3019,6 +3058,8 @@ function showPanel(name, el) {
   if (name === 'promocodes') loadPromoCodes();
   if (name === 'products') loadProducts();
   if (name === 'invoices') loadInvoices();
+  if (name === 'zatca') loadZatcaPage();
+  if (name === 'zatca-pending') loadZatcaPending();
   if (name === 'followups') loadFollowups();
   if (name === 'activity') loadActivityLog();
 }
@@ -3770,9 +3811,22 @@ async function submitPayment() {
       seller_name: sellerName, seller_vat_number: cs.vat_number || null, qr_payload: qrPayload
     };
     // Update this booking's existing invoice if it has one; else insert a fresh row.
-    const { data: ownInv } = await dbAdmin.from('invoices').select('id').eq('booking_id', bookingId).maybeSingle();
-    if (ownInv?.id) await dbAdmin.from('invoices').update(invPayload).eq('id', ownInv.id);
-    else await dbAdmin.from('invoices').insert(invPayload);
+    const { data: ownInv } = await dbAdmin.from('invoices').select('id, einvoice_status').eq('booking_id', bookingId).maybeSingle();
+    let savedInvoiceId = ownInv?.id || null;
+    if (ownInv?.id) {
+      // An invoice ZATCA already accepted is a legal record: leave it untouched.
+      if (['reported', 'cleared'].includes(ownInv.einvoice_status)) {
+        showToast('Invoice already reported to ZATCA — it was not changed', 'info');
+      } else {
+        await dbAdmin.from('invoices').update(invPayload).eq('id', ownInv.id);
+      }
+    } else {
+      const { data: ins } = await dbAdmin.from('invoices').insert(invPayload).select('id').single();
+      savedInvoiceId = ins?.id || null;
+    }
+    // Automatic ZATCA submission (only when switched ON on the ZATCA page).
+    // Fire-and-forget: never blocks or breaks completing the booking.
+    if (savedInvoiceId) zatcaAutoSubmit(savedInvoiceId);
 
     if (await isSMSEnabled('completion')) {
       await sendAdminSMS(b.customer_phone, `SA'DA H₂O: Dear ${b.customer_name}, your installation (Ref: ${b.booking_reference}) is complete. Thank you for choosing SA'DA H₂O — The Art of Purity! For any questions: https://api.whatsapp.com/send/?phone=966547989055`);
@@ -6438,16 +6492,41 @@ async function viewPromoUsage(id) {
 let allInvoices = [];
 
 // ZATCA e-invoice status badge for the Invoices table.
-function zatcaBadge(status) {
-  const m = {
-    reported: ['Reported', '#DCFCE7', '#15803D'],
-    cleared:  ['Cleared', '#DCFCE7', '#15803D'],
-    failed:   ['Failed', '#FEE2E2', '#B91C1C'],
-    pending:  ['Pending', '#FEF3C7', '#92400E'],
-  };
-  const v = m[status];
-  if (!v) return '<span style="color:var(--muted);">—</span>';
-  return `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-weight:700;background:${v[1]};color:${v[2]};">${v[0]}</span>`;
+// ZATCA status of one invoice in the CURRENT environment: an invoice reported in
+// simulation is still NOT SENT once the system runs in production.
+function zatcaAccepted(inv) {
+  const env = _zatcaCtx?.env;
+  return ['reported', 'cleared'].includes(inv.einvoice_status) && (!env || inv.einvoice_env === env);
+}
+// Issued under another company's VAT number: never ours to send (Almanah's N/A).
+function zatcaOtherTaxpayer(inv) {
+  const ours = (_zatcaCtx?.vat || '').replace(/\s+/g, '');
+  return !!(ours && inv.seller_vat_number && inv.seller_vat_number.replace(/\s+/g, '') !== ours);
+}
+function zatcaIsPhase1(inv) {
+  const p2 = _zatcaCtx?.state?.phase2_start_date;
+  return !!(p2 && zatcaDay(inv.issued_at) < p2);
+}
+// Show the ⚡ button only where a submission could actually be accepted.
+function zatcaCanReport(inv) {
+  return !zatcaAccepted(inv) && !zatcaOtherTaxpayer(inv) && !zatcaIsPhase1(inv) && inv.total != null;
+}
+function zatcaBadge(inv) {
+  const pill = (t, bg, fg, title) => `<span title="${escB(title || '')}" style="display:inline-block;padding:2px 8px;border-radius:20px;font-weight:700;background:${bg};color:${fg};">${t}</span>`;
+  const ctx = _zatcaCtx;
+  if (zatcaOtherTaxpayer(inv)) return pill('N/A', '#F1F5F9', '#64748B', `Issued under VAT ${inv.seller_vat_number} — another company, not sent under this certificate`);
+  const sameEnv = !ctx || inv.einvoice_env === ctx.env;
+  if (sameEnv && inv.einvoice_status === 'reported') return pill('Reported', '#DCFCE7', '#15803D', 'Reported to ZATCA');
+  if (sameEnv && inv.einvoice_status === 'cleared') return pill('Cleared', '#DCFCE7', '#15803D', 'Cleared by ZATCA');
+  if (sameEnv && inv.einvoice_status === 'failed') {
+    const first = humanizeZatca(inv.einvoice_error).errors[0];
+    return pill('Failed', '#FEE2E2', '#B91C1C', first ? first.text : 'Rejected by ZATCA — see ZATCA Pending');
+  }
+  if (!ctx) return '<span style="color:var(--muted);">—</span>';
+  if (zatcaIsPhase1(inv)) return pill('Phase 1', '#F1F5F9', '#64748B', 'Issued before the Phase 2 start date — not sent');
+  if (inv.total == null) return '<span style="color:var(--muted);">—</span>';
+  const elsewhere = inv.einvoice_env && inv.einvoice_env !== ctx.env ? ` (sent in ${ZATCA_ENV_LABELS[inv.einvoice_env] || inv.einvoice_env} only)` : '';
+  return pill('Not sent', '#FEF3C7', '#92400E', 'Not sent to ZATCA yet' + elsewhere);
 }
 
 async function loadInvoices() {
@@ -6459,6 +6538,8 @@ async function loadInvoices() {
   if (error) { host.innerHTML = `<div style="color:#B71C1C;padding:12px;">${escB(error.message)}. Did you run migration v37?</div>`; return; }
   allInvoices = data || [];
   renderInvoices();
+  // ZATCA column needs the current environment + Phase 2 date: fetch, then redraw.
+  loadZatcaContext().then(() => renderInvoices()).catch(() => {});
 }
 
 function renderInvoices() {
@@ -6481,10 +6562,10 @@ function renderInvoices() {
     <td>${escB(prettyMethod(inv.payment_method))}</td>
     <td>${inv.total != null ? 'SAR ' + Number(inv.total).toLocaleString('en-US') : '—'}${inv.vat_amount != null ? `<div style="font-size:10px;color:var(--muted);">incl. VAT ${Number(inv.vat_amount).toLocaleString('en-US')}</div>` : ''}</td>
     <td style="font-size:12px;">${inv.issued_at ? formatTimestampShort(inv.issued_at) : '—'}</td>
-    <td style="font-size:11px;">${zatcaBadge(inv.einvoice_status)}</td>
+    <td style="font-size:11px;">${zatcaBadge(inv)}</td>
     <td style="text-align:right;white-space:nowrap;">
       <button class="btn btn-sm btn-ghost" onclick="printInvoice('${inv.id}')" title="Generate ZATCA tax invoice (PDF/print)">🧾</button>
-      ${['reported','cleared'].includes(inv.einvoice_status) ? '' : `<button class="btn btn-sm btn-ghost" onclick="reportToZatca('${inv.id}')" title="Report to ZATCA (Phase 2 e-invoice)">⚡</button>`}
+      ${!zatcaCanReport(inv) ? '' : `<button class="btn btn-sm btn-ghost" onclick="reportToZatca('${inv.id}')" title="${inv.einvoice_status === 'failed' ? 'Retry ZATCA submission' : 'Report to ZATCA (Phase 2 e-invoice)'}">⚡</button>`}
       ${inv.file_url ? `<a class="btn btn-sm btn-ghost" href="${inv.file_url}" target="_blank" title="View uploaded file">👁</a>` : ''}
       <button class="btn btn-sm btn-ghost" onclick="smsInvoice('${inv.id}')" title="SMS invoice to customer">✉️</button>
     </td>
@@ -6780,6 +6861,7 @@ async function saveNewInvoice(print) {
     closeModal('new-invoice-modal');
     await loadInvoices();
     if (win) await printInvoice(saved.id, win);
+    zatcaAutoSubmit(saved.id);   // only acts when automatic submission is ON
   } catch (e) {
     fail(e.message || String(e));
   } finally {
@@ -6787,31 +6869,489 @@ async function saveNewInvoice(print) {
   }
 }
 
-// Report one invoice to ZATCA (Phase-2). Calls the admin proxy, which forwards to
-// the signing relay and records the QR + reporting status back on the invoice.
+// ============================================================
+// ZATCA E-INVOICING (Phase 2) — modelled on the Al Amanah integration.
+// The signing service (zatca-relay) holds the keys and certificates; the Worker
+// endpoints /api/admin/zatca-{status,onboard,report} talk to it. Per-environment
+// settings (automatic submission, Phase 2 start date) live in zatca_device_state
+// (migration v122). Every rule is ALSO enforced in zatca-report on the server.
+// ============================================================
+const ZATCA_ENV_LABELS = { 'developer-portal': 'SANDBOX', simulation: 'SIMULATION', core: 'PRODUCTION' };
+let _zatcaCtx = null;   // { env, label, relay, state, sellerIssues, ... }
+
+async function zatcaApi(path, opts = {}) {
+  const { data: { session } } = await dbAdmin.auth.getSession();
+  if (!session) throw new Error('Not signed in');
+  const res = await fetch(path, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const out = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, out };
+}
+
+// Saudi calendar day (UTC+3) of a timestamp — the Phase 2 date is a local date.
+function zatcaDay(ts) {
+  if (!ts) return '';
+  return new Date(new Date(ts).getTime() + 3 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+async function loadZatcaContext(force) {
+  if (_zatcaCtx && !force && Date.now() - _zatcaCtx.loadedAt < 60000) return _zatcaCtx;
+  let st;
+  try {
+    const r = await zatcaApi('/api/admin/zatca-status');
+    st = r.ok ? r.out : { error: r.out.error || ('HTTP ' + r.status) };
+  } catch (e) { st = { error: e.message }; }
+  const env = st.environment || 'simulation';
+  const { data: state, error } = await dbAdmin.from('zatca_device_state').select('*').eq('environment', env).maybeSingle();
+  const cs = await loadCompanySettings();
+  _zatcaCtx = {
+    env,
+    vat: cs.vat_number || '',
+    label: st.environmentLabel || ZATCA_ENV_LABELS[env] || String(env).toUpperCase(),
+    relay: st.relay || { configured: false, connected: false, error: st.error },
+    sellerIssues: st.sellerIssues || [],
+    state: state || { environment: env, auto_submit: null, phase2_start_date: null },
+    stateError: error ? error.message : null,
+    statusError: st.error || null,
+    loadedAt: Date.now()
+  };
+  return _zatcaCtx;
+}
+
+// Invoices ZATCA has not accepted in the current environment (never sent, or
+// sent and rejected), oldest first, floored at the Phase 2 start date.
+async function zatcaPendingInvoices(ctx, from, to) {
+  let q = dbAdmin.from('invoices')
+    .select('id, invoice_number, customer_name, customer_phone, booking_id, total, issued_at, seller_vat_number, einvoice_env, einvoice_status, einvoice_error, bookings(booking_reference)')
+    .not('total', 'is', null)
+    .order('issued_at', { ascending: true }).limit(2000);
+  if (ctx.state.phase2_start_date) q = q.gte('issued_at', ctx.state.phase2_start_date + 'T00:00:00+03:00');
+  if (from) q = q.gte('issued_at', from + 'T00:00:00+03:00');
+  if (to) q = q.lte('issued_at', to + 'T23:59:59+03:00');
+  const { data, error } = await q;
+  if (error) throw error;
+  const cs = await loadCompanySettings();
+  const ourVat = (cs.vat_number || '').replace(/\s+/g, '');
+  return (data || [])
+    .filter(i => !(i.einvoice_env === ctx.env && ['reported', 'cleared'].includes(i.einvoice_status)))
+    // An invoice issued under another VAT number is another taxpayer's: never ours to send.
+    .filter(i => !i.seller_vat_number || !ourVat || i.seller_vat_number.replace(/\s+/g, '') === ourVat);
+}
+
+function updateZatcaNavCount(n) {
+  const el = document.getElementById('zatca-pending-navcount');
+  if (!el) return;
+  el.style.display = n ? 'inline-block' : 'none';
+  el.textContent = n > 99 ? '99+' : String(n || '');
+}
+
+// ZATCA's validation response -> plain-language issues (as Al Amanah's humanizeValidation).
+function humanizeZatca(raw) {
+  const out = { errors: [], warnings: [] };
+  if (!raw) return out;
+  let d = raw;
+  if (typeof raw === 'string') {
+    const b = raw.indexOf('{');
+    try { d = b >= 0 ? JSON.parse(raw.slice(b)) : null; } catch (_) { d = null; }
+    if (!d) { out.errors.push({ code: '', text: raw.trim(), action: 'Try again, or contact support if it repeats.' }); return out; }
+  }
+  const vr = d.validationResults || d.zatca?.validationResults || d;
+  const map = {
+    'BR-22': ['An invoice line has no quantity.', 'Give every line a quantity of at least 1.'],
+    'BR-KSA-64': ["The seller's address is incomplete.", 'Complete the National Address in Tax / Company info.'],
+    'BR-KSA-37': ["The seller's building number must be 4 digits.", 'Fix Building No. in Tax / Company info.'],
+    'BR-KSA-66': ["The seller's postal code must be 5 digits.", 'Fix Postal Code in Tax / Company info.'],
+    'BR-KSA-40': ["The seller's VAT number is not valid.", 'It must be 15 digits starting and ending with 3.'],
+    'BR-KSA-08': ["The seller's CR / identification number is missing or invalid.", 'Fix CR Number in Tax / Company info.'],
+    'BR-KSA-26': ['The previous invoice hash does not match.', 'Submit pending invoices oldest first, one at a time.'],
+    'BR-KSA-33': ['The invoice counter (ICV) is not valid.', 'Contact support — the invoice counter needs checking.'],
+    'invoiceTimeStamp_QRCODE_INVALID': ['The QR code timestamp does not match the invoice.', 'Retry the submission.'],
+  };
+  const clean = (m, code) => {
+    const t = String(m || '').replace(/\[[^\]]*\]\s*-?\s*/g, '').replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
+    return t || code;
+  };
+  const collect = (items, bucket) => (items || []).forEach(m => {
+    const code = m.code || '';
+    out[bucket].push(map[code]
+      ? { code, text: map[code][0], action: map[code][1] }
+      : { code, text: clean(m.message, code), action: '' });
+  });
+  collect(vr.errorMessages, 'errors');
+  collect(vr.warningMessages, 'warnings');
+  if (!out.errors.length && !out.warnings.length && (d.error || d.detail)) {
+    out.errors.push({ code: '', text: String(d.detail || d.error), action: '' });
+  }
+  return out;
+}
+
+// ---------- ZATCA E-Invoicing page ----------
+async function loadZatcaPage() {
+  const host = document.getElementById('zatca-status');
+  const ob = document.getElementById('zatca-onboard');
+  host.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+  ob.innerHTML = '';
+  const ctx = await loadZatcaContext(true);
+  const cs = await loadCompanySettings(true);
+  const pill = (t, bg, fg) => `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-weight:700;font-size:12px;background:${bg};color:${fg};">${t}</span>`;
+  const note = (t, color) => `<div style="font-size:12px;color:${color || 'var(--muted)'};margin-top:4px;">${t}</div>`;
+
+  if (ctx.stateError) {
+    host.innerHTML = `<div style="color:#B71C1C;padding:12px;background:#FEF2F2;border-radius:8px;">${escB(ctx.stateError)}. Run migration <strong>v122_zatca_settings_page.sql</strong> in Supabase.</div>`;
+    return;
+  }
+  const { relay, state, env, label } = ctx;
+  const envPill = env === 'core' ? pill(label, '#FEE2E2', '#B91C1C') : (env === 'simulation' ? pill(label, '#FEF3C7', '#92400E') : pill(label, '#E5E7EB', '#374151'));
+
+  // Counts / ICV / pending in this environment.
+  const { data: sent } = await dbAdmin.from('invoices').select('einvoice_status, einvoice_icv').eq('einvoice_env', env);
+  const counts = {}; let icv = 0;
+  (sent || []).forEach(r => { counts[r.einvoice_status || 'none'] = (counts[r.einvoice_status || 'none'] || 0) + 1; icv = Math.max(icv, Number(r.einvoice_icv) || 0); });
+  let pending = [];
+  try { pending = await zatcaPendingInvoices(ctx); } catch (e) { /* shown as 0 */ }
+  updateZatcaNavCount(pending.length);
+
+  const relayRow = !relay.configured
+    ? pill('NOT CONNECTED', '#E5E7EB', '#374151') + note('The signing service is not set up yet. Set the Worker secrets <code>ZATCA_RELAY_URL</code> and <code>ZATCA_RELAY_KEY</code> once it is running. Settings below can be prepared now.')
+    : relay.connected
+      ? pill('CONNECTED', '#DCFCE7', '#15803D') + note('Signing service is reachable.')
+      : pill('UNREACHABLE', '#FEE2E2', '#B91C1C') + note(escB(relay.error || 'The signing service did not answer.'), '#B91C1C');
+
+  let onboardRow;
+  if (relay.onboarded) {
+    const until = relay.certificate?.validTo ? ` · certificate valid until ${escB(formatDateShort(relay.certificate.validTo))}` : '';
+    onboardRow = pill('✓ ONBOARDED', '#DCFCE7', '#15803D') + note('Production certificate active' + until);
+  } else if (relay.hasCompliance) {
+    onboardRow = pill('COMPLIANCE ONLY', '#FEF3C7', '#92400E') + note('Compliance certificate issued; finish onboarding below.');
+  } else {
+    onboardRow = pill('NOT ONBOARDED', '#E5E7EB', '#374151');
+  }
+
+  // <bdi> keeps the Arabic name and the VAT number in their own reading order.
+  const sellerRow = `<bdi>${escB(cs.seller_name_ar || cs.seller_name_en || '—')}</bdi> · <bdi>${escB(cs.vat_number || 'no VAT number')}</bdi>` +
+    (ctx.sellerIssues.length
+      ? `<div style="margin-top:6px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:4px;font-size:12px;">
+           <strong>Seller details incomplete</strong> — ZATCA rejects or flags these:<ul style="margin:4px 0 0 16px;padding:0;">${ctx.sellerIssues.map(i => `<li>${escB(i.text)}</li>`).join('')}</ul>
+           <a href="#" onclick="openCompanySettings();return false;">Open Tax / Company info →</a></div>`
+      : note('✓ Name, VAT, CR and National Address complete.', '#15803D'));
+
+  const autoOn = state.auto_submit === true;
+  const autoRow = (autoOn
+      ? pill('✓ ON', '#DCFCE7', '#15803D') + ' <span style="font-size:12px;color:var(--muted);">every invoice is sent to ZATCA as soon as it is saved</span>'
+      : pill('OFF', '#FEF3C7', '#92400E') + ' <span style="font-size:12px;color:var(--muted);">invoices are only sent when someone clicks Report to ZATCA</span>') +
+    `<div style="margin-top:6px;"><button class="btn btn-sm ${autoOn ? 'btn-ghost' : 'btn-primary'}" onclick="zatcaSetAuto(${!autoOn})">⏻ Turn ${autoOn ? 'OFF' : 'ON'}</button></div>` +
+    note(`Stored for the ${escB(label)} environment only — switching to production starts OFF again.`) +
+    (autoOn && (!relay.onboarded || !state.phase2_start_date)
+      ? note('Has no effect yet: ' + [!relay.onboarded ? 'not onboarded' : '', !state.phase2_start_date ? 'Phase 2 start date not set' : ''].filter(Boolean).join(' and ') + '.', '#B45309') : '');
+
+  const p2 = state.phase2_start_date;
+  const phase2Row = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input class="form-input" type="date" id="zatca-phase2" value="${escB(p2 || '')}" style="max-width:180px;">
+      <button class="btn btn-sm btn-primary" onclick="zatcaSavePhase2()">Save</button>
+      ${p2 ? '<button class="btn btn-sm btn-ghost" onclick="zatcaSavePhase2(true)">Clear</button>' : ''}
+    </div>` + (p2
+      ? note(`Invoices dated before <strong>${escB(p2)}</strong> are Phase 1 documents: never counted, offered or sent.`)
+      : note('<strong>Not set</strong> — nothing can be sent to ZATCA until it is. Enter your wave’s integration date from ZATCA (not the day you onboarded).', '#B91C1C'));
+
+  const pendingRow = (pending.length ? pill(String(pending.length), '#FEF3C7', '#92400E') : pill('✓ NONE', '#DCFCE7', '#15803D')) +
+    ` <a href="#" onclick="showPanel('zatca-pending');return false;" style="margin-left:8px;font-size:13px;">${pending.length ? 'Review &amp; submit →' : 'view'}</a>` +
+    (p2 ? ` <span style="font-size:11px;color:var(--muted);">from ${escB(p2)} onward</span>` : '');
+
+  const countsRow = Object.keys(counts).length
+    ? Object.entries(counts).map(([s, n]) => {
+        const ok = ['reported', 'cleared'].includes(s);
+        return pill(`${s.toUpperCase()}: ${n}`, ok ? '#DCFCE7' : (s === 'failed' ? '#FEE2E2' : '#E5E7EB'), ok ? '#15803D' : (s === 'failed' ? '#B91C1C' : '#374151'));
+      }).join(' ')
+    : '<span style="color:var(--muted);">None sent in this environment yet</span>';
+
+  const row = (k, v) => `<tr><th style="width:32%;text-align:left;vertical-align:top;padding:12px;background:var(--foam,#F8FAFC);">${k}</th><td style="padding:12px;">${v}</td></tr>`;
+  host.innerHTML = `<table class="data-table" style="width:100%;">
+    ${row('Signing service', relayRow)}
+    ${row('Environment', envPill)}
+    ${row('Seller (VAT)', sellerRow)}
+    ${row('Invoice types', escB(relay.invoiceTypes || '0100') + ' <span style="color:var(--muted);font-size:12px;">(0100 = simplified / B2C only)</span>')}
+    ${row('Onboarding status', onboardRow)}
+    ${row('Automatic submission', autoRow)}
+    ${row('Phase 2 start date', phase2Row)}
+    ${row('Pending submission', pendingRow)}
+    ${row('Invoice counter (ICV)', String(icv))}
+    ${row('Invoices', countsRow)}
+  </table>`;
+
+  // Onboarding / onboarded section.
+  if (!relay.onboarded) {
+    const blocked = !relay.connected ? 'Connect the signing service first.' : (ctx.sellerIssues.length ? 'Complete the seller details above first.' : '');
+    ob.innerHTML = `<hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
+      <h3 style="margin:0 0 6px;">Onboard to ZATCA</h3>
+      <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">
+        ${relay.hasCompliance
+          ? 'The compliance certificate is already issued, so no new OTP is needed — click Onboard to run the compliance checks and get the production certificate.'
+          : `Generate a fresh OTP in the Fatoora portal (<strong>${escB(label)}</strong> environment), paste it below and click Onboard. This creates the keys and CSR, gets the compliance certificate, runs ZATCA's compliance checks and obtains the production certificate. The OTP is single-use and valid for 1 hour.`}
+      </p>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+        ${relay.hasCompliance ? '' : '<div class="form-group" style="margin:0;max-width:220px;"><label>Fatoora OTP</label><input class="form-input" id="zatca-otp" inputmode="numeric" autocomplete="off" placeholder="e.g. 123456"></div>'}
+        <button class="btn btn-primary" id="zatca-onboard-btn" onclick="zatcaOnboard()" ${blocked ? 'disabled' : ''}>🛡 Onboard</button>
+      </div>
+      ${blocked ? note(escB(blocked), '#B45309') : ''}
+      <div id="zatca-onboard-log" style="margin-top:12px;"></div>`;
+  } else {
+    ob.innerHTML = `<div style="margin-top:16px;padding:12px 14px;border-radius:10px;background:var(--foam,#E3F2FD);font-size:13px;">
+      This environment is fully onboarded.
+      ${autoOn
+        ? 'Every invoice is reported to ZATCA <strong>automatically as soon as it is saved</strong>; anything ZATCA rejects lands under <a href="#" onclick="showPanel(\'zatca-pending\');return false;">ZATCA Pending</a> for retry.'
+        : 'Invoices are reported only when someone clicks <strong>⚡ Report to ZATCA</strong>. Simplified invoices must be reported within 24 hours.'}
+      To re-onboard (e.g. after the certificate expires), the signing service's certificate files must be moved aside first.</div>`;
+  }
+}
+
+function zatcaMsg(text, ok) {
+  const el = document.getElementById('zatca-msg');
+  if (!el) return;
+  el.innerHTML = text ? `<div style="margin-bottom:12px;padding:10px 14px;border-radius:8px;font-size:13px;${ok ? 'background:#DCFCE7;color:#14532D;' : 'background:#FEF2F2;color:#B71C1C;border:1px solid #FECACA;'}">${text}</div>` : '';
+}
+
+async function zatcaSaveState(patch) {
+  const ctx = await loadZatcaContext();
+  const { error } = await dbAdmin.from('zatca_device_state')
+    .upsert({ environment: ctx.env, ...patch, updated_at: new Date().toISOString() }, { onConflict: 'environment' });
+  if (error) throw error;
+  _zatcaCtx = null;
+}
+
+async function zatcaSetAuto(on) {
+  if (!(await ensureSession())) return;
+  const ctx = await loadZatcaContext();
+  const msg = on
+    ? `Turn automatic submission ON for the ${ctx.label} environment?\n\nEvery invoice will be sent to ZATCA as soon as it is saved. Submissions are legally binding and cannot be undone.`
+    : 'Turn automatic submission OFF?\n\nInvoices will then only be sent when someone clicks Report to ZATCA — keep an eye on ZATCA Pending (simplified invoices must be reported within 24 hours).';
+  if (!confirm(msg)) return;
+  try {
+    await zatcaSaveState({ auto_submit: on });
+    logActivity('zatca.auto_submit', `Automatic ZATCA submission ${on ? 'ON' : 'OFF'} (${ctx.label})`, 'zatca', null);
+    zatcaMsg(on
+      ? `Automatic submission is now <strong>ON</strong> for ${escB(ctx.label)}. Every invoice will be sent to ZATCA as soon as it is saved.`
+      : 'Automatic submission is now <strong>OFF</strong>. Invoices will only be sent when someone clicks Report to ZATCA, so keep an eye on ZATCA Pending.', true);
+    loadZatcaPage();
+  } catch (e) { zatcaMsg('Could not save: ' + escB(e.message)); }
+}
+
+async function zatcaSavePhase2(clear) {
+  if (!(await ensureSession())) return;
+  const v = clear ? '' : (document.getElementById('zatca-phase2').value || '');
+  if (!clear && !/^\d{4}-\d{2}-\d{2}$/.test(v)) { zatcaMsg('Pick the Phase 2 start date first.'); return; }
+  if (clear && !confirm('Clear the Phase 2 start date? Nothing can be sent to ZATCA until it is set again.')) return;
+  try {
+    await zatcaSaveState({ phase2_start_date: v || null });
+    logActivity('zatca.phase2_date', v ? `Phase 2 start date set to ${v}` : 'Phase 2 start date cleared', 'zatca', null);
+    zatcaMsg(v
+      ? `Phase 2 start date set to <strong>${escB(v)}</strong>. Invoices dated before it are no longer listed as pending — they were Phase 1 documents and are not sent to ZATCA.`
+      : 'Phase 2 start date cleared. Nothing will be sent to ZATCA until it is set again.', true);
+    loadZatcaPage();
+  } catch (e) { zatcaMsg('Could not save: ' + escB(e.message)); }
+}
+
+async function zatcaOnboard() {
+  if (!(await ensureSession())) return;
+  const otpEl = document.getElementById('zatca-otp');
+  const otp = otpEl ? otpEl.value.trim() : '';
+  if (otpEl && !/^\d{4,10}$/.test(otp)) { zatcaMsg('Enter the OTP from the Fatoora portal (digits only).'); return; }
+  if (!confirm('Start ZATCA onboarding now? It can take up to a minute.')) return;
+  const btn = document.getElementById('zatca-onboard-btn');
+  const log = document.getElementById('zatca-onboard-log');
+  btn.disabled = true; btn.textContent = 'Onboarding…';
+  log.innerHTML = '<div class="loading"><div class="spinner"></div> Talking to ZATCA — please keep this page open…</div>';
+  try {
+    const { ok, out } = await zatcaApi('/api/admin/zatca-onboard', { method: 'POST', body: { otp } });
+    const steps = (out.steps || []).map(s => `<li>${escB(s)}</li>`).join('');
+    if (ok && out.ok) {
+      logActivity('zatca.onboard', 'ZATCA onboarding complete', 'zatca', null);
+      zatcaMsg('ZATCA onboarding complete — the production certificate is active.', true);
+      loadZatcaPage();
+      return;
+    }
+    const issues = out.zatca ? humanizeZatca(out.zatca).errors : [];
+    log.innerHTML = `<div style="padding:10px 14px;border-radius:8px;background:#FEF2F2;border:1px solid #FECACA;color:#7F1D1D;font-size:13px;">
+      <strong>Onboarding failed:</strong> ${escB(out.error || 'unknown error')}
+      ${issues.length ? `<ul style="margin:6px 0 0 16px;padding:0;">${issues.map(i => `<li>${escB(i.text)}${i.action ? ' — ' + escB(i.action) : ''}</li>`).join('')}</ul>` : ''}
+      ${steps ? `<div style="margin-top:8px;color:#374151;">Steps done:<ul style="margin:4px 0 0 16px;padding:0;">${steps}</ul></div>` : ''}
+    </div>`;
+  } catch (e) {
+    log.innerHTML = `<div style="color:#B71C1C;">Onboarding failed: ${escB(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '🛡 Onboard';
+  }
+}
+
+// ---------- ZATCA Pending page ----------
+async function loadZatcaPending() {
+  const alerts = document.getElementById('zp-alerts');
+  const sum = document.getElementById('zp-summary');
+  const batch = document.getElementById('zp-batch');
+  const host = document.getElementById('zp-table');
+  host.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+  batch.innerHTML = ''; sum.innerHTML = '';
+  const ctx = await loadZatcaContext(true);
+  const from = document.getElementById('zp-from').value || null;
+  const to = document.getElementById('zp-to').value || null;
+  const box = (html, kind) => `<div style="margin-bottom:10px;padding:10px 14px;border-radius:8px;font-size:13px;${kind === 'warn' ? 'background:#FEF3C7;color:#78350F;' : kind === 'bad' ? 'background:#FEF2F2;color:#7F1D1D;' : 'background:#DCFCE7;color:#14532D;'}">${html}</div>`;
+
+  let a = '';
+  if (!ctx.relay.onboarded) a += box(`This environment (<strong>${escB(ctx.label)}</strong>) is not onboarded. <a href="#" onclick="showPanel('zatca');return false;">Onboard first</a> — nothing can be submitted until then.`, 'warn');
+  if (ctx.state.auto_submit !== true) a += box('<strong>Automatic submission is OFF</strong>. Invoices are only sent when someone clicks Report to ZATCA, so this list keeps growing. Turn it on from the <a href="#" onclick="showPanel(\'zatca\');return false;">ZATCA page</a>.', 'warn');
+  a += `<p style="font-size:13px;color:var(--muted);margin:0 0 12px;">Invoices ZATCA has <strong>not accepted</strong> in the <strong>${escB(ctx.label)}</strong> environment — never sent, or sent and rejected. Simplified (B2C) invoices must be reported within 24 hours.` +
+    (ctx.state.phase2_start_date
+      ? `<br>Only invoices dated <strong>${escB(ctx.state.phase2_start_date)}</strong> or later are listed — earlier ones were Phase 1 documents.`
+      : `<br><span style="color:#B91C1C;">No Phase 2 start date is set</span>, so this list includes invoices from before Phase 2 applied to you, and nothing can be sent. Set it on the <a href="#" onclick="showPanel('zatca');return false;">ZATCA page</a> first.`) + '</p>';
+  alerts.innerHTML = a;
+
+  let list;
+  try { list = await zatcaPendingInvoices(ctx, from, to); }
+  catch (e) { host.innerHTML = `<div style="color:#B71C1C;">${escB(e.message)}</div>`; return; }
+  if (!from && !to) updateZatcaNavCount(list.length);
+  window.__zatcaPending = list;
+
+  sum.innerHTML = box(`<strong>${list.length}</strong> invoice${list.length === 1 ? '' : 's'} pending submission${from || to ? ' in the selected range' : ''}.${list.length > 200 ? ' <span style="opacity:.7;">(showing the oldest 200)</span>' : ''}`, list.length ? 'warn' : 'ok');
+
+  const canSend = ctx.relay.onboarded && !!ctx.state.phase2_start_date;
+  if (list.length && canSend) {
+    batch.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+      <label style="font-size:13px;">Submit the oldest</label>
+      <select class="form-input" id="zp-batch-n" style="width:auto;"><option>10</option><option selected>25</option><option>50</option><option>100</option></select>
+      <button class="btn btn-primary" id="zp-batch-btn" onclick="zatcaSubmitBatch()">➤ Submit batch to ZATCA</button>
+      <span style="font-size:12px;color:var(--muted);">Sent oldest first, one at a time, to keep the hash chain in order. Re-run until the list is empty.</span>
+    </div><div id="zp-progress"></div>`;
+  }
+
+  if (!list.length) { host.innerHTML = ''; return; }
+  const rows = list.slice(0, 200).map(i => {
+    let z;
+    if (i.einvoice_env === ctx.env && i.einvoice_status === 'failed') {
+      const first = humanizeZatca(i.einvoice_error).errors[0];
+      z = `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-weight:700;font-size:11px;background:#FEE2E2;color:#B91C1C;">FAILED</span>` +
+        (first ? `<div style="font-size:11px;color:var(--muted);max-width:280px;">${escB(first.text)}${first.action ? ' — ' + escB(first.action) : ''}</div>` : '');
+    } else {
+      z = `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-weight:700;font-size:11px;background:#E5E7EB;color:#374151;">NOT SENT</span>`;
+    }
+    return `<tr>
+      <td style="font-size:12px;">${escB(formatTimestampShort(i.issued_at))}</td>
+      <td><strong style="font-family:monospace;">${escB(i.invoice_number)}</strong></td>
+      <td>${escB(i.customer_name || '—')}<div style="font-size:11px;color:var(--muted);">${escB(i.customer_phone || '')}</div></td>
+      <td style="font-size:12px;">${i.booking_id ? 'Booking ' + escB(i.bookings?.booking_reference || '') : 'Walk-in'}</td>
+      <td style="text-align:right;">SAR ${Number(i.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+      <td>${z}</td>
+      <td style="white-space:nowrap;text-align:right;">
+        <button class="btn btn-sm btn-ghost" onclick="zatcaViewInvoice('${i.id}')" title="View / print invoice">🧾</button>
+        ${canSend ? `<button class="btn btn-sm btn-primary" onclick="zatcaSubmitOne('${i.id}')">Submit</button>` : ''}
+      </td></tr>`;
+  }).join('');
+  host.innerHTML = `<div style="overflow-x:auto;"><table class="data-table" style="width:100%;">
+    <thead><tr><th>Date</th><th>Invoice #</th><th>Customer</th><th>Type</th><th style="text-align:right;">Total</th><th>ZATCA</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+async function zatcaViewInvoice(id) {
+  if (!allInvoices.find(x => x.id === id)) await loadInvoices();
+  printInvoice(id);
+}
+
+// One synchronous report call; returns { ok, skipped, status, error, issues }.
+async function zatcaReportCall(invoiceId, auto) {
+  const { ok, status, out } = await zatcaApi('/api/admin/zatca-report', { method: 'POST', body: { invoiceId, auto: !!auto } });
+  if (out.configured === false) return { ok: false, error: 'The ZATCA signing service is not connected yet.' };
+  if (out.skipped) return { ok: false, skipped: out.skipped, error: out.message };
+  if (out.already) return { ok: true, status: out.status, already: true };
+  if (!ok || out.error) {
+    const issues = humanizeZatca(out.detail || out.error);
+    return { ok: false, error: out.error || ('HTTP ' + status), issues };
+  }
+  return { ok: true, status: out.status, warnings: out.warnings || [] };
+}
+
+async function zatcaSubmitOne(invoiceId) {
+  if (!(await ensureSession())) return;
+  const inv = (window.__zatcaPending || []).find(x => x.id === invoiceId) || allInvoices.find(x => x.id === invoiceId);
+  if (!confirm(`Submit invoice ${inv?.invoice_number || ''} to ZATCA now? Submissions are legally binding and cannot be undone.`)) return;
+  showToast('Sending to ZATCA…', 'info');
+  const r = await zatcaReportCall(invoiceId);
+  zatcaToastResult(inv?.invoice_number, r, invoiceId);
+  loadZatcaPending();
+}
+
+async function zatcaSubmitBatch() {
+  if (!(await ensureSession())) return;
+  const n = Number(document.getElementById('zp-batch-n').value) || 25;
+  const list = (window.__zatcaPending || []).slice(0, n);
+  if (!list.length) return;
+  if (!confirm(`Submit the oldest ${list.length} invoice(s) to ZATCA now? Submissions are legally binding and cannot be undone.`)) return;
+  const btn = document.getElementById('zp-batch-btn');
+  const prog = document.getElementById('zp-progress');
+  btn.disabled = true;
+  let okN = 0; const failed = [];
+  for (let k = 0; k < list.length; k++) {
+    const inv = list[k];
+    prog.innerHTML = `<div style="font-size:13px;margin-bottom:10px;">Sending ${k + 1} of ${list.length}: <strong>${escB(inv.invoice_number)}</strong>…</div>`;
+    try {
+      const r = await zatcaReportCall(inv.id);
+      if (r.ok) okN++;
+      else failed.push(`${inv.invoice_number}${r.issues?.errors?.[0] ? ' (' + r.issues.errors[0].text + ')' : r.error ? ' (' + r.error + ')' : ''}`);
+      // A chain error means every later invoice would fail too: stop early.
+      if (!r.ok && /Phase 2 start date|not onboarded|not reachable|not connected/i.test(r.error || '')) break;
+    } catch (e) { failed.push(`${inv.invoice_number} (${e.message})`); }
+  }
+  logActivity('zatca.batch', `ZATCA batch: ${okN} of ${list.length} accepted`, 'zatca', null);
+  await loadZatcaPending();
+  const left = (window.__zatcaPending || []).length;
+  const p = document.getElementById('zp-progress') || document.getElementById('zp-summary');
+  p.insertAdjacentHTML('afterbegin', `<div style="margin-bottom:10px;padding:10px 14px;border-radius:8px;font-size:13px;${failed.length ? 'background:#FEF2F2;color:#7F1D1D;' : 'background:#DCFCE7;color:#14532D;'}">
+    ZATCA: submitted ${okN} of ${list.length}.${left ? ` ${left} still pending — run again to continue.` : ' Nothing left pending.'}
+    ${failed.length ? `<div style="margin-top:4px;">Failed: ${escB(failed.slice(0, 5).join('; '))}${failed.length > 5 ? ` and ${failed.length - 5} more` : ''}</div>` : ''}</div>`);
+}
+
+function zatcaToastResult(number, r, invoiceId) {
+  if (r.ok) {
+    showToast(`Invoice ${number || ''} ${r.already ? 'was already ' : ''}${r.status} by ZATCA${r.warnings?.length ? ' (with warnings)' : ''}`, 'success');
+    if (!r.already) logActivity('invoice.einvoice', `Reported ${number} to ZATCA · ${r.status}`, 'invoice', invoiceId);
+  } else {
+    const first = r.issues?.errors?.[0];
+    showToast('ZATCA: ' + (first ? first.text + (first.action ? ' ' + first.action : '') : (r.error || 'failed')), 'error');
+  }
+}
+
+// Report one invoice from the Invoice Data list (⚡ button).
 async function reportToZatca(invoiceId) {
   if (!(await ensureSession())) return;
   const inv = allInvoices.find(x => x.id === invoiceId);
   if (!inv) return;
   if (inv.total == null) { showToast('Invoice has no total — cannot e-invoice', 'error'); return; }
-  if (!confirm(`Report invoice ${inv.invoice_number} to ZATCA? This signs and submits it as an official e-invoice.`)) return;
+  if (!confirm(`Report invoice ${inv.invoice_number} to ZATCA? This signs and submits it as an official e-invoice. Submissions are legally binding and cannot be undone.`)) return;
   showToast('Reporting to ZATCA…', 'info');
   try {
-    const { data: { session } } = await dbAdmin.auth.getSession();
-    const res = await fetch('/api/admin/zatca-report', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-      body: JSON.stringify({ invoiceId })
-    });
-    const out = await res.json();
-    if (out.configured === false) { showToast('ZATCA relay not set up yet — see onboarding', 'error'); return; }
-    if (out.already) { showToast(`Already ${out.status}`, 'info'); loadInvoices(); return; }
-    if (!res.ok || out.error) { showToast('ZATCA: ' + (out.error || 'failed'), 'error'); loadInvoices(); return; }
-    showToast(`Invoice ${out.status}${out.warnings?.length ? ' (with warnings)' : ''}`, 'success');
-    logActivity('invoice.einvoice', `Reported ${inv.invoice_number} to ZATCA · ${out.status}`, 'invoice', invoiceId);
-    loadInvoices();
+    const r = await zatcaReportCall(invoiceId);
+    zatcaToastResult(inv.invoice_number, r, invoiceId);
   } catch (e) {
     showToast('ZATCA report failed: ' + (e.message || e), 'error');
+  }
+  loadInvoices();
+}
+
+// Called right after an invoice is saved. Does nothing unless automatic
+// submission is ON (the server decides); never throws, never blocks the save.
+async function zatcaAutoSubmit(invoiceId) {
+  try {
+    const r = await zatcaReportCall(invoiceId, true);
+    if (r.skipped) return;
+    if (r.ok && !r.already) showToast(`Invoice ${r.status} to ZATCA automatically`, 'success');
+    if (!r.ok) {
+      const first = r.issues?.errors?.[0];
+      showToast('ZATCA did not accept the invoice' + (first ? ': ' + first.text : '') + ' — see ZATCA Pending', 'error');
+    }
+    _zatcaCtx = null;
+    if (document.getElementById('panel-invoices')?.classList.contains('active')) loadInvoices();
+  } catch (e) {
+    console.warn('ZATCA auto-submit:', e.message);
   }
 }
 
@@ -6828,7 +7368,6 @@ async function openCompanySettings() {
   set('cs-street-en', cs.street_en); set('cs-street-ar', cs.street_ar);
   set('cs-district-en', cs.district_en); set('cs-district-ar', cs.district_ar);
   set('cs-city', cs.city); set('cs-phone', cs.phone); set('cs-email', cs.email);
-  document.getElementById('cs-einvoice').checked = !!cs.einvoice_enabled;
   document.getElementById('cs-error').style.display = 'none';
   openModal('company-settings-modal');
 }
@@ -6864,7 +7403,6 @@ async function saveCompanySettings() {
       street_en: val('cs-street-en') || null, street_ar: val('cs-street-ar') || null,
       district_en: val('cs-district-en') || null, district_ar: val('cs-district-ar') || null,
       city: val('cs-city') || null, phone: val('cs-phone') || null, email: val('cs-email') || null,
-      einvoice_enabled: document.getElementById('cs-einvoice').checked,
       updated_at: new Date().toISOString()
     };
     const { error } = await dbAdmin.from('company_settings').upsert(patch, { onConflict: 'id' });

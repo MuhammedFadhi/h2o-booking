@@ -10,8 +10,10 @@ const ENVS = {
 };
 
 const envName = process.env.ZATCA_ENV || 'developer-portal';
-const base = ENVS[envName];
-if (!base) throw new Error(`Unknown ZATCA_ENV "${envName}". Use one of: ${Object.keys(ENVS).join(', ')}`);
+if (!ENVS[envName]) throw new Error(`Unknown ZATCA_ENV "${envName}". Use one of: ${Object.keys(ENVS).join(', ')}`);
+// ZATCA_TEST_BASE_URL points a non-production relay at a local mock of the
+// Fatoora API (automated tests). Ignored for core, so production always talks to ZATCA.
+const base = (envName !== 'core' && process.env.ZATCA_TEST_BASE_URL) || ENVS[envName];
 
 module.exports = {
   envName,

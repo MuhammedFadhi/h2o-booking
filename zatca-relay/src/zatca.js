@@ -16,7 +16,10 @@ async function call(url, { method = 'POST', headers = {}, body } = {}) {
   const text = await res.text();
   let json; try { json = JSON.parse(text); } catch { json = { raw: text }; }
   if (!res.ok) {
-    const msg = json?.errors ? JSON.stringify(json.errors) : (json?.message || text || res.statusText);
+    // Keep ZATCA's validationResults whole: the dashboard turns its error and
+    // warning codes into plain-language reasons on the Pending page.
+    const msg = json?.validationResults ? JSON.stringify({ validationResults: json.validationResults })
+      : json?.errors ? JSON.stringify(json.errors) : (json?.message || text || res.statusText);
     const err = new Error(`ZATCA ${res.status} ${url}: ${msg}`);
     err.status = res.status; err.body = json;
     throw err;

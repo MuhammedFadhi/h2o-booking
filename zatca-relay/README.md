@@ -63,17 +63,24 @@ portal. Do it first in **sandbox** (`ZATCA_ENV=developer-portal`), then repeat i
 
 1. Log in to the **Fatoora portal** → *Onboarding* → generate a **new OTP** for a
    new EGS unit. It is valid ~1 hour.
-2. Put it in `.env` as `ZATCA_OTP=...`, set `ZATCA_ENV`, and run:
-   ```bash
-   npm run onboard
-   ```
-   This generates the key + CSR, requests the **compliance CSID**, runs ZATCA's
-   **compliance invoice checks**, and on success requests the **production CSID**.
-   Credentials are written to `./secrets/` (keep it private and backed up).
-3. If a compliance check fails, fix the signed-invoice output against the sandbox
-   and re-run. **This is the expected iteration loop** — ZATCA validates the exact
-   XML/signature, and getting every field byte-correct is where integrations spend
-   their time.
+2. In the dashboard → **ZATCA E-Invoicing**, paste the OTP and click **Onboard**
+   (the relay must be running and connected — see *Run*). Or, on the relay host,
+   put it in `.env` as `ZATCA_OTP=...` and run `npm run onboard`. Both do the same:
+   generate the key + CSR, request the **compliance CSID**, run ZATCA's
+   **compliance checks** (a simplified invoice, credit note and debit note — one
+   set per invoice type in `EGS_INVOICE_TYPE`), then request the **production
+   CSID**. Credentials are written to `./secrets/` (keep it private and backed up).
+3. If a compliance check fails, click Onboard again (no new OTP needed — it resumes
+   after the compliance certificate) once the cause is fixed. **This is the expected
+   iteration loop** — ZATCA validates the exact XML/signature.
+4. Once onboarded, onboarding refuses to run again so a working certificate is never
+   replaced by accident. To re-onboard (certificate expiry, moving to another
+   environment), move the files in `secrets/` aside first.
+
+**VAT group:** SA'DA invoices as a member of a VAT group, so set
+`EGS_ORG_UNIT_NAME` to the member company's 10-digit TIN before onboarding (see
+`.env.example`). The dashboard supplies the VAT number, legal name and city from
+*Tax / Company info* for any `EGS_*` field left blank.
 
 ## Run
 
@@ -88,8 +95,25 @@ ZATCA_RELAY_URL = https://<your-relay-host>
 ZATCA_RELAY_KEY = <the same string as RELAY_API_KEY in .env>
 ```
 
-Then in the dashboard → **Invoices → ⚙ Tax / Company info**, tick **Enable ZATCA
-Phase-2 e-invoicing**. Each invoice gets a **⚡ Report to ZATCA** button.
+The relay must be served over HTTPS with a real certificate (Cloudflare Workers
+cannot call a self-signed host). Optionally set the Worker var `ZATCA_ENV` to the
+relay's environment so the dashboard can prepare settings before it is connected.
+
+Then in the dashboard → **ZATCA E-Invoicing** (same model as Al Amanah):
+
+- **Phase 2 start date** — your wave's integration date. Nothing is sent until it
+  is set, and nothing dated before it is ever sent.
+- **Automatic submission** ON/OFF — when ON, every saved invoice is reported at
+  once; anything rejected waits under **ZATCA Pending**. Stored per environment,
+  so moving to production starts OFF.
+- **ZATCA Pending** — every invoice ZATCA has not accepted, with the reason in
+  plain words; submit one, or the oldest 10/25/50/100 in order.
+
+Relay endpoints (all need `x-relay-key`): `GET /status`, `POST /onboard`,
+`POST /sign-report`. `GET /health` is open.
+
+For automated tests, `ZATCA_TEST_BASE_URL` points a non-production relay at a mock
+of the Fatoora API; it is ignored when `ZATCA_ENV=core`.
 
 ## What is verified vs. what needs the sandbox
 
