@@ -20,8 +20,7 @@ const TEMPLATE = {
 
 function ensureDir(d) { fs.mkdirSync(d, { recursive: true }); }
 
-function opensslConfig() {
-  const e = config.egs;
+function opensslConfig(e) {
   const template = TEMPLATE[config.envName];
   // invoiceType: 4 digits; position 1 = standard (1/0), position 2 = simplified (1/0).
   return `oid_section = OIDs
@@ -53,7 +52,19 @@ businessCategory = ${e.industry}
 // Generates key + CSR (idempotent on the key: reuses an existing private key so
 // re-running onboarding doesn't orphan an issued certificate). Returns the CSR
 // Base64-encoded, which is what the ZATCA compliance endpoint expects.
-function generateKeyAndCsr() {
+// `egsOverride` fills any EGS field left blank in .env (e.g. the VAT number and
+// legal name sent from the dashboard's Tax / Company info).
+function generateKeyAndCsr(egsOverride = {}) {
+  const e = { ...config.egs };
+  for (const [k, v] of Object.entries(egsOverride || {})) { if (v && !e[k]) e[k] = String(v); }
+  if (!e.orgUnitName) e.orgUnitName = e.orgIdentifier;
+  if (!/^3\d{13}3$/.test(e.orgIdentifier || '')) {
+    throw new Error('EGS VAT number (EGS_ORG_IDENTIFIER) must be 15 digits starting and ending with 3.');
+  }
+  // Values go into an OpenSSL config file: refuse anything that could break a line.
+  for (const [k, v] of Object.entries(e)) {
+    if (/[\r\n]/.test(String(v))) throw new Error(`EGS field ${k} contains a line break`);
+  }
   ensureDir(config.certDir);
   const keyPath = path.join(config.certDir, 'ec-private.pem');
   const cnfPath = path.join(config.certDir, 'csr.cnf');
@@ -62,7 +73,7 @@ function generateKeyAndCsr() {
   if (!fs.existsSync(keyPath)) {
     execFileSync('openssl', ['ecparam', '-name', 'secp256k1', '-genkey', '-noout', '-out', keyPath]);
   }
-  fs.writeFileSync(cnfPath, opensslConfig());
+  fs.writeFileSync(cnfPath, opensslConfig(e));
   execFileSync('openssl', ['req', '-new', '-sha256', '-key', keyPath, '-config', cnfPath, '-out', csrPath]);
 
   const csrPem = fs.readFileSync(csrPath, 'utf8');
