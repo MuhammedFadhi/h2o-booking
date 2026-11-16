@@ -199,7 +199,7 @@
       <div class="ar">فاتورة ضريبية مبسطة</div>
     </div>
 
-    ${vatMissing ? `<div class="warn">⚠ Seller VAT registration number is not set — this invoice is NOT ZATCA-compliant until it is configured in Tax / Company info.</div>` : ''}
+    ${vatMissing ? `<div class="warn">⚠ Seller VAT registration number is not set — this invoice is NOT ZATCA-compliant until it is set in ZATCA E-Invoicing → ZATCA Seller Details.</div>` : ''}
 
     <div class="panels">
       <div class="panel">

@@ -53,7 +53,7 @@ businessCategory = ${e.industry}
 // re-running onboarding doesn't orphan an issued certificate). Returns the CSR
 // Base64-encoded, which is what the ZATCA compliance endpoint expects.
 // `egsOverride` fills any EGS field left blank in .env (e.g. the VAT number and
-// legal name sent from the dashboard's Tax / Company info).
+// legal name sent from the dashboard's ZATCA Seller Details).
 function generateKeyAndCsr(egsOverride = {}) {
   const e = { ...config.egs };
   for (const [k, v] of Object.entries(egsOverride || {})) { if (v && !e[k]) e[k] = String(v); }

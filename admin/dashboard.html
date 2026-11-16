@@ -1545,7 +1545,6 @@
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <input type="text" id="invoice-search" placeholder="Search invoice # or customer…" oninput="renderInvoices()"
               style="padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;min-width:240px;">
-            <button class="btn btn-ghost" type="button" onclick="openCompanySettings()" title="Seller VAT number & tax details on invoices">⚙ Tax / Company info</button>
             <button class="btn btn-primary" type="button" onclick="openNewInvoice()" title="Create an invoice from a booking or for a walk-in / counter sale">+ New Invoice</button>
           </div>
         </div>
@@ -1589,6 +1588,17 @@
       .zx-card2 { border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; margin-top: 22px; background: #fff; }
       .zx-card2 h4 { margin: 0 0 6px; font-size: 16px; color: var(--deep); }
       .zx-card2 p { margin: 0 0 14px; font-size: 13px; color: var(--muted); line-height: 1.55; max-width: 760px; }
+      .zx-form-title { font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); margin: 18px 0 10px; padding-top: 14px; border-top: 1px solid var(--border); }
+      .zx-card2 p + .zx-form-title { margin-top: 6px; padding-top: 0; border-top: none; }
+      .zx-grid { display: grid; gap: 4px 16px; }
+      .zx-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .zx-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .zx-grid .form-group { margin-bottom: 12px; }
+      .zx-hint { font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }
+      .zx-flash { animation: zxFlash 1.6s ease; }
+      @keyframes zxFlash { 0%, 40% { box-shadow: 0 0 0 3px rgba(21,101,192,.35); } 100% { box-shadow: none; } }
+      @media (max-width: 900px) { .zx-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 560px) { .zx-grid-2, .zx-grid-4 { grid-template-columns: minmax(0, 1fr); } }
       .zx-toolbar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); margin-bottom: 14px; }
       .zx-toolbar .form-group { margin: 0; }
       .zx-toolbar label { font-size: 11px; }
@@ -1619,6 +1629,67 @@
         <div class="zx-body">
           <div id="zatca-msg"></div>
           <div id="zatca-status"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+
+          <!-- ZATCA SELLER DETAILS (seller identity printed on invoices + sent in e-invoices) -->
+          <div class="zx-card2" id="zatca-seller">
+            <h4>ZATCA Seller Details</h4>
+            <p>Your company exactly as registered with ZATCA. Printed on every tax invoice and its QR code, and sent in every e-invoice — keep it matching your VAT certificate, CR and National Address.</p>
+
+            <div class="zx-form-title">Company</div>
+            <div class="zx-grid zx-grid-2">
+              <div class="form-group"><label>Legal name (English)</label>
+                <input class="form-input" id="cs-name-en" placeholder="Saadat Alarab Company For Trading"></div>
+              <div class="form-group"><label>Legal name (Arabic) · الاسم</label>
+                <input class="form-input" id="cs-name-ar" dir="rtl" placeholder="شركة سعادة العرب للتجارة"></div>
+              <div class="form-group"><label>VAT registration no. <span class="zx-hint">15 digits</span></label>
+                <input class="form-input" id="cs-vat" inputmode="numeric" maxlength="15" placeholder="3xxxxxxxxxxxxx3"></div>
+              <div class="form-group"><label>CR number</label>
+                <input class="form-input" id="cs-cr" placeholder="Commercial registration"></div>
+            </div>
+
+            <div class="zx-form-title">National Address · العنوان الوطني</div>
+            <div class="zx-grid zx-grid-4">
+              <div class="form-group"><label>Building no. <span class="zx-hint">4 digits</span></label>
+                <input class="form-input" id="cs-building" inputmode="numeric" maxlength="4"></div>
+              <div class="form-group"><label>Secondary no. <span class="zx-hint">4 digits</span></label>
+                <input class="form-input" id="cs-secondary" inputmode="numeric" maxlength="4"></div>
+              <div class="form-group"><label>Postal code <span class="zx-hint">5 digits</span></label>
+                <input class="form-input" id="cs-postal" inputmode="numeric" maxlength="5"></div>
+              <div class="form-group"><label>Short address</label>
+                <input class="form-input" id="cs-short" maxlength="8" placeholder="ABCD1234"></div>
+            </div>
+            <div class="zx-grid zx-grid-2">
+              <div class="form-group"><label>Street (English)</label>
+                <input class="form-input" id="cs-street-en"></div>
+              <div class="form-group"><label>Street (Arabic) · الشارع</label>
+                <input class="form-input" id="cs-street-ar" dir="rtl"></div>
+              <div class="form-group"><label>District (English)</label>
+                <input class="form-input" id="cs-district-en"></div>
+              <div class="form-group"><label>District (Arabic) · الحي</label>
+                <input class="form-input" id="cs-district-ar" dir="rtl"></div>
+              <div class="form-group"><label>City</label>
+                <input class="form-input" id="cs-city" placeholder="Al Khobar"></div>
+            </div>
+
+            <div class="zx-form-title">Printed on the invoice</div>
+            <div class="zx-grid zx-grid-2">
+              <div class="form-group"><label>Address line (English)</label>
+                <input class="form-input" id="cs-addr-en" placeholder="Building, street, district, city postal code"></div>
+              <div class="form-group"><label>Address line (Arabic) · العنوان</label>
+                <input class="form-input" id="cs-addr-ar" dir="rtl"></div>
+              <div class="form-group"><label>Phone</label>
+                <input class="form-input" id="cs-phone" placeholder="920022569"></div>
+              <div class="form-group"><label>Email</label>
+                <input class="form-input" id="cs-email" type="email"></div>
+            </div>
+
+            <div id="cs-error" class="zx-alert bad" style="display:none;margin:4px 0 0;"></div>
+            <div class="zx-inline" style="justify-content:flex-end;margin-top:14px;">
+              <button class="btn btn-ghost" type="button" onclick="fillSellerForm()">Undo changes</button>
+              <button class="btn btn-primary" type="button" id="cs-save" onclick="saveCompanySettings()">Save seller details</button>
+            </div>
+          </div>
+
           <div id="zatca-onboard"></div>
         </div>
       </div>
@@ -2239,7 +2310,7 @@
   </div>
 </div>
 
-<!-- TAX / COMPANY INFO MODAL (seller identity for ZATCA invoices) -->
+<!-- NEW INVOICE MODAL (from a booking, or a walk-in sale) -->
 <div class="modal-overlay" id="new-invoice-modal" style="display:none;">
   <div class="modal" style="max-width:760px;">
     <div class="modal-header"><span class="modal-title">New Invoice</span>
@@ -2304,76 +2375,6 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="company-settings-modal" style="display:none;">
-  <div class="modal">
-    <div class="modal-header"><span class="modal-title">Tax / Company info</span>
-      <button class="modal-close" onclick="closeModal('company-settings-modal')">&times;</button></div>
-    <div class="modal-body">
-      <div style="background:var(--foam,#E3F2FD);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--muted);">
-        These details appear on every tax invoice and in its ZATCA QR code. The
-        <strong>VAT registration number</strong> is required for a compliant invoice.
-      </div>
-      <div style="display:flex;gap:10px;">
-        <div class="form-group" style="flex:1;"><label>Legal Name (English)</label>
-          <input class="form-input" id="cs-name-en" placeholder="Saadat Alarab Company For Trading"></div>
-        <div class="form-group" style="flex:1;"><label>الاسم (عربي)</label>
-          <input class="form-input" id="cs-name-ar" dir="rtl" placeholder="شركة سعادة العرب للتجارة"></div>
-      </div>
-      <div style="display:flex;gap:10px;">
-        <div class="form-group" style="flex:1;"><label>VAT Registration No. <span style="color:var(--muted);font-weight:400;">(15 digits)</span></label>
-          <input class="form-input" id="cs-vat" inputmode="numeric" maxlength="15" placeholder="3xxxxxxxxxxxxx3"></div>
-        <div class="form-group" style="flex:1;"><label>CR Number</label>
-          <input class="form-input" id="cs-cr" placeholder="Commercial registration"></div>
-      </div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted);margin:4px 0 6px;">National Address (العنوان الوطني) — used in ZATCA e-invoices</div>
-      <div style="display:flex;gap:10px;">
-        <div class="form-group" style="flex:1;"><label>Building No.</label>
-          <input class="form-input" id="cs-building" inputmode="numeric" maxlength="4" placeholder="4 digits"></div>
-        <div class="form-group" style="flex:1;"><label>Secondary No.</label>
-          <input class="form-input" id="cs-secondary" inputmode="numeric" maxlength="4" placeholder="4 digits"></div>
-        <div class="form-group" style="flex:1;"><label>Postal Code</label>
-          <input class="form-input" id="cs-postal" inputmode="numeric" maxlength="5" placeholder="5 digits"></div>
-        <div class="form-group" style="flex:1;"><label>Short Address</label>
-          <input class="form-input" id="cs-short" maxlength="8" placeholder="ABCD1234"></div>
-      </div>
-      <div style="display:flex;gap:10px;">
-        <div class="form-group" style="flex:1;"><label>Street (English)</label>
-          <input class="form-input" id="cs-street-en"></div>
-        <div class="form-group" style="flex:1;"><label>الشارع (عربي)</label>
-          <input class="form-input" id="cs-street-ar" dir="rtl"></div>
-      </div>
-      <div style="display:flex;gap:10px;">
-        <div class="form-group" style="flex:1;"><label>District (English)</label>
-          <input class="form-input" id="cs-district-en"></div>
-        <div class="form-group" style="flex:1;"><label>الحي (عربي)</label>
-          <input class="form-input" id="cs-district-ar" dir="rtl"></div>
-      </div>
-      <div style="display:flex;gap:10px;">
-        <div class="form-group" style="flex:1;"><label>Printed Address (English)</label>
-          <input class="form-input" id="cs-addr-en" placeholder="Building, street, district, city postal"></div>
-        <div class="form-group" style="flex:1;"><label>العنوان المطبوع (عربي)</label>
-          <input class="form-input" id="cs-addr-ar" dir="rtl"></div>
-      </div>
-      <div style="display:flex;gap:10px;">
-        <div class="form-group" style="flex:1;"><label>City</label>
-          <input class="form-input" id="cs-city" placeholder="Al Khobar"></div>
-        <div class="form-group" style="flex:1;"><label>Phone</label>
-          <input class="form-input" id="cs-phone" placeholder="920022569"></div>
-        <div class="form-group" style="flex:1;"><label>Email</label>
-          <input class="form-input" id="cs-email" type="email"></div>
-      </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
-        ZATCA Phase 2 (onboarding, automatic submission, Phase 2 start date) is managed on the
-        <a href="#" onclick="closeModal('company-settings-modal');showPanel('zatca');return false;">ZATCA E-Invoicing</a> page.
-      </div>
-      <div id="cs-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;">
-        <button class="btn btn-ghost" onclick="closeModal('company-settings-modal')">Cancel</button>
-        <button class="btn btn-primary" id="cs-save" onclick="saveCompanySettings()">Save</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- AMC CONTRACT MODAL (new + renew) -->
 <div class="modal-overlay" id="amc-modal" style="display:none;">
@@ -7027,11 +7028,11 @@ function humanizeZatca(raw) {
   const vr = d.validationResults || d.zatca?.validationResults || d;
   const map = {
     'BR-22': ['An invoice line has no quantity.', 'Give every line a quantity of at least 1.'],
-    'BR-KSA-64': ["The seller's address is incomplete.", 'Complete the National Address in Tax / Company info.'],
-    'BR-KSA-37': ["The seller's building number must be 4 digits.", 'Fix Building No. in Tax / Company info.'],
-    'BR-KSA-66': ["The seller's postal code must be 5 digits.", 'Fix Postal Code in Tax / Company info.'],
+    'BR-KSA-64': ["The seller's address is incomplete.", 'Complete the National Address in ZATCA Seller Details.'],
+    'BR-KSA-37': ["The seller's building number must be 4 digits.", 'Fix the building number in ZATCA Seller Details.'],
+    'BR-KSA-66': ["The seller's postal code must be 5 digits.", 'Fix the postal code in ZATCA Seller Details.'],
     'BR-KSA-40': ["The seller's VAT number is not valid.", 'It must be 15 digits starting and ending with 3.'],
-    'BR-KSA-08': ["The seller's CR / identification number is missing or invalid.", 'Fix CR Number in Tax / Company info.'],
+    'BR-KSA-08': ["The seller's CR / identification number is missing or invalid.", 'Fix the CR number in ZATCA Seller Details.'],
     'BR-KSA-26': ['The previous invoice hash does not match.', 'Submit pending invoices oldest first, one at a time.'],
     'BR-KSA-33': ['The invoice counter (ICV) is not valid.', 'Contact support — the invoice counter needs checking.'],
     'invoiceTimeStamp_QRCODE_INVALID': ['The QR code timestamp does not match the invoice.', 'Retry the submission.'],
@@ -7062,6 +7063,7 @@ async function loadZatcaPage() {
   ob.innerHTML = '';
   const ctx = await loadZatcaContext(true);
   const cs = await loadCompanySettings(true);
+  fillSellerForm(cs);
   const pill = (t, kind) => `<span class="zx-pill ${kind}">${t}</span>`;
   const note = (t, kind) => `<div class="zx-note ${kind || ''}">${t}</div>`;
   const dot = (kind) => `<span class="zx-dot ${kind}"></span>`;
@@ -7121,7 +7123,7 @@ async function loadZatcaPage() {
     (ctx.sellerIssues.length
       ? `<div class="zx-alert warn" style="margin:10px 0 0;"><strong>Seller details incomplete</strong> — ZATCA rejects or flags these:
            <ul>${ctx.sellerIssues.map(i => `<li>${escB(i.text)}</li>`).join('')}</ul>
-           <a href="#" onclick="openCompanySettings();return false;" style="font-weight:600;">Open Tax / Company info →</a></div>`
+           <a href="#" onclick="openCompanySettings();return false;" style="font-weight:600;">Edit seller details ↓</a></div>`
       : note('✓ Name, VAT, CR and National Address complete', 'ok'));
 
   const phase2Val = `<div class="zx-inline">
@@ -7144,7 +7146,7 @@ async function loadZatcaPage() {
     <div class="zx-section-title">Configuration</div>
     <div class="zx-list">
       ${row('Environment', 'Which ZATCA platform invoices go to', envPill + note(`Automatic submission and the Phase 2 date are stored for ${escB(label)} only — moving to production starts again with automatic submission off.`))}
-      ${row('Seller', 'From Tax / Company info', sellerVal)}
+      ${row('Seller', 'Edit in ZATCA Seller Details below', sellerVal)}
       ${row('Phase 2 start date', 'Your wave’s integration date', phase2Val)}
       ${row('Invoice types', 'Declared in the certificate', `<span style="font-family:monospace;">${escB(relay.invoiceTypes || '0100')}</span> <span style="color:var(--muted);font-size:13px;">— simplified (B2C) invoices only</span>`)}
       ${row('Invoice counter (ICV)', 'Last number used in this environment', `<span style="font-family:monospace;font-size:15px;">${icv}</span>`)}
@@ -7428,10 +7430,19 @@ async function zatcaAutoSubmit(invoiceId) {
   }
 }
 
-// Tax / Company info editor — the seller identity ZATCA requires on invoices.
+// ZATCA Seller Details — the seller identity ZATCA requires on invoices. Lives on
+// the ZATCA E-Invoicing page (section #zatca-seller).
+// Opens the ZATCA page and scrolls to the seller details (used by "fix it" links).
 async function openCompanySettings() {
-  if (!(await ensureSession())) return;
-  const cs = await loadCompanySettings(true);
+  const panel = document.getElementById('panel-zatca');
+  if (!panel.classList.contains('active')) { showPanel('zatca'); await new Promise(r => setTimeout(r, 400)); }
+  const sec = document.getElementById('zatca-seller');
+  sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  sec.classList.remove('zx-flash'); void sec.offsetWidth; sec.classList.add('zx-flash');
+}
+// Fills the seller form from company_settings (also "Undo changes").
+async function fillSellerForm(cs) {
+  if (!cs) cs = await loadCompanySettings(true);
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
   set('cs-name-en', cs.seller_name_en); set('cs-name-ar', cs.seller_name_ar);
   set('cs-vat', cs.vat_number); set('cs-cr', cs.cr_number);
@@ -7442,7 +7453,6 @@ async function openCompanySettings() {
   set('cs-district-en', cs.district_en); set('cs-district-ar', cs.district_ar);
   set('cs-city', cs.city); set('cs-phone', cs.phone); set('cs-email', cs.email);
   document.getElementById('cs-error').style.display = 'none';
-  openModal('company-settings-modal');
 }
 async function saveCompanySettings() {
   if (!(await ensureSession())) return;
@@ -7481,12 +7491,15 @@ async function saveCompanySettings() {
     const { error } = await dbAdmin.from('company_settings').upsert(patch, { onConflict: 'id' });
     if (error) throw error;
     _companyCache = patch;
-    showToast('Tax / company info saved', 'success');
-    closeModal('company-settings-modal');
+    showToast('ZATCA seller details saved', 'success');
+    errEl.style.display = 'none';
+    zatcaMsg('ZATCA seller details saved. New invoices will use them; invoices already issued keep the details they were printed with.', true);
+    loadZatcaPage();   // refresh the seller checklist and the Onboard button
+    document.getElementById('zatca-msg')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   } catch (e) {
     errEl.style.display = 'block'; errEl.textContent = e.message || String(e);
   } finally {
-    btn.disabled = false; btn.textContent = 'Save';
+    btn.disabled = false; btn.textContent = 'Save seller details';
   }
 }
 

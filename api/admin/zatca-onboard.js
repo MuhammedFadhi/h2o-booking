@@ -1,5 +1,5 @@
 // SA'DA H2O — ZATCA onboarding from the dashboard (admin-only).
-// Takes the Fatoora OTP, adds the seller details from Tax / Company info, and asks
+// Takes the Fatoora OTP, adds the ZATCA seller details from the dashboard, and asks
 // the signing service to onboard: key + CSR -> compliance certificate ->
 // compliance checks -> production certificate. The keys stay on the relay.
 const { requireAdmin } = require('./_auth.js');
@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
     const { data: cs } = await ctx.admin.from('company_settings').select('*').eq('id', 'default').maybeSingle();
     const issues = sellerIssues(cs || {});
     if (issues.length) {
-      return res.status(400).json({ error: 'Complete Tax / Company info first: ' + issues.map(i => i.text).join(' ') });
+      return res.status(400).json({ error: 'Complete the ZATCA seller details first: ' + issues.map(i => i.text).join(' ') });
     }
     // Onboarding signs and submits several sample documents: allow it a few minutes.
     const { ok, out } = await relayCall('/onboard', { method: 'POST', body: { otp, seller: sellerFromCompany(cs) }, timeoutMs: 180000 });

@@ -51,7 +51,7 @@ async function deviceState(admin, env) {
   return data || { environment: env, auto_submit: null, phase2_start_date: null };
 }
 
-// Seller identity for the CSR and the e-invoice, from Tax / Company info.
+// Seller identity for the CSR and the e-invoice, from the ZATCA seller details (company_settings).
 function sellerFromCompany(cs) {
   return {
     vatNumber: cs.vat_number || '', name: cs.seller_name_ar || cs.seller_name_en || '',
