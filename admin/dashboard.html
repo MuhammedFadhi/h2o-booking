@@ -795,13 +795,7 @@
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2m0 9l2 2l4-4"/></g></svg></span> Inspection Reports
     </div>
     <div class="nav-item" onclick="showPanel('invoices', this)">
-      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-3-2l-2 2l-2-2l-2 2l-2-2zM9 7h6m-6 4h6m-2 4h2"/></svg></span> Invoice
-    </div>
-    <div class="nav-item" onclick="showPanel('zatca', this)">
-      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9c-4.6-.7-8-4.5-8-9V6zm-3 9l2 2l4-4"/></svg></span> ZATCA E-Invoicing
-    </div>
-    <div class="nav-item" onclick="showPanel('zatca-pending', this)">
-      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></g></svg></span> ZATCA Pending <span id="zatca-pending-navcount" style="display:none;margin-left:auto;background:#F59E0B;color:#fff;border-radius:10px;padding:0 7px;font-size:11px;font-weight:700;"></span>
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-3-2l-2 2l-2-2l-2 2l-2-2zM9 7h6m-6 4h6m-2 4h2"/></svg></span> Invoices
     </div>
 
     <div class="nav-section">Reports</div>
@@ -821,6 +815,12 @@
     </div>
     <div class="nav-item" onclick="showPanel('sms-settings', this)">
       <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37c1 .608 2.296.07 2.572-1.065"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0-6 0"/></g></svg></span> SMS Settings
+    </div>
+    <div class="nav-item" onclick="showPanel('zatca', this)">
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9c-4.6-.7-8-4.5-8-9V6zm-3 9l2 2l4-4"/></svg></span> ZATCA E-Invoicing
+    </div>
+    <div class="nav-item" onclick="showPanel('zatca-pending', this)">
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></g></svg></span> ZATCA Pending <span id="zatca-pending-navcount" style="display:none;margin-left:auto;background:#F59E0B;color:#fff;border-radius:10px;padding:0 7px;font-size:11px;font-weight:700;"></span>
     </div>
 
     <div class="nav-section">Users</div>
@@ -3115,7 +3115,7 @@ const panelTitles = {
   warranties: ['Active Units', 'Registered units, coverage and service history'],
   amc: ['AMC Contracts', 'Prepaid annual maintenance contracts — per unit'],
   promocodes: ['Promo Codes', 'Create and manage discount codes'],
-  invoices: ['Invoice', 'Tax invoices — from bookings and walk-in sales'],
+  invoices: ['Invoices', 'Tax invoices — from bookings and walk-in sales'],
   zatca: ['ZATCA E-Invoicing', 'Phase 2 status, onboarding and automatic submission'],
   'zatca-pending': ['ZATCA Pending', 'Invoices ZATCA has not accepted yet'],
   followups: ['Follow-ups', 'Scheduled customer and lead callbacks — internal only'],
