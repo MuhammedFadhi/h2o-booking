@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SA'DA H2O — install / update the ZATCA signing relay on the DigitalOcean droplet
+# SA'DA H2O — install / update the ZATCA signing relay on the relay server
 # (same box and same PM2 setup as the SMS relay).
 #
 # Run as root from the copied zatca-relay folder:

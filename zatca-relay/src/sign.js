@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const config = require('./config');
-const { sha256Base64 } = require('./hash');
+
 
 // ---- credential loading -----------------------------------------------------
 function credPath(name) { return path.join(config.certDir, name); }
@@ -52,6 +52,12 @@ function certSignatureBytes(certPem) {
   return der.subarray(r.pos, r.pos + len - 1);
 }
 
+// ZATCA digest convention for the certificate and SignedProperties.
+function zatcaHexDigestB64(text) {
+  const hex = crypto.createHash('sha256').update(Buffer.from(text, 'utf8')).digest('hex');
+  return Buffer.from(hex, 'utf8').toString('base64');
+}
+
 // ---- minimal DER helpers ----------------------------------------------------
 function pemToDer(pem) {
   const b64 = pem.replace(/-----BEGIN[^-]+-----/, '').replace(/-----END[^-]+-----/, '').replace(/\s+/g, '');
@@ -81,23 +87,27 @@ function buildSignedXml(invoiceXml, invoiceHashB64) {
 
   const certDer = pemToDer(certPem);
   const certB64 = certDer.toString('base64');
-  const certHashB64 = sha256Base64(Buffer.from(certB64, 'utf8')); // ZATCA hashes the Base64 cert text
+  // ZATCA convention (matches its SDK and Al Amanah's passing implementation):
+  // Base64 of the *hex* SHA-256 digest of the Base64 certificate text.
+  const certHashB64 = zatcaHexDigestB64(certB64);
 
   const cert = new crypto.X509Certificate(certPem);
   const issuerName = cert.issuer.split('\n').reverse().join(', ');
   const serialNumber = BigInt('0x' + cert.serialNumber).toString();
 
-  // SignedProperties (XAdES) — its canonical form is what the SignedInfo digests.
+  // SignedProperties (XAdES). ZATCA digests the element's exclusive-C14N form,
+  // so it is written here already canonical (no self-closing tags, no
+  // whitespace) and embedded byte-for-byte; the digest is Base64 of the hex SHA-256.
   const signedProps =
 `<xades:SignedProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Id="xadesSignedProperties">` +
 `<xades:SignedSignatureProperties><xades:SigningTime>${signingTime}</xades:SigningTime>` +
 `<xades:SigningCertificate><xades:Cert><xades:CertDigest>` +
-`<ds:DigestMethod xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>` +
+`<ds:DigestMethod xmlns:ds="http://www.w3.org/2000/09/xmldsig#" Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"></ds:DigestMethod>` +
 `<ds:DigestValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#">${certHashB64}</ds:DigestValue></xades:CertDigest>` +
 `<xades:IssuerSerial><ds:X509IssuerName xmlns:ds="http://www.w3.org/2000/09/xmldsig#">${issuerName}</ds:X509IssuerName>` +
 `<ds:X509SerialNumber xmlns:ds="http://www.w3.org/2000/09/xmldsig#">${serialNumber}</ds:X509SerialNumber></xades:IssuerSerial>` +
 `</xades:Cert></xades:SigningCertificate></xades:SignedSignatureProperties></xades:SignedProperties>`;
-  const signedPropsHash = sha256Base64(Buffer.from(signedProps, 'utf8'));
+  const signedPropsHash = zatcaHexDigestB64(signedProps);
 
   // SignedInfo references the invoice hash (tag 6) and the SignedProperties hash.
   const signedInfo =
@@ -117,8 +127,9 @@ function buildSignedXml(invoiceXml, invoiceHashB64) {
 `<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>` +
 `<ds:DigestValue>${signedPropsHash}</ds:DigestValue></ds:Reference></ds:SignedInfo>`;
 
-  // ECDSA over the SignedInfo -> SignatureValue (also QR tag 7).
-  const signatureB64 = ecdsaSign(Buffer.from(signedInfo, 'utf8'), privateKeyPem);
+  // ECDSA-SHA256 over the invoice hash bytes -> SignatureValue (also QR tag 7),
+  // as ZATCA's SDK does.
+  const signatureB64 = ecdsaSign(Buffer.from(invoiceHashB64, 'base64'), privateKeyPem);
 
   const ublExt =
 `<ext:UBLExtensions xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2">` +
@@ -146,5 +157,5 @@ signedProps +
 
 module.exports = {
   loadCreds, ecdsaSign, ecdsaVerify, publicKeyDer, certSignatureBytes,
-  buildSignedXml, pemToDer,
+  buildSignedXml, pemToDer, zatcaHexDigestB64,
 };
