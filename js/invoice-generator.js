@@ -33,6 +33,10 @@
     } catch (e) { return String(iso); }
   }
 
+  // Dark logo for the white invoice sheet; absolute so it resolves inside the
+  // blank print window.
+  const LOGO_URL = (global.location ? global.location.origin : '') + '/assets/SADA_h2o_logo_dark.png';
+
   // ---- ZATCA Phase-1 TLV QR payload ---------------------------------------
   // Each field: [tag:1 byte][length:1 byte][UTF-8 value bytes]. Concatenate the
   // five fields and Base64-encode. Length is the BYTE length (matters for the
@@ -141,6 +145,7 @@
   .sheet { width:210mm; min-height:297mm; margin:0 auto; background:#fff; padding:14mm 14mm 12mm; position:relative; }
   .ar { font-family:'Cairo',sans-serif; direction:rtl; }
   .top { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #0D3B6E; padding-bottom:12px; }
+  .logo { display:block; height:64px; width:auto; margin-bottom:4px; }
   .brand { font-family:'Playfair Display',serif; font-size:26px; font-weight:700; color:#0D3B6E; }
   .brand span { color:#1565C0; }
   .brand-ar { font-family:'Cairo',sans-serif; font-size:18px; font-weight:700; color:#0D3B6E; text-align:right; }
@@ -188,8 +193,8 @@
   <div class="sheet">
     <div class="top">
       <div>
-        <div class="brand">SA'DA <span>H₂O</span></div>
-        <div class="sub">Water Purifiers · The Art of Purity</div>
+        <img class="logo" src="${esc(LOGO_URL)}" alt="SA'DA H₂O Purifiers">
+        <div class="sub">The Art of Purity</div>
       </div>
       <div class="brand-ar">${esc(sellerNameAr || 'سعدا لتنقية المياه')}</div>
     </div>
