@@ -1,7 +1,7 @@
 # ZATCA signing relay — server setup (simulation first)
 
-This puts the signing relay on the **same DigitalOcean server as the SMS relay**
-(`206.189.42.165`, PM2), behind HTTPS at **`zatca.sadawater.com`**, and connects it
+This puts the signing relay on the **same relay server as the SMS relay**
+(`185.214.134.177`, PM2), behind HTTPS at **`zatca.sadawater.com`**, and connects it
 to the dashboard. After step 7 the dashboard's ZATCA page works like Al Amanah's:
 paste an OTP, click Onboard, and the certificates are issued.
 
@@ -22,18 +22,18 @@ Time needed: about 30–45 minutes.
 
 ## 1. DNS
 
-Add an **A record**: `zatca` → `206.189.42.165`
+Add an **A record**: `zatca` → `185.214.134.177`
 If the DNS is on Cloudflare, set it to **DNS only (grey cloud)** so step 4's
 certificate request can reach the server.
 
-Check (from any computer): `nslookup zatca.sadawater.com` shows `206.189.42.165`.
+Check (from any computer): `nslookup zatca.sadawater.com` shows `185.214.134.177`.
 
 ## 2. Copy the relay to the server
 
 From the project folder on your computer (PowerShell or Git Bash):
 
 ```bash
-scp -r zatca-relay root@206.189.42.165:/root/zatca-relay-src
+scp -r zatca-relay root@185.214.134.177:/root/zatca-relay-src
 ```
 
 Only the code is copied — there is no `.env` or `secrets/` on your computer.
@@ -41,7 +41,7 @@ Only the code is copied — there is no `.env` or `secrets/` on your computer.
 ## 3. Install
 
 ```bash
-ssh root@206.189.42.165
+ssh root@185.214.134.177
 cd /root/zatca-relay-src
 bash deploy/install.sh
 ```

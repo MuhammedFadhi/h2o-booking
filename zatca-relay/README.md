@@ -84,7 +84,7 @@ portal. Do it first in **sandbox** (`ZATCA_ENV=developer-portal`), then repeat i
 
 ## Server setup
 
-Step-by-step for the DigitalOcean server (install script, PM2, nginx + HTTPS,
+Step-by-step for the relay server (install script, PM2, nginx + HTTPS,
 Cloudflare secrets, onboarding, backups): **[deploy/SETUP.md](deploy/SETUP.md)**.
 
 ## Run
