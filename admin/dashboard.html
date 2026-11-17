@@ -7097,7 +7097,7 @@ async function loadZatcaPage() {
       : tile('Signing service', dot('bad') + 'Unreachable', escB(relay.error || 'The signing service did not answer.'));
 
   const onboardTile = relay.onboarded
-    ? tile('Onboarding', dot('ok') + 'Onboarded', relay.certificate?.validTo ? `Certificate valid until ${escB(formatDateShort(relay.certificate.validTo))}` : 'Production certificate active')
+    ? tile('Onboarding', dot('ok') + 'Onboarded', relay.certificate?.validTo ? `Certificate valid until ${escB(formatDateShort(String(relay.certificate.validTo).slice(0, 10)))}` : 'Production certificate active')
     : relay.hasCompliance
       ? tile('Onboarding', dot('warn') + 'Compliance only', 'Finish onboarding below.')
       : tile('Onboarding', dot('') + 'Not onboarded', 'Needs an OTP from the Fatoora portal.');
