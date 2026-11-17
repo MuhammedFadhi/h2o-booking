@@ -170,8 +170,8 @@
   table.items tr.disc td { color:#B91C1C; font-weight:600; }
   .bottom { display:flex; gap:16px; margin-top:18px; align-items:flex-start; }
   .qr-box { flex:0 0 auto; text-align:center; }
-  .qr-box #qr { width:132px; height:132px; padding:8px; border:1px solid #E2E8F0; border-radius:10px; background:#fff; }
-  .qr-box #qr img, .qr-box #qr canvas { display:block; }
+  .qr-box #qr { width:150px; height:150px; padding:8px; border:1px solid #E2E8F0; border-radius:10px; background:#fff; }
+  .qr-box #qr img, .qr-box #qr canvas { display:block; width:134px !important; height:134px !important; image-rendering:pixelated; }
   .qr-cap { font-size:9px; color:#607D8B; margin-top:5px; max-width:150px; line-height:1.4; }
   .totals { flex:1; }
   .totals .t { display:flex; justify-content:space-between; padding:7px 12px; font-size:13px; border-bottom:1px solid #E2E8F0; }
@@ -268,7 +268,9 @@
       function render() {
         try {
           new QRCode(document.getElementById('qr'), {
-            text: payload, width: 116, height: 116,
+            // Drawn large and shown at 134px: the signed Phase 2 QR has ~100 modules a
+            // side, which needs several pixels per module to stay scannable in the PDF.
+            text: payload, width: 536, height: 536,
             correctLevel: QRCode.CorrectLevel.M
           });
         } catch (e) {
