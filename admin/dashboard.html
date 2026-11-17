@@ -6767,7 +6767,9 @@ async function printInvoice(invoiceId, win) {
     customer: { name: inv.customer_name, phone: inv.customer_phone, address: inv.buyer_address },
     items,
     totalInclVat: total,
-    qrPayload: inv.qr_payload || null
+    // Once ZATCA has accepted it, print the signed Phase 2 QR (tags 1-9);
+    // before that, the Phase 1 QR saved when the invoice was issued.
+    qrPayload: (['reported', 'cleared'].includes(inv.einvoice_status) && inv.zatca_qr) || inv.qr_payload || null
   }, win);
 }
 
