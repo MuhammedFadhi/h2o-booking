@@ -45,7 +45,8 @@
   const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
   const S = {
-    tab: 'entries', month: today.slice(0, 7), person: '', group: '',
+    // month '' = All months (default), otherwise 'yyyy-mm'.
+    tab: 'entries', month: '', person: '', group: '',
     entries: [], earnings: [], rates: [], people: [], payments: [], balances: [], payouts: [], paySel: new Set(), selected: new Map(), products: new Set(), editingBatch: null,
     amountMode: 'sar', amountValue: null, catalog: new Map()
   };
@@ -62,6 +63,7 @@
   const $ = id => document.getElementById(id);
 
   function monthRange(month) {
+    if (!month) month = today.slice(0, 7);
     const [y, m] = month.split('-').map(Number);
     const next = m === 12 ? `${y + 1}-01-01` : `${y}-${pad(m + 1)}-01`;
     return { from: `${month}-01`, to: next };
@@ -113,18 +115,29 @@
 
   async function fetchMonth() {
     const { from, to } = monthRange(S.month);
-    // Rules whose From..To touches this month, and money earned in this month.
-    const [entries, payments, earnings] = await Promise.all([
-      dbAdmin.from('incentive_entries').select('*').gte('period_date', from).lt('entry_date', to)
-        .order('entry_date', { ascending: false }).order('created_at', { ascending: false }),
-      dbAdmin.from('incentive_payments').select('*').eq('month', from),
-      dbAdmin.from('incentive_earnings').select('*').gte('earned_on', from).lt('earned_on', to)
+    const all = !S.month;
+    // All months: every record and all money earned. A month: records whose
+    // From..To touches it, and money earned in it.
+    let eq = dbAdmin.from('incentive_entries').select('*');
+    if (!all) eq = eq.gte('period_date', from).lt('entry_date', to);
+    const [entries, payments] = await Promise.all([
+      eq.order('created_at', { ascending: false }),
+      dbAdmin.from('incentive_payments').select('*').eq('month', from)
     ]);
     if (entries.error) throw entries.error;
     if (payments.error) throw payments.error;
-    if (earnings.error) throw earnings.error;
+    // Earnings in pages of 1000 (the most the server returns per request).
+    const earned = [];
+    for (let start = 0; ; start += 1000) {
+      let q = dbAdmin.from('incentive_earnings').select('*').order('id').range(start, start + 999);
+      if (!all) q = q.gte('earned_on', from).lt('earned_on', to);
+      const res = await q;
+      if (res.error) throw res.error;
+      earned.push(...(res.data || []));
+      if (!res.data || res.data.length < 1000) break;
+    }
     S.entries = entries.data || [];
-    S.earnings = earnings.data || [];
+    S.earnings = earned;
     S.payments = payments.data || [];
   }
 
@@ -173,7 +186,11 @@
     const groupOpts = ACCOUNTS.map(g => `<option value="${g.key}" ${S.group === g.key ? 'selected' : ''}>${esc(g.label)}</option>`).join('');
     return `
       <div class="filter-bar" style="padding:16px 20px 0;">
-        <input type="month" class="form-input" style="max-width:170px;" value="${S.month}" onchange="incSetMonth(this.value)" aria-label="Month">
+        <select class="form-input" style="max-width:150px;" onchange="incSetMonth(this.value === 'all' ? '' : (this.value === 'pick' ? '${S.month || today.slice(0, 7)}' : this.value))" aria-label="Show">
+          <option value="all" ${S.month ? '' : 'selected'}>All months</option>
+          <option value="pick" ${S.month ? 'selected' : ''}>One month</option>
+        </select>
+        ${S.month ? `<input type="month" class="form-input" style="max-width:170px;" value="${S.month}" onchange="incSetMonth(this.value)" aria-label="Month">` : ''}
         <select class="form-input" style="max-width:200px;" onchange="incSetFilter('person',this.value)" aria-label="Person"><option value="">All people</option>${personOpts}</select>
         <select class="form-input" style="max-width:220px;" onchange="incSetFilter('group',this.value)" aria-label="Group"><option value="">All groups</option>${groupOpts}</select>
         <button class="btn btn-ghost btn-sm" onclick="incExport()">Download Excel</button>
@@ -227,6 +244,8 @@
     filteredEarnings().forEach(x => earned.set(x.batch_no, (earned.get(x.batch_no) || 0) + Number(x.amount)));
     const keys = [...new Set(S.entries.map(batchKeyOf))];
     const uniq = list => [...new Set(list)];
+    // Newest record first.
+    keys.sort((a, b) => (Number(findBatch(b).no) || 0) - (Number(findBatch(a).no) || 0));
     return keys.map(findBatch).map(b => {
       const mine = b.entries.filter(e => shown.has(e.id));
       return {
@@ -261,7 +280,7 @@
       <div style="padding:16px 20px 20px;overflow-x:auto;">
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Each row is a rule. Earned is added automatically when a booking with these products is completed between From and To.</div>
         ${list.length ? `<table><thead><tr><th>ID</th><th>From</th><th>To</th><th>People</th><th>Products</th><th>Per Unit Sold</th><th>Earned</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`
-        : '<div class="empty-state"><div>No incentives for this month yet.</div></div>'}
+        : `<div class="empty-state"><div>${S.month ? 'No incentives for this month.' : 'No incentives yet.'}</div></div>`}
       </div>`;
   }
   function summaryRows() {
@@ -823,7 +842,6 @@
       closeModal('inc-modal');
       showToast(`${editing ? 'Updated' : 'Saved'} ${idLabel(no)}`);
       try { logActivity(editing ? 'incentive_updated' : 'incentive_added', `${editing ? 'Updated' : 'Added'} ${idLabel(no)} (${rows.length} entries)`, 'incentive', String(no)); } catch (e) { /* log only */ }
-      S.month = (end || date).slice(0, 7);
       await fetchMonth();
       render();
     } catch (e) {
@@ -842,7 +860,7 @@
       <td style="white-space:nowrap;">SAR ${money(e.amount)}${e.percent != null ? `<div style="font-size:11px;color:var(--muted);">${esc(percentNote(e))}</div>` : ''}</td></tr>`).join('');
     showInfoModal(`${idLabel(b.no)} · ${dmy(b.entries[0].entry_date)}`, `
       <div style="overflow-x:auto;"><table class="data-table" style="width:100%;"><thead><tr><th>Person</th><th>Product</th><th>Per Unit Sold</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <div style="font-weight:700;text-align:right;margin-top:10px;">Earned this month: SAR ${money(totals(S.earnings.filter(x => x.batch_no === b.no)).net)}</div>`);
+      <div style="font-weight:700;text-align:right;margin-top:10px;">Earned ${S.month ? 'this month' : '(all time)'}: SAR ${money(totals(S.earnings.filter(x => x.batch_no === b.no)).net)}</div>`);
   }
 
   // Opens the Add popup filled with this Save; saving replaces its entries.
@@ -944,7 +962,7 @@
 
   function exportCsv() {
     const list = filteredEntries();
-    if (!list.length) return showToast('Nothing to download for this month.', 'error');
+    if (!list.length) return showToast('Nothing to download.', 'error');
     // Prefix text cells so Excel never evaluates a typed note as a formula.
     const cell = v => {
       let s = String(v == null ? '' : v);
@@ -961,7 +979,7 @@
     const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `incentives-${S.month}.csv`;
+    a.download = `incentives-${S.month || 'all'}.csv`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
@@ -978,7 +996,7 @@
     incSetGroup: g => { S.group = g; render(); },
     incPickPay: pickPay, incPickAllDue: pickAllDue, incOpenPay: openPay, incSavePay: savePay, incHistory: history,
     incViewPay: viewPay, incPrintPay: printPay, incCancelPay: cancelPay,
-    incSetMonth: async m => { if (!m) return; S.month = m; try { await fetchMonth(); render(); } catch (e) { showToast(e.message, 'error'); } },
+    incSetMonth: async m => { S.month = m || ''; try { await fetchMonth(); render(); } catch (e) { showToast(e.message, 'error'); } },
     incSetFilter: (k, v) => { S[k] = v; render(); },
     incOpenAdd: openAdd, incAddProduct: addProduct, incRemoveProduct: removeProduct, incRenderPicker: renderPicker,
     incSelectShown: selectShown, incTogglePerson: togglePerson,
