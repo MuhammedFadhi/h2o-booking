@@ -9609,7 +9609,7 @@ async function loadSalesReport() {
   await dbAdmin.auth.getSession();
   const [{ data, error }, { data: bks, error: bErr }, { data: regions }] = await Promise.all([
     dbAdmin.from('leads').select('*').order('created_at', { ascending: false }).limit(2000),
-    dbAdmin.from('bookings').select('id, status, booking_type, customer_name, customer_phone, created_at, created_by_name, sales_agent, service_region_id, product_model, product_qty, booking_items(product_model, qty)'),
+    dbAdmin.from('bookings').select('id, status, booking_type, customer_name, customer_phone, created_at, created_by_name, sales_agent, service_region_id, product_model, product_qty, slot_date, installed_at, completed_at, booking_items(product_model, qty)'),
     dbAdmin.from('service_regions').select('id, name')
   ]);
   if (error) { host.innerHTML = `<div class="empty-state">⚠️ Failed to load leads: ${escB(error.message)}</div>`; return; }
@@ -9782,6 +9782,23 @@ function salesReportBookingItemsList(b) {
   return b && b.product_model ? [{ product_model: b.product_model, qty: b.product_qty || 1 }] : [];
 }
 
+// Installation date of an installed booking (installed_at, else completed_at);
+// a booked one carries its scheduled slot_date instead.
+function salesReportInstallFields(b, statusKey) {
+  if (!b) return { installedAt: null, scheduledOn: null };
+  if (statusKey === 'installed') return { installedAt: b.installed_at || b.completed_at || null, scheduledOn: null };
+  return { installedAt: null, scheduledOn: statusKey === 'booked' ? (b.slot_date || null) : null };
+}
+
+// Status filter = only "Installed": From/To, the chart and the order use the
+// installation date. Any other choice uses the date the row was added.
+function salesReportByInstallDate() {
+  return srSelectedStatuses.size === 1 && srSelectedStatuses.has('installed');
+}
+function salesReportDateOf(r) {
+  return salesReportByInstallDate() ? (r.installedAt || r.createdAt) : r.createdAt;
+}
+
 function salesReportRows() {
   const linkedIds = new Set(allLeads.map(l => l.converted_booking_id).filter(Boolean));
   const bookingTypeById = {};
@@ -9797,21 +9814,25 @@ function salesReportRows() {
   const leadRows = allLeads.map(l => {
     const linkedBooking = l.converted_booking_id ? bookingsById[l.converted_booking_id] : null;
     const items = linkedBooking ? salesReportBookingItemsList(linkedBooking) : (l.product_interest ? [{ product_model: l.product_interest, qty: 1 }] : []);
+    const statusKey = salesReportStatusKey(l);
     return {
       name: l.name, phone: l.phone, createdAt: l.created_at, agent: l.created_by_name,
       region: salesReportRegionName[l.region_id] || '—', ...productFields(items),
       bookingType: bookingTypeById[l.converted_booking_id] || 'installation',
-      statusKey: salesReportStatusKey(l)
+      statusKey, ...salesReportInstallFields(linkedBooking, statusKey)
     };
   });
   const directRows = salesReportBookings
     .filter(b => !linkedIds.has(b.id))
-    .map(b => ({
-      name: b.customer_name, phone: b.customer_phone, createdAt: b.created_at, agent: b.sales_agent || b.created_by_name,
-      region: salesReportRegionName[b.service_region_id] || '—', ...productFields(salesReportBookingItemsList(b)),
-      bookingType: b.booking_type || 'installation',
-      statusKey: salesReportBookingOnlyStatus(b.status)
-    }));
+    .map(b => {
+      const statusKey = salesReportBookingOnlyStatus(b.status);
+      return {
+        name: b.customer_name, phone: b.customer_phone, createdAt: b.created_at, agent: b.sales_agent || b.created_by_name,
+        region: salesReportRegionName[b.service_region_id] || '—', ...productFields(salesReportBookingItemsList(b)),
+        bookingType: b.booking_type || 'installation',
+        statusKey, ...salesReportInstallFields(b, statusKey)
+      };
+    });
   return [...leadRows, ...directRows];
 }
 
@@ -9820,7 +9841,7 @@ function filteredSalesReportRows() {
   const to = document.getElementById('sr-to').value;
   const agent = document.getElementById('sr-agent').value;
   return salesReportRows().filter(r => {
-    const d = localDateISO(new Date(r.createdAt));
+    const d = localDateISO(new Date(salesReportDateOf(r)));
     if (from && d < from) return false;
     if (to && d > to) return false;
     if (agent && r.agent !== agent) return false;
@@ -9837,7 +9858,7 @@ function salesReportDayRows(rows) {
   const to = document.getElementById('sr-to').value;
   const byDay = {};
   rows.forEach(r => {
-    const d = localDateISO(new Date(r.createdAt));
+    const d = localDateISO(new Date(salesReportDateOf(r)));
     byDay[d] = (byDay[d] || 0) + 1;
   });
   const days = [];
@@ -9888,7 +9909,11 @@ function salesReportFmtTimestamp(s) {
 // Detail table: one row per lead — name, number, added timestamp, and its
 // lifecycle status (Lead / Booked / Installed / Lost / Cancelled).
 function salesReportDetailHTML(rows, escFn) {
-  const sorted = rows.slice().sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  const sorted = rows.slice().sort((a, b) => (salesReportDateOf(a) < salesReportDateOf(b) ? 1 : -1));
+  // Installed column: real installation day; a booked job shows its scheduled day in grey.
+  const dayFmt = s => new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + 'T00:00:00' : s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const installedCell = r => r.installedAt ? dayFmt(r.installedAt)
+    : r.scheduledOn ? `<span style="color:var(--muted,#90A4AE);">Scheduled ${dayFmt(r.scheduledOn)}</span>` : '—';
   // Inline styles (not the .status-badge class) so this renders identically in
   // the live dashboard and in the standalone PDF print window, which has no
   // access to dashboard.html's stylesheet.
@@ -9908,13 +9933,13 @@ function salesReportDetailHTML(rows, escFn) {
   // Edge's isn't: without a hard width per column it let long unbroken
   // values (phone numbers, timestamps) push the later columns off the page
   // edge instead of wrapping them.
-  const colgroup = `<colgroup><col style="width:4%;"><col style="width:14%;"><col style="width:13%;"><col style="width:13%;"><col style="width:10%;"><col style="width:10%;"><col style="width:11%;"><col style="width:14%;"><col style="width:11%;"></colgroup>`;
+  const colgroup = `<colgroup><col style="width:4%;"><col style="width:12%;"><col style="width:12%;"><col style="width:11%;"><col style="width:10%;"><col style="width:9%;"><col style="width:9%;"><col style="width:10%;"><col style="width:13%;"><col style="width:10%;"></colgroup>`;
   return `<table>
     ${colgroup}
-    <thead><tr><th style="text-align:center;">#</th><th>Name</th><th>Number</th><th>Added</th><th>Agent</th><th>Region</th><th>Type</th><th>Product</th><th>Status</th></tr></thead>
+    <thead><tr><th style="text-align:center;">#</th><th>Name</th><th>Number</th><th>Added</th><th>Installed</th><th>Agent</th><th>Region</th><th>Type</th><th>Product</th><th>Status</th></tr></thead>
     <tbody>${sorted.length ? sorted.map((r, i) => `<tr>
-      <td style="text-align:center;color:var(--muted);">${i + 1}</td><td>${escFn(r.name)}</td><td>${escFn(r.phone)}</td><td>${salesReportFmtTimestamp(r.createdAt)}</td><td>${escFn(r.agent || '—')}</td><td>${escFn(r.region)}</td><td>${typePill(r.bookingType)}</td><td>${escFn(r.product)}</td><td>${pill(r.statusKey)}</td>
-    </tr>`).join('') : '<tr><td colspan="9" style="text-align:center;color:var(--muted);">No leads in range</td></tr>'}</tbody>
+      <td style="text-align:center;color:var(--muted);">${i + 1}</td><td>${escFn(r.name)}</td><td>${escFn(r.phone)}</td><td>${salesReportFmtTimestamp(r.createdAt)}</td><td>${installedCell(r)}</td><td>${escFn(r.agent || '—')}</td><td>${escFn(r.region)}</td><td>${typePill(r.bookingType)}</td><td>${escFn(r.product)}</td><td>${pill(r.statusKey)}</td>
+    </tr>`).join('') : '<tr><td colspan="10" style="text-align:center;color:var(--muted);">No leads in range</td></tr>'}</tbody>
   </table>`;
 }
 
