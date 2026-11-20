@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Book Your Installation · SA'DA H2O</title>
-  <meta name="description" content="Book your RO water purifier installation appointment with SA'DA H2O. Quick, easy scheduling across the Eastern Province.">
+  <title>Book Your Installation · SA'DA H₂O</title>
+  <meta name="description" content="Book your RO water purifier installation appointment with SA'DA H₂O. Quick, easy scheduling across the Eastern Province.">
   <meta name="theme-color" content="#0D3B6E">
 
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Book Your Installation · SA'DA H2O">
-  <meta property="og:description" content="Schedule your RO water purifier installation in a few simple steps. SA'DA H2O — The Art of Purity.">
+  <meta property="og:title" content="Book Your Installation · SA'DA H₂O">
+  <meta property="og:description" content="Schedule your RO water purifier installation in a few simple steps. SA'DA H₂O — The Art of Purity.">
   <meta property="og:image" content="https://sada-water-booking.vercel.app/assets/og-preview.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:url" content="https://h2o.sadawater.com/booking">
-  <meta property="og:site_name" content="SA'DA H2O">
+  <meta property="og:site_name" content="SA'DA H₂O">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Book Your Installation · SA'DA H2O">
+  <meta name="twitter:title" content="Book Your Installation · SA'DA H₂O">
   <meta name="twitter:description" content="Schedule your RO water purifier installation in a few simple steps.">
   <meta name="twitter:image" content="https://sada-water-booking.vercel.app/assets/og-preview.png">
 
@@ -25,7 +25,7 @@
   <link rel="manifest" href="../assets/manifest-customer.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="SA'DA H2O">
+  <meta name="apple-mobile-web-app-title" content="SA'DA H₂O">
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
@@ -257,7 +257,7 @@
       <div class="progress-bar" id="progress-bar">
         <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
       </div>
-      <div class="card-logo"><a href="https://h2o.sadawater.com" target="_blank"><img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O"></a></div>
+      <div class="card-logo"><a href="https://h2o.sadawater.com" target="_blank"><img src="../assets/SADA_h2o_logo.png" alt="SA'DA H₂O"></a></div>
 
       <!-- STEP 1: Phone + OTP -->
       <div class="form-section active" id="step-1">
@@ -493,14 +493,14 @@
           <div class="booking-ref-label">Your Booking Reference</div>
           <div class="booking-ref-code" id="booking-ref-display"></div>
         </div>
-        <p class="success-message" style="font-size:13px;">Thank you for trusting SA'DA H2O. Our team will contact you prior to the booking.</p>
+        <p class="success-message" style="font-size:13px;">Thank you for trusting SA'DA H₂O. Our team will contact you prior to the booking.</p>
         <p class="success-message" style="font-size:16px;">Please visit our website by clicking <a href="https://h2o.sadawater.com" target="_blank" style="color:#60A5FA;font-weight:600;text-decoration:underline;">here</a>.</p>
         <div id="portal-link" style="display:none;margin-top:16px;">
           <a href="portal.html" style="display:inline-block;background:linear-gradient(135deg,#0D3B6E,#1565C0);color:white;padding:14px 28px;border-radius:14px;font-size:15px;font-weight:600;text-decoration:none;">📋 Track My Booking →</a>
         </div>
       </div>
 
-      <div class="card-footer">SA'DA H2O · www.sadawater.com · Powered by A360</div>
+      <div class="card-footer">SA'DA H₂O · www.sadawater.com · Powered by A360</div>
     </div>
   </main>
 </div>
@@ -544,7 +544,7 @@ async function loadRegionsAndCities() {
   if (r.error || c.error || !r.data?.length) {
     sel.innerHTML = '<option value="">Regions unavailable</option>';
     const hint = document.getElementById('region-hint');
-    if (hint) { hint.textContent = 'Cannot load regions right now. Please contact SA\'DA H2O on WhatsApp: +966 54 798 9055'; hint.style.color = '#B71C1C'; hint.style.display = 'block'; }
+    if (hint) { hint.textContent = 'Cannot load regions right now. Please contact SA\'DA H₂O on WhatsApp: +966 54 798 9055'; hint.style.color = '#B71C1C'; hint.style.display = 'block'; }
     return;
   }
   regionsCache = r.data;
@@ -696,7 +696,7 @@ async function sendOTP() {
   state.generatedOTP = otp;
   state.otpGeneratedAt = Date.now();
   state.otpAttempts = 0;
-  const sent = await sendSMS(state.phone, `SA'DA H2O: Your verification code is ${otp}. It expires in 2 minutes.`);
+  const sent = await sendSMS(state.phone, `SA'DA H₂O: Your verification code is ${otp}. It expires in 2 minutes.`);
   if(!sent.ok){
     errEl.style.display='block';
     errEl.textContent = sent.retryMessage || 'Failed to send OTP. Please try again.';
@@ -734,7 +734,7 @@ async function resendOTP() {
   document.getElementById('timer-text').classList.remove('expired');
   const btn=document.getElementById('resend-btn');
   btn.disabled=true; btn.textContent='Sending...';
-  const sent = await sendSMS(state.phone,`SA'DA H2O: Your new verification code is ${otp}. It expires in 2 minutes.`);
+  const sent = await sendSMS(state.phone,`SA'DA H₂O: Your new verification code is ${otp}. It expires in 2 minutes.`);
   btn.textContent='Resend OTP';
   if(!sent.ok){
     const errEl = document.getElementById('step1b-error');
@@ -990,7 +990,7 @@ async function loadAvailableDates() {
     .gte('slot_date',startIso).lte('slot_date',endIso);
   const availableDates=[...new Set((data||[]).filter(s=>window.slotIsBookable(s.slot_date,s.slot_hour)).map(s=>s.slot_date))].sort();
   grid.innerHTML='';
-  if(!availableDates.length){grid.innerHTML='<p style="color:rgba(255,255,255,0.6);font-size:13px;padding:24px;text-align:center;">No available slots in this region for the next 2 months. Please contact SA\'DA H2O directly.</p>';return;}
+  if(!availableDates.length){grid.innerHTML='<p style="color:rgba(255,255,255,0.6);font-size:13px;padding:24px;text-align:center;">No available slots in this region for the next 2 months. Please contact SA\'DA H₂O directly.</p>';return;}
   availableDates.forEach(dateStr=>{
     const d=new Date(dateStr+'T00:00:00');
     const box=document.createElement('div');
@@ -1423,7 +1423,7 @@ async function submitBooking() {
   localStorage.setItem('sada_customer',JSON.stringify({phone:state.phone,name:state.name,city:state.cityName,regionId:state.regionId,address:state.address}));
   // Confirmation SMS
   const typeLabel = VISIT_TYPE_LABELS[state.visitType] || 'Booking';
-  const msg=`SA'DA H2O - ${typeLabel} Confirmed!\n\nDear ${state.name},\nRef: ${booking.booking_reference}\nDate: ${formatDateFull(bookedDate)}\nTime: ${formatHour(bookedHour)}\nCity: ${state.cityName}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
+  const msg=`SA'DA H₂O - ${typeLabel} Confirmed!\n\nDear ${state.name},\nRef: ${booking.booking_reference}\nDate: ${formatDateFull(bookedDate)}\nTime: ${formatHour(bookedHour)}\nCity: ${state.cityName}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H₂O!`;
   await sendSMS(state.phone, msg);
   // Fire-and-forget: broadcast to all active installers. Look up the booking id
   // by its reference (the RPC returns the reference, not the uuid).

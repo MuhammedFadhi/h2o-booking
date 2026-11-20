@@ -1,4 +1,5 @@
-// SA'DA H2O — Supabase "Send SMS" Auth Hook
+// SA'DA H₂O — Supabase "Send SMS" Auth Hook
+const { smsText } = require('./_sms-text.js');   // H₂O only when it costs no extra SMS
 // ============================================================================
 // Supabase Auth calls THIS endpoint whenever it needs to deliver an OTP by SMS.
 // It replaces the built-in provider (Twilio etc.) so auth OTPs go out over the
@@ -104,7 +105,7 @@ async function forwardToDroplet(to, body) {
     const r = await fetch(`https://${RELAY_HOST}${RELAY_PATH}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, body }),
+      body: JSON.stringify({ to, body: smsText(body) }),
       signal: ac.signal
     });
     const text = await r.text();
@@ -156,7 +157,7 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: { http_code: 400, message: 'Malformed OTP in hook payload.' } });
   }
 
-  const body = `SA'DA H2O: Your verification code is ${otp}. Do not share it with anyone.`;
+  const body = `SA'DA H₂O: Your verification code is ${otp}. Do not share it with anyone.`;
 
   try {
     await forwardToDroplet(phone, body);

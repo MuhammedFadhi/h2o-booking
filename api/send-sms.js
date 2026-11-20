@@ -1,4 +1,5 @@
-// SA'DA H2O — SMS relay
+// SA'DA H₂O — SMS relay
+const { smsText } = require('./_sms-text.js');   // H₂O only when it costs no extra SMS
 // Preserves v21 droplet integration exactly (POST https://206.189.42.165:443/ with {to, body}).
 // Adds: per-phone throttle (3 free / 15-min window, then 1 send per 2 min).
 // Still enforces: shared X-Secret-Key header from client, IP-level flood cap, Saudi phone regex.
@@ -90,7 +91,7 @@ async function forwardToDroplet(to, body) {
     const r = await fetch(`https://${RELAY_HOST}${RELAY_PATH}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, body }),
+      body: JSON.stringify({ to, body: smsText(body) }),
       signal: ac.signal
     });
     const text = await r.text();

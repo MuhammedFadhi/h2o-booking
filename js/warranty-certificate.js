@@ -1,4 +1,4 @@
-/* SA'DA H2O — Warranty Certificate generator.
+/* SA'DA H₂O — Warranty Certificate generator.
    Produces a branded, professional certificate in a new window and opens the
    print dialog (customer saves as PDF). No external libraries — works in the
    browser-only workflow. Call SADACert.open(data). */
@@ -16,7 +16,7 @@
       filterExpiry = '', serviceExpiry = '', warrantyExpiry = '', reference = ''
     } = data || {};
     const activated = !!warrantyExpiry;
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>SA'DA H2O — Warranty Certificate</title>
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>SA'DA H₂O — Warranty Certificate</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   @page { size: A4 portrait; margin: 0; }

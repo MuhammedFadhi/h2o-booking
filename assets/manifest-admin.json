@@ -1,7 +1,7 @@
 {
-  "name": "SA'DA H2O — Admin Console",
+  "name": "SA'DA H₂O — Admin Console",
   "short_name": "SA'DA Admin",
-  "description": "Admin console for SA'DA H2O bookings, installers, and slots.",
+  "description": "Admin console for SA'DA H₂O bookings, installers, and slots.",
   "start_url": "/admin/dashboard.html",
   "scope": "/admin/",
   "display": "standalone",

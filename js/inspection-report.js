@@ -1,5 +1,5 @@
 /**
- * SA'DA H2O — Inspection Report module
+ * SA'DA H₂O — Inspection Report module
  *
  * Vanilla ES2020. Depends on:
  *   window.db          → Supabase JS v2 client (from shared/supabase.js)
@@ -98,7 +98,7 @@ SADA.InspectionReport = (function () {
 
   function logoImg() {
     const src = LOGO_CANDIDATES[0];
-    return `<img class="sada-ir__logo" src="${src}" alt="SA'DA H2O"
+    return `<img class="sada-ir__logo" src="${src}" alt="SA'DA H₂O"
       onerror="var i=parseInt(this.dataset.i||'0',10)+1;var l=${JSON.stringify(LOGO_CANDIDATES)};this.dataset.i=i;if(i<l.length){this.src=l[i]}else{this.style.display='none'}">`;
   }
 

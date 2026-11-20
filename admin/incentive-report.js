@@ -221,7 +221,7 @@
     ];
     const w = window.open('', '_blank');
     if (!w) { showToast('Please allow pop-ups to download the PDF', 'error'); return; }
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SA'DA H2O — Incentive Report</title>
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SA'DA H₂O — Incentive Report</title>
 <style>
   *{box-sizing:border-box;} body{font-family:Arial,sans-serif;color:#0A1628;margin:0;background:#fff;}
   .topbar{position:fixed;top:0;left:0;right:0;background:#0D3B6E;color:#fff;padding:16px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
@@ -238,7 +238,7 @@
   @page{size:A4 portrait;margin:12mm 10mm;}
   @media print{.topbar{display:none;} .page-body{margin-top:0;padding:0;} table{font-size:9px;} th,td{padding:4px 3px;word-break:break-word;}}
 </style></head><body>
-  <div class="topbar"><div><b>SA'DA H2O</b> | Incentive report</div>
+  <div class="topbar"><div><b>SA'DA H₂O</b> | Incentive report</div>
     <div><button class="btn-gold" onclick="window.print()">⬇ Save as PDF / Print</button> <button class="btn-outline" onclick="window.close()">Close</button></div></div>
   <div class="page-body">
     <h1>Incentive Report</h1>

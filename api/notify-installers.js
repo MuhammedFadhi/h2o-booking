@@ -1,4 +1,5 @@
 // /api/notify-installers
+const { smsText } = require('./_sms-text.js');   // H₂O only when it costs no extra SMS
 // Broadcasts an SMS to every active installer about a new available booking.
 // Anti-replay: booking must exist, be status='upcoming', and <5 min old.
 // Bypasses per-phone throttle (system-initiated).
@@ -30,7 +31,7 @@ async function relaySend(to, body) {
     const r = await fetch(`https://${RELAY_HOST}${RELAY_PATH}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, body }),
+      body: JSON.stringify({ to, body: smsText(body) }),
       signal: ac.signal
     });
     const text = await r.text();
@@ -82,7 +83,7 @@ module.exports = async function handler(req, res) {
     const installers = await sb('GET', `/installers?is_active=eq.true&select=name,phone`);
     if (!installers?.length) return res.status(200).json({ ok: true, sent: 0, skipped: 'no active installers' });
 
-    const msg = `SA'DA H2O — New job available!\n${b.customer_name} · ${b.city_name}\n${ddmmyyyy(b.slot_date)} at ${formatHour(b.slot_hour)}\nClaim it in the installer portal: ${PORTAL_URL}`;
+    const msg = `SA'DA H₂O — New job available!\n${b.customer_name} · ${b.city_name}\n${ddmmyyyy(b.slot_date)} at ${formatHour(b.slot_hour)}\nClaim it in the installer portal: ${PORTAL_URL}`;
 
     let sent = 0;
     for (const inst of installers) {

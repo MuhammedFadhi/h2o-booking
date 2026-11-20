@@ -1,7 +1,7 @@
 {
-  "name": "SA'DA H2O — Installer",
+  "name": "SA'DA H₂O — Installer",
   "short_name": "SA'DA Installer",
-  "description": "Installer portal for SA'DA H2O technicians.",
+  "description": "Installer portal for SA'DA H₂O technicians.",
   "start_url": "/installer/portal.html",
   "scope": "/installer/",
   "display": "standalone",

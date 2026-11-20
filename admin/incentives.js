@@ -11,9 +11,9 @@
   const GROUPS = [
     { key: 'lead_handler', label: 'Lead Handlers' },
     { key: 'kiosk', label: 'Kiosk Sales' },
-    { key: 'h2o_installer', label: "SA'DA H2O Installers" },
+    { key: 'h2o_installer', label: "SA'DA H₂O Installers" },
     { key: 'ho_installer', label: "SA'DA HO Installers" },
-    { key: 'shop', label: "Shop SA'DA H2O" }
+    { key: 'shop', label: "Shop SA'DA H₂O" }
   ];
   // Same names as the User Management page.
   const ACCOUNTS = [
@@ -591,7 +591,7 @@
   @media print{.actions{display:none;} body{margin:10mm;}}
 </style></head><body>
   <div class="actions"><button onclick="window.print()">Print / Save as PDF</button><button onclick="window.close()">Close</button></div>
-  <h1>SA'DA H2O — Incentive Payment ${payLabel(no)}</h1>
+  <h1>SA'DA H₂O — Incentive Payment ${payLabel(no)}</h1>
   <div class="meta">Paid on ${dmy(p.paid_on)} · ${esc(METHODS[p.method] || p.method)} · Total SAR ${money(p.amount)}${p.note ? ' · ' + esc(p.note) : ''}</div>
   ${blocks}
 </body></html>`);

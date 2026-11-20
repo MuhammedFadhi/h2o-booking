@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Activate Your Warranty · SA'DA H2O</title>
-<meta name="description" content="Register your SA'DA H2O water purifier warranty in seconds.">
+<title>Activate Your Warranty · SA'DA H₂O</title>
+<meta name="description" content="Register your SA'DA H₂O water purifier warranty in seconds.">
 <meta name="theme-color" content="#0D3B6E">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="../assets/favicon.png">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
-<meta property="og:title" content="Activate Your Warranty · SA'DA H2O">
+<meta property="og:title" content="Activate Your Warranty · SA'DA H₂O">
 <meta property="og:image" content="https://sada-water-booking.vercel.app/assets/og-preview.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../shared/supabase.js"></script>
@@ -61,7 +61,7 @@ input:focus{outline:none;border-color:var(--water);box-shadow:0 0 0 3px rgba(21,
 <body>
 
 <header>
-  <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O" onerror="this.style.display='none'">
+  <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H₂O" onerror="this.style.display='none'">
   <h1>Warranty Activation</h1>
   <div class="sub">Secure your unit's coverage in seconds</div>
 </header>
@@ -79,7 +79,7 @@ input:focus{outline:none;border-color:var(--water);box-shadow:0 0 0 3px rgba(21,
     <div class="card">
       <div class="icon info">📷</div>
       <h2>Scan your unit's QR code</h2>
-      <p class="lead">This page activates the warranty on a SA'DA H2O purifier. Scan the QR sticker on your unit to begin.</p>
+      <p class="lead">This page activates the warranty on a SA'DA H₂O purifier. Scan the QR sticker on your unit to begin.</p>
       <a href="../customer/portal.html" class="btn btn-ghost" style="display:block;text-align:center;text-decoration:none;">Go to My Account</a>
     </div>
   </div>
@@ -269,7 +269,7 @@ async function sendOTP() {
   state.otp = Math.floor(1000 + Math.random() * 9000).toString();
   state.otpAt = Date.now();
   state.attempts = 0;
-  const sent = await sendSMS(state.phone, `SA'DA H2O: Your verification code is ${state.otp}. It expires in 2 minutes.`);
+  const sent = await sendSMS(state.phone, `SA'DA H₂O: Your verification code is ${state.otp}. It expires in 2 minutes.`);
   btn.disabled = false; btn.textContent = 'Send Code →';
   if (!sent.ok) return err('err-phone', sent.retryMessage || 'Failed to send the code. Please try again.');
 
@@ -299,7 +299,7 @@ async function resendOTP() {
   const inp = document.getElementById('otp'); inp.value = ''; inp.disabled = false;
   const btn = document.getElementById('btn-resend');
   btn.disabled = true; btn.textContent = 'Sending…';
-  const sent = await sendSMS(state.phone, `SA'DA H2O: Your new verification code is ${state.otp}. It expires in 2 minutes.`);
+  const sent = await sendSMS(state.phone, `SA'DA H₂O: Your new verification code is ${state.otp}. It expires in 2 minutes.`);
   btn.textContent = 'Resend Code';
   if (!sent.ok) { btn.disabled = false; return err('err-otp', sent.retryMessage || 'Failed to resend. Try again shortly.'); }
   startTimer();
@@ -527,17 +527,17 @@ function myUnitsSummary() {
 
 function requestNewInstall() {
   const name = (window.__profileName || '').trim();
-  waOpen(`Hello SA'DA H2O,\n\nI would like to book another installation.\n\nName: ${name || '-'}\nPhone: ${displayPhone(state.phone)}\n\nPlease let me know the available dates. Thank you.`);
+  waOpen(`Hello SA'DA H₂O,\n\nI would like to book another installation.\n\nName: ${name || '-'}\nPhone: ${displayPhone(state.phone)}\n\nPlease let me know the available dates. Thank you.`);
 }
 
 function requestRepair() {
   const name = (window.__profileName || '').trim();
-  waOpen(`Hello SA'DA H2O,\n\nI need help with a repair / fault on my unit.\n\nName: ${name || '-'}\nPhone: ${displayPhone(state.phone)}\nUnit(s): ${myUnitsSummary()}\n\nIssue: `);
+  waOpen(`Hello SA'DA H₂O,\n\nI need help with a repair / fault on my unit.\n\nName: ${name || '-'}\nPhone: ${displayPhone(state.phone)}\nUnit(s): ${myUnitsSummary()}\n\nIssue: `);
 }
 
 function contactSupport() {
   const name = (window.__profileName || '').trim();
-  waOpen(`Hello SA'DA H2O,\n\nI have a question about my water purifier.\n\nName: ${name || '-'}\nPhone: ${displayPhone(state.phone)}\n\nMy question: `);
+  waOpen(`Hello SA'DA H₂O,\n\nI have a question about my water purifier.\n\nName: ${name || '-'}\nPhone: ${displayPhone(state.phone)}\n\nMy question: `);
 }
 
 function certFor(wid) {
@@ -551,7 +551,7 @@ function serviceFor(wid) {
   const name = (window.__profileName || '').trim();
   const unit = d ? `${d.product || 'RO unit'}${d.serial ? ' (' + d.serial + ')' : ''}` : 'my unit';
   const due = d && d.filterExpiry ? `\nFilter due: ${SADA.Warranty.fmtDate(d.filterExpiry)}` : '';
-  waOpen(`Hello SA'DA H2O,\n\nI would like to book a service visit (filter replacement / annual service).\n\nName: ${name || '-'}\nPhone: ${displayPhone(state.phone)}\nUnit: ${unit}${due}\n\nPlease let me know the available dates. Thank you.`);
+  waOpen(`Hello SA'DA H₂O,\n\nI would like to book a service visit (filter replacement / annual service).\n\nName: ${name || '-'}\nPhone: ${displayPhone(state.phone)}\nUnit: ${unit}${due}\n\nPlease let me know the available dates. Thank you.`);
 }
 document.getElementById('otp').addEventListener('keypress', e => { if (e.key === 'Enter') verifyOTP(); });
 document.getElementById('phone').addEventListener('keypress', e => { if (e.key === 'Enter') sendOTP(); });
