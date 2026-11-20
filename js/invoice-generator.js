@@ -75,7 +75,7 @@
     const c = d.customer || {};
     const VAT_RATE = 0.15;
 
-    const sellerNameEn = s.nameEn || s.seller_name_en || "SA'DA H2O Water Purifiers";
+    const sellerNameEn = s.nameEn || s.seller_name_en || "SA'DA H₂O Water Purifiers";
     const sellerNameAr = s.nameAr || s.seller_name_ar || '';
     const vatNumber    = s.vatNumber || s.vat_number || '';
     const crNumber     = s.crNumber || s.cr_number || '';
@@ -135,7 +135,7 @@
     const methodLabel = d.paymentMethod ? String(d.paymentMethod).replace(/_/g, ' ') : '';
 
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
-<title>SA'DA H2O — Tax Invoice ${esc(d.invoiceNumber || '')}</title>
+<title>SA'DA H₂O — Tax Invoice ${esc(d.invoiceNumber || '')}</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
 <style>

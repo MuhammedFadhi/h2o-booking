@@ -3913,7 +3913,7 @@ async function submitPayment() {
     // a re-print is always byte-identical. Computed only when we have a total.
     const cs = await loadCompanySettings();
     // ZATCA QR tag 1 = the seller's registered (Arabic) legal name.
-    const sellerName = cs.seller_name_ar || cs.seller_name_en || "SA'DA H2O Water Purifiers";
+    const sellerName = cs.seller_name_ar || cs.seller_name_en || "SA'DA H₂O Water Purifiers";
     let qrPayload = null;
     if (total != null && window.SADAInvoice) {
       qrPayload = window.SADAInvoice.buildQrPayload({
@@ -6952,7 +6952,7 @@ async function saveNewInvoice(print) {
     const issuedAt = dateVal ? new Date(dateVal).toISOString() : new Date().toISOString();
 
     const cs = await loadCompanySettings();
-    const sellerName = cs.seller_name_ar || cs.seller_name_en || "SA'DA H2O Water Purifiers";
+    const sellerName = cs.seller_name_ar || cs.seller_name_en || "SA'DA H₂O Water Purifiers";
     const qrPayload = window.SADAInvoice
       ? window.SADAInvoice.buildQrPayload({ sellerName, vatNumber: cs.vat_number || '', timestamp: issuedAt, total: t.total, vatTotal: t.vat })
       : null;
