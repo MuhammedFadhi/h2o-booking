@@ -1,7 +1,7 @@
 {
-  "name": "SA'DA H2O — Book Installation",
-  "short_name": "SA'DA H2O",
-  "description": "Book your RO water purifier installation with SA'DA H2O.",
+  "name": "SA'DA H₂O — Book Installation",
+  "short_name": "SA'DA H₂O",
+  "description": "Book your RO water purifier installation with SA'DA H₂O.",
   "start_url": "/customer/portal.html",
   "scope": "/customer/",
   "display": "standalone",

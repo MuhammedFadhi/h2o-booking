@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>My Account · SA'DA H2O</title>
+  <title>My Account · SA'DA H₂O</title>
   <meta name="theme-color" content="#0D3B6E">
 
   <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon.png">
@@ -11,7 +11,7 @@
   <link rel="manifest" href="../assets/manifest-customer.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="SA'DA H2O">
+  <meta name="apple-mobile-web-app-title" content="SA'DA H₂O">
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="../css/inspection-report.css">
@@ -363,7 +363,7 @@
 <body>
 <div id="bg-anim"></div>
 <header style="display:none;">
-  <img class="header-logo" src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O">
+  <img class="header-logo" src="../assets/SADA_h2o_logo.png" alt="SA'DA H₂O">
   <button class="home-hero-avatar" onclick="openProfileModal()" title="My Profile">
     <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></g></svg>
   </button>
@@ -374,7 +374,7 @@
      real photo asset once it's in. -->
 <div class="home-hero active" id="home-hero">
   <div class="home-hero-topbar">
-    <img class="home-hero-logo" src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O">
+    <img class="home-hero-logo" src="../assets/SADA_h2o_logo.png" alt="SA'DA H₂O">
     <button class="home-hero-avatar" onclick="openProfileModal()" title="My Profile">
       <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></g></svg>
     </button>
@@ -438,7 +438,7 @@
   <!-- MY BOOKINGS -->
   <div class="tab-panel" id="tab-bookings">
     <p class="section-title">My Installations</p>
-    <p class="section-sub">Track your current and past SA'DA H2O bookings.</p>
+    <p class="section-sub">Track your current and past SA'DA H₂O bookings.</p>
     <div id="bookings-list"><div class="loading"><div class="spinner"></div> Loading your bookings...</div></div>
     <div id="hero-banner"></div>
   </div>
@@ -631,7 +631,7 @@ async function loadBookRegionsAndCities() {
   const sel = document.getElementById('book-region');
   if (r.error || c.error || !r.data?.length) {
     sel.innerHTML = '<option value="">Regions unavailable</option>';
-    document.getElementById('book-date-grid').innerHTML = '<p style="color:#B71C1C;font-size:13px;padding:20px;text-align:center;">Cannot load regions right now. Contact SA\'DA H2O.</p>';
+    document.getElementById('book-date-grid').innerHTML = '<p style="color:#B71C1C;font-size:13px;padding:20px;text-align:center;">Cannot load regions right now. Contact SA\'DA H₂O.</p>';
     return;
   }
   regionsCache = r.data;
@@ -738,7 +738,7 @@ async function loadHome() {
       el.innerHTML =
         '<div class="empty-state"><div class="empty-icon">🛡️</div>' +
         '<p style="font-weight:700;margin-bottom:6px;">No units registered yet</p>' +
-        '<p style="font-size:13px;line-height:1.6;">Scan the QR sticker on your SA\'DA H2O purifier to activate its warranty.</p>' +
+        '<p style="font-size:13px;line-height:1.6;">Scan the QR sticker on your SA\'DA H₂O purifier to activate its warranty.</p>' +
         '</div>';
     } else {
       // Activation prompt first (most actionable), existing units below.
@@ -1168,7 +1168,7 @@ function renderBookingCard(b) {
     } else {
       actionsHTML = `
         <span class="btn-disabled">📅 Cannot Reschedule</span>
-        <a href="${WA_LINK}" target="_blank" class="btn-wa">💬 Contact SA'DA H2O</a>`;
+        <a href="${WA_LINK}" target="_blank" class="btn-wa">💬 Contact SA'DA H₂O</a>`;
     }
   }
   // Inspection report — customers only see submitted reports

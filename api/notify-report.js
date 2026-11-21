@@ -1,4 +1,5 @@
 // /api/notify-report — SMS customer that their inspection report is ready.
+const { smsText } = require('./_sms-text.js');   // H₂O only when it costs no extra SMS
 // Anti-replay: report must exist, status='submitted', <10 min since submitted_at.
 // Skipped if sms_settings.inspection_report is disabled.
 const RELAY_HOST = 'smsrelay.sadawater.com';
@@ -26,7 +27,7 @@ async function relaySend(to, body) {
     const r = await fetch(`https://${RELAY_HOST}/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, body }),
+      body: JSON.stringify({ to, body: smsText(body) }),
       signal: ac.signal
     });
     const text = await r.text();
@@ -70,7 +71,7 @@ module.exports = async function handler(req, res) {
     const phone = formatSaudi(r.customer_phone);
     if (!phone) return res.status(200).json({ ok: true, skipped: 'no phone' });
 
-    const msg = `SA'DA H2O — Your inspection report is ready.\nView it here: ${PORTAL_URL}\nThank you for choosing SA'DA H2O!`;
+    const msg = `SA'DA H₂O — Your inspection report is ready.\nView it here: ${PORTAL_URL}\nThank you for choosing SA'DA H₂O!`;
     const result = await relaySend(phone, msg);
     return res.status(200).json({ ok: true, sent: result.status < 300 ? 1 : 0, relay: result.status });
   } catch (e) {

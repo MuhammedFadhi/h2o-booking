@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Admin Dashboard · SA'DA H2O</title>
+  <title>Admin Dashboard · SA'DA H₂O</title>
   <meta name="theme-color" content="#25293C">
 
   <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon.png">
@@ -741,7 +741,7 @@
 <!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O">
+    <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H₂O">
   </div>
   <nav class="nav">
     <div class="nav-item active" onclick="showPanel('overview', this)">
@@ -1779,7 +1779,7 @@
           </select>
         </div>
         <div class="form-group"><label>Body <span style="color:var(--muted,#94a3b8);font-weight:400;">(use {{1}}, {{2}}, ... for variables like the customer's name)</span></label>
-          <textarea id="wat-body" class="form-input" rows="3" placeholder="Hi {{1}}, just checking in on your SA'DA H2O unit installed on {{2}}. Let us know if you need anything!" autocomplete="off"></textarea>
+          <textarea id="wat-body" class="form-input" rows="3" placeholder="Hi {{1}}, just checking in on your SA'DA H₂O unit installed on {{2}}. Let us know if you need anything!" autocomplete="off"></textarea>
         </div>
         <div id="wat-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
         <div style="display:flex;justify-content:flex-end;">
@@ -3278,7 +3278,7 @@ async function assignInstaller(bookingId, installerId) {
     if (installerId && await isSMSEnabled('installer_assigned')) {
       const { data: b } = await dbAdmin.from('bookings').select('customer_phone,customer_name,slot_date,slot_hour,booking_reference').eq('id', bookingId).maybeSingle();
       const { data: inst } = await dbAdmin.from('installers').select('name').eq('id', installerId).maybeSingle();
-      if (b) await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your installation on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour)} has been assigned to our technician${inst ? ' ' + inst.name : ''}. Our team will contact you prior to the visit. Ref: ${b.booking_reference}`);
+      if (b) await sendAdminSMS(b.customer_phone, `SA'DA H₂O: Dear ${b.customer_name}, your installation on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour)} has been assigned to our technician${inst ? ' ' + inst.name : ''}. Our team will contact you prior to the visit. Ref: ${b.booking_reference}`);
     }
   } else showToast('Failed to assign installer', 'error');
 }
@@ -3592,7 +3592,7 @@ async function submitPayment() {
     else await dbAdmin.from('invoices').insert(invPayload);
 
     if (await isSMSEnabled('completion')) {
-      await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your installation (Ref: ${b.booking_reference}) is complete. Thank you for choosing SA'DA H2O — The Art of Purity! For any questions: https://api.whatsapp.com/send/?phone=966547989055`);
+      await sendAdminSMS(b.customer_phone, `SA'DA H₂O: Dear ${b.customer_name}, your installation (Ref: ${b.booking_reference}) is complete. Thank you for choosing SA'DA H₂O — The Art of Purity! For any questions: https://api.whatsapp.com/send/?phone=966547989055`);
     }
     logActivity('booking.complete', `Completed · ${method} · Inv ${invoiceNo}`, 'booking', bookingId);
     showToast('Booking completed & invoice recorded', 'success');
@@ -4156,7 +4156,7 @@ async function submitServiceBooking() {
       const dLabel = (function(){ try { return new Date(row.slot_date + 'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long', year:'numeric'}); } catch(e){ return row.slot_date; } })();
       const hLabel = formatHour(row.slot_hour);
       sendAdminSMS(sbCustomer.phone,
-        `SA'DA H2O - ${typeLabel} Booked!\n\nDear ${sbCustomer.name || 'Customer'},\nRef: ${ref}\nDate: ${dLabel}\nTime: ${hLabel}\n\nOur technician will contact you before the visit.\n\nThank you for choosing SA'DA H2O!`);
+        `SA'DA H₂O - ${typeLabel} Booked!\n\nDear ${sbCustomer.name || 'Customer'},\nRef: ${ref}\nDate: ${dLabel}\nTime: ${hLabel}\n\nOur technician will contact you before the visit.\n\nThank you for choosing SA'DA H₂O!`);
     }
 
     showToast(`${typeLabel} booked (${ref})`, 'success');
@@ -4850,7 +4850,7 @@ async function submitAdminBooking() {
     if (startStatus !== 'installed' && await isSMSEnabled('confirmation')) {
       const dLabel = (function(){ try { return new Date(row.slot_date + 'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long', year:'numeric'}); } catch(e){ return row.slot_date; } })();
       const hLabel = formatHour(row.slot_hour);
-      const msg = `SA'DA H2O - Booking Confirmed!\n\nDear ${name},\nRef: ${ref}\nDate: ${dLabel}\nTime: ${hLabel}\nCity: ${cityName}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
+      const msg = `SA'DA H₂O - Booking Confirmed!\n\nDear ${name},\nRef: ${ref}\nDate: ${dLabel}\nTime: ${hLabel}\nCity: ${cityName}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H₂O!`;
       sendAdminSMS(phone, msg);
     }
 
@@ -4889,7 +4889,7 @@ async function adminUndoComplete(bookingId) {
     // js/inspection-report.js) instead of being able to redo it.
     await dbAdmin.from('inspection_reports').update({ status: 'draft', submitted_at: null }).eq('booking_id', bookingId).eq('status', 'submitted');
     if (b && await isSMSEnabled('reopen')) {
-      await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your booking (Ref: ${b.booking_reference}) on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour)} has been reopened and is now scheduled. Our team will contact you prior to the visit.`);
+      await sendAdminSMS(b.customer_phone, `SA'DA H₂O: Dear ${b.customer_name}, your booking (Ref: ${b.booking_reference}) on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour)} has been reopened and is now scheduled. Our team will contact you prior to the visit.`);
     }
     showToast('Booking status reset to upcoming', 'success');
     loadBookings();
@@ -5028,7 +5028,7 @@ async function confirmReschedule() {
   // Reschedule SMS
   const { data: b } = await dbAdmin.from('bookings').select('customer_phone,customer_name').eq('id', rescheduleBookingId).maybeSingle();
   if (b && await isSMSEnabled('reschedule')) {
-    await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your installation has been rescheduled to ${formatDateFull(newDate)} at ${formatHour(newHour)}. Ref: ${rescheduleBookingId.slice(0,8).toUpperCase()}. Our team will contact you prior to the visit.`);
+    await sendAdminSMS(b.customer_phone, `SA'DA H₂O: Dear ${b.customer_name}, your installation has been rescheduled to ${formatDateFull(newDate)} at ${formatHour(newHour)}. Ref: ${rescheduleBookingId.slice(0,8).toUpperCase()}. Our team will contact you prior to the visit.`);
   }
 
   document.getElementById('reschedule-modal').style.display = 'none';
@@ -5057,7 +5057,7 @@ async function releaseSlot(bookingId, slotId) {
   await freeSlotIfUnused(slotId, bookingId);
   // SMS
   if (b && await isSMSEnabled('cancellation')) {
-    await sendAdminSMS(b.customer_phone, `SA'DA H2O: Dear ${b.customer_name}, your booking on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour)} has been cancelled. To rebook please visit: https://h2o.sadawater.com/booking`);
+    await sendAdminSMS(b.customer_phone, `SA'DA H₂O: Dear ${b.customer_name}, your booking on ${formatDateFull(b.slot_date)} at ${formatHour(b.slot_hour)} has been cancelled. To rebook please visit: https://h2o.sadawater.com/booking`);
   }
   logActivity('booking.cancel', 'Cancelled booking (slot released)', 'booking', bookingId);
   showToast('Booking released, slot is now available', 'success');
@@ -6306,7 +6306,7 @@ async function smsInvoice(invoiceId) {
   }
   const total = inv.total != null ? ` Total: SAR ${Number(inv.total).toLocaleString('en-US')}.` : '';
   const link = inv.file_url ? ` View/print: ${inv.file_url}` : '';
-  const body = `SA'DA H2O: Dear ${inv.customer_name || 'customer'}, your VAT invoice ${inv.invoice_number}.${total}${link} Thank you for choosing SA'DA H2O.`;
+  const body = `SA'DA H₂O: Dear ${inv.customer_name || 'customer'}, your VAT invoice ${inv.invoice_number}.${total}${link} Thank you for choosing SA'DA H₂O.`;
   const ok = await sendAdminSMS(inv.customer_phone, body);
   if (ok !== false) {
     await dbAdmin.from('invoices').update({ sms_sent_at: new Date().toISOString() }).eq('id', invoiceId);
@@ -7827,7 +7827,7 @@ async function sendBookingLinkSMS() {
   msgEl.style.display = 'none';
 
   const greeting = name ? `Dear ${name},\n\n` : '';
-  const body = `${greeting}Thank you for choosing SA'DA H2O! Please click the link below to book your RO filter installation appointment:\n\n${BOOKING_LINK}\n\nSA'DA H2O Team`;
+  const body = `${greeting}Thank you for choosing SA'DA H₂O! Please click the link below to book your RO filter installation appointment:\n\n${BOOKING_LINK}\n\nSA'DA H₂O Team`;
 
   try {
     const resp = await fetch('/api/send-sms', {
@@ -8710,7 +8710,7 @@ function downloadSalesReportPDF() {
 
   const w = window.open('', '_blank');
   if (!w) { showToast('Please allow pop-ups to download the PDF', 'error'); return; }
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SA'DA H2O — Sales Report</title>
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SA'DA H₂O — Sales Report</title>
 <style>
   *{box-sizing:border-box;}
   body{font-family:Arial,sans-serif;color:#0A1628;margin:0;background:#fff;}
@@ -8752,14 +8752,14 @@ function downloadSalesReportPDF() {
   }
 </style></head><body>
   <div class="topbar">
-    <div class="brand"><b>SA'DA H2O</b><span class="sep">|</span><span class="page-name">Sales report</span></div>
+    <div class="brand"><b>SA'DA H₂O</b><span class="sep">|</span><span class="page-name">Sales report</span></div>
     <div class="actions">
       <button class="btn-gold" onclick="window.print()">⬇ Save as PDF / Print</button>
       <button class="btn-outline" onclick="window.close()">Close</button>
     </div>
   </div>
   <div class="page-body">
-    <div class="breadcrumb">SA'DA H2O / Reports</div>
+    <div class="breadcrumb">SA'DA H₂O / Reports</div>
     <h1>Sales Report</h1>
     <div class="info-bar">
       <div class="info-item"><span class="info-icon">📅</span><div><div class="info-label">Reporting period</div><div class="info-value">${escB(rangeLabel)}</div></div></div>
@@ -9319,7 +9319,7 @@ async function freeOrphanedSlots(silent) {
 
 function openNudgeDigest() {
   const d = window.__overviewDigest || {};
-  const msg = `SA'DA H2O daily: ${d.todayBookings||0} bookings today, ${d.warrAttention||0} warranties need attention, ${d.overdueFups||0} follow-ups due.`;
+  const msg = `SA'DA H₂O daily: ${d.todayBookings||0} bookings today, ${d.warrAttention||0} warranties need attention, ${d.overdueFups||0} follow-ups due.`;
   const phone = prompt('Send this summary to which mobile number?\n\n"' + msg + '"', '');
   if (phone) sendNudgeDigest(phone.trim(), msg);
 }
@@ -9903,7 +9903,7 @@ async function sendDueReminders() {
     const chunk = rows.slice(i, i + BATCH);
     const results = await Promise.all(chunk.map(w => {
       const which = (warrantyFilterOf(w.filter_expiry) === 'soon' || warrantyFilterOf(w.filter_expiry) === 'past') ? 'filter' : 'service';
-      return sendAdminSMS(w.customers.phone, `SA'DA H2O: Your RO ${which} maintenance is due soon. Reply or call 920022569 to book a visit. Thank you.`)
+      return sendAdminSMS(w.customers.phone, `SA'DA H₂O: Your RO ${which} maintenance is due soon. Reply or call 920022569 to book a visit. Thank you.`)
         .catch(() => ({ ok: false }));
     }));
     results.forEach(r => { if (r && r.ok !== false) sent++; else failed++; });

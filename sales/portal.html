@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Sales Portal · SA'DA H2O</title>
+  <title>Sales Portal · SA'DA H₂O</title>
   <meta name="theme-color" content="#0A1628">
   <meta name="robots" content="noindex">
 
@@ -204,7 +204,7 @@
 <div class="main-col">
   <header class="topbar">
     <button class="menu-btn" id="menu-btn" type="button" aria-label="Open menu" aria-expanded="false">☰</button>
-    <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H2O">
+    <img src="../assets/SADA_h2o_logo.png" alt="SA'DA H₂O">
     <div class="who"><b id="who-name">…</b><span>Sales</span></div>
     <button class="signout" id="signout-btn" type="button">Sign out</button>
   </header>
@@ -821,7 +821,7 @@
       if (data && data.enabled === false) return;
       const d = new Date(b.slot_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       const t = formatHour(b.slot_hour);
-      const body = `SA'DA H2O - Booking Confirmed!\n\nDear ${b.customer_name},\nRef: ${b.reference}\nDate: ${d}\nTime: ${t}\nCity: ${b.city_name}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H2O!`;
+      const body = `SA'DA H₂O - Booking Confirmed!\n\nDear ${b.customer_name},\nRef: ${b.reference}\nDate: ${d}\nTime: ${t}\nCity: ${b.city_name}\n\nOur team will contact you prior to the booking.\n\nThank you for choosing SA'DA H₂O!`;
       const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 20000);
       await fetch('/api/send-sms', {
         method: 'POST',
@@ -1125,7 +1125,7 @@
 
     const w = window.open('', '_blank');
     if (!w) { toast('Please allow pop-ups to download the PDF'); return; }
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SA'DA H2O — ${esc(myName)} — Sales Report</title>
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SA'DA H₂O — ${esc(myName)} — Sales Report</title>
 <style>
   *{box-sizing:border-box;}
   body{font-family:Arial,sans-serif;color:#0A1628;margin:0;padding:32px;}
@@ -1156,7 +1156,7 @@
 </style></head><body>
   <div class="print-bar">Report ready. <button onclick="window.print()">⬇ Save as PDF / Print</button><button class="ghost" onclick="window.close()">Close</button></div>
   <div class="body">
-    <h1>SA'DA H2O — ${esc(myName)}</h1>
+    <h1>SA'DA H₂O — ${esc(myName)}</h1>
     <div class="sub">Sales Report · ${esc(rangeLabel)} · Status: ${esc(status)} · Generated ${new Date().toLocaleString('en-GB')}</div>
     <div class="kpis">
       <div class="kpi"><div class="v">${rows.length}</div><div class="l">Total</div></div>

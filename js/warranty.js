@@ -1,5 +1,5 @@
 /* ============================================================================
- * js/warranty.js — SA'DA H2O warranty logic, shared by:
+ * js/warranty.js — SA'DA H₂O warranty logic, shared by:
  *     customer/portal.html   (My Units tab)
  *     warranty/claim.html    (QR claim)
  *     admin/dashboard.html   (Warranties + Follow-ups panels)

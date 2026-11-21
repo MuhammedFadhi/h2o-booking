@@ -1,4 +1,5 @@
 // /api/otp — send + verify customer OTP server-side.
+const { smsText } = require('./_sms-text.js');   // H₂O only when it costs no extra SMS
 // Uses the SAME send-sms relay (rate-limited on IP for send).
 // Never returns the code; stores only bcrypt-style hash.
 
@@ -39,7 +40,7 @@ async function sendSms(to, body) {
   const r = await fetch(`https://${RELAY_HOST}${RELAY_PATH}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ to, body })
+    body: JSON.stringify({ to, body: smsText(body) })
   });
   const text = await r.text();
   if (!r.ok) throw new Error(text);
@@ -78,7 +79,7 @@ module.exports = async function handler(req, res) {
       const hash = hashCode(phone, codeGen);
       const expires = new Date(Date.now() + OTP_TTL_MS).toISOString();
       await admin.from('customer_otps').upsert({ phone, code_hash: hash, expires_at: expires, attempts: 0, created_at: new Date().toISOString() });
-      await sendSms(phone, `SA'DA H2O: Your login code is ${codeGen}. Expires in 2 minutes.`);
+      await sendSms(phone, `SA'DA H₂O: Your login code is ${codeGen}. Expires in 2 minutes.`);
       return res.status(200).json({ ok: true });
     }
 
