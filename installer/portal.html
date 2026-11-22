@@ -56,6 +56,7 @@
        tall the name/subtitle column grows (e.g. a long name wrapping to 2 lines). */
     .appt-summary-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;}
     .appt-summary-name{font-size:15px;font-weight:700;color:var(--text);}
+    .uv-badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.3px;white-space:nowrap;}
     .appt-summary-sub{font-size:12px;color:var(--muted);}
     .appt-summary-sub .when-overdue{color:#B91C1C;font-weight:700;}
     .chevron-btn{position:absolute;right:18px;bottom:14px;width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--muted);transition:transform 0.2s;cursor:pointer;}
@@ -155,8 +156,16 @@
       .proof-uploads{grid-template-columns:1fr;}
       .modal{padding:20px 16px; border-radius:12px 12px 0 0; margin:0; max-width:100%;}
       .modal-overlay{align-items:flex-end; padding:0;}
-      header{padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));height:auto;}
-      header img{height:52px;}
+      header{padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top));height:auto;flex-wrap:wrap;row-gap:8px;}
+      header img{height:48px;}
+      /* Phone: buttons get their own full-width row under the logo. */
+      .header-right{width:100%;gap:6px;justify-content:space-between;}
+      .installer-chip{max-width:96px;padding:5px 9px;}
+      .logout-btn{padding:8px 9px;white-space:nowrap;}
+      .btn-label{display:none;}
+      /* All 5 tabs visible: they wrap onto two rows instead of scrolling off-screen. */
+      .tabs{width:100%;flex-wrap:wrap;overflow:visible;}
+      .tab{flex:1 1 auto;padding:8px 10px;}
     }
     @media(prefers-reduced-motion:reduce){
       *{animation-duration:0.01ms !important;transition-duration:0.01ms !important;}
@@ -173,11 +182,11 @@
     </button>
     <button class="logout-btn" id="wallet-btn" onclick="openWallet()" title="My Wallet" style="display:flex;align-items:center;gap:5px;">
       <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M17 8V5a1 1 0 0 0-1-1H6a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V6"/><path d="M20 12v4h-4a2 2 0 0 1 0-4z"/></g></svg>
-      <span id="wallet-due">Wallet</span>
+      <span id="wallet-due" style="white-space:nowrap;">Wallet</span>
     </button>
     <button class="logout-btn" onclick="openProfileModal()" title="My Profile" style="display:flex;align-items:center;gap:5px;">
       <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></g></svg>
-      Profile
+      <span class="btn-label">Profile</span>
     </button>
     <button class="logout-btn" onclick="logout()">Sign Out</button>
   </div>
@@ -612,6 +621,18 @@ const JOB_TYPES = {
     icon: `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 26 26"><path d="M0 0h26v26H0z" fill="none"/><path fill="currentColor" d="M13 0c-.7 0-1.206.294-1.406.594c-.1.1-.181.306-.281.406H10c-1.1 0-2 .9-2 2H6C4.3 3 3 4.3 3 6v17c0 1.7 1.3 3 3 3h14c1.7 0 3-1.3 3-3V6c0-1.7-1.3-3-3-3h-2c0-1.1-.9-2-2-2h-1.313c-.1-.1-.18-.306-.28-.406C14.206.294 13.7 0 13 0m-3 3h6v2h-6zM6 6h2.313c.3.6.987 1 1.687 1h6c.7 0 1.387-.4 1.688-1H20v17H6zm10.563 4.688c-.188 0-.37.068-.47.218l-4.405 4.688L10 14c-.3-.3-.8-.3-1 0l-.688.688c-.3.3-.3.8 0 1l2.782 2.624c.4.4 1.006.275 1.406-.125l5.406-5.78c.2-.2.207-.607-.093-.907l-.72-.594a.75.75 0 0 0-.53-.219z"/></svg>`
   }
 };
+// UV / Non-UV label for a job, from its product names (A1UV, "+ UV" = UV).
+// Several products can give both labels; no product recorded gives none.
+function uvBadges(b) {
+  const items = itemsByBooking[b.id] || [];
+  const names = items.length ? items.map(it => it.product_model) : (b.product_model ? [b.product_model] : []);
+  if (!names.length) return '';
+  const kinds = [...new Set(names.map(n => /uv/i.test(String(n)) ? 'UV' : 'Non-UV'))].sort().reverse();
+  return kinds.map(k => k === 'UV'
+    ? '<span class="uv-badge" style="background:#EDE9FE;color:#5B21B6;">UV</span>'
+    : '<span class="uv-badge" style="background:#F1F5F9;color:#475569;">Non-UV</span>').join('');
+}
+
 function jobTypeOf(b) {
   return JOB_TYPES[(b.booking_type || 'installation')] ||
     { label: String(b.booking_type || 'VISIT').replace(/_/g,' ').toUpperCase(), icon: '📌', bg: '#F1F5F9', fg: '#475569' };
@@ -756,6 +777,7 @@ function renderAppointments() {
           <div class="appt-summary-main">
             <div class="appt-summary-top">
               <span class="appt-summary-name">${b.customer_name}</span>
+              ${uvBadges(b)}
             </div>
             <div class="appt-summary-sub">${d.toLocaleDateString('en-US',{weekday:'short'})} · ${formatHour(b.slot_hour)} · ${b.city_name} ${whenBadge(b.slot_date, b.status)}</div>
           </div>
