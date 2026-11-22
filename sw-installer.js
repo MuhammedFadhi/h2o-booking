@@ -4,7 +4,7 @@
      - Images → cache-first (rarely change)
      - Supabase & /api/* → network only (never cache)
 */
-const VERSION = 'sada-installer-v22.6';
+const VERSION = 'sada-installer-v22.8';
 const SHELL_CACHE = `${VERSION}-shell`;
 const IMAGE_CACHE = `${VERSION}-img`;
 

@@ -57,9 +57,14 @@
     .appt-summary-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;}
     .appt-summary-name{font-size:15px;font-weight:700;color:var(--text);}
     .uv-badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.3px;white-space:nowrap;}
-    /* Every card the same shape: name always takes 2 lines (cut with … if longer),
+    /* Every card the same shape: name on one line (cut with … if longer),
        then the UV line, then one line of day · time · city. */
-    .appt-summary-top .appt-summary-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25;min-height:2.5em;word-break:break-word;}
+    .appt-summary-top .appt-summary-name{display:block;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;}
+    /* Opened card: show the full name and city line again. */
+    .appointment-card.expanded .appt-summary-top .appt-summary-name,
+    .appointment-card.expanded .appt-summary-sub{white-space:normal;overflow:visible;word-break:break-word;}
+    /* Long addresses / map links wrap instead of running off the card. */
+    .appt-detail-grid > div{min-width:0;overflow-wrap:anywhere;}
     .appt-badges{display:flex;gap:6px;min-height:20px;margin:2px 0 4px;}
     .appt-summary-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .appt-summary-sub{font-size:12px;color:var(--muted);}
