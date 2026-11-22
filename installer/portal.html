@@ -57,6 +57,11 @@
     .appt-summary-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;}
     .appt-summary-name{font-size:15px;font-weight:700;color:var(--text);}
     .uv-badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.3px;white-space:nowrap;}
+    /* Every card the same shape: name always takes 2 lines (cut with … if longer),
+       then the UV line, then one line of day · time · city. */
+    .appt-summary-top .appt-summary-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25;min-height:2.5em;word-break:break-word;}
+    .appt-badges{display:flex;gap:6px;min-height:20px;margin:2px 0 4px;}
+    .appt-summary-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .appt-summary-sub{font-size:12px;color:var(--muted);}
     .appt-summary-sub .when-overdue{color:#B91C1C;font-weight:700;}
     .chevron-btn{position:absolute;right:18px;bottom:14px;width:30px;height:30px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--muted);transition:transform 0.2s;cursor:pointer;}
@@ -776,9 +781,9 @@ function renderAppointments() {
           </div>
           <div class="appt-summary-main">
             <div class="appt-summary-top">
-              <span class="appt-summary-name">${b.customer_name}</span>
-              ${uvBadges(b)}
+              <span class="appt-summary-name" title="${String(b.customer_name || '').replace(/"/g, '&quot;')}">${b.customer_name}</span>
             </div>
+            <div class="appt-badges">${uvBadges(b)}</div>
             <div class="appt-summary-sub">${d.toLocaleDateString('en-US',{weekday:'short'})} · ${formatHour(b.slot_hour)} · ${b.city_name} ${whenBadge(b.slot_date, b.status)}</div>
           </div>
           <div class="type-icon-btn" style="background:${jobTypeOf(b).bg};color:${jobTypeOf(b).fg};" title="${jobTypeOf(b).label}">
