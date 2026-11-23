@@ -20,6 +20,26 @@ const FREE_SENDS = 3;             // free sends in window
 const MIN_GAP_MS = 2 * 60 * 1000; // 2 min gap after burst
 
 const ipHits = new Map();
+const { requireAdmin } = require('./admin/_auth.js');
+
+// A signed-in admin (Bearer token) is not held to the per-IP cap, so the SMS
+// Reminders page can send a whole day's list. Public pages keep the cap.
+async function isAdminCaller(req) {
+  if (!/^Bearer /i.test(req.headers.authorization || '')) return false;
+  try { await requireAdmin(req); return true; } catch (e) { return false; }
+}
+
+// The relay passes on the SMS company's answer. A clear "no" (e.g. rejected
+// number, no balance) must count as a failure, not as sent.
+function relayRefused(result) {
+  if (!result || typeof result !== 'object') return null;
+  const num = v => (typeof v === 'number' ? v : (/^\d{3}$/.test(String(v || '')) ? Number(v) : null));
+  const code = num(result.statusCode) ?? num(result.status_code) ?? num(result.status);
+  if (result.success === false || result.ok === false || result.error || (code !== null && code >= 400)) {
+    return String(result.error || result.message || result.statusDescription || `SMS provider error ${code ?? ''}`).slice(0, 200);
+  }
+  return null;
+}
 
 function ipOf(req) {
   return (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
@@ -95,8 +115,12 @@ async function forwardToDroplet(to, body) {
       signal: ac.signal
     });
     const text = await r.text();
-    try { return JSON.parse(text); }
-    catch { return { raw: text }; }
+    let out;
+    try { out = JSON.parse(text); } catch { out = { raw: text }; }
+    if (out === null || typeof out !== 'object') out = { raw: text };
+    // Relay answered with an HTTP error: mark it so it is reported as failed.
+    if (!r.ok) out = { ...out, success: false, error: out.error || out.message || `Relay error ${r.status}` };
+    return out;
   } catch (err) {
     if (err.name === 'AbortError') throw new Error('Relay timeout');
     throw err;
@@ -108,7 +132,7 @@ async function forwardToDroplet(to, body) {
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Secret-Key');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Secret-Key, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -116,10 +140,13 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
 
   const ip = ipOf(req);
+  const admin = await isAdminCaller(req);
   const now = Date.now();
   const hits = (ipHits.get(ip) || []).filter(t => now - t < IP_WINDOW_MS);
-  if (hits.length >= IP_LIMIT) return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
-  hits.push(now); ipHits.set(ip, hits);
+  if (!admin) {
+    if (hits.length >= IP_LIMIT) return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
+    hits.push(now); ipHits.set(ip, hits);
+  }
 
   const { to, body } = req.body || {};
   if (!to || !body) return res.status(400).json({ error: 'Missing to or body' });
@@ -136,6 +163,8 @@ module.exports = async function handler(req, res) {
 
   try {
     const result = await forwardToDroplet(phone, body);
+    const refused = relayRefused(result);
+    if (refused) return res.status(502).json({ error: refused, provider: result });
     return res.status(200).json(result);
   } catch (err) {
     console.error('SMS relay error:', err.message);
