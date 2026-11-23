@@ -247,7 +247,7 @@
         <td>${esc(h.product || '—')}</td>
         <td>${KINDS[h.kind] ? kindChip(h.kind) : esc(h.kind)}</td>
         <td style="white-space:nowrap;">${dmy(h.due_date)}</td>
-        <td style="white-space:nowrap;">${statusChip(h.status)}${h.reason ? `<div style="font-size:11px;color:var(--muted);">${esc(h.reason)}</div>` : ''}</td>
+        <td style="white-space:nowrap;">${statusChip(h.status)}${h.reason ? `<div style="font-size:11px;color:var(--muted);">${esc(h.reason)}</div>` : ''}${h.status === 'skipped' ? `<div><button class="btn btn-sm btn-ghost" style="margin-top:4px;" onclick="event.stopPropagation();remUndoSkip(${i})">↩ Undo skip</button></div>` : ''}</td>
         <td style="white-space:nowrap;">${campNo(h.reminder_sms_campaigns?.campaign_no)}</td>
         <td>${esc(h.sent_by || '—')}</td>
       </tr>`).join('');
@@ -385,6 +385,19 @@
     remSendSelected: () => send(shownRows().filter(r => S.selected.has(r.key)).map(r => r.key)),
     remSendOne: k => send([k]),
     remSkip: skip,
+    // Undo a skip: the record is removed and the reminder shows again under "To send".
+    remUndoSkip: async i => {
+      const h = S.hist[i];
+      if (!h || h.status !== 'skipped') return;
+      if (!confirm(`Undo the skip for ${h.customer_name || 'this customer'}? The reminder will show again under "To send".`)) return;
+      const { data, error } = await dbAdmin.from('reminder_sms_log').delete().eq('id', h.id).eq('status', 'skipped').select('id');
+      if (error) return showToast('Could not undo: ' + error.message, 'error');
+      if (!data || !data.length) return showToast('Could not undo. If this is a new setup, run migrations/v125_reminder_sms_undo_skip.sql.', 'error');
+      try { logActivity('reminder.unskip', `Undo skip: ${h.customer_name || ''} (${KINDS[h.kind] ? KINDS[h.kind].label : h.kind}, due ${dmy(h.due_date)})`, 'warranty', h.warranty_id); } catch (e) { /* log only */ }
+      showToast('Skip undone', 'success');
+      try { await fetchToSend(); await fetchHistory(); } catch (e) { /* shown on next load */ }
+      render();
+    },
     remHist: async (f, v) => { S[f] = v; try { await fetchHistory(); } catch (e) { showToast(e.message, 'error'); } render(); },
     remShowMsg: i => { const h = S.hist[i]; if (h) showInfoModal(`${KINDS[h.kind] ? KINDS[h.kind].label : h.kind} · ${esc(h.customer_name || '')}`,
       `<div style="white-space:pre-wrap;">${esc(h.message || '(no message — skipped)')}</div>`); },
