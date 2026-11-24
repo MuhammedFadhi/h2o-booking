@@ -7,7 +7,7 @@
 // salesReportChartSVG.
 // ============================================================
 (function () {
-  const GROUPS = [['sales', 'Sales Team'], ['installer', 'Installers']];
+  const GROUPS = [['sales', 'Sales Team'], ['installer', 'Installers'], ['admin', 'Admins']];
   const ROLES = { sales: 'Sales agent', installer: 'Installer' };
   const PALETTE = [
     ['#DBEAFE', '#1E40AF'], ['#DCFCE7', '#166534'], ['#FEF3C7', '#92400E'], ['#FCE7F3', '#9D174D'],
