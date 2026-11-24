@@ -149,14 +149,51 @@ Never put `secrets/` or `.env` in git, email or chat.
 Copy the new code (step 2) and run `bash deploy/install.sh` again. It replaces the
 code and restarts, but **keeps `.env` and `secrets/`**.
 
-## Moving to production (later, after simulation works end to end)
+## Going live — a separate production (core) relay
 
-1. Back up and move the simulation certificates aside:
-   `mv /root/zatca-relay/secrets /root/zatca-relay/secrets-simulation`
-2. In `.env` set `ZATCA_ENV=core`, then `pm2 restart zatca-relay --update-env`.
-3. Production needs its own OTP from the Fatoora portal's **production** environment;
-   onboard again from the dashboard. Automatic submission and the Phase 2 date start
-   fresh (OFF / empty) for production — set them again.
+Production gets **its own copy** of the relay, beside the simulation one, so the dev
+site keeps testing against simulation while booking.sadawater.com reports to the real
+ZATCA. Each copy has its own folder, port, key, certificate and PM2 name:
+
+| | Simulation (dev site) | Production (live site) |
+|---|---|---|
+| Folder | `/root/zatca-relay` | `/root/zatca-relay-prod` |
+| Port | 8791 | 8792 |
+| Hostname | zatca.sadawater.com | zatca-prod.sadawater.com |
+| PM2 name | `zatca-relay` | `zatca-relay-prod` |
+| Worker | dev-booking (`h2o-booking-dev`) | booking.sadawater.com |
+
+1. **DNS:** A record `zatca-prod` → `185.214.134.177`, **DNS only (grey cloud)**.
+2. **Install** (on the server, from the copied code — same `zatca-relay-src` folder):
+   ```bash
+   cd /root/zatca-relay-src
+   APP_DIR=/root/zatca-relay-prod ZATCA_ENV=core PORT=8792 bash deploy/install.sh
+   ```
+   Copy the relay key it prints (a different key from simulation).
+3. **HTTPS:**
+   ```bash
+   cp /root/zatca-relay-prod/deploy/nginx-zatca-prod.sadawater.com.conf /etc/nginx/sites-available/zatca-prod.sadawater.com
+   ln -s /etc/nginx/sites-available/zatca-prod.sadawater.com /etc/nginx/sites-enabled/
+   nginx -t && systemctl reload nginx
+   certbot --nginx -d zatca-prod.sadawater.com
+   curl https://zatca-prod.sadawater.com/health     # {"ok":true,"env":"core"}
+   ```
+4. **Production Worker** (the one serving booking.sadawater.com) → Settings → Variables
+   and Secrets → add as **Secret**: `ZATCA_RELAY_URL` = `https://zatca-prod.sadawater.com`,
+   `ZATCA_RELAY_KEY` = the key from step 2, `ZATCA_ENV` = `core`. Deploy.
+5. **Production dashboard → ZATCA E-Invoicing → Refresh:** Connected, environment **PRODUCTION**.
+   Set the **Phase 2 start date** to your wave's integration date from ZATCA (not today's
+   date unless it really is your wave date) and Save.
+6. **Onboard:** Fatoora portal → **production** (not simulation) → onboard a new
+   solution/device → 1 OTP → paste it on the production ZATCA page → Onboard.
+7. **One real invoice first:** issue one small invoice dated on/after the Phase 2 date,
+   click ⚡ — it must turn Reported. Only then turn Automatic submission ON.
+8. **Back up** `/root/zatca-relay-prod/secrets/` (step 9 above, with the `-prod` path).
+   This is the live signing key: keep it off email and chat.
+
+Updating later: `bash deploy/install.sh` updates simulation; run it again with
+`APP_DIR=/root/zatca-relay-prod` to update production. Neither touches the other's
+`.env` or `secrets/`.
 
 ## Troubleshooting
 

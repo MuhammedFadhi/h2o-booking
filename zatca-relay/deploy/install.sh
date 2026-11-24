@@ -10,13 +10,18 @@
 #
 # Options (environment variables):
 #     APP_DIR=/root/zatca-relay   where the relay lives            (default shown)
-#     ZATCA_ENV=simulation        only used when creating a new .env
+#     ZATCA_ENV=simulation        only used when creating a new .env (core = PRODUCTION)
+#     PORT=8791                   only used when creating a new .env
 #     SKIP_PM2=1                  install + self-test only, do not start under PM2
+#
+# Production (core) relay beside the simulation one, as a separate copy:
+#     APP_DIR=/root/zatca-relay-prod ZATCA_ENV=core PORT=8792 bash deploy/install.sh
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/root/zatca-relay}"
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NEW_ENV="${ZATCA_ENV:-simulation}"
+NEW_PORT="${PORT:-8791}"
 
 say()  { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
 ok()   { printf '    \033[32m✓\033[0m %s\n' "$*"; }
@@ -60,10 +65,11 @@ else
   sed -e "s|^ZATCA_ENV=.*|ZATCA_ENV=$NEW_ENV|" \
       -e "s|^RELAY_API_KEY=.*|RELAY_API_KEY=$KEY|" \
       -e "s|^CERT_DIR=.*|CERT_DIR=$APP_DIR/secrets|" \
+      -e "s|^PORT=.*|PORT=$NEW_PORT|" \
       "$APP_DIR/deploy/env.template" > "$APP_DIR/.env"
   chmod 600 "$APP_DIR/.env"
   CREATED_ENV=1
-  ok "created .env (ZATCA_ENV=$NEW_ENV, new random RELAY_API_KEY)"
+  ok "created .env (ZATCA_ENV=$NEW_ENV, PORT=$NEW_PORT, new random RELAY_API_KEY)"
 fi
 
 say "Self-test (crypto, no ZATCA calls)"
@@ -74,16 +80,17 @@ if [ "${SKIP_PM2:-0}" = "1" ]; then
 else
   say "Starting under PM2"
   command -v pm2 >/dev/null || { npm install -g pm2 --no-audit --no-fund --loglevel=error; ok "installed pm2"; }
+  PM2_NAME="$(cd "$APP_DIR" && node -p "require('./deploy/ecosystem.config.js').apps[0].name")"
   ( cd "$APP_DIR" && pm2 startOrReload deploy/ecosystem.config.js --update-env )
   pm2 save >/dev/null
-  ok "zatca-relay running (pm2 logs zatca-relay to watch it)"
+  ok "$PM2_NAME running (pm2 logs $PM2_NAME to watch it)"
   sleep 2
   PORT_NUM="$(grep -E '^PORT=' "$APP_DIR/.env" | cut -d= -f2 | tr -d ' ' || true)"
   PORT_NUM="${PORT_NUM:-8791}"
   if curl -fsS "http://127.0.0.1:$PORT_NUM/health" >/dev/null 2>&1; then
     ok "health check passed on 127.0.0.1:$PORT_NUM"
   else
-    printf '    \033[33m!\033[0m health check failed — run: pm2 logs zatca-relay --lines 50\n'
+    printf '    \033[33m!\033[0m health check failed — run: pm2 logs $PM2_NAME --lines 50\n'
   fi
 fi
 
@@ -94,6 +101,6 @@ if [ "$CREATED_ENV" = "1" ]; then
 fi
 echo "    Next:"
 echo "      1. Edit $APP_DIR/.env: set EGS_ORG_UNIT_NAME to Saadat Alarab's 10-digit tax number,"
-echo "         then: pm2 restart zatca-relay --update-env"
-echo "      2. nginx + HTTPS for zatca.sadawater.com — see deploy/SETUP.md step 4"
+echo "         then: pm2 restart ${PM2_NAME:-zatca-relay} --update-env"
+echo "      2. nginx + HTTPS for this relay's hostname — deploy/SETUP.md step 4 (production: 'Going live')"
 echo "      3. Cloudflare Worker secrets ZATCA_RELAY_URL and ZATCA_RELAY_KEY — SETUP.md step 5"
