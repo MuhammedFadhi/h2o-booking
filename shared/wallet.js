@@ -71,8 +71,8 @@
             <div><div>${esc(e.product)}${e.adjustment ? ' (correction)' : ` × ${esc(e.qty)}`}</div>
               <div class="wl-sub">${dmy(e.earned_on)}${e.booking ? ' · ' + esc(e.booking) : ''}</div></div>
             <div class="wl-amt">SAR ${money(e.amount)}<br>${e.paid_on
-              ? `<span class="wl-paid">Paid ${dmy(e.paid_on)} · ${payNo(e.payout_no)}</span>`
-              : '<span class="wl-due">Unpaid</span>'}</div>
+              ? `<span class="wl-paid">Received ${dmy(e.paid_on)} · ${payNo(e.payout_no)}</span>`
+              : '<span class="wl-due">Not received</span>'}</div>
           </div>`).join('') : '<div class="wl-empty">No incentives yet.</div>')
       : (paidList.length ? paidList.map(p => `
           <div class="wl-row">
@@ -89,7 +89,7 @@
           </select></div>
         <div class="wl-tiles">
           <div class="wl-tile"><b style="color:#0F766E;">SAR ${money(earned)}</b><span>Earned</span></div>
-          <div class="wl-tile"><b style="color:#2563EB;">SAR ${money(paidOfThese)}</b><span>Paid</span></div>
+          <div class="wl-tile"><b style="color:#2563EB;">SAR ${money(paidOfThese)}</b><span>Received</span></div>
           <div class="wl-tile"><b style="color:#D97706;">SAR ${money(earned - paidOfThese)}</b><span>Balance Due</span></div>
         </div>
         <div class="wl-tabs">
