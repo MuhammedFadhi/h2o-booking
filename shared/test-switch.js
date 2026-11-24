@@ -11,6 +11,20 @@
   var TEST = 'https://dev-booking.sadawater.com';
   var onTest = location.hostname === 'dev-booking.sadawater.com';
 
+  // Small note on the TEST login page only, so it is clear which system you are on.
+  if (onTest) {
+    var addNote = function () {
+      var badge = document.querySelector('.login-card .badge');
+      if (!badge || document.getElementById('dev-server-note')) return;
+      var note = document.createElement('div');
+      note.id = 'dev-server-note';
+      note.textContent = 'Dev server (test data)';
+      note.style.cssText = 'margin:8px auto 0;font-size:12px;font-weight:700;color:#B45309;text-align:center;';
+      badge.insertAdjacentElement('afterend', note);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addNote); else addNote();
+  }
+
   var taps = [];
   document.addEventListener('click', function (e) {
     var logo = e.target.closest && e.target.closest('img.logo, header img');
