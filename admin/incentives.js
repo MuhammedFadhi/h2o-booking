@@ -18,7 +18,8 @@
   // Same names as the User Management page.
   const ACCOUNTS = [
     { key: 'installer', label: 'Installers' },
-    { key: 'sales', label: 'Sales Team' }
+    { key: 'sales', label: 'Sales Team' },
+    { key: 'admin', label: 'Admins' }
   ];
   const ITEMS = [
     { key: 'non_uv', label: 'Non-UV Unit' },
@@ -77,6 +78,9 @@
       list.push({ key: personKey('sales', s.id), type: 'sales', id: s.id, name: s.name, group: groupOf[personKey('sales', s.id)] || '' }));
     (installers || []).filter(i => i.is_active !== false).forEach(i =>
       list.push({ key: personKey('installer', i.id), type: 'installer', id: i.id, name: i.name, group: groupOf[personKey('installer', i.id)] || '' }));
+    // Admins / master admins who sell (v126): their bookings earn as "sales".
+    (S.admins || []).forEach(a =>
+      list.push({ key: personKey('admin', a.id), type: 'admin', id: a.id, name: a.name, group: groupOf[personKey('admin', a.id)] || '' }));
     return list.sort((a, b) => String(a.name).localeCompare(String(b.name)));
   }
 
@@ -100,6 +104,11 @@
 
   async function ensureStaffLoaded() {
     if (!salesUsers || !salesUsers.length) { try { await loadSales(); } catch (e) { /* shown as an empty list */ } }
+    if (!S.admins) {
+      // Needs migrations/v126_incentive_admin_people.sql; without it admins are simply not listed.
+      try { const { data, error } = await dbAdmin.rpc('incentive_admin_people'); S.admins = error ? [] : (data || []); }
+      catch (e) { S.admins = []; }
+    }
   }
 
   async function fetchSetup() {
@@ -339,7 +348,7 @@
     const rows = people.map(p => `
       <tr>
         <td style="font-weight:600;">${esc(p.name)}</td>
-        <td>${p.type === 'sales' ? 'Sales' : 'Installer'}</td>
+        <td>${p.type === 'sales' ? 'Sales' : p.type === 'admin' ? 'Admin' : 'Installer'}</td>
         <td><select class="form-input" style="max-width:240px;" onchange="incSetPersonGroup('${p.key}',this.value)" aria-label="Group for ${esc(p.name)}">
           <option value="">No group</option>
           ${GROUPS.map(g => `<option value="${g.key}" ${p.group === g.key ? 'selected' : ''}>${esc(g.label)}</option>`).join('')}
