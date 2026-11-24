@@ -4,7 +4,7 @@
      - Images → cache-first (rarely change)
      - Supabase & /api/* → network only (never cache)
 */
-const VERSION = 'sada-installer-v22.9';
+const VERSION = 'sada-installer-v23.0';
 const SHELL_CACHE = `${VERSION}-shell`;
 const IMAGE_CACHE = `${VERSION}-img`;
 
@@ -15,6 +15,7 @@ const PRECACHE = [
   './shared/ui.js',
   './shared/supabase.js',
   './shared/wallet.js',
+  './shared/test-switch.js',
   './assets/SADA_h2o_logo.png',
   './assets/sada-app-icon-192.png',
   './assets/sada-app-icon-512.png',
