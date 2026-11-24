@@ -132,6 +132,7 @@
 </div>
 
 <script src="../shared/supabase.js"></script>
+<script src="../shared/test-switch.js"></script>
 <script>
   db.auth.getSession().then(({ data: { session } }) => {
     if (session) window.location.href = 'portal.html';
