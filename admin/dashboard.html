@@ -2355,9 +2355,10 @@
       <div class="form-group"><label>Customer Address <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
         <input class="form-input" id="ni-address"></div>
 
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin:0 0 10px;cursor:pointer;">
+      <label id="ni-b2b-label" style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin:0 0 10px;cursor:pointer;flex-wrap:wrap;">
         <input type="checkbox" id="ni-b2b" onchange="niToggleB2B()" style="width:16px;height:16px;">
         B2B tax invoice <span style="color:var(--muted);font-weight:400;">— company buyer that claims the VAT (cleared by ZATCA)</span>
+        <span id="ni-b2b-locked" style="display:none;color:#B45309;font-weight:400;font-size:12px;">Not available yet: the ZATCA certificate is for B2C (simplified) invoices only.</span>
       </label>
       <div id="ni-b2b-fields" style="display:none;border:1px solid var(--border);border-radius:10px;padding:12px 14px 2px;margin-bottom:14px;">
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Customer Name above must be the company's registered (legal) name. Enter the VAT number — or, if the company has none, another ID with its type.</div>
@@ -6922,6 +6923,7 @@ async function openNewInvoice() {
   ['ni-name', 'ni-phone', 'ni-address', 'ni-discount', 'ni-number', ...NI_B2B_INPUTS].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('ni-b2b').checked = false;
   niToggleB2B();
+  niCheckB2BAllowed();
   sddSetText(document.getElementById('ni-booking'), '', 'Select a booking…');
   document.getElementById('ni-method').value = '';
   const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -7104,6 +7106,23 @@ async function niGenNumber() {
 // ---- B2B (standard tax invoice) buyer -------------------------------------
 const NI_B2B_INPUTS = ['ni-b-vat', 'ni-b-idtype', 'ni-b-idno', 'ni-b-street', 'ni-b-building', 'ni-b-addno', 'ni-b-district', 'ni-b-city', 'ni-b-postal'];
 
+// B2B needs a certificate issued for standard invoices (EGS_INVOICE_TYPE 1xxx).
+// Until then the option stays visible but locked, so nobody issues a B2B
+// invoice that could never be cleared.
+async function niCheckB2BAllowed() {
+  const box = document.getElementById('ni-b2b');
+  let allowed = false;
+  try {
+    const ctx = await loadZatcaContext();
+    allowed = !!(ctx.relay && ctx.relay.onboarded && String(ctx.relay.invoiceTypes || '0100')[0] === '1');
+  } catch (e) { allowed = false; }
+  box.disabled = !allowed;
+  if (!allowed) { box.checked = false; niToggleB2B(); }
+  document.getElementById('ni-b2b-locked').style.display = allowed ? 'none' : '';
+  document.getElementById('ni-b2b-label').style.cursor = allowed ? 'pointer' : 'default';
+  document.getElementById('ni-b2b-label').style.opacity = allowed ? '' : '.75';
+}
+
 function niToggleB2B() {
   document.getElementById('ni-b2b-fields').style.display = document.getElementById('ni-b2b').checked ? '' : 'none';
 }
@@ -7176,7 +7195,7 @@ async function saveNewInvoice(print) {
   if (t.items.some(i => i.qty <= 0)) return fail('Quantities must be at least 1.');
   if (!method) return fail('Select the payment method.');
   if (t.discount > t.gross) return fail('Discount is larger than the items total.');
-  const isB2B = document.getElementById('ni-b2b').checked;
+  const isB2B = document.getElementById('ni-b2b').checked && !document.getElementById('ni-b2b').disabled;
   const buyer = isB2B ? niBuyerFields() : null;
   if (isB2B) { const bi = niBuyerIssue(buyer); if (bi) return fail(bi); }
   if (_niBookingId && allInvoices.some(x => x.booking_id === _niBookingId)) {
