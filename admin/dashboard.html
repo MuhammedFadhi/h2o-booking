@@ -2393,7 +2393,6 @@
         <input class="form-input" id="ni-address"></div>
 
       <label style="font-size:12px;font-weight:600;">Items <span style="color:var(--muted);font-weight:400;">— prices include 15% VAT</span></label>
-      <datalist id="ni-product-list"></datalist>
       <div style="overflow-x:auto;">
         <table class="data-table" style="width:100%;margin:6px 0;">
           <thead><tr><th>Description</th><th style="width:84px;">Qty</th><th style="width:120px;">Unit price</th><th style="width:100px;text-align:right;">Line total</th><th style="width:36px;"></th></tr></thead>
@@ -6790,6 +6789,8 @@ async function printInvoice(invoiceId, win) {
 // ---------------------------------------------------------------------------
 let _niBookings = [];      // bookings offered in the picker
 let _niBookingId = null;   // booking linked to the invoice being created
+let _niProducts = [];      // catalogue products offered in each item's dropdown
+const NI_OTHER = '__other__';
 
 function niLabel(b) {
   return `${b.booking_reference || '—'} · ${b.customer_name || ''} · ${b.customer_phone || ''}`;
@@ -6808,10 +6809,10 @@ async function openNewInvoice() {
   niAddRow();
   openModal('new-invoice-modal');
 
-  // Product suggestions for the item description (picking one fills its price).
+  // Products for the item dropdowns (picking one fills its price).
   getCatalogue().then(cat => {
-    document.getElementById('ni-product-list').innerHTML = (cat || [])
-      .map(p => `<option value="${escB(p.model_name)}">${p.price_sar != null ? 'SAR ' + escB(p.price_sar) : ''}</option>`).join('');
+    _niProducts = (cat || []).filter(p => p && p.model_name);
+    document.querySelectorAll('#ni-items tr').forEach(niFillProductSelect);
   });
   // Recent bookings for the picker (newest first).
   const { data } = await dbAdmin.from('bookings')
@@ -6825,21 +6826,52 @@ async function openNewInvoice() {
 function niAddRow(desc = '', qty = 1, price = '') {
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td><input class="form-input ni-desc" list="ni-product-list" value="${escB(desc)}" placeholder="Product or service" oninput="niDescChanged(this)"></td>
+    <td style="min-width:220px;">
+      <select class="form-input ni-prod" onchange="niProductPicked(this)"></select>
+      <input class="form-input ni-desc" value="${escB(desc)}" placeholder="Type the item description" oninput="niRecalc()" style="display:none;margin-top:6px;">
+    </td>
     <td><input class="form-input ni-qty" type="number" min="1" step="1" value="${escB(qty)}" oninput="niRecalc()" style="min-width:64px;padding-left:8px;padding-right:4px;text-align:center;"></td>
     <td><input class="form-input ni-price" type="number" min="0" step="0.01" value="${escB(price)}" placeholder="0.00" oninput="niRecalc()"></td>
     <td class="ni-line" style="text-align:right;white-space:nowrap;">—</td>
     <td><button class="btn btn-sm btn-ghost" type="button" title="Remove" onclick="this.closest('tr').remove();niRecalc()">✕</button></td>`;
   document.getElementById('ni-items').appendChild(tr);
+  niFillProductSelect(tr);
   niRecalc();
 }
 
-// Picking a catalogue product fills its price (only if the price is still empty).
-function niDescChanged(input) {
-  const cat = window.__catalogue || [];
-  const p = cat.find(x => x.model_name === input.value);
-  const price = input.closest('tr').querySelector('.ni-price');
-  if (p && p.price_sar != null && !price.value) price.value = p.price_sar;
+// Fill a row's dropdown with every product. The row's description (.ni-desc)
+// stays the source of truth: a catalogue name selects that product, anything
+// else selects "Other" and shows the text box with it.
+function niFillProductSelect(tr) {
+  const sel = tr.querySelector('.ni-prod');
+  const desc = tr.querySelector('.ni-desc');
+  const current = desc.value.trim();
+  const match = _niProducts.find(p => p.model_name === current);
+  sel.innerHTML = '<option value="">Select product…</option>' +
+    _niProducts.map((p, i) => `<option value="${i}">${escB(p.model_name)}${p.price_sar != null ? ' — SAR ' + escB(p.price_sar) : ''}</option>`).join('') +
+    `<option value="${NI_OTHER}">Other (type it)…</option>`;
+  if (match) sel.value = String(_niProducts.indexOf(match));
+  else if (current) sel.value = NI_OTHER;
+  else sel.value = '';
+  desc.style.display = sel.value === NI_OTHER ? '' : 'none';
+}
+
+// Choosing a product sets the description and its price (also when changing
+// from one product to another); "Other" opens the text box.
+function niProductPicked(sel) {
+  const tr = sel.closest('tr');
+  const desc = tr.querySelector('.ni-desc');
+  const price = tr.querySelector('.ni-price');
+  if (sel.value === NI_OTHER) {
+    if (_niProducts.some(p => p.model_name === desc.value.trim())) desc.value = '';
+    desc.style.display = '';
+    desc.focus();
+  } else {
+    const p = _niProducts[Number(sel.value)];
+    desc.value = p ? p.model_name : '';
+    desc.style.display = 'none';
+    if (p && p.price_sar != null) price.value = p.price_sar;
+  }
   niRecalc();
 }
 
