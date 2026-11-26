@@ -55,7 +55,9 @@ function status() {
     hasCompliance: !!(comp && comp.token && comp.secret),
     onboardedAt: prod?.issuedAt || null,
     certificate: cert,
-    invoiceTypes: config.egs.invoiceType,
+    // What the CERTIFICATE allows (recorded at onboarding); older records fall
+    // back to the current setting.
+    invoiceTypes: prod?.invoiceTypes || config.egs.invoiceType,
     egs: { commonName: config.egs.commonName, serialNumber: config.egs.serialNumber },
   };
 }
@@ -120,7 +122,11 @@ async function onboard({ otp, seller = {}, log = () => {} }, signInvoice) {
     plot: seller.plot || '', district: seller.district || '', city: seller.city || config.egs.location,
     postalZone: seller.postalZone || '', countryCode: 'SA',
   };
-  const testBuyer = { name: 'Compliance Test Customer', vatNumber: '399999999900003' };
+  const testBuyer = {
+    name: 'Compliance Test Customer', vatNumber: '399999999900003',
+    street: 'King Fahd Road', building: '1234', district: 'Al Olaya', city: 'Riyadh',
+    postalZone: '12345', countryCode: 'SA',
+  };
   for (let i = 0; i < docs.length; i++) {
     const d = docs[i];
     const label = `${d.kind} ${d.docType === 'invoice' ? 'invoice' : d.docType + ' note'}`;
@@ -153,7 +159,10 @@ async function onboard({ otp, seller = {}, log = () => {} }, signInvoice) {
 
   step('Requesting the production certificate…');
   const prod = await zatca.requestProductionCsid(comp.requestId, comp.token, comp.secret);
-  const prodRec = { requestId: prod.requestID, token: prod.binarySecurityToken, secret: prod.secret, issuedAt: new Date().toISOString() };
+  const prodRec = {
+    requestId: prod.requestID, token: prod.binarySecurityToken, secret: prod.secret,
+    issuedAt: new Date().toISOString(), invoiceTypes: String(config.egs.invoiceType || '0100'),
+  };
   write('cert.pem', certPemFromToken(prodRec.token));  // replace with the PRODUCTION cert
   write('production-csid.json', JSON.stringify(prodRec, null, 2));
   step('Production certificate active. Onboarding complete.');

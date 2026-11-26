@@ -16,7 +16,7 @@
 //     and records warnings as violations).
 const crypto = require('crypto');
 const { requireAdmin } = require('./_auth.js');
-const { relayConfigured, relayCall, relayStatus, deviceState, sellerFromCompany, sellerIssues } = require('./_zatca.js');
+const { relayConfigured, relayCall, relayStatus, deviceState, sellerFromCompany, sellerIssues, buyerIssues } = require('./_zatca.js');
 
 // ZATCA's defined first-invoice PIH = Base64( SHA256("0") ).
 const SEED_PIH = crypto.createHash('sha256').update('0').digest('base64');
@@ -86,6 +86,17 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: `This invoice was issued under VAT ${inv.seller_vat_number}, not ${cs.vat_number}, so it cannot be sent under this ZATCA certificate.` });
     }
 
+    // B2B (standard) tax invoice: cleared by ZATCA, needs the buyer's full details
+    // and a certificate issued for standard invoices (EGS_INVOICE_TYPE 1xxx).
+    const isStandard = inv.invoice_kind === 'standard';
+    if (isStandard) {
+      if (String(relay.invoiceTypes || '0100')[0] !== '1') {
+        return res.status(400).json({ error: `This is a B2B tax invoice, but the ${env} ZATCA certificate only allows simplified (B2C) invoices. Onboard again with B2B enabled (EGS_INVOICE_TYPE=1100).` });
+      }
+      const bi = buyerIssues(inv);
+      if (bi.length) return res.status(400).json({ error: 'Complete the B2B buyer details on this invoice first: ' + bi.join(' ') });
+    }
+
     let items = [];
     if (Array.isArray(inv.line_items) && inv.line_items.length) {
       // Lines saved on the invoice itself (New Invoice form, migration v121).
@@ -112,9 +123,16 @@ module.exports = async function handler(req, res) {
       uuid: inv.einvoice_uuid || undefined,
       issueInstant: inv.issued_at,
       icv, pih,
-      invoiceType: 'simplified',
+      invoiceType: isStandard ? 'standard' : 'simplified',
       seller: sellerFromCompany(cs),
-      buyer: { name: inv.customer_name, phone: inv.customer_phone },
+      buyer: isStandard ? {
+        name: inv.customer_name,
+        vatNumber: inv.buyer_vat_number || undefined,
+        idScheme: inv.buyer_id_scheme || undefined, idNumber: inv.buyer_id_number || undefined,
+        street: inv.buyer_street, building: inv.buyer_building_no, additionalNo: inv.buyer_additional_no || undefined,
+        district: inv.buyer_district, city: inv.buyer_city, postalZone: inv.buyer_postal_code,
+        countryCode: inv.buyer_country || 'SA',
+      } : { name: inv.customer_name, phone: inv.customer_phone },
       lines: items,
       totalInclVat: Number(inv.total),
     };

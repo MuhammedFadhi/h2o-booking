@@ -381,6 +381,8 @@
     /* SEARCHABLE DROPDOWN (sdd) — a select-style button that opens a panel
        with a search box. The panel is fixed to the viewport so table/modal
        scrolling never clips it. */
+    .ni-b2b-row { display:flex; gap:10px; flex-wrap:wrap; }
+    .ni-b2b-row > .form-group { flex:1 1 160px; min-width:0; }
     .sdd-btn { display:flex; align-items:center; gap:8px; text-align:left; background:#fff; cursor:pointer; color:var(--text); }
     .sdd-btn .sdd-text { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .sdd-btn .sdd-text.sdd-ph { color:var(--muted); }
@@ -2410,6 +2412,52 @@
       </div>
       <div class="form-group"><label>Customer Address <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
         <input class="form-input" id="ni-address"></div>
+
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin:0 0 10px;cursor:pointer;">
+        <input type="checkbox" id="ni-b2b" onchange="niToggleB2B()" style="width:16px;height:16px;">
+        B2B tax invoice <span style="color:var(--muted);font-weight:400;">— company buyer that claims the VAT (cleared by ZATCA)</span>
+      </label>
+      <div id="ni-b2b-fields" style="display:none;border:1px solid var(--border);border-radius:10px;padding:12px 14px 2px;margin-bottom:14px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Customer Name above must be the company's registered (legal) name. Enter the VAT number — or, if the company has none, another ID with its type.</div>
+        <div class="ni-b2b-row">
+          <div class="form-group"><label>Buyer VAT Number</label>
+            <input class="form-input" id="ni-b-vat" inputmode="numeric" maxlength="15" placeholder="3XXXXXXXXXXXXX3" onchange="niLookupBuyerVat()"></div>
+          <div class="form-group"><label>Other ID type <span style="color:var(--muted);font-weight:400;">(if no VAT)</span></label>
+            <select class="form-input" id="ni-b-idtype">
+              <option value="">—</option>
+              <option value="CRN">Commercial Registration (CR)</option>
+              <option value="700">700 Number</option>
+              <option value="MOM">MOMRAH License</option>
+              <option value="MLS">MHRSD License</option>
+              <option value="SAG">MISA License</option>
+              <option value="NAT">National ID</option>
+              <option value="IQA">Iqama</option>
+              <option value="GCC">GCC ID</option>
+              <option value="PAS">Passport</option>
+              <option value="TIN">Tax ID (TIN)</option>
+              <option value="OTH">Other ID</option>
+            </select></div>
+          <div class="form-group"><label>Other ID number</label>
+            <input class="form-input" id="ni-b-idno"></div>
+        </div>
+        <div style="font-size:12px;font-weight:600;margin:2px 0 6px;">National Address</div>
+        <div class="ni-b2b-row">
+          <div class="form-group" style="flex:2 1 220px;"><label>Street *</label>
+            <input class="form-input" id="ni-b-street"></div>
+          <div class="form-group"><label>Building No. * <span style="color:var(--muted);font-weight:400;">(4 digits)</span></label>
+            <input class="form-input" id="ni-b-building" inputmode="numeric" maxlength="4"></div>
+          <div class="form-group"><label>Additional No. <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+            <input class="form-input" id="ni-b-addno" inputmode="numeric" maxlength="4"></div>
+        </div>
+        <div class="ni-b2b-row">
+          <div class="form-group"><label>District *</label>
+            <input class="form-input" id="ni-b-district"></div>
+          <div class="form-group"><label>City *</label>
+            <input class="form-input" id="ni-b-city"></div>
+          <div class="form-group"><label>Postal Code * <span style="color:var(--muted);font-weight:400;">(5 digits)</span></label>
+            <input class="form-input" id="ni-b-postal" inputmode="numeric" maxlength="5"></div>
+        </div>
+      </div>
 
       <label style="font-size:12px;font-weight:600;">Items <span style="color:var(--muted);font-weight:400;">— prices include 15% VAT</span></label>
       <div style="overflow-x:auto;">
@@ -6792,7 +6840,13 @@ async function printInvoice(invoiceId, win) {
     reference: inv.bookings?.booking_reference,
     paymentMethod: inv.payment_method,
     seller: cs,
-    customer: { name: inv.customer_name, phone: inv.customer_phone, address: inv.buyer_address },
+    kind: inv.invoice_kind === 'standard' ? 'standard' : 'simplified',
+    customer: {
+      name: inv.customer_name, phone: inv.customer_phone, address: inv.buyer_address,
+      vatNumber: inv.buyer_vat_number, idScheme: inv.buyer_id_scheme, idNumber: inv.buyer_id_number,
+      street: inv.buyer_street, building: inv.buyer_building_no, additionalNo: inv.buyer_additional_no,
+      district: inv.buyer_district, city: inv.buyer_city, postalCode: inv.buyer_postal_code
+    },
     items,
     totalInclVat: total,
     // Once ZATCA has accepted it, print the signed Phase 2 QR (tags 1-9);
@@ -6926,7 +6980,9 @@ function niLabel(b) {
 async function openNewInvoice() {
   if (!(await ensureSession())) return;
   _niBookingId = null;
-  ['ni-name', 'ni-phone', 'ni-address', 'ni-discount', 'ni-number'].forEach(id => { document.getElementById(id).value = ''; });
+  ['ni-name', 'ni-phone', 'ni-address', 'ni-discount', 'ni-number', ...NI_B2B_INPUTS].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('ni-b2b').checked = false;
+  niToggleB2B();
   sddSetText(document.getElementById('ni-booking'), '', 'Select a booking…');
   document.getElementById('ni-method').value = '';
   const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -7106,6 +7162,63 @@ async function niGenNumber() {
   document.getElementById('ni-number').value = data;
 }
 
+// ---- B2B (standard tax invoice) buyer -------------------------------------
+const NI_B2B_INPUTS = ['ni-b-vat', 'ni-b-idtype', 'ni-b-idno', 'ni-b-street', 'ni-b-building', 'ni-b-addno', 'ni-b-district', 'ni-b-city', 'ni-b-postal'];
+
+function niToggleB2B() {
+  document.getElementById('ni-b2b-fields').style.display = document.getElementById('ni-b2b').checked ? '' : 'none';
+}
+
+// The invoice columns (migration v127) for the buyer details in the form.
+function niBuyerFields() {
+  const v = id => document.getElementById(id).value.trim();
+  const vat = v('ni-b-vat').replace(/\s+/g, '');
+  return {
+    buyer_vat_number: vat || null,
+    buyer_id_scheme: vat ? null : (v('ni-b-idtype') || null),
+    buyer_id_number: vat ? null : (v('ni-b-idno') || null),
+    buyer_street: v('ni-b-street') || null,
+    buyer_building_no: v('ni-b-building') || null,
+    buyer_additional_no: v('ni-b-addno') || null,
+    buyer_district: v('ni-b-district') || null,
+    buyer_city: v('ni-b-city') || null,
+    buyer_postal_code: v('ni-b-postal') || null,
+    buyer_country: 'SA'
+  };
+}
+
+// Same rules ZATCA applies to a standard invoice's buyer (also checked on the server).
+function niBuyerIssue(b) {
+  if (b.buyer_vat_number) {
+    if (!/^3\d{13}3$/.test(b.buyer_vat_number)) return 'Buyer VAT number must be 15 digits, starting and ending with 3.';
+  } else if (!b.buyer_id_scheme || !b.buyer_id_number) {
+    return 'Enter the buyer VAT number, or choose another ID type and enter its number.';
+  }
+  if (!b.buyer_street) return 'Enter the buyer street.';
+  if (!/^\d{4}$/.test(b.buyer_building_no || '')) return 'Buyer building number must be 4 digits.';
+  if (b.buyer_additional_no && !/^\d{4}$/.test(b.buyer_additional_no)) return 'Buyer additional number must be 4 digits.';
+  if (!b.buyer_district) return 'Enter the buyer district.';
+  if (!b.buyer_city) return 'Enter the buyer city.';
+  if (!/^\d{5}$/.test(b.buyer_postal_code || '')) return 'Buyer postal code must be 5 digits.';
+  return null;
+}
+
+// A company invoiced before? Fill its name and address from its last B2B invoice.
+async function niLookupBuyerVat() {
+  const vat = document.getElementById('ni-b-vat').value.replace(/\s+/g, '');
+  if (!/^3\d{13}3$/.test(vat)) return;
+  const { data } = await dbAdmin.from('invoices')
+    .select('customer_name, buyer_street, buyer_building_no, buyer_additional_no, buyer_district, buyer_city, buyer_postal_code')
+    .eq('buyer_vat_number', vat).order('issued_at', { ascending: false }).limit(1).maybeSingle();
+  if (!data) return;
+  const fill = (id, val) => { const el = document.getElementById(id); if (!el.value.trim() && val) el.value = val; };
+  fill('ni-name', data.customer_name);
+  fill('ni-b-street', data.buyer_street); fill('ni-b-building', data.buyer_building_no);
+  fill('ni-b-addno', data.buyer_additional_no); fill('ni-b-district', data.buyer_district);
+  fill('ni-b-city', data.buyer_city); fill('ni-b-postal', data.buyer_postal_code);
+  showToast('Filled from this company\'s last invoice', 'info');
+}
+
 async function saveNewInvoice(print) {
   const errEl = document.getElementById('ni-error');
   const fail = (msg) => { errEl.style.display = 'block'; errEl.textContent = msg; if (win) win.close(); };
@@ -7124,6 +7237,9 @@ async function saveNewInvoice(print) {
   if (t.items.some(i => i.qty <= 0)) return fail('Quantities must be at least 1.');
   if (!method) return fail('Select the payment method.');
   if (t.discount > t.gross) return fail('Discount is larger than the items total.');
+  const isB2B = document.getElementById('ni-b2b').checked;
+  const buyer = isB2B ? niBuyerFields() : null;
+  if (isB2B) { const bi = niBuyerIssue(buyer); if (bi) return fail(bi); }
   if (_niBookingId && allInvoices.some(x => x.booking_id === _niBookingId)) {
     return fail('This booking already has an invoice. Edit it from the booking instead of creating a second one.');
   }
@@ -7156,8 +7272,10 @@ async function saveNewInvoice(print) {
       seller_name: sellerName, seller_vat_number: cs.vat_number || null, qr_payload: qrPayload,
       line_items: t.items.map(i => ({ description: i.description, qty: i.qty, unitInclVat: i.unitInclVat }))
     };
+    if (isB2B) Object.assign(row, { invoice_kind: 'standard' }, buyer);
     const { data: saved, error } = await dbAdmin.from('invoices').insert(row).select('id').single();
     if (error) {
+      if (/invoice_kind|buyer_(vat|id|street|building|additional|district|city|postal|country)/i.test(error.message)) throw new Error('Run migration v127 first (adds the B2B buyer fields).');
       if (/invoices_number_uidx|duplicate key/i.test(error.message)) throw new Error(`Invoice number ${invoiceNo} is already used.`);
       if (/line_items/i.test(error.message)) throw new Error('Run migration v121 first (adds invoices.line_items).');
       throw error;
@@ -7165,7 +7283,7 @@ async function saveNewInvoice(print) {
     // Keep the booking's own invoice number in step, like completing a booking does.
     if (_niBookingId) await dbAdmin.from('bookings').update({ invoice_number: invoiceNo }).eq('id', _niBookingId);
 
-    logActivity('invoice.create', `Created invoice ${invoiceNo} · SAR ${t.total.toFixed(2)}${_niBookingId ? '' : ' (walk-in)'}`, 'invoice', saved.id);
+    logActivity('invoice.create', `Created ${isB2B ? 'B2B tax ' : ''}invoice ${invoiceNo} · SAR ${t.total.toFixed(2)}${_niBookingId ? '' : ' (walk-in)'}`, 'invoice', saved.id);
     showToast(`Invoice ${invoiceNo} saved`, 'success');
     closeModal('new-invoice-modal');
     await loadInvoices();
@@ -7390,7 +7508,7 @@ async function loadZatcaPage() {
       ${row('Environment', 'Which ZATCA platform invoices go to', envPill + note(`Automatic submission and the Phase 2 date are stored for ${escB(label)} only — moving to production starts again with automatic submission off.`))}
       ${row('Seller', 'Edit in ZATCA Seller Details below', sellerVal)}
       ${row('Phase 2 start date', 'Your wave’s integration date', phase2Val)}
-      ${row('Invoice types', 'Declared in the certificate', `<span style="font-family:monospace;">${escB(relay.invoiceTypes || '0100')}</span> <span style="color:var(--muted);font-size:13px;">— simplified (B2C) invoices only</span>`)}
+      ${row('Invoice types', 'Declared in the certificate', `<span style="font-family:monospace;">${escB(relay.invoiceTypes || '0100')}</span> <span style="color:var(--muted);font-size:13px;">— ${String(relay.invoiceTypes || '0100')[0] === '1' ? 'B2C (simplified) and B2B (standard tax) invoices' : 'simplified (B2C) invoices only — B2B tax invoices need onboarding again with 1100'}</span>`)}
       ${row('Invoice counter (ICV)', 'Last number used in this environment', `<span style="font-family:monospace;font-size:15px;">${icv}</span>`)}
       ${row('Invoices sent', 'In this environment', countsVal)}
     </div>`;

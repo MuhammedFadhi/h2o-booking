@@ -74,6 +74,15 @@
     const s = d.seller || {};
     const c = d.customer || {};
     const VAT_RATE = 0.15;
+    // Standard (B2B) tax invoice vs simplified (B2C): title + buyer identity.
+    const isStandard = d.kind === 'standard';
+    const ID_LABELS = { CRN: 'CR No. / السجل التجاري', '700': '700 No.', MOM: 'MOMRAH License', MLS: 'MHRSD License',
+      SAG: 'MISA License', NAT: 'National ID / الهوية', IQA: 'Iqama / الإقامة', GCC: 'GCC ID', PAS: 'Passport / الجواز',
+      TIN: 'TIN', OTH: 'ID No.' };
+    const buyerNatAddr = isStandard
+      ? [[c.building, c.street].filter(Boolean).join(' '), c.additionalNo ? 'Add. No. ' + c.additionalNo : '',
+         c.district, [c.city, c.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+      : '';
 
     const sellerNameEn = s.nameEn || s.seller_name_en || "SA'DA H₂O Water Purifiers";
     const sellerNameAr = s.nameAr || s.seller_name_ar || '';
@@ -137,7 +146,7 @@
       : '';
 
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
-<title>SA'DA H₂O — Tax Invoice ${esc(d.invoiceNumber || '')}</title>
+<title>SA'DA H₂O — ${isStandard ? 'Tax Invoice' : 'Simplified Tax Invoice'} ${esc(d.invoiceNumber || '')}</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
 <style>
@@ -201,8 +210,8 @@
     </div>
 
     <div class="doc-title">
-      <div class="en">Simplified Tax Invoice</div>
-      <div class="ar">فاتورة ضريبية مبسطة</div>
+      <div class="en">${isStandard ? 'Tax Invoice' : 'Simplified Tax Invoice'}</div>
+      <div class="ar">${isStandard ? 'فاتورة ضريبية' : 'فاتورة ضريبية مبسطة'}</div>
     </div>
 
     ${vatMissing ? `<div class="warn">⚠ Seller VAT registration number is not set — this invoice is NOT ZATCA-compliant until it is set in ZATCA E-Invoicing → ZATCA Seller Details.</div>` : ''}
@@ -225,8 +234,11 @@
         ${methodLabel ? `<div class="line"><span class="k">Payment / الدفع</span><b style="text-transform:capitalize;">${esc(methodLabel)}</b></div>` : ''}
         <h4 style="margin-top:10px;">Buyer / المشتري</h4>
         <div class="line"><span class="k">Name / الاسم</span><b>${esc(c.name || '—')}</b></div>
+        ${isStandard && c.vatNumber ? `<div class="line"><span class="k">VAT No. / الرقم الضريبي</span><b class="vatno">${esc(c.vatNumber)}</b></div>` : ''}
+        ${isStandard && !c.vatNumber && c.idNumber ? `<div class="line"><span class="k">${esc(ID_LABELS[c.idScheme] || 'ID No.')}</span><b>${esc(c.idNumber)}</b></div>` : ''}
         ${c.phone ? `<div class="line"><span class="k">Phone / الهاتف</span><b>${esc(c.phone)}</b></div>` : ''}
-        ${c.address ? `<div class="line"><span class="k">Address</span><b>${esc(c.address)}</b></div>` : ''}
+        ${buyerNatAddr ? `<div class="line"><span class="k">Address / العنوان</span><b>${esc(buyerNatAddr)}</b></div>`
+          : (c.address ? `<div class="line"><span class="k">Address</span><b>${esc(c.address)}</b></div>` : '')}
       </div>
     </div>
 

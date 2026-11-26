@@ -85,6 +85,9 @@ const server = http.createServer(async (req, res) => {
 
     const data = await readJson(req);
     if (!data.invoiceNumber) return send(res, 400, { error: 'invoiceNumber required' });
+    if (data.invoiceType === 'standard' && String(onboarding.status().invoiceTypes || '0100')[0] !== '1') {
+      return send(res, 400, { error: 'This ZATCA certificate was issued for simplified (B2C) invoices only. To send B2B tax invoices, set EGS_INVOICE_TYPE=1100 and onboard again.' });
+    }
 
     const { finalXml, hash, uuid, qr } = signInvoice(data);
     const invoiceBase64 = Buffer.from(finalXml, 'utf8').toString('base64');
@@ -105,8 +108,16 @@ const server = http.createServer(async (req, res) => {
       });
     }
     const status = isStandard ? zres.clearanceStatus : zres.reportingStatus;
+    // A cleared (B2B) invoice is the XML ZATCA sends back, stamped with ZATCA's
+    // own QR: print that QR, not the one signed here.
+    let finalQr = qr;
+    if (isStandard && zres.clearedInvoice) {
+      const cleared = Buffer.from(zres.clearedInvoice, 'base64').toString('utf8');
+      const m = cleared.match(/<cbc:ID>QR<\/cbc:ID>[\s\S]*?<cbc:EmbeddedDocumentBinaryObject[^>]*>([^<]+)</);
+      if (m) finalQr = m[1].trim();
+    }
     send(res, 200, {
-      ok: true, env: config.envName, uuid, invoiceHash: hash, qr,
+      ok: true, env: config.envName, uuid, invoiceHash: hash, qr: finalQr,
       status, reported: !isStandard, cleared: isStandard,
       warnings: zres.validationResults?.warningMessages || [],
       zatca: zres,
