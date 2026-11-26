@@ -158,6 +158,25 @@ code and restarts, but **keeps `.env` and `secrets/`**.
    onboard again from the dashboard. Automatic submission and the Phase 2 date start
    fresh (OFF / empty) for production — set them again.
 
+## Adding B2B (standard tax invoices) later
+
+The invoice types are fixed into the certificate, so B2B means onboarding again
+(simulation first, then production the same way with the `-prod` folder/name):
+
+```bash
+cd /root/zatca-relay
+sed -i 's/^EGS_INVOICE_TYPE=.*/EGS_INVOICE_TYPE=1100/' .env
+grep -q '^EGS_INVOICE_TYPE=' .env || echo 'EGS_INVOICE_TYPE=1100' >> .env
+mv secrets secrets-b2c-$(date +%F)      # keep the old certificate, do not delete it
+pm2 restart zatca-relay --update-env
+```
+
+Then Fatoora portal → new OTP → ZATCA page → Onboard. The compliance step now also
+checks a standard invoice, credit and debit note. The ZATCA page then shows
+**Invoice types 1100 — B2C and B2B**. B2B invoices are made with **+ New Invoice →
+B2B tax invoice** (buyer VAT or CR number + National Address) and are *cleared* by
+ZATCA before they are given to the customer.
+
 ## Troubleshooting
 
 | What you see | Check |

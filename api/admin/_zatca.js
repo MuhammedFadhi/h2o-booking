@@ -78,4 +78,26 @@ function sellerIssues(cs) {
   return issues;
 }
 
-module.exports = { relayConfigured, relayCall, relayStatus, deviceState, sellerFromCompany, sellerIssues, ENV_LABELS, FALLBACK_ENV };
+// B2B (standard tax invoice) buyer — the same rules the dashboard checks.
+const BUYER_ID_SCHEMES = ['CRN', 'MOM', 'MLS', '700', 'SAG', 'NAT', 'GCC', 'IQA', 'PAS', 'TIN', 'OTH'];
+function buyerIssues(inv) {
+  const out = [];
+  const v = (k) => String(inv[k] == null ? '' : inv[k]).trim();
+  if (!v('customer_name')) out.push('Buyer name is required.');
+  if (v('buyer_vat_number')) {
+    if (!/^3\d{13}3$/.test(v('buyer_vat_number'))) out.push('Buyer VAT number must be 15 digits, starting and ending with 3.');
+  } else if (!v('buyer_id_number') || !BUYER_ID_SCHEMES.includes(v('buyer_id_scheme'))) {
+    out.push('Enter the buyer VAT number, or another ID (e.g. CR number) with its type.');
+  }
+  if ((v('buyer_country') || 'SA') === 'SA') {
+    if (!v('buyer_street')) out.push('Buyer street is required.');
+    if (!/^\d{4}$/.test(v('buyer_building_no'))) out.push('Buyer building number must be 4 digits.');
+    if (!v('buyer_district')) out.push('Buyer district is required.');
+    if (!v('buyer_city')) out.push('Buyer city is required.');
+    if (!/^\d{5}$/.test(v('buyer_postal_code'))) out.push('Buyer postal code must be 5 digits.');
+    if (v('buyer_additional_no') && !/^\d{4}$/.test(v('buyer_additional_no'))) out.push('Buyer additional number must be 4 digits.');
+  }
+  return out;
+}
+
+module.exports = { relayConfigured, relayCall, relayStatus, deviceState, sellerFromCompany, sellerIssues, buyerIssues, BUYER_ID_SCHEMES, ENV_LABELS, FALLBACK_ENV };

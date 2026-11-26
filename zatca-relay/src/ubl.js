@@ -26,7 +26,11 @@ function normLines(lines) {
 
 // data: { invoiceNumber, uuid?, issueInstant?(ISO), icv, pih, invoiceType,
 //         seller:{vatNumber,name,street,building,district,city,postalZone,countryCode},
-//         buyer:{name?,phone?}, lines:[...], totalInclVat? }
+//         buyer:{name?, vatNumber?, idScheme?, idNumber?, street?, building?,
+//                additionalNo?, district?, city?, postalZone?, countryCode?},
+//         supplyDate?(YYYY-MM-DD), lines:[...], totalInclVat? }
+// A standard (B2B) invoice carries the buyer's full identity and National
+// Address (BR-KSA-14/63) and the supply date (KSA-5, BR-KSA-15).
 function build(data) {
   const uuid = data.uuid || crypto.randomUUID();
   const now = data.issueInstant ? new Date(data.issueInstant) : new Date();
@@ -63,12 +67,39 @@ function build(data) {
     ? `<cbc:InstructionNote>${esc(data.reason || (docType === 'credit' ? 'Return of goods' : 'Price adjustment'))}</cbc:InstructionNote>` : '';
 
   const buyer = data.buyer || {};
-  const buyerBlock = (buyer.name || buyer.phone) ? `
+  const isStandard = data.invoiceType === 'standard';
+  let buyerBlock = '';
+  if (isStandard) {
+    const b = buyer;
+    const idBlock = (!b.vatNumber && b.idNumber) ? `
+      <cac:PartyIdentification><cbc:ID schemeID="${esc(b.idScheme || 'CRN')}">${esc(b.idNumber)}</cbc:ID></cac:PartyIdentification>` : '';
+    buyerBlock = `
+  <cac:AccountingCustomerParty>
+    <cac:Party>${idBlock}
+      <cac:PostalAddress>
+        <cbc:StreetName>${esc(b.street || '')}</cbc:StreetName>
+        <cbc:BuildingNumber>${esc(b.building || '')}</cbc:BuildingNumber>${b.additionalNo ? `
+        <cbc:PlotIdentification>${esc(b.additionalNo)}</cbc:PlotIdentification>` : ''}
+        <cbc:CitySubdivisionName>${esc(b.district || '')}</cbc:CitySubdivisionName>
+        <cbc:CityName>${esc(b.city || '')}</cbc:CityName>
+        <cbc:PostalZone>${esc(b.postalZone || '')}</cbc:PostalZone>
+        <cac:Country><cbc:IdentificationCode>${esc(b.countryCode || 'SA')}</cbc:IdentificationCode></cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>${b.vatNumber ? `<cbc:CompanyID>${esc(b.vatNumber)}</cbc:CompanyID>` : ''}
+        <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>
+      <cac:PartyLegalEntity><cbc:RegistrationName>${esc(b.name || '')}</cbc:RegistrationName></cac:PartyLegalEntity>
+    </cac:Party>
+  </cac:AccountingCustomerParty>`;
+  } else if (buyer.name || buyer.phone) {
+    buyerBlock = `
   <cac:AccountingCustomerParty>
     <cac:Party>
       <cac:PartyLegalEntity><cbc:RegistrationName>${esc(buyer.name || 'Customer')}</cbc:RegistrationName></cac:PartyLegalEntity>
     </cac:Party>
-  </cac:AccountingCustomerParty>` : '';
+  </cac:AccountingCustomerParty>`;
+  }
+  const deliveryBlock = isStandard ? `
+  <cac:Delivery><cbc:ActualDeliveryDate>${esc(data.supplyDate || issueDate)}</cbc:ActualDeliveryDate></cac:Delivery>` : '';
 
   const lineXml = lines.map((l, i) => `
   <cac:InvoiceLine>
@@ -130,7 +161,7 @@ function build(data) {
     <cac:PartyTaxScheme><cbc:CompanyID>${esc(s.vatNumber || '')}</cbc:CompanyID>
       <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>
     <cac:PartyLegalEntity><cbc:RegistrationName>${esc(sellerName)}</cbc:RegistrationName></cac:PartyLegalEntity>
-  </cac:Party></cac:AccountingSupplierParty>${buyerBlock}
+  </cac:Party></cac:AccountingSupplierParty>${buyerBlock}${deliveryBlock}
   <cac:PaymentMeans><cbc:PaymentMeansCode>${esc(data.paymentMeansCode || '10')}</cbc:PaymentMeansCode>${instructionNote}</cac:PaymentMeans>${allowanceBlock}
   <cac:TaxTotal><cbc:TaxAmount currencyID="SAR">${f2(vat)}</cbc:TaxAmount></cac:TaxTotal>
   <cac:TaxTotal>
