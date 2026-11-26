@@ -7207,6 +7207,14 @@ function sddSetText(btn, text, placeholder) {
 }
 let _niProducts = [];      // catalogue products offered in each item's dropdown
 const NI_OTHER = '__other__';
+// Service visits sold without a catalogue product (prices = SERVICE_VISIT_PRICES).
+const NI_SERVICE_ITEMS = [
+  { model_name: 'Filter Change', price_sar: 89 },
+  { model_name: 'Annual Service', price_sar: 199 },
+  { model_name: 'Repair / Service Visit', price_sar: null },
+];
+// Booking type -> the service line on its invoice.
+const NI_SERVICE_LINE = { quarterly_service: 'Filter Change', maintenance: 'Filter Change', annual_service: 'Annual Service', repair: 'Repair / Service Visit' };
 
 function niLabel(b) {
   return `${b.booking_reference || '—'} · ${b.customer_name || ''} · ${b.customer_phone || ''}`;
@@ -7230,14 +7238,15 @@ async function openNewInvoice() {
   openModal('new-invoice-modal');
 
   // Products for the item dropdowns (picking one fills its price).
+  _niProducts = NI_SERVICE_ITEMS.slice();
   getCatalogue().then(cat => {
-    _niProducts = (cat || []).filter(p => p && p.model_name);
+    _niProducts = NI_SERVICE_ITEMS.concat((cat || []).filter(p => p && p.model_name && !NI_SERVICE_ITEMS.some(x => x.model_name === p.model_name)));
     document.querySelectorAll('#ni-items tr').forEach(niFillProductSelect);
   });
   // Recent bookings for the picker (newest first).
   const { data } = await dbAdmin.from('bookings')
-    .select('id, booking_reference, customer_name, customer_phone, location_address, city_name, order_total, discount_amount, booking_type, status, payment_method, invoice_number, created_at')
-    .neq('status', 'cancelled').order('created_at', { ascending: false }).limit(500);
+    .select('id, booking_reference, customer_name, customer_phone, location_address, city_name, order_total, discount_amount, booking_type, status, payment_method, invoice_number, slot_date, created_at')
+    .neq('status', 'cancelled').order('created_at', { ascending: false }).limit(3000);
   _niBookings = data || [];
 }
 
@@ -7340,7 +7349,8 @@ function niOpenBookingPicker(btn) {
   const opts = _niBookings.map(b => ({
     value: b.id,
     label: `${b.booking_reference || '—'} · ${b.customer_name || ''}`,
-    sub: [b.customer_phone, b.city_name, b.status, b.order_total != null ? 'SAR ' + b.order_total : ''].filter(Boolean).join(' · '),
+    sub: [bookingTypeLabel(b.booking_type), getStatusLabel(b.status, b.booking_type), b.slot_date ? formatDateShort(b.slot_date) : '',
+      b.customer_phone, b.city_name, b.order_total != null ? 'SAR ' + b.order_total : ''].filter(Boolean).join(' · '),
   }));
   sddOpen(btn, opts, (o) => niPickBooking(_niBookings.find(x => x.id === o.value)), _niBookingId);
 }
@@ -7372,11 +7382,19 @@ async function niPickBooking(b) {
     .select('product_model, qty, unit_price').eq('booking_id', b.id);
   const tbody = document.getElementById('ni-items');
   tbody.innerHTML = '';
-  if (bi && bi.length) {
+  const fallback = (b.order_total || 0) - (b.discount_amount || 0);
+  const serviceLine = NI_SERVICE_LINE[b.booking_type];
+  const itemsGross = (bi || []).reduce((t, r) => t + (Number(r.qty) || 1) * (Number(r.unit_price) || 0), 0);
+  const servicePrice = fallback > 0 ? fallback
+    : (SERVICE_VISIT_PRICES[b.booking_type === 'maintenance' ? 'quarterly_service' : b.booking_type] || '');
+  if (serviceLine && itemsGross <= 0) {
+    // Filter change / annual service / repair: the booking's items are the unit
+    // that was serviced (no charge) — the invoice line is the service itself.
+    niAddRow(serviceLine, 1, servicePrice);
+  } else if (bi && bi.length) {
     bi.forEach(r => niAddRow(r.product_model || 'Item', r.qty || 1, Number(r.unit_price) || 0));
   } else {
-    const fallback = (b.order_total || 0) - (b.discount_amount || 0);
-    niAddRow((b.booking_type || 'Installation / Service').replace(/_/g, ' '), 1, fallback > 0 ? fallback : (SERVICE_VISIT_PRICES[b.booking_type] || ''));
+    niAddRow((b.booking_type || 'Installation / Service').replace(/_/g, ' '), 1, servicePrice);
   }
   // Booking-level discount: keep the invoice total equal to what the booking charged.
   const gross = niTotals().gross;
