@@ -132,7 +132,9 @@
     });
 
     const vatMissing = !vatNumber;
-    const methodLabel = d.paymentMethod ? String(d.paymentMethod).replace(/_/g, ' ') : '';
+    const methodLabel = d.paymentMethod
+      ? ({ pos: 'POS', foc: 'FOC', bank_transfer: 'Bank Transfer' }[d.paymentMethod] || String(d.paymentMethod).replace(/_/g, ' '))
+      : '';
 
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <title>SA'DA H2O — Tax Invoice ${esc(d.invoiceNumber || '')}</title>

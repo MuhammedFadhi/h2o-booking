@@ -2288,6 +2288,7 @@
           <option value="">Select…</option>
           <option value="cash">Cash</option>
           <option value="card">Card</option>
+          <option value="pos">POS</option>
           <option value="bank_transfer">Bank Transfer</option>
           <option value="tabby">Tabby</option>
           <option value="tamara">Tamara</option>
@@ -2366,7 +2367,7 @@
           <input class="form-input" id="ni-discount" type="number" min="0" step="0.01" placeholder="0" oninput="niRecalc()"></div>
         <div class="form-group" style="flex:1;"><label>Payment Method *</label>
           <select class="form-input" id="ni-method">
-            <option value="">Select…</option><option value="cash">Cash</option><option value="card">Card</option>
+            <option value="">Select…</option><option value="cash">Cash</option><option value="card">Card</option><option value="pos">POS</option>
             <option value="bank_transfer">Bank Transfer</option><option value="tabby">Tabby</option>
             <option value="tamara">Tamara</option><option value="foc">FOC (Free of Charge)</option>
           </select></div>
@@ -5904,7 +5905,7 @@ async function pickProduct(currentModel, currentQty) {
 const escB = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Human labels for payment methods (values are stored as slugs like 'bank_transfer').
 function prettyMethod(m) {
-  const map = { cash:'Cash', card:'Card', bank_transfer:'Bank Transfer', tabby:'Tabby', tamara:'Tamara', foc:'FOC' };
+  const map = { cash:'Cash', card:'Card', pos:'POS', bank_transfer:'Bank Transfer', tabby:'Tabby', tamara:'Tamara', foc:'FOC' };
   if (!m) return '—';
   return map[m] || String(m).replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
 }
