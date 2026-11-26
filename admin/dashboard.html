@@ -2408,7 +2408,7 @@
         <div class="form-group" style="flex:1;"><label>Customer Name *</label>
           <input class="form-input" id="ni-name"></div>
         <div class="form-group" style="flex:1;"><label>Phone</label>
-          <input class="form-input" id="ni-phone" placeholder="+9665…"></div>
+          <input class="form-input" id="ni-phone" placeholder="+9665…" onchange="niPhoneChanged(this)"></div>
       </div>
       <div class="form-group"><label>Customer Address <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
         <input class="form-input" id="ni-address"></div>
@@ -7130,6 +7130,7 @@ async function niPickBooking(b) {
 
   document.getElementById('ni-name').value = b.customer_name || '';
   document.getElementById('ni-phone').value = b.customer_phone || '';
+  niFillFromCustomer(b.customer_phone);
   document.getElementById('ni-address').value = [b.location_address, b.city_name].filter(Boolean).join(', ');
   if (b.payment_method) document.getElementById('ni-method').value = b.payment_method;
 
@@ -7223,6 +7224,26 @@ function niBuyerIssue(b) {
 }
 
 // A company invoiced before? Fill its name and address from its last B2B invoice.
+// A company (B2B) customer? Copy its saved details into the invoice's B2B
+// fields and tick the box (when the ZATCA certificate allows B2B).
+function niPhoneChanged(input) {
+  const raw = input.value.trim().split(' ').join('');
+  if (isValidSaudiPhone(raw)) niFillFromCustomer(formatSaudiPhone(raw));
+}
+
+async function niFillFromCustomer(phone) {
+  if (!phone) return;
+  const { data: c } = await dbAdmin.from('customers').select('*').eq('phone', phone).maybeSingle();
+  if (!c || !c.is_business) return;
+  const set = (id, val) => { document.getElementById(id).value = val || ''; };
+  set('ni-b-vat', c.vat_number); set('ni-b-idtype', c.id_scheme); set('ni-b-idno', c.id_number);
+  set('ni-b-street', c.street); set('ni-b-building', c.building_no); set('ni-b-addno', c.additional_no);
+  set('ni-b-district', c.district); set('ni-b-city', c.nat_city); set('ni-b-postal', c.postal_code);
+  if (c.name) document.getElementById('ni-name').value = c.name;
+  const box = document.getElementById('ni-b2b');
+  if (!box.disabled) { box.checked = true; niToggleB2B(); }
+}
+
 async function niLookupBuyerVat() {
   const vat = document.getElementById('ni-b-vat').value.replace(/\s+/g, '');
   if (!/^3\d{13}3$/.test(vat)) return;
@@ -10454,7 +10475,7 @@ async function renderCustomersTable(customers) {
       <tbody>
         ${customers.map(c => `
           <tr>
-            <td data-label="Name"><strong>${c.name || '—'}</strong></td>
+            <td data-label="Name"><strong>${c.name || '—'}</strong>${c.is_business ? ' <span title="Company (B2B) customer" style="background:#EDE9FE;color:#5B21B6;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;">B2B</span>' : ''}</td>
             <td data-label="Phone">${c.phone}</td>
             <td data-label="City">${c.city || '—'}</td>
             <td data-label="Bookings"><span style="background:var(--foam);color:var(--water);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;">${bookingCounts[c.phone] || 0} bookings</span></td>
@@ -10484,6 +10505,7 @@ async function viewCustomer(phone) {
           <div><span style="color:var(--muted);">Phone: </span><strong>${phone}</strong></div>
           <div><span style="color:var(--muted);">City: </span><strong>${customer?.city || '—'}</strong></div>
           <div><span style="color:var(--muted);">Address: </span><strong>${customer?.address || '—'}</strong></div>
+          ${custB2BSummary(customer)}
         </div>
       </div>
       <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">Booking History (${bookings?.length || 0})</div>
@@ -10497,7 +10519,12 @@ async function viewCustomer(phone) {
           <div style="font-size:12px;color:var(--muted);margin-top:4px;">Type: ${b.booking_type || 'installation'} · City: ${b.city_name || '—'}</div>
         </div>`).join('') || '<div style="color:var(--muted);font-size:13px;">No bookings yet.</div>'}
     </div>`;
-  document.getElementById('booking-modal').style.display = 'flex';
+  const m = document.getElementById('booking-modal');
+  m.querySelector('.modal-title').textContent = 'Customer Details';
+  m.querySelector('.modal-footer').innerHTML = `
+    <button class="btn btn-ghost" onclick="openCustomerCompany('${escB(phone)}')">🏢 ${customer?.is_business ? 'Edit company details' : 'Make company (B2B)'}</button>
+    <button class="btn btn-ghost" onclick="closeModal('booking-modal')">Close</button>`;
+  m.style.display = 'flex';
 }
 
 async function deleteCustomer(id, phone) {
@@ -10512,6 +10539,125 @@ async function deleteCustomer(id, phone) {
   showToast('Customer removed', 'success');
   allCustomers = allCustomers.filter(c => c.id !== id);
   renderCustomersTable(allCustomers);
+}
+
+// ---- Company (B2B) details on a customer (migration v128) -----------------
+// The same details ZATCA needs on a B2B tax invoice. New Invoice copies them
+// onto the invoice when this customer is picked.
+const CUST_ID_TYPES = [['CRN', 'Commercial Registration (CR)'], ['700', '700 Number'], ['MOM', 'MOMRAH License'],
+  ['MLS', 'MHRSD License'], ['SAG', 'MISA License'], ['NAT', 'National ID'], ['IQA', 'Iqama'],
+  ['GCC', 'GCC ID'], ['PAS', 'Passport'], ['TIN', 'Tax ID (TIN)'], ['OTH', 'Other ID']];
+
+function custB2BHtml(c) {
+  c = c || {};
+  const v = (x) => escB(x == null ? '' : x);
+  const on = !!c.is_business;
+  return `
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;">
+        <input type="checkbox" id="cb-b2b" ${on ? 'checked' : ''} onchange="document.getElementById('cb-b2b-fields').style.display=this.checked?'':'none'" style="width:16px;height:16px;">
+        Company (B2B) customer <span style="color:var(--muted);font-weight:400;">— needs VAT tax invoices</span>
+      </label>
+      <div id="cb-b2b-fields" style="display:${on ? '' : 'none'};border:1px solid var(--border);border-radius:10px;padding:12px 14px 2px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Full Name must be the company's registered (legal) name. Enter the VAT number — or, if the company has none, another ID with its type.</div>
+        <div class="ni-b2b-row">
+          <div class="form-group"><label>VAT Number</label>
+            <input class="form-input" id="cb-vat" inputmode="numeric" maxlength="15" placeholder="3XXXXXXXXXXXXX3" value="${v(c.vat_number)}"></div>
+          <div class="form-group"><label>Other ID type <span style="color:var(--muted);font-weight:400;">(if no VAT)</span></label>
+            <select class="form-input" id="cb-idtype"><option value="">—</option>${CUST_ID_TYPES.map(([k, l]) => `<option value="${k}" ${c.id_scheme === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+          <div class="form-group"><label>Other ID number</label>
+            <input class="form-input" id="cb-idno" value="${v(c.id_number)}"></div>
+        </div>
+        <div style="font-size:12px;font-weight:600;margin:2px 0 6px;">National Address</div>
+        <div class="ni-b2b-row">
+          <div class="form-group" style="flex:2 1 220px;"><label>Street *</label>
+            <input class="form-input" id="cb-street" value="${v(c.street)}"></div>
+          <div class="form-group"><label>Building No. * <span style="color:var(--muted);font-weight:400;">(4 digits)</span></label>
+            <input class="form-input" id="cb-building" inputmode="numeric" maxlength="4" value="${v(c.building_no)}"></div>
+          <div class="form-group"><label>Additional No. <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+            <input class="form-input" id="cb-addno" inputmode="numeric" maxlength="4" value="${v(c.additional_no)}"></div>
+        </div>
+        <div class="ni-b2b-row">
+          <div class="form-group"><label>District *</label>
+            <input class="form-input" id="cb-district" value="${v(c.district)}"></div>
+          <div class="form-group"><label>City *</label>
+            <input class="form-input" id="cb-city" value="${v(c.nat_city || c.city)}"></div>
+          <div class="form-group"><label>Postal Code * <span style="color:var(--muted);font-weight:400;">(5 digits)</span></label>
+            <input class="form-input" id="cb-postal" inputmode="numeric" maxlength="5" value="${v(c.postal_code)}"></div>
+        </div>
+      </div>`;
+}
+
+// Customer columns from the company block. Unticked = a normal customer (the
+// typed details are kept, so ticking it again later brings them back).
+function custB2BRead() {
+  const val = (id) => (document.getElementById(id)?.value || '').trim();
+  const vat = val('cb-vat').replace(/\s+/g, '');
+  return {
+    is_business: !!document.getElementById('cb-b2b')?.checked,
+    vat_number: vat || null,
+    id_scheme: vat ? null : (val('cb-idtype') || null),
+    id_number: vat ? null : (val('cb-idno') || null),
+    street: val('cb-street') || null, building_no: val('cb-building') || null,
+    additional_no: val('cb-addno') || null, district: val('cb-district') || null,
+    nat_city: val('cb-city') || null, postal_code: val('cb-postal') || null
+  };
+}
+
+function custB2BIssue(f) {
+  return niBuyerIssue({
+    buyer_vat_number: f.vat_number, buyer_id_scheme: f.id_scheme, buyer_id_number: f.id_number,
+    buyer_street: f.street, buyer_building_no: f.building_no, buyer_additional_no: f.additional_no,
+    buyer_district: f.district, buyer_city: f.nat_city, buyer_postal_code: f.postal_code
+  });
+}
+
+function custB2BSummary(c) {
+  if (!c || !c.is_business) return '';
+  const id = c.vat_number ? 'VAT ' + c.vat_number
+    : (c.id_number ? ((CUST_ID_TYPES.find(t => t[0] === c.id_scheme) || [0, 'ID'])[1] + ' ' + c.id_number) : 'no VAT / ID yet');
+  const addr = [[c.building_no, c.street].filter(Boolean).join(' '), c.additional_no ? 'Add. No. ' + c.additional_no : '',
+    c.district, [c.nat_city, c.postal_code].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  return `<div><span style="color:var(--muted);">Company: </span><strong>${escB(id)}</strong></div>
+          <div><span style="color:var(--muted);">National Address: </span><strong>${escB(addr || '—')}</strong></div>`;
+}
+
+async function openCustomerCompany(phone) {
+  if (!(await ensureSession())) return;
+  const { data: c, error } = await dbAdmin.from('customers').select('*').eq('phone', phone).maybeSingle();
+  if (error || !c) { showToast('Customer not found', 'error'); return; }
+  const m = document.getElementById('booking-modal');
+  m.querySelector('.modal-title').textContent = 'Company Details — ' + (c.name || phone);
+  document.getElementById('booking-detail-content').innerHTML = `
+    <div style="display:grid;gap:14px;">
+      ${custB2BHtml(c)}
+      <div id="cb-err" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px;border-radius:8px;font-size:13px;"></div>
+    </div>`;
+  m.querySelector('.modal-footer').innerHTML = `
+    <button class="btn btn-ghost" onclick="viewCustomer('${escB(phone)}')">Back</button>
+    <button class="btn btn-primary" onclick="saveCustomerCompany('${escB(phone)}')">Save</button>`;
+  m.style.display = 'flex';
+}
+
+async function saveCustomerCompany(phone) {
+  if (!(await ensureSession())) return;
+  const errEl = document.getElementById('cb-err');
+  const f = custB2BRead();
+  if (f.is_business) {
+    const ci = custB2BIssue(f);
+    if (ci) { errEl.style.display = 'block'; errEl.textContent = ci; return; }
+  }
+  const { error } = await dbAdmin.from('customers').update({ ...f, updated_at: new Date().toISOString() }).eq('phone', phone);
+  if (error) {
+    errEl.style.display = 'block';
+    errEl.textContent = /is_business|vat_number|id_scheme|building_no|postal_code|nat_city/.test(error.message) ? 'Run migration v128 first (adds the company fields).' : error.message;
+    return;
+  }
+  logActivity('customer.company_update', `Updated company details for ${phone}`, 'customer', null);
+  showToast('Company details saved', 'success');
+  const i = allCustomers.findIndex(x => x.phone === phone);
+  if (i >= 0) Object.assign(allCustomers[i], f);
+  renderCustomersTable(allCustomers);
+  viewCustomer(phone);
 }
 
 async function openAddCustomerModal() {
@@ -10533,6 +10679,7 @@ async function openAddCustomerModal() {
         </select>
       </div>
       <div class="form-group"><label>Address</label><input type="text" class="form-input" id="add-cust-address" placeholder="Address"></div>
+      ${custB2BHtml(null)}
       <div id="add-cust-err" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B71C1C;padding:10px;border-radius:8px;font-size:13px;"></div>
     </div>`;
   document.getElementById('booking-modal').querySelector('.modal-footer').innerHTML = `
@@ -10567,8 +10714,19 @@ async function saveNewCustomer() {
   // Normalize to +9665XXXXXXXX so returning-customer detection on book.html works.
   if (!isValidSaudiPhone(phoneRaw)) { errEl.style.display='block'; errEl.textContent='Please enter a valid Saudi mobile number (e.g. 05XX XXX XXXX or +966 5X XXX XXXX).'; return; }
   const phone = formatSaudiPhone(phoneRaw);
-  const { error } = await dbAdmin.from('customers').insert({ phone, name, city, address });
-  if (error) { errEl.style.display='block'; errEl.textContent = error.message.includes('unique') ? 'This phone number already exists.' : error.message; return; }
+  const company = custB2BRead();
+  if (company.is_business) {
+    if (!name) { errEl.style.display='block'; errEl.textContent='Enter the company\'s registered (legal) name as the Full Name.'; return; }
+    const ci = custB2BIssue(company);
+    if (ci) { errEl.style.display='block'; errEl.textContent = ci; return; }
+  }
+  const { error } = await dbAdmin.from('customers').insert({ phone, name, city, address, ...company });
+  if (error) {
+    errEl.style.display='block';
+    errEl.textContent = error.message.includes('unique') ? 'This phone number already exists.'
+      : (/is_business|vat_number|id_scheme|building_no|postal_code|nat_city/.test(error.message) ? 'Run migration v128 first (adds the company fields).' : error.message);
+    return;
+  }
   closeModal('booking-modal');
   showToast('Customer added successfully', 'success');
   loadCustomers();
