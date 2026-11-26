@@ -196,7 +196,6 @@
     <div class="top">
       <div>
         <img class="logo" src="${esc(LOGO_URL)}" alt="SA'DA H₂O Purifiers">
-        <div class="sub">The Art of Purity</div>
       </div>
       <div class="brand-ar">${esc(sellerNameAr || 'سعدا لتنقية المياه')}</div>
     </div>
