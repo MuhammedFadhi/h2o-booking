@@ -378,6 +378,25 @@
     }
     .form-input:focus { border-color: var(--water); }
 
+    /* SEARCHABLE DROPDOWN (sdd) — a select-style button that opens a panel
+       with a search box. The panel is fixed to the viewport so table/modal
+       scrolling never clips it. */
+    .sdd-btn { display:flex; align-items:center; gap:8px; text-align:left; background:#fff; cursor:pointer; color:var(--text); }
+    .sdd-btn .sdd-text { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sdd-btn .sdd-text.sdd-ph { color:var(--muted); }
+    .sdd-btn::after { content:''; flex:0 0 auto; border:5px solid transparent; border-top-color:#64748B; margin-top:5px; }
+    .sdd-panel { position:fixed; z-index:2000; background:#fff; border:1px solid var(--border); border-radius:10px; box-shadow:0 12px 32px rgba(15,23,42,.18); display:none; flex-direction:column; overflow:hidden; }
+    .sdd-panel.open { display:flex; }
+    .sdd-search { margin:8px; padding:9px 12px; border:2px solid var(--border); border-radius:8px; font:inherit; font-size:14px; outline:none; }
+    .sdd-search:focus { border-color:var(--water); }
+    .sdd-list { overflow-y:auto; padding:0 4px 6px; }
+    .sdd-opt { padding:8px 10px; border-radius:6px; cursor:pointer; font-size:14px; line-height:1.3; }
+    .sdd-opt .sdd-sub { display:block; font-size:12px; color:var(--muted); margin-top:1px; }
+    .sdd-opt.active { background:var(--foam,#E3F2FD); }
+    .sdd-opt.selected { font-weight:600; }
+    .sdd-opt.sdd-special { border-top:1px solid var(--border); margin-top:4px; padding-top:9px; color:var(--water,#1565C0); }
+    .sdd-empty { padding:10px; font-size:13px; color:var(--muted); }
+
     /* SLOT MANAGER */
     .slot-manager { background: white; border-radius: 10px; border: 1px solid var(--border); padding: 24px; margin-bottom: 24px; }
     .slot-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: gap; }
@@ -2377,10 +2396,9 @@
       <div class="form-group">
         <label>Booking <span style="color:var(--muted);font-weight:400;">(optional — pick one to fill everything in, or leave empty for a walk-in sale)</span></label>
         <div style="display:flex;gap:8px;">
-          <input class="form-input" id="ni-booking" list="ni-booking-list" placeholder="Search booking ref, customer name or phone…" oninput="niPickBooking()" autocomplete="off">
+          <button class="form-input sdd-btn" id="ni-booking" type="button" onclick="niOpenBookingPicker(this)"><span class="sdd-text sdd-ph">Select a booking…</span></button>
           <button class="btn btn-ghost" type="button" onclick="niClearBooking()" title="Unlink booking" style="flex:0 0 auto;">✕</button>
         </div>
-        <datalist id="ni-booking-list"></datalist>
         <div id="ni-booking-info" style="display:none;font-size:12px;margin-top:6px;padding:8px 12px;border-radius:8px;background:var(--foam,#E3F2FD);"></div>
       </div>
       <div style="display:flex;gap:10px;">
@@ -6789,6 +6807,114 @@ async function printInvoice(invoiceId, win) {
 // ---------------------------------------------------------------------------
 let _niBookings = [];      // bookings offered in the picker
 let _niBookingId = null;   // booking linked to the invoice being created
+
+// ---------------------------------------------------------------------------
+// Searchable dropdown. sddOpen(anchor, options, onPick) shows one shared panel
+// under `anchor` with a search box; options are { value, label, sub?, special? }.
+// Typing filters on every word (label + sub); ↑/↓ + Enter pick; Esc or a click
+// outside closes it.
+// ---------------------------------------------------------------------------
+let _sdd = null;   // { anchor, options, onPick, shown, active }
+function sddEnsurePanel() {
+  let el = document.getElementById('sdd-panel');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'sdd-panel';
+  el.className = 'sdd-panel';
+  el.innerHTML = '<input class="sdd-search" type="text" placeholder="Search…" autocomplete="off"><div class="sdd-list"></div>';
+  document.body.appendChild(el);
+  const search = el.querySelector('.sdd-search');
+  search.addEventListener('input', () => sddRender());
+  search.addEventListener('keydown', (e) => {
+    if (!_sdd) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const n = _sdd.shown.length;
+      if (!n) return;
+      _sdd.active = (_sdd.active + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
+      sddRender(true);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const o = _sdd.shown[_sdd.active];
+      if (o) sddPick(o);
+    } else if (e.key === 'Escape') {
+      e.preventDefault(); sddClose();
+    }
+  });
+  el.querySelector('.sdd-list').addEventListener('mousedown', (e) => {
+    const row = e.target.closest('.sdd-opt');
+    if (!row || !_sdd) return;
+    e.preventDefault();
+    sddPick(_sdd.shown[Number(row.dataset.i)]);
+  });
+  document.addEventListener('mousedown', (e) => {
+    if (_sdd && !el.contains(e.target) && !_sdd.anchor.contains(e.target)) sddClose();
+  });
+  window.addEventListener('resize', () => sddClose());
+  document.addEventListener('scroll', (e) => { if (_sdd && !el.contains(e.target)) sddPlace(); }, true);
+  return el;
+}
+function sddPlace() {
+  if (!_sdd) return;
+  const el = document.getElementById('sdd-panel');
+  const r = _sdd.anchor.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const width = Math.min(Math.max(r.width, 320), vw - 16);
+  const left = Math.max(8, Math.min(r.left, vw - width - 8));
+  const below = vh - r.bottom - 8, above = r.top - 8;
+  const up = below < 240 && above > below;
+  const maxH = Math.max(160, Math.min(380, up ? above : below));
+  el.style.width = width + 'px';
+  el.style.left = left + 'px';
+  el.style.maxHeight = maxH + 'px';
+  el.style.top = up ? '' : (r.bottom + 4) + 'px';
+  el.style.bottom = up ? (vh - r.top + 4) + 'px' : '';
+}
+function sddRender(keepScroll) {
+  const el = document.getElementById('sdd-panel');
+  const words = el.querySelector('.sdd-search').value.toLowerCase().split(/\s+/).filter(Boolean);
+  const all = _sdd.options;
+  const matches = all.filter(o => o.special ||
+    words.every(w => (o.label + ' ' + (o.sub || '')).toLowerCase().includes(w)));
+  const LIMIT = 200;   // keep long lists (hundreds of bookings) snappy
+  const normal = matches.filter(o => !o.special);
+  _sdd.shown = normal.slice(0, LIMIT).concat(matches.filter(o => o.special));
+  if (!keepScroll) _sdd.active = Math.max(0, _sdd.shown.findIndex(o => o.value === _sdd.selected));
+  if (_sdd.active >= _sdd.shown.length) _sdd.active = 0;
+  const list = el.querySelector('.sdd-list');
+  list.innerHTML = (normal.length ? '' : '<div class="sdd-empty">No match</div>') +
+    _sdd.shown.map((o, i) => `<div class="sdd-opt${o.special ? ' sdd-special' : ''}${i === _sdd.active ? ' active' : ''}${o.value === _sdd.selected ? ' selected' : ''}" data-i="${i}">${escB(o.label)}${o.sub ? `<span class="sdd-sub">${escB(o.sub)}</span>` : ''}</div>`).join('') +
+    (normal.length > LIMIT ? `<div class="sdd-empty">Showing ${LIMIT} of ${normal.length} — type to narrow down</div>` : '');
+  const act = list.querySelector('.sdd-opt.active');
+  if (act) act.scrollIntoView({ block: 'nearest' });
+}
+function sddOpen(anchor, options, onPick, selected) {
+  const el = sddEnsurePanel();
+  if (_sdd && _sdd.anchor === anchor) { sddClose(); return; }
+  _sdd = { anchor, options, onPick, selected, shown: [], active: 0 };
+  const search = el.querySelector('.sdd-search');
+  search.value = '';
+  el.classList.add('open');
+  sddPlace();
+  sddRender();
+  search.focus();
+}
+function sddClose() {
+  const el = document.getElementById('sdd-panel');
+  if (el) el.classList.remove('open');
+  _sdd = null;
+}
+function sddPick(o) {
+  const cb = _sdd && _sdd.onPick;
+  sddClose();
+  if (cb && o) cb(o);
+}
+// Show a value (or the placeholder) on a dropdown button.
+function sddSetText(btn, text, placeholder) {
+  const t = btn.querySelector('.sdd-text');
+  t.textContent = text || placeholder || '';
+  t.classList.toggle('sdd-ph', !text);
+}
 let _niProducts = [];      // catalogue products offered in each item's dropdown
 const NI_OTHER = '__other__';
 
@@ -6799,7 +6925,8 @@ function niLabel(b) {
 async function openNewInvoice() {
   if (!(await ensureSession())) return;
   _niBookingId = null;
-  ['ni-booking', 'ni-name', 'ni-phone', 'ni-address', 'ni-discount', 'ni-number'].forEach(id => { document.getElementById(id).value = ''; });
+  ['ni-name', 'ni-phone', 'ni-address', 'ni-discount', 'ni-number'].forEach(id => { document.getElementById(id).value = ''; });
+  sddSetText(document.getElementById('ni-booking'), '', 'Select a booking…');
   document.getElementById('ni-method').value = '';
   const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   document.getElementById('ni-date').value = now.toISOString().slice(0, 16);
@@ -6819,15 +6946,13 @@ async function openNewInvoice() {
     .select('id, booking_reference, customer_name, customer_phone, location_address, city_name, order_total, discount_amount, booking_type, status, payment_method, invoice_number, created_at')
     .neq('status', 'cancelled').order('created_at', { ascending: false }).limit(500);
   _niBookings = data || [];
-  document.getElementById('ni-booking-list').innerHTML = _niBookings
-    .map(b => `<option value="${escB(niLabel(b))}">${escB(b.status || '')}</option>`).join('');
 }
 
 function niAddRow(desc = '', qty = 1, price = '') {
   const tr = document.createElement('tr');
   tr.innerHTML = `
     <td style="min-width:220px;">
-      <select class="form-input ni-prod" onchange="niProductPicked(this)"></select>
+      <button class="form-input sdd-btn ni-prod" type="button" onclick="niOpenProductPicker(this)"><span class="sdd-text sdd-ph">Select product…</span></button>
       <input class="form-input ni-desc" value="${escB(desc)}" placeholder="Type the item description" oninput="niRecalc()" style="display:none;margin-top:6px;">
     </td>
     <td><input class="form-input ni-qty" type="number" min="1" step="1" value="${escB(qty)}" oninput="niRecalc()" style="min-width:64px;padding-left:8px;padding-right:4px;text-align:center;"></td>
@@ -6842,35 +6967,48 @@ function niAddRow(desc = '', qty = 1, price = '') {
 // Fill a row's dropdown with every product. The row's description (.ni-desc)
 // stays the source of truth: a catalogue name selects that product, anything
 // else selects "Other" and shows the text box with it.
+function niProductText(p) {
+  return p.model_name + (p.price_sar != null ? ' — SAR ' + p.price_sar : '');
+}
 function niFillProductSelect(tr) {
-  const sel = tr.querySelector('.ni-prod');
+  const btn = tr.querySelector('.ni-prod');
   const desc = tr.querySelector('.ni-desc');
   const current = desc.value.trim();
   const match = _niProducts.find(p => p.model_name === current);
-  sel.innerHTML = '<option value="">Select product…</option>' +
-    _niProducts.map((p, i) => `<option value="${i}">${escB(p.model_name)}${p.price_sar != null ? ' — SAR ' + escB(p.price_sar) : ''}</option>`).join('') +
-    `<option value="${NI_OTHER}">Other (type it)…</option>`;
-  if (match) sel.value = String(_niProducts.indexOf(match));
-  else if (current) sel.value = NI_OTHER;
-  else sel.value = '';
-  desc.style.display = sel.value === NI_OTHER ? '' : 'none';
+  const other = !match && !!current;
+  sddSetText(btn, match ? niProductText(match) : (other ? 'Other (type it)…' : ''), 'Select product…');
+  desc.style.display = other || tr.dataset.other === '1' ? '' : 'none';
+}
+
+function niOpenProductPicker(btn) {
+  const tr = btn.closest('tr');
+  const current = tr.querySelector('.ni-desc').value.trim();
+  const match = _niProducts.find(p => p.model_name === current);
+  const opts = _niProducts.map((p, i) => ({ value: String(i), label: p.model_name, sub: p.price_sar != null ? 'SAR ' + p.price_sar : '' }))
+    .concat([{ value: NI_OTHER, label: 'Other (type it)…', special: true }]);
+  sddOpen(btn, opts, (o) => niProductPicked(btn, o.value),
+    match ? String(_niProducts.indexOf(match)) : (current ? NI_OTHER : null));
 }
 
 // Choosing a product sets the description and its price (also when changing
 // from one product to another); "Other" opens the text box.
-function niProductPicked(sel) {
-  const tr = sel.closest('tr');
+function niProductPicked(btn, value) {
+  const tr = btn.closest('tr');
   const desc = tr.querySelector('.ni-desc');
   const price = tr.querySelector('.ni-price');
-  if (sel.value === NI_OTHER) {
+  if (value === NI_OTHER) {
     if (_niProducts.some(p => p.model_name === desc.value.trim())) desc.value = '';
+    tr.dataset.other = '1';
+    sddSetText(btn, 'Other (type it)…', 'Select product…');
     desc.style.display = '';
     desc.focus();
   } else {
-    const p = _niProducts[Number(sel.value)];
+    const p = _niProducts[Number(value)];
+    delete tr.dataset.other;
     desc.value = p ? p.model_name : '';
     desc.style.display = 'none';
     if (p && p.price_sar != null) price.value = p.price_sar;
+    sddSetText(btn, p ? niProductText(p) : '', 'Select product…');
   }
   niRecalc();
 }
@@ -6905,11 +7043,19 @@ function niRecalc() {
     row('Total excl. VAT', t.net) + row('VAT 15%', t.vat) + row('Total incl. VAT', t.total, true);
 }
 
-async function niPickBooking() {
-  const val = document.getElementById('ni-booking').value;
-  const b = _niBookings.find(x => niLabel(x) === val);
-  if (!b) return;   // still typing
+function niOpenBookingPicker(btn) {
+  const opts = _niBookings.map(b => ({
+    value: b.id,
+    label: `${b.booking_reference || '—'} · ${b.customer_name || ''}`,
+    sub: [b.customer_phone, b.city_name, b.status, b.order_total != null ? 'SAR ' + b.order_total : ''].filter(Boolean).join(' · '),
+  }));
+  sddOpen(btn, opts, (o) => niPickBooking(_niBookings.find(x => x.id === o.value)), _niBookingId);
+}
+
+async function niPickBooking(b) {
+  if (!b) return;
   _niBookingId = b.id;
+  sddSetText(document.getElementById('ni-booking'), niLabel(b), 'Select a booking…');
   const info = document.getElementById('ni-booking-info');
   info.style.display = 'block';
   info.innerHTML = `Linked to booking <strong>${escB(b.booking_reference || '')}</strong> · ${escB(b.status || '')}${b.city_name ? ' · ' + escB(b.city_name) : ''}`;
@@ -6948,7 +7094,7 @@ async function niPickBooking() {
 
 function niClearBooking() {
   _niBookingId = null;
-  document.getElementById('ni-booking').value = '';
+  sddSetText(document.getElementById('ni-booking'), '', 'Select a booking…');
   document.getElementById('ni-booking-info').style.display = 'none';
 }
 
