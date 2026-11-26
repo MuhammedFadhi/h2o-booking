@@ -10554,18 +10554,18 @@ function custB2BHtml(c) {
   const on = !!c.is_business;
   return `
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;">
-        <input type="checkbox" id="cb-b2b" ${on ? 'checked' : ''} onchange="document.getElementById('cb-b2b-fields').style.display=this.checked?'':'none'" style="width:16px;height:16px;">
+        <input type="checkbox" id="cb-b2b" ${on ? 'checked' : ''} style="width:16px;height:16px;">
         Company (B2B) customer <span style="color:var(--muted);font-weight:400;">— needs VAT tax invoices</span>
       </label>
-      <div id="cb-b2b-fields" style="display:${on ? '' : 'none'};border:1px solid var(--border);border-radius:10px;padding:12px 14px 2px;">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Full Name must be the company's registered (legal) name. Enter the VAT number — or, if the company has none, another ID with its type.</div>
+      <div id="cb-b2b-fields" style="border:1px solid var(--border);border-radius:10px;padding:12px 14px 2px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Fill these only for a company customer (entering a VAT or ID number ticks Company above). Full Name must be the company's registered (legal) name. Enter the VAT number — or, if the company has none, another ID with its type.</div>
         <div class="ni-b2b-row">
           <div class="form-group"><label>VAT Number</label>
-            <input class="form-input" id="cb-vat" inputmode="numeric" maxlength="15" placeholder="3XXXXXXXXXXXXX3" value="${v(c.vat_number)}"></div>
+            <input class="form-input" id="cb-vat" inputmode="numeric" maxlength="15" placeholder="3XXXXXXXXXXXXX3" value="${v(c.vat_number)}" oninput="if (this.value.trim()) document.getElementById('cb-b2b').checked = true"></div>
           <div class="form-group"><label>Other ID type <span style="color:var(--muted);font-weight:400;">(if no VAT)</span></label>
             <select class="form-input" id="cb-idtype"><option value="">—</option>${CUST_ID_TYPES.map(([k, l]) => `<option value="${k}" ${c.id_scheme === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
           <div class="form-group"><label>Other ID number</label>
-            <input class="form-input" id="cb-idno" value="${v(c.id_number)}"></div>
+            <input class="form-input" id="cb-idno" value="${v(c.id_number)}" oninput="if (this.value.trim()) document.getElementById('cb-b2b').checked = true"></div>
         </div>
         <div style="font-size:12px;font-weight:600;margin:2px 0 6px;">National Address</div>
         <div class="ni-b2b-row">
