@@ -1568,9 +1568,25 @@
             <div class="zx-sub">Tax invoices from bookings and walk-in sales, with their ZATCA status</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <input type="text" id="invoice-search" placeholder="Search invoice # or customer…" oninput="renderInvoices()"
+            <input type="text" id="invoice-search" placeholder="Search invoice #, booking or customer…" oninput="renderInvoices()"
               style="padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;min-width:240px;">
             <button class="btn btn-primary" type="button" onclick="openNewInvoice()" title="Create an invoice from a booking or for a walk-in / counter sale">+ New Invoice</button>
+          </div>
+        </div>
+        <div class="iv-tiles" id="iv-tiles"></div>
+        <div class="iv-bar">
+          <div class="iv-tabs" id="iv-tabs"></div>
+          <div class="iv-filters">
+            <label>From <input type="date" id="iv-from" onchange="renderInvoices()"></label>
+            <label>To <input type="date" id="iv-to" onchange="renderInvoices()"></label>
+            <select id="iv-method" onchange="renderInvoices()" title="Payment method">
+              <option value="">All methods</option><option value="cash">Cash</option><option value="card">Card</option><option value="pos">POS</option>
+              <option value="bank_transfer">Bank Transfer</option><option value="tabby">Tabby</option><option value="tamara">Tamara</option><option value="foc">FOC</option>
+            </select>
+            <select id="iv-zatca" onchange="renderInvoices()" title="ZATCA status">
+              <option value="">All ZATCA</option><option value="accepted">Reported / Cleared</option><option value="notsent">Not sent</option><option value="failed">Failed</option>
+            </select>
+            <button class="btn btn-sm btn-ghost" type="button" onclick="ivClearFilters()">Clear</button>
           </div>
         </div>
         <div id="invoices-table"><div class="loading"><div class="spinner"></div> Loading...</div></div>
@@ -1579,6 +1595,26 @@
 
     <!-- ZATCA E-INVOICING PANEL (status, onboarding, automatic submission) -->
     <style>
+      /* Invoices page: count tiles, tabs, filters */
+      .iv-tiles { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; padding:16px 20px 4px; }
+      .iv-tile { border:1px solid var(--border); border-radius:12px; padding:12px 14px; background:#fff; cursor:pointer; text-align:left; font:inherit; color:inherit; min-width:0; }
+      .iv-tile:hover { border-color:#93C5FD; }
+      .iv-tile.on { border-color:var(--water); box-shadow:0 0 0 2px rgba(21,101,192,.12); }
+      .iv-tile .l { font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:var(--muted); }
+      .iv-tile .v { font-size:24px; font-weight:800; color:var(--deep); margin-top:2px; }
+      .iv-tile .n { font-size:12px; color:var(--muted); margin-top:2px; }
+      .iv-tile.warn .v { color:#B45309; }
+      .iv-bar { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 20px; }
+      .iv-tabs { display:flex; gap:6px; flex-wrap:wrap; }
+      .iv-tab { border:1px solid var(--border); background:#fff; border-radius:20px; padding:6px 14px; font-size:13px; font-weight:600; cursor:pointer; color:var(--text); }
+      .iv-tab.on { background:var(--deep); border-color:var(--deep); color:#fff; }
+      .iv-tab .c { display:inline-block; min-width:18px; padding:0 6px; margin-left:6px; border-radius:10px; background:rgba(100,116,139,.15); font-size:11px; }
+      .iv-tab.on .c { background:rgba(255,255,255,.2); }
+      .iv-filters { display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--muted); }
+      .iv-filters input, .iv-filters select { padding:6px 8px; border:1.5px solid var(--border); border-radius:8px; font-size:12px; background:#fff; color:var(--text); }
+      .iv-age { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; }
+      @media (max-width: 900px) { .iv-tiles { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+
       /* ZATCA pages */
       .zx-body { padding: 20px 24px 24px; }
       .zx-sub { font-size: 13px; color: var(--muted); margin-top: 2px; font-weight: 400; }
@@ -4030,6 +4066,7 @@ async function submitPayment() {
     showToast('Booking completed & invoice recorded', 'success');
     closeModal('payment-modal');
     loadBookings();
+    if (document.getElementById('panel-invoices')?.classList.contains('active')) loadInvoices();
   } catch (e) {
     fail(e.message || String(e));
   } finally {
@@ -6724,14 +6761,68 @@ function zatcaBadge(inv) {
   return pill('Not sent', '#FEF3C7', '#92400E', 'Not sent to ZATCA yet' + elsewhere);
 }
 
+// ---------------------------------------------------------------------------
+// Invoices page tabs. A finished job (status installed = "Installed/Serviced",
+// or completed) with no invoice is PENDING until it is invoiced or marked
+// "No invoice needed" (migration v129, for warranty / AMC / FOC visits).
+// ---------------------------------------------------------------------------
+let _ivTab = 'invoiced';        // invoiced | pending | notneeded
+let _ivJobs = [];               // finished bookings (installed / completed)
+let _ivJobsError = null;
+const IV_NO_INVOICE_REASONS = {
+  warranty: 'Warranty — free service', amc: 'AMC contract visit', foc: 'Free of charge / goodwill',
+  inspection: 'Inspection only', invoiced_elsewhere: 'Invoiced outside the system', other: 'Other'
+};
+
+// Saudi calendar day (UTC+3) of a timestamp or date.
+function ivDay(ts) { return ts ? (String(ts).length <= 10 ? String(ts) : zatcaDay(ts)) : ''; }
+function ivJobDay(b) { return ivDay(b.installed_at || b.completed_at || b.slot_date); }
+function ivDaysSince(day) {
+  if (!day) return null;
+  const today = zatcaDay(new Date().toISOString());
+  return Math.max(0, Math.round((Date.parse(today) - Date.parse(day)) / 86400000));
+}
+function ivInvoicedBookingIds() {
+  const set = new Set();
+  allInvoices.forEach(i => { if (i.booking_id) set.add(i.booking_id); });
+  return set;
+}
+// A finished job still waiting for its invoice.
+function ivIsPending(b, invoiced) {
+  return !invoiced.has(b.id) && !b.invoice_number && !b.invoice_not_needed;
+}
+
+function ivSetTab(t) { _ivTab = t; renderInvoices(); }
+function ivClearFilters() {
+  ['iv-from', 'iv-to', 'iv-method', 'iv-zatca', 'invoice-search'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  renderInvoices();
+}
+function ivInRange(day) {
+  const from = document.getElementById('iv-from')?.value || '';
+  const to = document.getElementById('iv-to')?.value || '';
+  if (from && (!day || day < from)) return false;
+  if (to && (!day || day > to)) return false;
+  return true;
+}
+
 async function loadInvoices() {
   const host = document.getElementById('invoices-table');
   await dbAdmin.auth.getSession();
-  const { data, error } = await dbAdmin.from('invoices')
-    .select('*, bookings(booking_reference, city_name, status)')
-    .order('issued_at', { ascending: false });
+  const [invRes, jobRes] = await Promise.all([
+    dbAdmin.from('invoices')
+      .select('*, bookings(booking_reference, city_name, status)')
+      .order('issued_at', { ascending: false }),
+    dbAdmin.from('bookings')
+      .select('id, booking_reference, customer_name, customer_phone, booking_type, status, city_name, order_total, discount_amount, payment_method, invoice_number, installed_at, completed_at, slot_date, installer_id, installers(name), invoice_not_needed, invoice_not_needed_reason, invoice_not_needed_note, invoice_not_needed_by, invoice_not_needed_at')
+      .in('status', ['installed', 'completed'])
+      .order('installed_at', { ascending: false, nullsFirst: false })
+      .limit(5000)
+  ]);
+  const { data, error } = invRes;
   if (error) { host.innerHTML = `<div style="color:#B71C1C;padding:12px;">${escB(error.message)}. Did you run migration v37?</div>`; return; }
   allInvoices = data || [];
+  _ivJobs = jobRes.data || [];
+  _ivJobsError = jobRes.error ? (/invoice_not_needed/.test(jobRes.error.message) ? 'Run migration v129 first (adds "No invoice needed" to bookings).' : jobRes.error.message) : null;
   renderInvoices();
   // ZATCA column needs the current environment + Phase 2 date: fetch, then redraw.
   loadZatcaContext().then(() => renderInvoices()).catch(() => {});
@@ -6740,14 +6831,47 @@ async function loadInvoices() {
 function renderInvoices() {
   const host = document.getElementById('invoices-table');
   const q = (document.getElementById('invoice-search')?.value || '').trim().toLowerCase();
-  let list = allInvoices;
+  const invoicedIds = ivInvoicedBookingIds();
+  const pendingAll = _ivJobs.filter(b => ivIsPending(b, invoicedIds));
+  const notNeededAll = _ivJobs.filter(b => b.invoice_not_needed && !invoicedIds.has(b.id));
+  const notSentAll = allInvoices.filter(inv => zatcaCanReport(inv));
+  const today = zatcaDay(new Date().toISOString());
+  const month = today.slice(0, 7);
+  const invToday = allInvoices.filter(i => ivDay(i.issued_at) === today).length;
+  const invMonth = allInvoices.filter(i => ivDay(i.issued_at).slice(0, 7) === month).length;
+  const oldest = pendingAll.reduce((m, b) => Math.max(m, ivDaysSince(ivJobDay(b)) || 0), 0);
+
+  // Count tiles (click = open that list).
+  const tile = (key, label, value, note, warn, onclick) => `<button type="button" class="iv-tile${warn ? ' warn' : ''}${key && _ivTab === key ? ' on' : ''}" onclick="${onclick}">
+      <div class="l">${label}</div><div class="v">${value}</div><div class="n">${note}</div></button>`;
+  document.getElementById('iv-tiles').innerHTML =
+    tile('pending', 'Pending invoice', pendingAll.length, pendingAll.length ? `Jobs done, not invoiced · oldest ${oldest} day${oldest === 1 ? '' : 's'}` : 'All finished jobs invoiced', pendingAll.length > 0, "ivSetTab('pending')") +
+    tile('invoiced', 'Invoiced', allInvoices.length, `Today ${invToday} · This month ${invMonth}`, false, "ivSetTab('invoiced')") +
+    tile('', 'Not sent to ZATCA', notSentAll.length, notSentAll.length ? 'Issued, not reported yet' : 'Nothing waiting', notSentAll.length > 0, "document.getElementById('iv-zatca').value='notsent';ivSetTab('invoiced')") +
+    tile('notneeded', 'No invoice needed', notNeededAll.length, 'Warranty / AMC / FOC visits', false, "ivSetTab('notneeded')");
+  const tab = (key, label, n) => `<button type="button" class="iv-tab${_ivTab === key ? ' on' : ''}" onclick="ivSetTab('${key}')">${label}<span class="c">${n}</span></button>`;
+  document.getElementById('iv-tabs').innerHTML =
+    tab('pending', 'Pending', pendingAll.length) + tab('invoiced', 'Invoiced', allInvoices.length) + tab('notneeded', 'No invoice needed', notNeededAll.length);
+  // Method / ZATCA filters apply to invoices only.
+  ['iv-method', 'iv-zatca'].forEach(id => { document.getElementById(id).style.display = _ivTab === 'invoiced' ? '' : 'none'; });
+
+  if (_ivTab !== 'invoiced') return ivRenderJobs(host, _ivTab === 'pending' ? pendingAll : notNeededAll, q);
+
+  const method = document.getElementById('iv-method')?.value || '';
+  const zf = document.getElementById('iv-zatca')?.value || '';
+  let list = allInvoices.filter(inv => ivInRange(ivDay(inv.issued_at)));
+  if (method) list = list.filter(inv => inv.payment_method === method);
+  if (zf === 'accepted') list = list.filter(inv => zatcaAccepted(inv));
+  if (zf === 'notsent') list = list.filter(inv => zatcaCanReport(inv) && inv.einvoice_status !== 'failed');
+  if (zf === 'failed') list = list.filter(inv => zatcaCanReport(inv) && inv.einvoice_status === 'failed');
   if (q) list = list.filter(inv =>
     (inv.invoice_number || '').toLowerCase().includes(q) ||
     (inv.customer_name || '').toLowerCase().includes(q) ||
-    (inv.customer_phone || '').includes(q)
+    (inv.customer_phone || '').includes(q) ||
+    (inv.bookings?.booking_reference || '').toLowerCase().includes(q)
   );
   if (!list.length) {
-    host.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted);">${allInvoices.length ? 'No invoices match your search.' : 'No invoices yet. They\u2019re created when a booking is completed with payment.'}</div>`;
+    host.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted);">${allInvoices.length ? 'No invoices match these filters.' : 'No invoices yet. They\u2019re created when a booking is completed with payment.'}</div>`;
     return;
   }
   const rows = list.map(inv => `<tr>
@@ -6768,6 +6892,116 @@ function renderInvoices() {
   host.innerHTML = `<div style="overflow-x:auto;"><table class="data-table" style="width:100%;">
     <thead><tr><th>Invoice #</th><th>Customer</th><th>Booking</th><th>Method</th><th>Total</th><th>Issued</th><th>ZATCA</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
+}
+
+// Pending / No-invoice-needed lists: finished jobs, oldest first for Pending.
+function ivRenderJobs(host, jobs, q) {
+  if (_ivJobsError) { host.innerHTML = `<div style="color:#B71C1C;padding:16px 20px;">${escB(_ivJobsError)}</div>`; return; }
+  const pending = _ivTab === 'pending';
+  let list = jobs.filter(b => ivInRange(ivJobDay(b)));
+  if (q) list = list.filter(b =>
+    (b.booking_reference || '').toLowerCase().includes(q) ||
+    (b.customer_name || '').toLowerCase().includes(q) ||
+    (b.customer_phone || '').includes(q));
+  list = list.slice().sort((a, b) => pending
+    ? ivJobDay(a).localeCompare(ivJobDay(b))
+    : String(b.invoice_not_needed_at || '').localeCompare(String(a.invoice_not_needed_at || '')));
+  if (!list.length) {
+    host.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">${pending
+      ? (jobs.length ? 'No pending jobs match these filters.' : '✓ Every finished job has an invoice.')
+      : 'No jobs are marked "No invoice needed".'}</div>`;
+    return;
+  }
+  const agePill = (d) => {
+    if (d == null) return '';
+    const [bg, fg] = d <= 0 ? ['#DCFCE7', '#15803D'] : d <= 3 ? ['#FEF3C7', '#92400E'] : ['#FEE2E2', '#B91C1C'];
+    return `<span class="iv-age" style="background:${bg};color:${fg};">${d <= 0 ? 'Today' : d + ' day' + (d === 1 ? '' : 's')}</span>`;
+  };
+  const amount = (b) => {
+    const t = b.order_total != null ? Number(b.order_total) - Number(b.discount_amount || 0) : null;
+    return t != null && t > 0 ? 'SAR ' + t.toLocaleString('en-US') : '<span style="color:var(--muted);">—</span>';
+  };
+  const rows = list.map(b => {
+    const day = ivJobDay(b);
+    const status = getStatusLabel(b.status, b.booking_type);
+    return `<tr>
+      <td><a href="#" onclick="viewBooking('${b.id}');return false;" style="font-weight:700;color:var(--water);font-size:12px;">${escB(b.booking_reference || '—')}</a>
+        <div style="font-size:11px;color:var(--muted);">${escB(status)}</div></td>
+      <td>${escB(b.customer_name || '—')}<div style="font-size:11px;color:var(--muted);">${escB(b.customer_phone || '')}</div></td>
+      <td style="font-size:12px;">${escB(bookingTypeLabel(b.booking_type))}${b.city_name ? `<div style="font-size:11px;color:var(--muted);">${escB(b.city_name)}</div>` : ''}</td>
+      <td style="font-size:12px;">${b.installers?.name ? '👷 ' + escB(b.installers.name) : '<span style="color:var(--muted);">—</span>'}</td>
+      <td style="font-size:12px;">${day ? escB(formatDateShort(day)) : '—'}${pending ? '<div style="margin-top:3px;">' + agePill(ivDaysSince(day)) + '</div>' : ''}</td>
+      ${pending
+        ? `<td>${amount(b)}</td>
+           <td style="text-align:right;white-space:nowrap;">
+             <button class="btn btn-sm btn-primary" onclick="adminMarkComplete('${b.id}')" title="Enter payment and create the invoice">💳 Create invoice</button>
+             <button class="btn btn-sm btn-ghost" onclick="ivOpenNoInvoice('${b.id}')" title="Free visit (warranty / AMC / FOC) — no invoice">No invoice needed</button>
+           </td>`
+        : `<td style="font-size:12px;"><strong>${escB(IV_NO_INVOICE_REASONS[b.invoice_not_needed_reason] || b.invoice_not_needed_reason || '—')}</strong>${b.invoice_not_needed_note ? `<div style="color:var(--muted);">${escB(b.invoice_not_needed_note)}</div>` : ''}
+             <div style="font-size:11px;color:var(--muted);">${escB(b.invoice_not_needed_by || '')}${b.invoice_not_needed_at ? ' · ' + escB(formatTimestampShort(b.invoice_not_needed_at)) : ''}</div></td>
+           <td style="text-align:right;"><button class="btn btn-sm btn-ghost" onclick="ivUndoNoInvoice('${b.id}')" title="Move it back to Pending">↩ Undo</button></td>`}
+    </tr>`;
+  }).join('');
+  host.innerHTML = `<div style="overflow-x:auto;"><table class="data-table" style="width:100%;">
+    <thead><tr><th>Booking</th><th>Customer</th><th>Type</th><th>Technician</th><th>Job done</th>${pending ? '<th>Amount</th><th></th>' : '<th>Reason</th><th></th>'}</tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function ivOpenNoInvoice(bookingId) {
+  const b = _ivJobs.find(x => x.id === bookingId);
+  if (!b) return;
+  const auto = ['quarterly_service', 'maintenance', 'annual_service'].includes(b.booking_type) ? 'warranty'
+    : b.booking_type === 'inspection' ? 'inspection' : '';
+  showInfoModal('No invoice needed — ' + (b.booking_reference || ''), `
+    <div style="display:grid;gap:12px;">
+      <div style="font-size:13px;color:var(--muted);">${escB(b.customer_name || '')} · ${escB(bookingTypeLabel(b.booking_type))}. The job leaves the Pending list. You can undo it from the "No invoice needed" tab.</div>
+      <div class="form-group" style="margin:0;"><label>Reason *</label>
+        <select class="form-input" id="iv-nn-reason">
+          <option value="">Select…</option>
+          ${Object.entries(IV_NO_INVOICE_REASONS).map(([k, l]) => `<option value="${k}" ${k === auto ? 'selected' : ''}>${l}</option>`).join('')}
+        </select></div>
+      <div class="form-group" style="margin:0;"><label>Note <span style="color:var(--muted);font-weight:400;">(optional — e.g. AMC contract no.)</span></label>
+        <input class="form-input" id="iv-nn-note"></div>
+      <div id="iv-nn-err" style="display:none;color:#B71C1C;font-size:13px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn btn-primary" onclick="ivSaveNoInvoice('${b.id}')">Mark no invoice needed</button>
+      </div>
+    </div>`);
+}
+
+async function ivSaveNoInvoice(bookingId) {
+  if (!(await ensureSession())) return;
+  const reason = document.getElementById('iv-nn-reason').value;
+  const note = document.getElementById('iv-nn-note').value.trim();
+  const err = document.getElementById('iv-nn-err');
+  if (!reason) { err.style.display = 'block'; err.textContent = 'Choose a reason.'; return; }
+  if (reason === 'other' && !note) { err.style.display = 'block'; err.textContent = 'Add a note for "Other".'; return; }
+  const { data: { session } } = await dbAdmin.auth.getSession();
+  const patch = {
+    invoice_not_needed: true, invoice_not_needed_reason: reason, invoice_not_needed_note: note || null,
+    invoice_not_needed_by: session?.user?.email || null, invoice_not_needed_at: new Date().toISOString()
+  };
+  const { error } = await dbAdmin.from('bookings').update(patch).eq('id', bookingId);
+  if (error) { err.style.display = 'block'; err.textContent = /invoice_not_needed/.test(error.message) ? 'Run migration v129 first.' : error.message; return; }
+  const b = _ivJobs.find(x => x.id === bookingId);
+  if (b) Object.assign(b, patch);
+  logActivity('booking.no_invoice', `No invoice needed · ${IV_NO_INVOICE_REASONS[reason]}${note ? ' · ' + note : ''}`, 'booking', bookingId);
+  document.querySelectorAll('.modal-overlay').forEach(m => { if (m.querySelector('#iv-nn-reason')) m.style.display = 'none'; });
+  showToast('Marked: no invoice needed', 'success');
+  renderInvoices();
+}
+
+async function ivUndoNoInvoice(bookingId) {
+  if (!(await ensureSession())) return;
+  if (!confirm('Move this job back to Pending invoice?')) return;
+  const patch = { invoice_not_needed: false, invoice_not_needed_reason: null, invoice_not_needed_note: null, invoice_not_needed_by: null, invoice_not_needed_at: null };
+  const { error } = await dbAdmin.from('bookings').update(patch).eq('id', bookingId);
+  if (error) { showToast(error.message, 'error'); return; }
+  const b = _ivJobs.find(x => x.id === bookingId);
+  if (b) Object.assign(b, patch);
+  logActivity('booking.no_invoice_undo', 'Moved back to Pending invoice', 'booking', bookingId);
+  showToast('Moved back to Pending', 'success');
+  renderInvoices();
 }
 
 // SMS the customer a link to their VAT invoice (file if uploaded, else a note).
