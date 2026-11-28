@@ -284,6 +284,8 @@
     (function () {
       var ORIGIN = ${JSON.stringify(ORIGIN)};
       var XML_B64 = ${JSON.stringify(d.einvoiceXml || '')};
+      var INVOICE_ID = ${JSON.stringify(d.invoiceId || '')};
+      var AUTO = ${d.autoPdfA3 ? 'true' : 'false'};
       var FILE = ${JSON.stringify(String(d.invoiceNumber || 'invoice').replace(/[^A-Za-z0-9._-]+/g, '_'))};
       var META = ${JSON.stringify({ title: (isStandard ? 'Tax Invoice ' : 'Simplified Tax Invoice ') + (d.invoiceNumber || ''), author: sellerNameEn })};
       function loadScript(src) {
@@ -302,6 +304,17 @@
         var btn = document.getElementById('pdfa-btn'), label = btn.textContent;
         btn.disabled = true; btn.textContent = 'Preparing…';
         try {
+          // Opened before ZATCA accepted it (e.g. right after New Invoice)? Ask the
+          // dashboard for the latest copy: if it has the signed XML now, the page is
+          // redrawn with the ZATCA QR and downloads the PDF/A-3 by itself.
+          if (!XML_B64 && INVOICE_ID && window.opener && !window.opener.closed && window.opener.sadaInvoiceFresh) {
+            var fresh = await window.opener.sadaInvoiceFresh(INVOICE_ID);
+            if (fresh && fresh.hasXml) { window.opener.printInvoice(INVOICE_ID, window, { autoPdfA3: true }); return; }
+            if (fresh && !fresh.reported) {
+              alert('This invoice is not reported to ZATCA yet, so there is no signed XML to put inside the PDF/A-3. Report it with ⚡ on the Invoices page first, then open it again.');
+              return;
+            }
+          }
           if (!window.PDFLib) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js');
           if (!window.html2canvas) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
           if (!window.SADAPdfA3) await loadScript(ORIGIN + '/js/pdfa3.js?v=1');
@@ -331,13 +344,14 @@
           var a = document.createElement('a'); a.href = url; a.download = FILE + '.pdf';
           document.body.appendChild(a); a.click(); a.remove();
           setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
-          if (!XML_B64) alert('PDF/A-3 downloaded without an embedded ZATCA XML: this invoice has no stored signed XML yet (it is not reported to ZATCA, or was reported before XML storage started).');
+          if (!XML_B64) alert('PDF/A-3 downloaded without the ZATCA XML inside: this invoice was reported to ZATCA before the XML started being saved (28 Nov 2026), so there is none to add.');
         } catch (e) {
           alert('Could not create the PDF/A-3: ' + (e && e.message ? e.message : e));
         } finally {
           btn.disabled = false; btn.textContent = label;
         }
       };
+      if (AUTO) window.addEventListener('load', function () { setTimeout(window.makePdfA3, 800); });
     })();
 
     (function () {

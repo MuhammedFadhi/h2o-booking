@@ -19,7 +19,7 @@
   <script defer src="../js/inspection-report.js?v=7"></script>
   <script defer src="../js/warranty.js"></script>
   <script defer src="../js/warranty-certificate.js"></script>
-  <script defer src="../js/invoice-generator.js"></script>
+  <script defer src="../js/invoice-generator.js?v=20261128"></script>
   <script defer src="../js/city-normalize.js"></script>
   <script defer src="incentives.js"></script>
   <script defer src="incentive-report.js"></script>
@@ -7048,7 +7048,7 @@ async function loadCompanySettings(force) {
 // Build + open the printable ZATCA tax invoice for one invoice row.
 // `win` = a window opened synchronously by the click handler (avoids the pop-up
 // blocker when we only open it after awaiting a save).
-async function printInvoice(invoiceId, win) {
+async function printInvoice(invoiceId, win, extra) {
   if (!window.SADAInvoice) { showToast('Invoice module not loaded', 'error'); return; }
   const inv = allInvoices.find(x => x.id === invoiceId);
   if (!inv) { if (win) win.close(); return; }
@@ -7088,9 +7088,24 @@ async function printInvoice(invoiceId, win) {
     // before that, the Phase 1 QR saved when the invoice was issued.
     qrPayload: (['reported', 'cleared'].includes(inv.einvoice_status) && inv.zatca_qr) || inv.qr_payload || null,
     // Signed / cleared ZATCA XML (v130) — embedded in the PDF/A-3 download.
-    einvoiceXml: (['reported', 'cleared'].includes(inv.einvoice_status) && inv.einvoice_xml) || null
+    einvoiceXml: (['reported', 'cleared'].includes(inv.einvoice_status) && inv.einvoice_xml) || null,
+    invoiceId: inv.id,
+    ...(extra || {})
   }, win);
 }
+
+// The invoice page's PDF/A-3 button calls this when it has no XML: re-read the
+// invoice (it may have been reported since the page was opened).
+window.sadaInvoiceFresh = async function (invoiceId) {
+  const { data } = await dbAdmin.from('invoices')
+    .select('*, bookings(booking_reference, city_name, status)').eq('id', invoiceId).maybeSingle();
+  if (!data) return null;
+  const i = allInvoices.findIndex(x => x.id === invoiceId);
+  if (i >= 0) allInvoices[i] = data; else allInvoices.push(data);
+  const reported = ['reported', 'cleared'].includes(data.einvoice_status);
+  return { reported, hasXml: reported && !!data.einvoice_xml };
+};
+window.printInvoice = printInvoice;
 
 // ---------------------------------------------------------------------------
 // NEW INVOICE — from a booking (picked from the list, auto-filled) or for a
@@ -7580,9 +7595,12 @@ async function saveNewInvoice(print) {
     logActivity('invoice.create', `Created ${isB2B ? 'B2B tax ' : ''}invoice ${invoiceNo} · SAR ${t.total.toFixed(2)}${_niBookingId ? '' : ' (walk-in)'}`, 'invoice', saved.id);
     showToast(`Invoice ${invoiceNo} saved`, 'success');
     closeModal('new-invoice-modal');
+    // Send to ZATCA first (only when automatic submission is ON) so the invoice
+    // opens with the ZATCA QR and its signed XML for the PDF/A-3.
+    if (win && !win.closed) try { win.document.body.innerHTML = '<p style="font:16px sans-serif;padding:24px">Preparing invoice…</p>'; } catch (e) {}
+    await zatcaAutoSubmit(saved.id);
     await loadInvoices();
     if (win) await printInvoice(saved.id, win);
-    zatcaAutoSubmit(saved.id);   // only acts when automatic submission is ON
   } catch (e) {
     fail(e.message || String(e));
   } finally {
