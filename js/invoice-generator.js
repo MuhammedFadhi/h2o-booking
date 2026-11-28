@@ -132,6 +132,36 @@
       </tr>`;
     }).join('');
 
+    // ---- plain archive layout (PDF/A-3 only), in the Al Amanah format ----
+    const axRows = items.map((it, i) => {
+      const qty = Number(it.qty) || 1;
+      const unitGross = Number(it.unitInclVat) || 0;
+      const lineGross = round2(qty * unitGross);
+      const lineNet   = round2(lineGross / (1 + VAT_RATE));
+      return `<tr><td class="c">${i + 1}</td><td>${esc(it.description || '—')}</td><td class="c">${qty.toFixed(2)}</td>
+        <td class="r">${money(round2(unitGross / (1 + VAT_RATE)))}</td><td class="r">${money(lineNet)}</td><td class="c">15%</td>
+        <td class="r">${money(round2(lineGross - lineNet))}</td><td class="r">${money(lineGross)}</td></tr>`;
+    }).join('') + (discount > 0 ? (() => {
+      const dn = round2(discount / (1 + VAT_RATE));
+      return `<tr><td></td><td>Discount / خصم</td><td></td><td></td><td class="r">-${money(dn)}</td><td class="c">15%</td>
+        <td class="r">-${money(round2(discount - dn))}</td><td class="r">-${money(discount)}</td></tr>`;
+    })() : '');
+    // Saudi time, dd-mm-yyyy / hh:mm:ss, whatever the computer's time zone.
+    const axDate = (iso) => { try {
+      const o = {}; new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Riyadh', day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso)).forEach(p => { o[p.type] = p.value; });
+      return { date: `${o.day}-${o.month}-${o.year}`, time: `${o.hour}:${o.minute}:${o.second}` };
+    } catch (e) { return { date: '', time: '' }; } };
+    // Numbers next to Arabic labels must stay left-to-right (dates, phones, VAT).
+    const ltr = (v) => `<bdi dir="ltr">${esc(v)}</bdi>`;
+    const axd = axDate(d.issuedAt || new Date().toISOString());
+    const axBuyerLines = [
+      isStandard && c.vatNumber ? `الرقم الضريبي: ${ltr(c.vatNumber)} / VAT` : '',
+      isStandard && !c.vatNumber && c.idNumber ? `${esc(ID_LABELS[c.idScheme] || 'ID No.')}: ${ltr(c.idNumber)}` : '',
+      !isStandard && c.phone ? `الهاتف: ${ltr(c.phone)} / Phone` : '',
+      esc(buyerNatAddr || c.address || ''),
+    ].filter(Boolean).map(t => `<div>${t}</div>`).join('');
+
     const discountRow = discount > 0
       ? `<tr class="disc"><td></td><td>Discount / خصم</td><td colspan="4"></td><td class="r">-${money(discount)}</td></tr>`
       : '';
@@ -148,7 +178,7 @@
 
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <title>SA'DA H₂O — ${isStandard ? 'Tax Invoice' : 'Simplified Tax Invoice'} ${esc(d.invoiceNumber || '')}</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&family=Noto+Sans:wght@400;700&family=Noto+Sans+Arabic:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
 <style>
   @page { size: A4 portrait; margin: 0; }
@@ -197,7 +227,33 @@
   .print-bar { position:fixed; top:0; left:0; right:0; background:#0D3B6E; color:#fff; padding:11px; text-align:center; z-index:99; font-family:'DM Sans',sans-serif; font-size:14px; }
   .print-bar button { background:#C9A84C; color:#0A1628; border:none; padding:9px 22px; border-radius:8px; font-weight:700; cursor:pointer; font-size:14px; margin:0 6px; }
   .print-bar button.ghost { background:rgba(255,255,255,.15); color:#fff; }
-  @media print { .print-bar { display:none; } body { background:#fff; } .sheet { margin:0; } }
+  @media print { .print-bar { display:none; } body { background:#fff; } .sheet { margin:0; } #archive { display:none !important; } }
+  /* Plain archive layout for the PDF/A-3 (Al Amanah format): shown only while it is captured. */
+  #archive { display:none; width:210mm; min-height:297mm; margin:0 auto; background:#fff; color:#000; padding:16mm 14mm 12mm;
+    font-family:'Noto Sans','Noto Sans Arabic',Tahoma,Arial,sans-serif; font-size:11px; line-height:1.35; }
+  body.capturing { background:#fff; }
+  body.capturing .sheet, body.capturing .print-bar { display:none; }
+  body.capturing #archive { display:block; }
+  #archive b { font-weight:700; }
+  #archive .ax-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  #archive .ax-title { font-size:17px; font-weight:700; }
+  #archive #ax-qr { width:140px; height:140px; image-rendering:pixelated; display:block; }
+  #archive .ax-box { border:1px solid #999; padding:4px 6px; }
+  #archive .ax-meta { display:flex; gap:12px; }
+  #archive .ax-meta > div { flex:1; }
+  #archive .ax-small { font-size:9.5px; }
+  #archive .ax-parties { display:flex; gap:8px; margin-top:8px; }
+  #archive .ax-parties .ax-box { flex:1; min-height:100px; }
+  #archive table { width:100%; border-collapse:collapse; margin-top:9px; }
+  #archive th, #archive td { border:1px solid #999; padding:4px 5px; vertical-align:middle; }
+  #archive th { background:#eee; font-weight:700; text-align:center; font-size:10.5px; }
+  #archive th span { display:block; font-size:9.5px; }
+  #archive td.c { text-align:center; } #archive td.r { text-align:right; white-space:nowrap; }
+  #archive .ax-bottom { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-top:9px; }
+  #archive .ax-notes { font-size:9px; color:#333; }
+  #archive table.ax-totals { border:1px solid #999; width:330px; margin:0; }
+  #archive .ax-totals td { border:none; padding:3px 7px; font-size:11.5px; }
+  #archive .ax-totals tr + tr td { border-top:1px solid #ccc; }
 </style></head><body>
   <div class="print-bar">
     Tax invoice ready.
@@ -279,6 +335,59 @@
     </div>
   </div>
 
+  <div id="archive">
+    <div class="ax-top">
+      <div class="ax-title">${isStandard ? 'Tax Invoice / فاتورة ضريبية' : 'Simplified Tax Invoice / فاتورة ضريبية مبسطة'}</div>
+      <img id="ax-qr" alt="">
+    </div>
+    <div class="ax-box ax-meta">
+      <div>
+        <div><b>Invoice No / رقم الفاتورة:</b> ${ltr(d.invoiceNumber || '—')}</div>
+        <div><b>Issue Date / تاريخ الإصدار:</b> ${ltr(axd.date)} &nbsp; <b>Time / الوقت:</b> ${ltr(axd.time)}</div>
+        <div><b>Supply Date / تاريخ التوريد:</b> ${ltr(axd.date)}</div>
+      </div>
+      <div>
+        ${d.uuid ? `<div><b>UUID:</b> <span class="ax-small">${esc(d.uuid)}</span></div>` : ''}
+        <div>${d.icv ? `<b>ICV:</b> ${esc(d.icv)} &nbsp; ` : ''}<b>Type / النوع:</b> 388 (${isStandard ? 'B2B' : 'B2C'})</div>
+        ${d.reference ? `<div><b>Ref:</b> ${esc(d.reference)}</div>` : ''}
+      </div>
+    </div>
+    <div class="ax-parties">
+      <div class="ax-box">
+        <div>Seller / البائع</div>
+        <div><b>${esc(sellerNameEn)}</b></div>
+        ${sellerNameAr ? `<div>${esc(sellerNameAr)}</div>` : ''}
+        <div>الرقم الضريبي: ${ltr(vatNumber || '—')} / VAT</div>
+        ${crNumber ? `<div>السجل التجاري: ${ltr(crNumber)} / CRN</div>` : ''}
+        ${(addressEn || sellerCity) ? `<div>${esc(addressEn || sellerCity)}</div>` : ''}
+      </div>
+      <div class="ax-box">
+        <div>Buyer / المشتري</div>
+        <div><b>${esc(c.name || '—')}</b></div>
+        ${axBuyerLines}
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th style="width:18px">#</th><th>Description / الوصف</th><th>Qty<span>الكمية</span></th><th>Unit Price<span>سعر الوحدة</span></th>
+        <th>Taxable<span>الخاضع للضريبة</span></th><th>VAT %<span>الضريبة</span></th><th>VAT Amt<span>قيمة الضريبة</span></th><th>Total<span>الإجمالي</span></th>
+      </tr></thead>
+      <tbody>${axRows}</tbody>
+    </table>
+    <div class="ax-bottom">
+      <div class="ax-notes">
+        <div>${isStandard ? 'Tax invoice' : 'Simplified tax invoice'} issued under ZATCA Phase 2.</div>
+        <div>${isStandard ? 'فاتورة ضريبية' : 'فاتورة ضريبية مبسطة'} صادرة وفق المرحلة الثانية لهيئة الزكاة والضريبة والجمارك.</div>
+        <div>All amounts in SAR / جميع المبالغ بالريال السعودي.</div>
+      </div>
+      <table class="ax-totals">
+        <tr><td>Total (excl. VAT) / الإجمالي قبل الضريبة</td><td class="r">${money(totalNet)}</td></tr>
+        <tr><td>Total VAT (15%) / ضريبة القيمة المضافة</td><td class="r">${money(totalVat)}</td></tr>
+        <tr><td>Total (incl. VAT) / الإجمالي شامل الضريبة</td><td class="r">${money(grandTotal)}</td></tr>
+      </table>
+    </div>
+  </div>
+
   <script>
     // ---- PDF/A-3 download: the rendered invoice + the ZATCA XML inside ----
     (function () {
@@ -319,11 +428,22 @@
           if (!window.html2canvas) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
           if (!window.SADAPdfA3) await loadScript(ORIGIN + '/js/pdfa3.js?v=1');
           if (document.fonts && document.fonts.ready) await document.fonts.ready;
-          var sheet = document.querySelector('.sheet');
-          var canvas = await html2canvas(sheet, {
-            scale: 3, backgroundColor: '#ffffff', useCORS: true, logging: false,
-            scrollX: 0, scrollY: -window.scrollY
-          });
+          // The PDF/A-3 uses the plain archive layout (no branding), with the same QR.
+          var qrc = document.querySelector('#qr canvas');
+          if (qrc) document.getElementById('ax-qr').src = qrc.toDataURL('image/png');
+          var sheet = document.getElementById('archive');
+          document.body.classList.add('capturing');
+          var canvas;
+          try {
+            if (document.fonts && document.fonts.ready) await document.fonts.ready;
+            await new Promise(function (r) { setTimeout(r, 150); });
+            canvas = await html2canvas(sheet, {
+              scale: 3, backgroundColor: '#ffffff', useCORS: true, logging: false,
+              scrollX: 0, scrollY: -window.scrollY
+            });
+          } finally {
+            document.body.classList.remove('capturing');
+          }
           // Cut into A4-shaped pages (white, no transparency) as JPEG.
           var pageH = Math.round(canvas.width * 297 / 210), pages = [];
           for (var y = 0; y < canvas.height; y += pageH) {

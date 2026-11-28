@@ -7090,6 +7090,8 @@ async function printInvoice(invoiceId, win, extra) {
     // Signed / cleared ZATCA XML (v130) — embedded in the PDF/A-3 download.
     einvoiceXml: (['reported', 'cleared'].includes(inv.einvoice_status) && inv.einvoice_xml) || null,
     invoiceId: inv.id,
+    uuid: inv.einvoice_uuid || null,
+    icv: inv.einvoice_icv || null,
     ...(extra || {})
   }, win);
 }
