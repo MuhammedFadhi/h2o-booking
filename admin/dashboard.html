@@ -7025,7 +7025,9 @@ async function printInvoice(invoiceId, win) {
     totalInclVat: total,
     // Once ZATCA has accepted it, print the signed Phase 2 QR (tags 1-9);
     // before that, the Phase 1 QR saved when the invoice was issued.
-    qrPayload: (['reported', 'cleared'].includes(inv.einvoice_status) && inv.zatca_qr) || inv.qr_payload || null
+    qrPayload: (['reported', 'cleared'].includes(inv.einvoice_status) && inv.zatca_qr) || inv.qr_payload || null,
+    // Signed / cleared ZATCA XML (v130) — embedded in the PDF/A-3 download.
+    einvoiceXml: (['reported', 'cleared'].includes(inv.einvoice_status) && inv.einvoice_xml) || null
   }, win);
 }
 

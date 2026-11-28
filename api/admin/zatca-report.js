@@ -154,12 +154,16 @@ module.exports = async function handler(req, res) {
     }
 
     const status = out.cleared ? 'cleared' : (out.status === 'REPORTED' || out.reported ? 'reported' : 'failed');
-    await admin.from('invoices').update({
+    const done = {
       einvoice_uuid: out.uuid, einvoice_hash: out.invoiceHash, zatca_qr: out.qr,
       einvoice_icv: icv, einvoice_pih: pih, einvoice_status: status, einvoice_env: env,
       einvoice_error: status === 'failed' ? JSON.stringify(out.zatca || out) : null,
       einvoice_response: out.zatca || out, zatca_submitted_at: now,
-    }).eq('id', invoiceId);
+    };
+    // The signed / cleared XML (migration v130) for the PDF/A-3. If the column is
+    // not there yet, still record the result: the status must never be lost.
+    const { error: upErr } = await admin.from('invoices').update(out.xml ? { ...done, einvoice_xml: out.xml } : done).eq('id', invoiceId);
+    if (upErr && /einvoice_xml/.test(upErr.message)) await admin.from('invoices').update(done).eq('id', invoiceId);
 
     return res.status(200).json({ ok: true, status, env, qr: out.qr, uuid: out.uuid, warnings: out.warnings || [] });
   } catch (e) {

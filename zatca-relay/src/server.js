@@ -118,6 +118,9 @@ const server = http.createServer(async (req, res) => {
     }
     send(res, 200, {
       ok: true, env: config.envName, uuid, invoiceHash: hash, qr: finalQr,
+      // The legal document, base64: ZATCA's cleared XML (B2B) or the signed XML
+      // we reported (B2C). Stored on the invoice and embedded in its PDF/A-3.
+      xml: (isStandard && zres.clearedInvoice) ? zres.clearedInvoice : invoiceBase64,
       status, reported: !isStandard, cleared: isStandard,
       warnings: zres.validationResults?.warningMessages || [],
       zatca: zres,
