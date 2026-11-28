@@ -35,7 +35,8 @@
 
   // Dark logo for the white invoice sheet; absolute so it resolves inside the
   // blank print window.
-  const LOGO_URL = (global.location ? global.location.origin : '') + '/assets/SADA_h2o_logo_dark.png';
+  const ORIGIN = global.location ? global.location.origin : '';
+  const LOGO_URL = ORIGIN + '/assets/SADA_h2o_logo_dark.png';
 
   // ---- ZATCA Phase-1 TLV QR payload ---------------------------------------
   // Each field: [tag:1 byte][length:1 byte][UTF-8 value bytes]. Concatenate the
@@ -169,6 +170,8 @@
   .panels { display:flex; gap:12px; margin-top:14px; }
   .panel { flex:1; border:1px solid #E2E8F0; border-radius:10px; padding:11px 13px; font-size:12px; }
   .panel h4 { font-size:10px; text-transform:uppercase; letter-spacing:.6px; color:#607D8B; margin-bottom:7px; }
+  /* Arabic must not be letter-spaced: it breaks the joined letters (and the PDF/A-3 render). */
+  .panel h4 .h4ar { font-family:'Cairo',sans-serif; letter-spacing:0; text-transform:none; }
   .panel .line { display:flex; justify-content:space-between; gap:8px; padding:2px 0; }
   .panel .line b { color:#0A1628; font-weight:600; text-align:right; }
   .panel .k { color:#607D8B; }
@@ -199,6 +202,7 @@
   <div class="print-bar">
     Tax invoice ready.
     <button onclick="window.print()">⬇ Save as PDF / Print</button>
+    <button id="pdfa-btn" onclick="makePdfA3()" title="Archive PDF (PDF/A-3b) with the ZATCA XML embedded">⬇ PDF/A-3</button>
     <button class="ghost" onclick="window.close()">Close</button>
   </div>
   <div class="sheet">
@@ -218,7 +222,7 @@
 
     <div class="panels">
       <div class="panel">
-        <h4>Seller / البائع</h4>
+        <h4>Seller / <span class="h4ar">البائع</span></h4>
         <div class="line"><span class="k">Name</span><b>${esc(sellerNameEn)}</b></div>
         ${sellerNameAr ? `<div class="line"><span class="k">الاسم</span><b class="ar">${esc(sellerNameAr)}</b></div>` : ''}
         <div class="line"><span class="k">VAT No. / الرقم الضريبي</span><b class="vatno">${esc(vatNumber || '— not set —')}</b></div>
@@ -227,12 +231,12 @@
         ${sellerPhone ? `<div class="line"><span class="k">Phone</span><b>${esc(sellerPhone)}</b></div>` : ''}
       </div>
       <div class="panel">
-        <h4>Invoice / الفاتورة</h4>
+        <h4>Invoice / <span class="h4ar">الفاتورة</span></h4>
         <div class="line"><span class="k">Invoice No. / رقم الفاتورة</span><b>${esc(d.invoiceNumber || '—')}</b></div>
         <div class="line"><span class="k">Issue Date / تاريخ الإصدار</span><b>${esc(fmtDateTime(d.issuedAt))}</b></div>
         ${d.reference ? `<div class="line"><span class="k">Booking Ref.</span><b>${esc(d.reference)}</b></div>` : ''}
         ${methodLabel ? `<div class="line"><span class="k">Payment / الدفع</span><b style="text-transform:capitalize;">${esc(methodLabel)}</b></div>` : ''}
-        <h4 style="margin-top:10px;">Buyer / المشتري</h4>
+        <h4 style="margin-top:10px;">Buyer / <span class="h4ar">المشتري</span></h4>
         <div class="line"><span class="k">Name / الاسم</span><b>${esc(c.name || '—')}</b></div>
         ${isStandard && c.vatNumber ? `<div class="line"><span class="k">VAT No. / الرقم الضريبي</span><b class="vatno">${esc(c.vatNumber)}</b></div>` : ''}
         ${isStandard && !c.vatNumber && c.idNumber ? `<div class="line"><span class="k">${esc(ID_LABELS[c.idScheme] || 'ID No.')}</span><b>${esc(c.idNumber)}</b></div>` : ''}
@@ -276,6 +280,66 @@
   </div>
 
   <script>
+    // ---- PDF/A-3 download: the rendered invoice + the ZATCA XML inside ----
+    (function () {
+      var ORIGIN = ${JSON.stringify(ORIGIN)};
+      var XML_B64 = ${JSON.stringify(d.einvoiceXml || '')};
+      var FILE = ${JSON.stringify(String(d.invoiceNumber || 'invoice').replace(/[^A-Za-z0-9._-]+/g, '_'))};
+      var META = ${JSON.stringify({ title: (isStandard ? 'Tax Invoice ' : 'Simplified Tax Invoice ') + (d.invoiceNumber || ''), author: sellerNameEn })};
+      function loadScript(src) {
+        return new Promise(function (res, rej) {
+          var s = document.createElement('script'); s.src = src; s.onload = res;
+          s.onerror = function () { rej(new Error('could not load ' + src)); };
+          document.head.appendChild(s);
+        });
+      }
+      function b64ToBytes(b64) {
+        var bin = atob(b64), out = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        return out;
+      }
+      window.makePdfA3 = async function () {
+        var btn = document.getElementById('pdfa-btn'), label = btn.textContent;
+        btn.disabled = true; btn.textContent = 'Preparing…';
+        try {
+          if (!window.PDFLib) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js');
+          if (!window.html2canvas) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+          if (!window.SADAPdfA3) await loadScript(ORIGIN + '/js/pdfa3.js?v=1');
+          if (document.fonts && document.fonts.ready) await document.fonts.ready;
+          var sheet = document.querySelector('.sheet');
+          var canvas = await html2canvas(sheet, {
+            scale: 3, backgroundColor: '#ffffff', useCORS: true, logging: false,
+            scrollX: 0, scrollY: -window.scrollY
+          });
+          // Cut into A4-shaped pages (white, no transparency) as JPEG.
+          var pageH = Math.round(canvas.width * 297 / 210), pages = [];
+          for (var y = 0; y < canvas.height; y += pageH) {
+            var h = Math.min(pageH, canvas.height - y);
+            if (pages.length && h < pageH * 0.03) break;   // rounding sliver
+            var c = document.createElement('canvas');
+            c.width = canvas.width; c.height = pageH;
+            var g = c.getContext('2d');
+            g.fillStyle = '#ffffff'; g.fillRect(0, 0, c.width, c.height);
+            g.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+            pages.push(b64ToBytes(c.toDataURL('image/jpeg', 0.9).split(',')[1]));
+          }
+          var bytes = await window.SADAPdfA3.build(window.PDFLib, {
+            pages: pages, xml: XML_B64 ? b64ToBytes(XML_B64) : null, xmlName: FILE + '.xml',
+            title: META.title, author: META.author
+          });
+          var url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+          var a = document.createElement('a'); a.href = url; a.download = FILE + '.pdf';
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+          if (!XML_B64) alert('PDF/A-3 downloaded without an embedded ZATCA XML: this invoice has no stored signed XML yet (it is not reported to ZATCA, or was reported before XML storage started).');
+        } catch (e) {
+          alert('Could not create the PDF/A-3: ' + (e && e.message ? e.message : e));
+        } finally {
+          btn.disabled = false; btn.textContent = label;
+        }
+      };
+    })();
+
     (function () {
       var payload = ${JSON.stringify(qrPayload)};
       function render() {
